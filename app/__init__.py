@@ -125,13 +125,24 @@ if public_dir.exists():
     app.mount("/public", StaticFiles(directory=str(public_dir), html=True), name="public")
 
 
+def _frontend_index_response(index_path: Path):
+    """Serve the legacy SPA with a small entry point to the new training dashboard."""
+    from fastapi.responses import HTMLResponse
+    html = index_path.read_text(encoding="utf-8")
+    marker = 'id="evolve-training-dashboard-entry"'
+    if marker not in html:
+        entry = """<a id="evolve-training-dashboard-entry" href="/app/training/dashboard" style="position:fixed;right:18px;bottom:18px;z-index:99999;background:#8b5cf6;color:#fff;text-decoration:none;padding:11px 15px;border-radius:12px;font:700 13px system-ui;box-shadow:0 8px 24px #0005">📈 Postępy treningowe</a>"""
+        html = html.replace("</body>", entry + "</body>", 1)
+    return HTMLResponse(html, media_type="text/html")
+
+
 # Root route — serve index.html for SPA
 @app.get("/")
 async def serve_root():
     """Serve main index.html for single-page app."""
     index_path = STATIC_DIR / "index.html"
     if index_path.exists():
-        return FileResponse(str(index_path), media_type="text/html")
+        return _frontend_index_response(index_path)
     return JSONResponse({"error": "Frontend not found"}, status_code=404)
 
 
@@ -150,7 +161,7 @@ async def serve_spa(path: str):
     # For all other paths, serve index.html (SPA routing)
     index_path = STATIC_DIR / "index.html"
     if index_path.exists():
-        return FileResponse(str(index_path), media_type="text/html")
+        return _frontend_index_response(index_path)
     
     return JSONResponse({"error": "Frontend not found"}, status_code=404)
 

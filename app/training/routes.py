@@ -9,6 +9,7 @@ from datetime import date, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import HTMLResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
@@ -630,6 +631,162 @@ def preview_next_training_plan(
         "exercises": exercises,
     }
 
+
+
+
+@router.get("/adaptive/preview")
+def get_adaptive_training_preview(
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Aggregate recent completed sessions into a conservative next-plan preview."""
+    sessions = list(
+        session.exec(
+            select(TrainingSessionDB)
+            .where(TrainingSessionDB.user_id == user.id)
+            .where(TrainingSessionDB.status == "completed")
+            .order_by(TrainingSessionDB.session_date.desc(), TrainingSessionDB.completed_at.desc())
+            .limit(4)
+        ).all()
+    )
+    if not sessions:
+        return {
+            "has_data": False,
+            "sessions_analyzed": 0,
+            "latest_session": None,
+            "exercises": [],
+            "plan_mutated": False,
+        }
+
+    latest = sessions[0]
+    latest_sets = list(
+        session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == latest.id)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.completed == True)
+            .order_by(TrainingSetResultDB.exercise_key, TrainingSetResultDB.set_number)
+        ).all()
+    )
+    latest_by_key: dict[str, list[TrainingSetResultDB]] = {}
+    for item in latest_sets:
+        latest_by_key.setdefault(item.exercise_key, []).append(item)
+
+    recent_sets = list(
+        session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.completed == True)
+            .order_by(TrainingSetResultDB.logged_at.desc())
+            .limit(100)
+        ).all()
+    )
+    recent_by_key: dict[str, list[TrainingSetResultDB]] = {}
+    for item in recent_sets:
+        recent_by_key.setdefault(item.exercise_key, []).append(item)
+
+    preview = []
+    for planned in latest.planned_snapshot().get("exercises", []):
+        if not isinstance(planned, dict):
+            continue
+        key = str(planned.get("exercise_key") or "")
+        if not key:
+            continue
+        decision = _progression_decision(planned, latest_by_key.get(key, []))
+        proposed = _next_plan_exercise(planned, decision)
+        history = recent_by_key.get(key, [])[:12]
+        weights = [float(item.actual_weight_kg or 0) for item in history]
+        reps = [int(item.actual_reps or 0) for item in history]
+        preview.append({
+            "exercise_key": key,
+            "exercise_name": str(planned.get("exercise_name") or "Ćwiczenie"),
+            "decision": decision["decision"],
+            "reason_codes": decision["reason_codes"],
+            "current": {
+                "sets": int(planned.get("sets") or 0),
+                "reps": int(planned.get("reps") or 0),
+                "weight_kg": float(planned.get("weight_kg") or 0),
+            },
+            "proposed": proposed["proposed"],
+            "action": proposed["action"],
+            "recent_sessions": len({
+                training.id
+                for training in sessions
+                if any(item.exercise_key == key for item in session.exec(
+                    select(TrainingSetResultDB)
+                    .where(TrainingSetResultDB.session_id == training.id)
+                    .where(TrainingSetResultDB.user_id == user.id)
+                    .where(TrainingSetResultDB.exercise_key == key)
+                    .where(TrainingSetResultDB.completed == True)
+                ).all())
+            }),
+            "recent_average_weight_kg": round(sum(weights) / len(weights), 2) if weights else None,
+            "recent_average_reps": round(sum(reps) / len(reps), 2) if reps else None,
+        })
+
+    return {
+        "has_data": True,
+        "sessions_analyzed": len(sessions),
+        "source_session_ids": [item.id for item in sessions],
+        "latest_session": {
+            "id": latest.id,
+            "date": latest.session_date.isoformat(),
+            "final_rpe": latest.final_rpe,
+        },
+        "exercises": preview,
+        "plan_mutated": False,
+        "message": "To jest podgląd. Plan tygodniowy nie został zmieniony.",
+    }
+
+
+@router.get("/dashboard", response_class=HTMLResponse)
+def training_dashboard():
+    """Small authenticated training-progress dashboard built into the modular slice."""
+    return HTMLResponse("""<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EVOLVE · Postępy treningowe</title>
+<style>
+:root{color-scheme:dark;--bg:#090b12;--panel:#121722;--line:#242b3a;--text:#f4f6fb;--muted:#9aa4b5;--accent:#8b5cf6;--good:#34d399;--warn:#fbbf24}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0%,#1b1530 0,#090b12 45%);font:15px Inter,system-ui,sans-serif;color:var(--text)}
+.wrap{max-width:1100px;margin:auto;padding:34px 20px 60px}.top{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:24px}
+h1{margin:0;font-size:32px}.sub{color:var(--muted);margin-top:7px}.back{color:#fff;text-decoration:none;border:1px solid var(--line);padding:10px 14px;border-radius:10px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}.card{background:rgba(18,23,34,.9);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 12px 30px #0004}.label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}.value{font-size:24px;font-weight:750;margin-top:8px}
+.list{display:grid;gap:10px}.row{display:flex;justify-content:space-between;gap:15px;align-items:center;border-top:1px solid var(--line);padding:13px 0}.row:first-child{border-top:0}.name{font-weight:700}.meta{color:var(--muted);font-size:13px;margin-top:4px}.pill{padding:6px 9px;border-radius:999px;font-size:12px;font-weight:700}.progress{background:#123d2d;color:var(--good)}.maintain{background:#3b3010;color:var(--warn)}.reduce{background:#3b1717;color:#fb7185}.insufficient_data{background:#252b36;color:var(--muted)}
+.notice{margin-bottom:18px;color:var(--muted)}@media(max-width:760px){.grid{grid-template-columns:1fr}.top{align-items:start;flex-direction:column}}
+</style></head>
+<body><main class="wrap">
+<div class="top"><div><h1>Postępy treningowe</h1><div class="sub">Ostatnie wykonania + bezpieczny podgląd kolejnego kroku</div></div><a class="back" href="/">← Wróć do EVOLVE</a></div>
+<div id="status" class="notice">Ładowanie danych…</div>
+<section class="grid" id="summary"></section>
+<section class="card"><div class="label">Rekomendacje</div><div id="recommendations" class="list"></div></section>
+</main>
+<script>
+const token=localStorage.getItem('fitai_token');
+const headers=token?{Authorization:'Bearer '+token}:{};
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+async function load(){
+  if(!token){status.textContent='Zaloguj się w głównym EVOLVE, aby zobaczyć swoje dane.';return}
+  try{
+    const r=await fetch('/app/training/adaptive/preview',{headers});
+    if(r.status===401||r.status===403){status.textContent='Sesja logowania wygasła. Wróć do EVOLVE i zaloguj się ponownie.';return}
+    const d=await r.json();
+    if(!d.has_data){status.textContent='Brak ukończonych treningów. Ukończ pierwszy trening, aby uruchomić analizę.';return}
+    status.textContent=d.message;
+    summary.innerHTML='<div class="card"><div class="label">Analizowane sesje</div><div class="value">'+d.sessions_analyzed+'</div></div>'+
+      '<div class="card"><div class="label">Ostatni trening</div><div class="value">'+esc(d.latest_session.date)+'</div></div>'+
+      '<div class="card"><div class="label">RPE końcowe</div><div class="value">'+(d.latest_session.final_rpe??'—')+'</div></div>';
+    recommendations.innerHTML=d.exercises.map(e=>{
+      const p=e.proposed||{}, c=e.current||{};
+      const detail='Teraz: '+c.sets+'×'+c.reps+(c.weight_kg?' · '+c.weight_kg+' kg':'')+' → '+(p.sets??c.sets)+'×'+(p.reps??c.reps)+(p.weight_kg?' · '+p.weight_kg+' kg':'');
+      return '<div class="row"><div><div class="name">'+esc(e.exercise_name)+'</div><div class="meta">'+detail+' · średnio ostatnio '+(e.recent_average_weight_kg??'—')+' kg</div></div><span class="pill '+esc(e.decision)+'">'+esc(e.decision)+'</span></div>'
+    }).join('')||'<div class="notice">Brak ćwiczeń w ostatnim treningu.</div>';
+  }catch(e){status.textContent='Nie udało się pobrać danych treningowych.'}
+}
+load();
+</script></body></html>""")
 
 @router.post("/sessions/{session_id}/complete")
 def complete_training_session(
