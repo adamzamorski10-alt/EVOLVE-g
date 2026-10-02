@@ -86,6 +86,24 @@ def app_generate_plan(
             raise HTTPException(status_code=400, detail="Najpierw uzupełnij pełny onboarding")
         if payload.force or not user.weekly_plan_json:
             plan = _build_weekly_plan(user)
+            assessment = session.exec(
+                select(AssessmentDB)
+                .where(AssessmentDB.user_id == user.id)
+                .order_by(AssessmentDB.assessment_version.desc())
+            ).first()
+            plan["_evolve_core"] = {
+                "schema_version": 1,
+                "planning_source": "deterministic-v1",
+                "profile_inputs": {
+                    "goal": user.goal,
+                    "frequency": user.frequency,
+                    "sports": user.get_list("sports_json"),
+                    "training_focus": user.get_list("training_focus_json"),
+                    "improvement_areas": user.get_list("improvement_areas_json"),
+                    "available_equipment": user.get_list("available_equipment_json"),
+                },
+                "assessment_version": assessment.assessment_version if assessment else None,
+            }
             user.set_dict("weekly_plan_json", plan)
             # Wzbogać plan o sugestie progresji
             for day in plan.get("days", []):
