@@ -732,3 +732,37 @@ The main problem is that these capabilities are still organized around the older
 Therefore the central EVOLVE strategy is:
 
 > **Connect what already exists, strengthen the core loop, remove legacy coupling gradually, and only then expand the system.**
+
+
+## Stage 1 Security Closure — Database Artifacts
+
+Status: **CURRENT TREE CLEAN / HISTORY REQUIRES SEPARATE DECISION**
+
+The public `main` tree previously contained SQLite runtime artifacts:
+- `fitai.db`
+- `fitai.db-shm`
+- `fitai.db-wal`
+- two `fitai.db.bak_*` backups
+
+Because the GitHub connector cannot safely inspect binary SQLite contents, these artifacts were treated as potentially sensitive rather than assumed to be test-only data. They were removed from the current `main` tree and `.gitignore` now excludes `*.db`, `*.db-shm`, and `*.db-wal`.
+
+**Important:** deletion from the current tree does not erase historical Git objects. A later history purge may be warranted if the database ever contained real/private data, but that is intentionally kept separate from the normal Stage 1 implementation flow because it is a destructive repository-history operation.
+
+Verification after cleanup: recursive `main` tree contains **0 SQLite database artifacts** matching the audited patterns.
+
+## Stage 1 Updated Checkpoint
+
+**DONE**
+- Product direction documented in `EVOLVE_PRODUCT_PLAN.md`.
+- First-pass architecture/product audit documented.
+- Public repository database-artifact exposure closed in the current tree.
+- SQLite artifacts added to ignore rules.
+
+**CURRENT**
+- Finalize the active Training/TODAY execution contract from the existing implementation.
+- Identify the smallest deterministic vertical slice that turns an existing planned workout into a persisted actual training result.
+
+**NEXT**
+- Stage 2: Training Execution vertical slice: **Plan → Start → Execute → Log → Complete → Result**.
+- Keep the existing UI and data model where possible; introduce only the minimum new persistence/contracts needed to make planned-vs-actual execution reliable.
+- Add focused tests first, then the stage gate regression/security checks.
