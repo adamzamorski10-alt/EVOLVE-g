@@ -811,7 +811,6 @@ def _build_adaptive_plan(user_id: str, session: Session) -> tuple[dict, list[str
     adapted["_evolve_adaptation"] = {
         "source_session_ids": source_ids,
         "summary": summary,
-        "generated_at": datetime.now().isoformat(),
         "algorithm": "deterministic-v1",
     }
     return adapted, source_ids, summary
