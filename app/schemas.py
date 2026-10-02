@@ -3,7 +3,7 @@ FitAI Schemas — Pydantic request/response models for FastAPI
 """
 
 import re  # kept for potential future validators
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
