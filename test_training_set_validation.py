@@ -29,3 +29,14 @@ def test_set_number_cannot_exceed_planned_sets():
         headers=_headers(ctx["token"]),
     )
     assert response.status_code == 422
+
+
+
+def test_analysis_endpoint_exists():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+    response = client.get(f"/app/training/sessions/{sid}/analysis", headers=_headers(ctx["token"]))
+    assert response.status_code == 200
+    assert response.json()["session_id"] == sid
