@@ -224,3 +224,84 @@ def test_training_dashboard_is_available():
     response = client.get("/app/training/dashboard")
     assert response.status_code == 200
     assert "Postępy treningowe" in response.text
+
+
+def test_adaptive_preview_exposes_trend_and_data_sufficiency_without_mutation():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+    for number in (1, 2, 3):
+        assert _log_set(ctx["token"], sid, number, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7},
+        headers=_headers(ctx["token"]),
+    ).status_code == 200
+
+    preview = client.get("/app/training/adaptive/preview", headers=_headers(ctx["token"]))
+    assert preview.status_code == 200
+    exercise = preview.json()["exercises"][0]
+    assert exercise["data_sufficiency"] == "low"
+    assert exercise["trend"] == "new_baseline"
+    assert preview.json()["plan_mutated"] is False
+
+
+def test_adaptive_plan_preview_is_read_only_and_user_scoped():
+    first = _context()
+    second = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(first["token"]))
+    sid = started.json()["session"]["id"]
+    for number in (1, 2, 3):
+        assert _log_set(first["token"], sid, number, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7},
+        headers=_headers(first["token"]),
+    ).status_code == 200
+
+    own = client.get("/app/training/adaptive/plan-preview", headers=_headers(first["token"]))
+    foreign = client.get("/app/training/adaptive/plan-preview", headers=_headers(second["token"]))
+    assert own.status_code == 200
+    assert own.json()["has_data"] is True
+    assert own.json()["plan_mutated"] is False
+    assert len(own.json()["weeks"]) == 2
+    assert own.json()["weeks"][0]["exercises"][0]["week_1"]["weight_kg"] == 102.5
+    assert foreign.status_code == 200
+    assert foreign.json()["has_data"] is False
+
+
+def test_adaptive_preview_holds_when_recent_rpe_is_sustained_high():
+    ctx = _context()
+    for weight in (100, 100, 100):
+        started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+        sid = started.json()["session"]["id"]
+        for number in (1, 2, 3):
+            assert _log_set(ctx["token"], sid, number, reps=5, weight=weight, rpe=9).status_code == 200
+        assert client.post(
+            f"/app/training/sessions/{sid}/complete",
+            json={"final_rpe": 9},
+            headers=_headers(ctx["token"]),
+        ).status_code == 200
+
+    preview = client.get("/app/training/adaptive/preview", headers=_headers(ctx["token"]))
+    assert preview.status_code == 200
+    exercise = preview.json()["exercises"][0]
+    assert exercise["decision"] == "maintain"
+    assert "SUSTAINED_HIGH_RPE" in exercise["reason_codes"]
+    assert exercise["data_sufficiency"] == "high"
+
+
+def test_training_dashboard_contains_history_and_adaptation_sections():
+    response = client.get("/app/training/dashboard")
+    assert response.status_code == 200
+    assert "Adaptacja ćwiczeń" in response.text
+    assert "Ostatnie sesje" in response.text
+    assert "Podgląd planu 2-tygodniowego" in response.text
+
+
+def test_training_session_ui_is_available_and_exposes_execution_loop():
+    response = client.get("/app/training/session-ui")
+    assert response.status_code == 200
+    assert "Dzisiejszy trening" in response.text
+    assert "Zapisz" in response.text
+    assert "Zakończ trening" in response.text
