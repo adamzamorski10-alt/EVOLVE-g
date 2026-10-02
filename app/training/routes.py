@@ -127,6 +127,50 @@ def _serialize_session(session: TrainingSessionDB, sets: list[TrainingSetResultD
     }
 
 
+def _load_base_plan(user: UserDB) -> dict:
+    try:
+        value = json.loads(user.weekly_plan_json or "{}")
+        return value if isinstance(value, dict) else {}
+    except (TypeError, json.JSONDecodeError):
+        return {}
+
+
+def _latest_adaptive_revision(user_id: str, session: Session) -> AdaptivePlanRevisionDB | None:
+    return session.exec(
+        select(AdaptivePlanRevisionDB)
+        .where(AdaptivePlanRevisionDB.user_id == user_id)
+        .order_by(AdaptivePlanRevisionDB.version.desc(), AdaptivePlanRevisionDB.created_at.desc())
+    ).first()
+
+
+def _effective_plan(user: UserDB, session: Session) -> tuple[dict, dict]:
+    """Resolve the plan actually used by TODAY and training execution."""
+    base = _load_base_plan(user)
+    revision = _latest_adaptive_revision(user.id, session)
+    if revision:
+        try:
+            adapted = json.loads(revision.applied_plan_json or "{}")
+        except (TypeError, json.JSONDecodeError):
+            adapted = {}
+        # Stage 9 revisions were session snapshots. Do not let those legacy
+        # revisions replace the user's whole weekly plan.
+        if isinstance(adapted, dict) and isinstance(adapted.get("days"), list):
+            return adapted, {
+                "source": "adaptive",
+                "version": revision.version,
+                "created_at": revision.created_at.isoformat(),
+                "source_session_ids": revision.source_session_ids(),
+                "algorithm": (adapted.get("_evolve_adaptation") or {}).get("algorithm", "deterministic-v1"),
+            }
+    return base, {
+        "source": "base",
+        "version": 0,
+        "created_at": None,
+        "source_session_ids": [],
+        "algorithm": None,
+    }
+
+
 def _owned_session(session: Session, user: UserDB, session_id: str) -> TrainingSessionDB:
     row = session.exec(
         select(TrainingSessionDB)
@@ -221,6 +265,34 @@ def get_exercise_history(
     }
 
 
+@router.get("/today")
+def get_training_today(
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return the authenticated user's effective training plan for today."""
+    target = date.today()
+    plan, meta = _effective_plan(user, session)
+    raw = _extract_workout(plan, target)
+    exercises = [
+        _normalize_plan_item(item, index)
+        for index, item in enumerate(raw)
+        if isinstance(item, dict)
+    ]
+    return {
+        "date": target.isoformat(),
+        "day_label": _DAY_LABELS[target.weekday()],
+        "has_workout": bool(exercises),
+        "plan": meta,
+        "exercises": exercises,
+        "message": (
+            "Dzisiejszy trening pochodzi z zastosowanej adaptacji planu."
+            if meta["source"] == "adaptive"
+            else "Dzisiejszy trening pochodzi z bazowego planu tygodniowego."
+        ),
+    }
+
+
 @router.post("/sessions/start")
 def start_training_session(
     user: UserDB = Depends(get_current_user),
@@ -244,10 +316,7 @@ def start_training_session(
         )
         return {"status": "resumed", "session": _serialize_session(active, sets)}
 
-    try:
-        plan = json.loads(user.weekly_plan_json or "{}")
-    except json.JSONDecodeError:
-        plan = {}
+    plan, plan_meta = _effective_plan(user, session)
 
     exercises = [
         _normalize_plan_item(item, index)
@@ -261,6 +330,9 @@ def start_training_session(
         "session_date": target_date.isoformat(),
         "day_label": _DAY_LABELS[target_date.weekday()],
         "exercises": exercises,
+        "plan_source": plan_meta["source"],
+        "plan_version": plan_meta["version"],
+        "plan_source_session_ids": plan_meta["source_session_ids"],
     }
     new_session = TrainingSessionDB(
         user_id=user.id,
@@ -763,6 +835,7 @@ def get_adaptive_training_preview(
 
 
 def _build_adaptive_plan(user_id: str, session: Session) -> tuple[dict, list[str], dict]:
+    """Build a weekly-plan revision, changing only the latest completed day."""
     sessions = list(
         session.exec(
             select(TrainingSessionDB)
@@ -777,8 +850,11 @@ def _build_adaptive_plan(user_id: str, session: Session) -> tuple[dict, list[str
 
     latest = sessions[0]
     source_ids = [item.id for item in sessions]
-    plan = latest.planned_snapshot()
-    exercises = [item for item in plan.get("exercises", []) if isinstance(item, dict)]
+    plan = _load_base_plan(user=session.exec(select(UserDB).where(UserDB.id == user_id)).first())
+    if not plan:
+        plan = latest.planned_snapshot()
+    latest_snapshot = latest.planned_snapshot()
+    exercises = [item for item in latest_snapshot.get("exercises", []) if isinstance(item, dict)]
     if not exercises:
         return plan, source_ids, {"progress": 0, "maintain": 0, "reduce": 0, "insufficient_data": 0}
 
@@ -806,10 +882,35 @@ def _build_adaptive_plan(user_id: str, session: Session) -> tuple[dict, list[str
         next_exercises.append(next_item)
         summary[decision["decision"]] = summary.get(decision["decision"], 0) + 1
 
-    adapted = dict(plan)
-    adapted["exercises"] = next_exercises
+    adapted = json.loads(json.dumps(plan, ensure_ascii=False))
+    target_day = latest.session_date
+    replaced = False
+    days = adapted.get("days") if isinstance(adapted, dict) else None
+    if isinstance(days, list):
+        for entry in days:
+            if not isinstance(entry, dict) or not _day_matches(entry.get("day"), target_day):
+                continue
+            workout = entry.get("workout")
+            if isinstance(workout, dict):
+                existing = workout.get("exercises") or []
+                by_key = {str(item.get("id") or item.get("item_id") or ""): item for item in next_exercises if isinstance(item, dict)}
+                updated = []
+                for item in existing:
+                    if not isinstance(item, dict):
+                        updated.append(item)
+                        continue
+                    key = str(item.get("id") or item.get("item_id") or "")
+                    replacement = by_key.get(key)
+                    updated.append({**item, **({"sets": replacement["sets"], "reps": replacement["reps"], "weight_kg": replacement["weight_kg"]} if replacement else {})})
+                    if replacement:
+                        replaced = True
+                workout["exercises"] = updated
+            break
+    if not replaced and not isinstance(days, list):
+        adapted = latest.planned_snapshot()
     adapted["_evolve_adaptation"] = {
         "source_session_ids": source_ids,
+        "source_day": target_day.isoformat(),
         "summary": summary,
         "algorithm": "deterministic-v1",
     }
@@ -821,11 +922,7 @@ def get_adaptive_plan_current(
     user: UserDB = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    latest = session.exec(
-        select(AdaptivePlanRevisionDB)
-        .where(AdaptivePlanRevisionDB.user_id == user.id)
-        .order_by(AdaptivePlanRevisionDB.version.desc(), AdaptivePlanRevisionDB.created_at.desc())
-    ).first()
+    latest = _latest_adaptive_revision(user.id, session)
     if not latest:
         return {"has_adapted_plan": False, "version": 0, "plan": None}
     return {
@@ -986,6 +1083,17 @@ def get_adaptive_plan_preview(
         "plan_mutated": False,
         "message": "To jest 2-tygodniowy preview. Żaden zapisany plan nie został zmieniony.",
     }
+
+
+@router.get("/today-ui", response_class=HTMLResponse)
+def training_today_ui():
+    """Focused Mój Dzień training view backed by the effective plan resolver."""
+    return HTMLResponse("""<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EVOLVE · Mój dzień</title>
+<style>:root{color-scheme:dark;--bg:#090b12;--panel:#121722;--line:#252c3b;--text:#f4f6fb;--muted:#9aa4b5;--accent:#8b5cf6;--good:#34d399}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0%,#21183a,#090b12 48%);font:15px system-ui;color:var(--text)}main{max-width:900px;margin:auto;padding:34px 18px 60px}.top{display:flex;justify-content:space-between;align-items:center;gap:15px}.top h1{margin:0;font-size:32px}.back,.btn{color:#fff;text-decoration:none;border:1px solid var(--line);background:#171d29;padding:10px 13px;border-radius:10px;font-weight:700}.hero{margin-top:18px;padding:22px;border:1px solid var(--line);background:rgba(18,23,34,.94);border-radius:18px}.eyebrow{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}.status{margin-top:8px;font-size:22px;font-weight:800}.muted{color:var(--muted)}.badge{display:inline-block;margin-top:12px;padding:6px 10px;border-radius:999px;background:#2d2148;color:#c4b5fd;font-weight:750;font-size:12px}.grid{display:grid;gap:12px;margin-top:14px}.exercise{padding:17px;background:rgba(18,23,34,.94);border:1px solid var(--line);border-radius:15px}.name{font-size:18px;font-weight:800}.target{margin-top:6px;color:var(--muted)}.empty{text-align:center;padding:35px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.primary{background:var(--accent);border-color:transparent}.reason{margin-top:12px;padding:11px 13px;border-radius:11px;background:#0d111a;color:var(--muted);font-size:13px}@media(max-width:600px){.top{align-items:flex-start;flex-direction:column}}
+</style></head><body><main><div class="top"><h1>Mój dzień</h1><a class="back" href="/">← EVOLVE</a></div><div id="app" class="hero">Ładowanie dzisiejszego planu…</div></main>
+<script>const token=localStorage.getItem('fitai_token');const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));async function load(){if(!token){app.innerHTML='<div class="empty"><b>Zaloguj się w EVOLVE</b><p class="muted">Po zalogowaniu zobaczysz swój aktualny trening.</p></div>';return}try{const r=await fetch('/app/training/today',{headers:{Authorization:'Bearer '+token}}),d=await r.json();if(!r.ok){app.innerHTML='<div class="empty">'+esc(d.detail||'Nie udało się pobrać planu.')+'</div>';return}const p=d.plan||{};const label=p.source==='adaptive'?'Plan v'+p.version+' · dostosowany na podstawie ostatnich treningów':'Bazowy plan tygodniowy';app.innerHTML='<div class="eyebrow">'+esc(d.day_label)+' · '+esc(d.date)+'</div><div class="status">'+(d.has_workout?'Dzisiejszy trening jest gotowy':'Dzień bez zaplanowanego treningu')+'</div><span class="badge">'+esc(label)+'</span>'+(d.has_workout?'<div class="grid">'+d.exercises.map(e=>'<div class="exercise"><div class="name">'+esc(e.exercise_name)+'</div><div class="target">'+e.sets+' × '+e.reps+(e.weight_kg?' · '+e.weight_kg+' kg':'')+(e.rpe?' · RPE '+e.rpe:'')+'</div></div>').join('')+'</div>':'<p class="muted">Na dziś nie ma ćwiczeń w aktywnym planie.</p>')+(p.source==='adaptive'?'<div class="reason">Dzisiejszy plan został pobrany z zastosowanej wersji adaptacyjnej. Źródłowe sesje: '+esc((p.source_session_ids||[]).join(', '))+'</div>':'<div class="reason">Nie zastosowano jeszcze adaptacji. Po ukończeniu treningu możesz przejść do Postępów i zapisać kolejną wersję planu.</div>')+'<div class="actions">'+(d.has_workout?'<a class="btn primary" href="/app/training/session-ui">▶ Rozpocznij trening</a>':'')+'<a class="btn" href="/app/training/dashboard">📈 Postępy</a><a class="btn" href="/">Wróć do aplikacji</a></div>'}catch(e){app.innerHTML='<div class="empty">Nie udało się połączyć z serwerem.</div>'}}load();</script></body></html>""")
 
 
 @router.get("/session-ui", response_class=HTMLResponse)
