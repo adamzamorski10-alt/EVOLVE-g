@@ -342,3 +342,20 @@ class AIRequest(BaseModel):
 class DiscordLinkRequest(BaseModel):
     identity_id: str
     discord_user_id: str
+
+
+# ─── Training Execution Schemas ───────────────────────────────────────────────
+
+class TrainingSetResultRequest(BaseModel):
+    exercise_key: str = Field(min_length=1, max_length=200)
+    set_number: int = Field(ge=1, le=100)
+    actual_reps: int = Field(ge=0, le=1000)
+    actual_weight_kg: float = Field(default=0, ge=0, le=10000)
+    actual_rpe: Optional[int] = Field(default=None, ge=1, le=10)
+    completed: bool = True
+    note: str = Field(default="", max_length=1000)
+
+
+class TrainingCompleteRequest(BaseModel):
+    final_rpe: Optional[int] = Field(default=None, ge=1, le=10)
+    notes: str = Field(default="", max_length=2000)
