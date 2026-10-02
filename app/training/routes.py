@@ -137,6 +137,89 @@ def _owned_session(session: Session, user: UserDB, session_id: str) -> TrainingS
     return row
 
 
+@router.get("/sessions/history")
+def get_training_history(
+    limit: int = 20,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return the authenticated user's completed training history with compact results."""
+    limit = max(1, min(limit, 100))
+    rows = list(
+        session.exec(
+            select(TrainingSessionDB)
+            .where(TrainingSessionDB.user_id == user.id)
+            .where(TrainingSessionDB.status == "completed")
+            .order_by(TrainingSessionDB.session_date.desc(), TrainingSessionDB.completed_at.desc())
+            .limit(limit)
+        ).all()
+    )
+    result = []
+    for row in rows:
+        sets = list(
+            session.exec(
+                select(TrainingSetResultDB)
+                .where(TrainingSetResultDB.session_id == row.id)
+                .where(TrainingSetResultDB.user_id == user.id)
+                .where(TrainingSetResultDB.completed == True)
+            ).all()
+        )
+        planned = row.planned_snapshot()
+        planned_sets = sum(max(0, int(item.get("sets") or 0)) for item in planned.get("exercises", []) if isinstance(item, dict))
+        exercise_names = sorted({item.exercise_name for item in sets})
+        result.append({
+            "session_id": row.id,
+            "session_date": row.session_date.isoformat(),
+            "completed_at": row.completed_at.isoformat() if row.completed_at else None,
+            "final_rpe": row.final_rpe,
+            "planned_sets": planned_sets,
+            "completed_sets": len(sets),
+            "completion_pct": round((len(sets) / planned_sets) * 100, 1) if planned_sets else 0,
+            "exercise_count": len(exercise_names),
+            "exercises": exercise_names,
+            "notes": row.notes,
+        })
+    return {"limit": limit, "count": len(result), "sessions": result}
+
+
+@router.get("/exercises/{exercise_key}/history")
+def get_exercise_history(
+    exercise_key: str,
+    limit: int = 20,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return chronological performance history for one exercise owned by the user."""
+    limit = max(1, min(limit, 100))
+    rows = list(
+        session.exec(
+            select(TrainingSetResultDB, TrainingSessionDB)
+            .join(TrainingSessionDB, TrainingSetResultDB.session_id == TrainingSessionDB.id)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.exercise_key == exercise_key)
+            .where(TrainingSetResultDB.completed == True)
+            .order_by(TrainingSessionDB.session_date.desc(), TrainingSetResultDB.set_number.desc())
+            .limit(limit)
+        ).all()
+    )
+    return {
+        "exercise_key": exercise_key,
+        "count": len(rows),
+        "results": [
+            {
+                "session_id": training.id,
+                "session_date": training.session_date.isoformat(),
+                "set_number": item.set_number,
+                "exercise_name": item.exercise_name,
+                "reps": item.actual_reps,
+                "weight_kg": item.actual_weight_kg,
+                "rpe": item.actual_rpe,
+            }
+            for item, training in rows
+        ],
+    }
+
+
 @router.post("/sessions/start")
 def start_training_session(
     user: UserDB = Depends(get_current_user),
