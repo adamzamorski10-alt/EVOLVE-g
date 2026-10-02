@@ -35,7 +35,7 @@ def _context():
             "diet": "Balanced",
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     token = response.json()["access_token"]
 
     today = {0: "Pon", 1: "Wt", 2: "Śr", 3: "Czw", 4: "Pt", 5: "Sob", 6: "Niedz"}[date.today().weekday()]
