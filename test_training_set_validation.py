@@ -132,3 +132,46 @@ def test_next_plan_preview_is_user_scoped():
         headers=_headers(second["token"]),
     )
     assert response.status_code == 404
+
+
+def test_training_history_is_user_scoped_and_returns_completed_sessions():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+    for number in (1, 2, 3):
+        assert _log_set(ctx["token"], sid, number).status_code == 200
+    completed = client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7, "notes": "test"},
+        headers=_headers(ctx["token"]),
+    )
+    assert completed.status_code == 200
+
+    history = client.get("/app/training/sessions/history", headers=_headers(ctx["token"]))
+    assert history.status_code == 200
+    body = history.json()
+    assert body["count"] >= 1
+    assert any(item["session_id"] == sid for item in body["sessions"])
+
+
+def test_exercise_history_is_user_scoped():
+    first = _context()
+    second = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(first["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+    for number in (1, 2, 3):
+        assert _log_set(first["token"], sid, number).status_code == 200
+    assert client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7},
+        headers=_headers(first["token"]),
+    ).status_code == 200
+
+    own = client.get("/app/training/exercises/squat-1/history", headers=_headers(first["token"]))
+    foreign = client.get("/app/training/exercises/squat-1/history", headers=_headers(second["token"]))
+    assert own.status_code == 200
+    assert own.json()["count"] >= 1
+    assert foreign.status_code == 200
+    assert foreign.json()["count"] == 0
