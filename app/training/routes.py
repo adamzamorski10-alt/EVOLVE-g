@@ -707,7 +707,8 @@ def get_adaptive_training_preview(
                 "reps": int(planned.get("reps") or 0),
                 "weight_kg": float(planned.get("weight_kg") or 0),
             },
-            "proposed": proposed,
+            "proposed": proposed["proposed"],
+            "action": proposed["action"],
             "recent_sessions": len({
                 training.id
                 for training in sessions
