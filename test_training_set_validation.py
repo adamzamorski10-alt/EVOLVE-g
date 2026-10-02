@@ -1,12 +1,15 @@
 import pytest
 
-from main import app
+from app.auth import routes as auth_routes
 from test_training_execution import _context, _headers, client
 
 
 @pytest.fixture(autouse=True)
-def _reset_rate_limiter():
-    app.state.limiter._storage.reset()
+def _disable_registration_rate_limit():
+    previous = auth_routes.limiter.enabled
+    auth_routes.limiter.enabled = False
+    yield
+    auth_routes.limiter.enabled = previous
 
 
 
