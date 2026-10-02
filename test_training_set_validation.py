@@ -1,4 +1,13 @@
+import pytest
+
+from main import app
 from test_training_execution import _context, _headers, client
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    app.state.limiter._storage.reset()
+
 
 
 def test_set_number_cannot_exceed_planned_sets():
