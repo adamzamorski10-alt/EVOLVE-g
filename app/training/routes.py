@@ -362,6 +362,108 @@ def analyze_training_session(
     }
 
 
+_PROGRESSION_HIGH_RPE = 8
+_PROGRESSION_LOW_COMPLETION_PCT = 80
+
+
+def _progression_decision(planned: dict[str, Any], completed_sets: list[TrainingSetResultDB]) -> dict[str, Any]:
+    planned_sets = max(0, int(planned.get("sets") or 0))
+    target_reps = max(0, int(planned.get("reps") or 0))
+    target_weight = max(0.0, float(planned.get("weight_kg") or 0))
+    completed_count = len(completed_sets)
+    completion_pct = round((completed_count / planned_sets) * 100, 1) if planned_sets else 0.0
+    rpes = [item.actual_rpe for item in completed_sets if item.actual_rpe is not None]
+    avg_rpe = round(sum(rpes) / len(rpes), 2) if rpes else None
+    reps = [item.actual_reps for item in completed_sets]
+    avg_reps = round(sum(reps) / len(reps), 2) if reps else None
+    weights = [float(item.actual_weight_kg or 0) for item in completed_sets]
+    avg_weight = round(sum(weights) / len(weights), 2) if weights else None
+
+    if completed_count == 0:
+        decision = "insufficient_data"
+        reason_codes = ["NO_COMPLETED_SETS"]
+    elif planned_sets == 0:
+        decision = "insufficient_data"
+        reason_codes = ["NO_PLANNED_SETS"]
+    elif completion_pct < _PROGRESSION_LOW_COMPLETION_PCT:
+        decision = "reduce"
+        reason_codes = ["LOW_SET_COMPLETION"]
+    elif avg_rpe is not None and avg_rpe > _PROGRESSION_HIGH_RPE:
+        decision = "maintain"
+        reason_codes = ["HIGH_RPE"]
+    elif target_reps > 0 and avg_reps is not None and avg_reps < target_reps:
+        decision = "maintain"
+        reason_codes = ["REPS_BELOW_TARGET"]
+    else:
+        decision = "progress"
+        reason_codes = ["TARGET_COMPLETED"]
+
+    return {
+        "decision": decision,
+        "reason_codes": reason_codes,
+        "planned_sets": planned_sets,
+        "completed_sets": completed_count,
+        "completion_pct": completion_pct,
+        "planned_reps": target_reps,
+        "average_actual_reps": avg_reps,
+        "planned_weight_kg": target_weight,
+        "average_actual_weight_kg": avg_weight,
+        "average_rpe": avg_rpe,
+    }
+
+
+@router.get("/sessions/{session_id}/progression")
+def get_training_progression(
+    session_id: str,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return conservative deterministic next-step decisions without mutating a plan."""
+    row = _owned_session(session, user, session_id)
+    sets = list(
+        session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == row.id)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .order_by(TrainingSetResultDB.exercise_key, TrainingSetResultDB.set_number)
+        ).all()
+    )
+
+    planned_items = {
+        str(item.get("exercise_key")): item
+        for item in row.planned_snapshot().get("exercises", [])
+        if isinstance(item, dict)
+    }
+    by_exercise: dict[str, list[TrainingSetResultDB]] = {}
+    for item in sets:
+        if item.completed:
+            by_exercise.setdefault(item.exercise_key, []).append(item)
+
+    exercises = []
+    for key, planned in planned_items.items():
+        result = _progression_decision(planned, by_exercise.get(key, []))
+        result["exercise_key"] = key
+        result["exercise_name"] = str(planned.get("exercise_name") or "Ćwiczenie")
+        exercises.append(result)
+
+    counts = {"progress": 0, "maintain": 0, "reduce": 0, "insufficient_data": 0}
+    for item in exercises:
+        counts[item["decision"]] += 1
+
+    return {
+        "session_id": row.id,
+        "session_date": row.session_date.isoformat(),
+        "status": row.status,
+        "rules": {
+            "high_rpe_threshold": _PROGRESSION_HIGH_RPE,
+            "low_completion_pct": _PROGRESSION_LOW_COMPLETION_PCT,
+            "mutates_plan": False,
+        },
+        "summary": counts,
+        "exercises": exercises,
+    }
+
+
 @router.post("/sessions/{session_id}/complete")
 def complete_training_session(
     session_id: str,
