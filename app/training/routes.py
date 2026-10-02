@@ -893,7 +893,7 @@ def _build_adaptive_plan(user_id: str, session: Session) -> tuple[dict, list[str
             workout = entry.get("workout")
             if isinstance(workout, dict):
                 existing = workout.get("exercises") or []
-                by_key = {str(item.get("id") or item.get("item_id") or ""): item for item in next_exercises if isinstance(item, dict)}
+                by_key = {str(item.get("exercise_key") or item.get("id") or item.get("item_id") or ""): item for item in next_exercises if isinstance(item, dict)}
                 updated = []
                 for item in existing:
                     if not isinstance(item, dict):
@@ -908,6 +908,7 @@ def _build_adaptive_plan(user_id: str, session: Session) -> tuple[dict, list[str
             break
     if not replaced and not isinstance(days, list):
         adapted = latest.planned_snapshot()
+    adapted["exercises"] = next_exercises
     adapted["_evolve_adaptation"] = {
         "source_session_ids": source_ids,
         "source_day": target_day.isoformat(),
