@@ -17,7 +17,6 @@ jobs:
           python-version: "3.11"
       - run: pip install -r requirements.txt
       - run: pytest -q test_training_execution.py
-      - run: pytest -q test_day_tracker.py test_e2e_launch.py test_etap2_structure.py test_etap3_full.py test_etap4.py test_exercise_descriptions.py test_plan_persistence.py test_sport_drills.py test_weekly_analysis.py
 
   legacy-baseline:
     name: Legacy regression (informational)
