@@ -484,3 +484,21 @@ This document is the current product source of truth, but it is intentionally **
 ---
 
 **Current target:** make EVOLVE genuinely useful first; make it sophisticated later.
+---
+
+## 14. Core Loop Implementation Checkpoint — 2026-10-02
+
+### DONE
+- **0. Fundamenty techniczne:** core user/profile data remains authenticated/user-scoped; planning writes now keep UserDB datetime fields typed correctly; assessment has a real migration and blocking CI coverage.
+- **1. Profil użytkownika:** profile editing now supports planning-critical constraints: sport, training focus, improvement areas, equipment, avoided exercises, sport specialization and training days, with validation.
+- **2. Assessment:** added a versioned, append-only baseline assessment domain with ownership isolation and a usable UI.
+- **3. Planowanie treningu:** added planning readiness, a dedicated planning UI, and deterministic plan provenance (schema_version, planning algorithm, profile inputs and assessment version).
+- **4. Realizacja treningu:** existing end-to-end execution remains connected to the effective plan: START → LOG SET → COMPLETE → RESULT, including user scoping and validation.
+
+### CURRENT
+The first four core-loop layers are implemented as a connected product path:
+PROFILE → ASSESSMENT → PLAN → TODAY → TRAINING EXECUTION.
+
+### NEXT
+- **Core Loop hardening:** connect assessment/profile constraints more deeply to plan selection (availability, equipment and basketball specialization) without breaking the existing deterministic generator.
+- Then continue with **History + Progress → rolling 1–2 week planning → basketball development → recovery → nutrition**.
