@@ -40,6 +40,8 @@ from sqlalchemy import text as _text
 from sqlalchemy import func as _sa_func
 from sqlmodel import Field, Relationship, Session, SQLModel, create_engine, select
 
+logger = logging.getLogger(__name__)
+
 # ─── External prompt templates ────────────────────────────────────────────────
 # Centralised in prompts.py — import here and use via .format() at each call
 # site so the API file stays free of long instruction strings.
