@@ -15,27 +15,5 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
-      - name: Diagnose database bootstrap
-        run: |
-          python - <<'PY'
-          from sqlmodel import Session
-          from app.database import engine
-          from app.models import UserDB, UserNumberSequenceDB
-          from app.auth.routes import register
-          try:
-              with Session(engine) as session:
-                  user = UserDB(user_key="diag", email="diag@example.com", name="Diag", age=25, height=180, weight=80, start_weight=80, target_weight=80, goal="test", frequency="3", diet="Balanced")
-                  session.add(user)
-                  session.flush()
-                  seq = UserNumberSequenceDB(user_id=user.id)
-                  session.add(seq)
-                  session.flush()
-                  print("DB_WRITE_OK", user.id, seq.id)
-                  session.rollback()
-          except Exception as exc:
-              import traceback
-              traceback.print_exc()
-              raise
-          PY
       - run: pytest -q test_training_execution.py
       - run: pytest -q
