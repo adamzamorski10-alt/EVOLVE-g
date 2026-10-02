@@ -825,68 +825,59 @@ def update_profile(
     payload: ProfileUpdateRequest,
     user: UserDB = Depends(get_current_user),
 ):
-    """
-    Aktualizuje profil użytkownika.
-    Tylko niepuste pola są zmieniane — reszta pozostaje bez zmian.
-    
-    WAŻNE: Kalorie i białko zawsze się przeliczają jeśli zmieni się
-    którykolwiek z: weight, age, goal, frequency, gender, diet
-    
-    Wpływ diet na białko:
-    - High-Protein: +0.2 g/kg (max 2.4 g/kg)
-    - Low-Carb: +0.1 g/kg (max 2.2 g/kg)
-    - Balanced/Standard/inne: bez modyfikacji
-    """
+    """Update only the authenticated user's profile and planning constraints."""
     with Session(engine) as session:
         db_user = session.get(UserDB, user.id)
         if not db_user:
             raise HTTPException(status_code=404, detail="Użytkownik nie znaleziony")
 
+        scalar_fields = (
+            "name", "age", "height", "weight", "target_weight", "gender",
+            "goal", "frequency", "diet", "allergies", "meals_per_day", "notes",
+            "sport_focus", "sport_specialization",
+        )
+        changed = False
         should_recalc_macros = False
+        for field in scalar_fields:
+            value = getattr(payload, field, None)
+            if value is None:
+                continue
+            setattr(db_user, field, value)
+            changed = True
+            if field in {"age", "height", "weight", "goal", "frequency", "gender", "diet"}:
+                should_recalc_macros = True
 
-        # Aktualizuj tylko podane pola
-        if payload.age is not None:
-            db_user.age = payload.age
-            should_recalc_macros = True
-        if payload.weight is not None:
-            db_user.weight = payload.weight
-            should_recalc_macros = True
-        if payload.target_weight is not None:
-            db_user.target_weight = payload.target_weight
-        if payload.gender is not None:
-            db_user.gender = payload.gender
-            should_recalc_macros = True
-        if payload.goal is not None:
-            db_user.goal = payload.goal
-            should_recalc_macros = True
-        if payload.frequency is not None:
-            db_user.frequency = payload.frequency
-            should_recalc_macros = True
-        if payload.diet is not None:
-            db_user.diet = payload.diet
-            should_recalc_macros = True  # Dieta wpływa na białko!
-        if payload.allergies is not None:
-            db_user.allergies = payload.allergies
-        if payload.meals_per_day is not None:
-            db_user.meals_per_day = payload.meals_per_day
-        if payload.notes is not None:
-            db_user.notes = payload.notes
+        list_fields = (
+            "sports", "training_focus", "improvement_areas",
+            "available_equipment", "avoid_exercises", "sport_training_days",
+        )
+        json_field_map = {
+            "sports": "sports_json",
+            "training_focus": "training_focus_json",
+            "improvement_areas": "improvement_areas_json",
+            "available_equipment": "available_equipment_json",
+            "avoid_exercises": "avoid_exercises_json",
+            "sport_training_days": "sport_training_days_json",
+        }
+        for field in list_fields:
+            value = getattr(payload, field, None)
+            if value is not None:
+                cleaned = [str(item).strip() for item in value if str(item).strip()]
+                db_user.set_list(json_field_map[field], cleaned)
+                changed = True
 
-        # Przelicz kalorie i białko jeśli którykolwiek z parametrów się zmienił
+        if not changed:
+            raise HTTPException(status_code=422, detail="Nie podano żadnego pola do aktualizacji")
+
         if should_recalc_macros:
             db_user.calories_target = calc_calories(db_user)
             db_user.protein_target = calc_protein(db_user)
 
-        db_user.updated_at = datetime.now()  # ← Use datetime object
+        db_user.updated_at = datetime.now()
         session.add(db_user)
         session.commit()
         session.refresh(db_user)
-
-        return {
-            "status": "ok",
-            "message": "Profil zaktualizowany",
-            "profile": db_user.to_profile_dict(),
-        }
+        return {"status": "ok", "message": "Profil zaktualizowany", "profile": db_user.to_profile_dict()}
 
 @router.put("/profile/nickname")
 def change_nickname(
