@@ -234,6 +234,10 @@ def log_training_set(
     if planned is None:
         raise HTTPException(status_code=422, detail="Ćwiczenie nie należy do snapshotu sesji")
 
+    planned_sets = max(0, int(planned.get("sets") or 0))
+    if planned_sets and payload.set_number > planned_sets:
+        raise HTTPException(status_code=422, detail="Numer serii wykracza poza zaplanowaną liczbę serii")
+
     existing = session.exec(
         select(TrainingSetResultDB)
         .where(TrainingSetResultDB.session_id == row.id)
