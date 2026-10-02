@@ -76,7 +76,7 @@ def test_start_session_snapshots_plan_and_resumes():
     assert first.status_code == 200
     assert first.json()["status"] == "started"
     session_id = first.json()["session"]["id"]
-    assert first.json()["session"]["planned"]["exercises"][0]["planned_weight_kg"] if False else True
+    assert first.json()["session"]["planned"]["exercises"][0]["weight_kg"] == 100
 
     with Session(engine) as db:
         user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
