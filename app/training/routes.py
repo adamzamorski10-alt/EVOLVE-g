@@ -693,7 +693,7 @@ def get_adaptive_training_preview(
         if not key:
             continue
         decision = _progression_decision(planned, latest_by_key.get(key, []))
-        proposed = _next_plan_exercise(planned, decision["decision"])
+        proposed = _next_plan_exercise(planned, decision)
         history = recent_by_key.get(key, [])[:12]
         weights = [float(item.actual_weight_kg or 0) for item in history]
         reps = [int(item.actual_reps or 0) for item in history]
