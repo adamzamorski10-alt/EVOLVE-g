@@ -464,6 +464,90 @@ def get_training_progression(
     }
 
 
+def _round_load(value: float) -> float:
+    return round(value / 2.5) * 2.5
+
+
+def _next_plan_exercise(planned: dict[str, Any], decision: dict[str, Any]) -> dict[str, Any]:
+    current_reps = max(0, int(planned.get("reps") or 0))
+    current_weight = max(0.0, float(planned.get("weight_kg") or 0))
+    next_reps = current_reps
+    next_weight = current_weight
+    action = "unchanged"
+
+    if decision["decision"] == "progress":
+        action = "progress_load" if current_weight > 0 else "progress_reps"
+        if current_weight > 0:
+            next_weight = _round_load(current_weight * 1.025)
+        else:
+            next_reps = current_reps + 1
+    elif decision["decision"] == "reduce":
+        action = "reduce_load" if current_weight > 0 else "reduce_reps"
+        if current_weight > 0:
+            next_weight = max(0.0, _round_load(current_weight * 0.95))
+        elif current_reps > 1:
+            next_reps = current_reps - 1
+
+    return {
+        "exercise_key": str(planned.get("exercise_key") or ""),
+        "exercise_name": str(planned.get("exercise_name") or "Ćwiczenie"),
+        "decision": decision["decision"],
+        "action": action,
+        "current": {
+            "sets": max(0, int(planned.get("sets") or 0)),
+            "reps": current_reps,
+            "weight_kg": current_weight,
+        },
+        "proposed": {
+            "sets": max(0, int(planned.get("sets") or 0)),
+            "reps": next_reps,
+            "weight_kg": next_weight,
+        },
+        "reason_codes": decision["reason_codes"],
+    }
+
+
+@router.get("/sessions/{session_id}/next-plan-preview")
+def preview_next_training_plan(
+    session_id: str,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Preview the next training adjustments; never writes to weekly_plan_json."""
+    row = _owned_session(session, user, session_id)
+    sets = list(
+        session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == row.id)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .order_by(TrainingSetResultDB.exercise_key, TrainingSetResultDB.set_number)
+        ).all()
+    )
+
+    planned_items = [
+        item for item in row.planned_snapshot().get("exercises", [])
+        if isinstance(item, dict)
+    ]
+    by_exercise: dict[str, list[TrainingSetResultDB]] = {}
+    for item in sets:
+        if item.completed:
+            by_exercise.setdefault(item.exercise_key, []).append(item)
+
+    exercises = []
+    for planned in planned_items:
+        key = str(planned.get("exercise_key") or "")
+        decision = _progression_decision(planned, by_exercise.get(key, []))
+        exercises.append(_next_plan_exercise(planned, decision))
+
+    return {
+        "session_id": row.id,
+        "session_date": row.session_date.isoformat(),
+        "source": "deterministic_session_result",
+        "plan_mutated": False,
+        "exercises": exercises,
+    }
+
+
 @router.post("/sessions/{session_id}/complete")
 def complete_training_session(
     session_id: str,
