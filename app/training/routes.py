@@ -1073,7 +1073,7 @@ h1{margin:0;font-size:32px}.sub{color:var(--muted);margin-top:7px}.back{color:#f
 <section class="grid" id="summary"></section>
 <section class="card"><div class="label">Adaptacja ćwiczeń</div><div id="recommendations" class="list"></div></section>
 <section class="card section"><div class="label">Ostatnie sesje</div><div id="history"></div></section>
-<div class="cta"><a class="btn" href="/app/training/adaptive/plan-preview">Podgląd planu 2-tygodniowego (API)</a><a class="btn" href="/">Wróć do aplikacji</a></div>
+<div class="cta"><button class="btn" id="apply" type="button">Zastosuj adaptację jako nową wersję planu</button><a class="btn" href="/app/training/adaptive/plan-preview">Podgląd planu 2-tygodniowego (API)</a><a class="btn" href="/">Wróć do aplikacji</a></div><div id="applyStatus" class="notice"></div>
 </main>
 <script>
 const token=localStorage.getItem('fitai_token');
@@ -1111,6 +1111,17 @@ async function load(){
    '</tbody></table>';
  }catch(e){status.textContent='Nie udało się pobrać danych treningowych.'}
 }
+document.getElementById('apply').onclick=async()=>{
+ if(!token){applyStatus.textContent='Zaloguj się ponownie.';return}
+ if(!confirm('Zastosować obecną adaptację jako nową wersję planu? Poprzednia wersja zostanie zachowana w historii.'))return;
+ applyStatus.textContent='Zapisywanie nowej wersji planu…';
+ try{
+  const r=await fetch('/app/training/adaptive/apply',{method:'POST',headers:{...headers,'Content-Type':'application/json'}});
+  const d=await r.json();
+  if(!r.ok){applyStatus.textContent=d.detail||'Nie udało się zapisać adaptacji.';return}
+  applyStatus.textContent=d.status==='unchanged'?'Plan już zawiera tę samą adaptację.':'Zapisano wersję planu v'+d.version+'. Poprzednia wersja została zachowana w historii.';
+ }catch(e){applyStatus.textContent='Nie udało się zapisać adaptacji.'}
+};
 load();
 </script></body></html>""")
 
