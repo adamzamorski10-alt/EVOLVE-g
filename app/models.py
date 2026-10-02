@@ -297,6 +297,44 @@ class DailyLogDB(SQLModel, table=True):
         self._store_json_list("custom_meals_json", value)
 
 
+
+
+class TrainingSessionDB(SQLModel, table=True):
+    __tablename__ = "training_sessions"
+
+    id: Optional[str] = Field(default_factory=lambda: str(_uuid_mod.uuid4()), primary_key=True)
+    user_id: str = Field(foreign_key="users.id", index=True)
+    session_date: date = Field(index=True)
+    status: str = Field(default="active", index=True)
+    planned_snapshot_json: str
+    started_at: datetime = Field(default_factory=datetime.now)
+    completed_at: Optional[datetime] = None
+    final_rpe: Optional[int] = Field(default=None, ge=1, le=10)
+    notes: str = ""
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+    def planned_snapshot(self) -> dict:
+        return json.loads(self.planned_snapshot_json or "{}")
+
+
+class TrainingSetResultDB(SQLModel, table=True):
+    __tablename__ = "training_set_results"
+
+    id: Optional[str] = Field(default_factory=lambda: str(_uuid_mod.uuid4()), primary_key=True)
+    session_id: str = Field(foreign_key="training_sessions.id", index=True)
+    user_id: str = Field(foreign_key="users.id", index=True)
+    exercise_key: str = Field(index=True)
+    exercise_name: str
+    set_number: int = Field(ge=1)
+    planned_reps: Optional[int] = Field(default=None, ge=0)
+    planned_weight_kg: Optional[float] = Field(default=None, ge=0)
+    actual_reps: int = Field(ge=0)
+    actual_weight_kg: float = Field(default=0, ge=0)
+    actual_rpe: Optional[int] = Field(default=None, ge=1, le=10)
+    completed: bool = True
+    note: str = ""
+    logged_at: datetime = Field(default_factory=datetime.now)
 class ExerciseResultDB(SQLModel, table=True):
     """Historyczne wyniki ćwiczeń – serce systemu progresji."""
     __tablename__ = "exercise_results"
