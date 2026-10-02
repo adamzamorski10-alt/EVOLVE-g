@@ -108,3 +108,18 @@ Stage gate requires focused tests plus relevant existing training/plan regressio
 **CURRENT:** Stage 2 execution contract and persistence boundary defined from the real existing code.
 
 **NEXT:** Implement the backend vertical slice, add focused tests, then connect the existing Today/Training UI to the new contract.
+
+
+## Verification Update — 2026-10-02
+
+- Stage 2 focused suite: **4 passed** in GitHub Actions.
+- The focused gate covers start/resume, immutable plan snapshot, idempotent set logging, completion/result projection, empty-session rejection, and cross-user ownership.
+- Dependency compatibility: CI pins SQLModel below 0.0.45 because SQLModel 0.0.45 introduced a breaking UTC-datetime default; the current application still uses naive `datetime.now()` extensively. This avoids silently breaking the existing data layer while the broader datetime policy is handled separately. citeturn1search0turn1search1
+- Legacy/full regression remains **informational and currently failing**. Current blockers are legacy test architecture/rate-limit isolation rather than the Stage 2 focused slice:
+  - legacy tests import the old `fitai_api` ORM definitions alongside modular `app.models`, causing duplicate SQLModel `users` metadata;
+  - several multi-test files share the same in-memory SlowAPI limiter state and hit the existing `5/hour` registration limit;
+  - the old `test_e2e_launch.py` expects an already-running localhost server.
+- These are deliberately not hidden by weakening production code or using `extend_existing`.
+
+**Stage 2 gate status: PASS for focused vertical slice.**
+**PR status: DRAFT pending frontend integration and a later broader regression gate.**

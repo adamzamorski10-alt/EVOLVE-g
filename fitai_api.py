@@ -40,6 +40,8 @@ from sqlalchemy import text as _text
 from sqlalchemy import func as _sa_func
 from sqlmodel import Field, Relationship, Session, SQLModel, create_engine, select
 
+logger = logging.getLogger(__name__)
+
 # ─── External prompt templates ────────────────────────────────────────────────
 # Centralised in prompts.py — import here and use via .format() at each call
 # site so the API file stays free of long instruction strings.
@@ -2746,8 +2748,14 @@ def auth_refresh(user: UserDB = Depends(get_current_user)):
 
 # ─── /users/ endpoints (legacy + Discord bot compat) ─────────────────────────
 
-@app.post("/users/{user_id}")
+@app.post("/users/{user_id}", deprecated=True)
 def create_or_update_user(user_id: str, profile: UserProfile):
+    """Legacy compatibility endpoint intentionally disabled."""
+    raise HTTPException(
+        status_code=410,
+        detail="Ten endpoint jest wyłączony. Użyj POST /auth/register.",
+    )
+
 
 @app.get("/app/day/today", tags=["checkin"])
 def get_today_data(user: UserDB = Depends(get_current_user)):
