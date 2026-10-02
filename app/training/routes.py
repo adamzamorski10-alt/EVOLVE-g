@@ -829,6 +829,65 @@ def get_adaptive_plan_preview(
     }
 
 
+@router.get("/session-ui", response_class=HTMLResponse)
+def training_session_ui():
+    """Browser UI for the deterministic PLAN -> START -> LOG -> COMPLETE loop."""
+    return HTMLResponse("""<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EVOLVE · Trening</title>
+<style>
+:root{color-scheme:dark;--bg:#090b12;--panel:#121722;--line:#242b3a;--text:#f4f6fb;--muted:#9aa4b5;--accent:#8b5cf6;--good:#34d399}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0%,#1b1530 0,#090b12 48%);font:15px Inter,system-ui,sans-serif;color:var(--text)}
+.wrap{max-width:900px;margin:auto;padding:30px 18px 60px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center}.top h1{margin:0;font-size:30px}.back{color:#fff;text-decoration:none;border:1px solid var(--line);padding:9px 12px;border-radius:10px}
+.notice{color:var(--muted);margin:12px 0 18px}.card{background:rgba(18,23,34,.94);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:14px}.exercise{border-top:1px solid var(--line);padding:16px 0}.exercise:first-child{border-top:0}.title{font-size:18px;font-weight:750}.target{color:var(--muted);margin:5px 0 12px}.sets{display:grid;gap:8px}.set{display:grid;grid-template-columns:55px 1fr 1fr 1fr auto;gap:8px;align-items:center}.set input{width:100%;padding:9px;background:#0d111a;border:1px solid var(--line);color:#fff;border-radius:8px}.set button,.primary{border:0;background:var(--accent);color:#fff;padding:9px 12px;border-radius:9px;font-weight:700;cursor:pointer}.set button.done{background:#173d30}.primary{margin-top:16px}.hidden{display:none}.success{color:var(--good)}@media(max-width:650px){.set{grid-template-columns:1fr 1fr 1fr}.set button{grid-column:1/-1}.set b{grid-column:1/-1}}
+</style></head><body><main class="wrap">
+<div class="top"><h1>Dzisiejszy trening</h1><a class="back" href="/">← EVOLVE</a></div>
+<div id="status" class="notice">Ładowanie…</div>
+<div id="workout"></div>
+<button id="complete" class="primary hidden">Zakończ trening</button>
+</main>
+<script>
+const token=localStorage.getItem('fitai_token'), headers=token?{'Authorization':'Bearer '+token,'Content-Type':'application/json'}:{};
+let current=null;
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function setStatus(t,ok=false){status.textContent=t;status.className=ok?'notice success':'notice'}
+async function api(url,opts={}){return fetch(url,{...opts,headers:{...headers,...(opts.headers||{})}})}
+async function start(){
+ if(!token){setStatus('Zaloguj się w EVOLVE, aby rozpocząć trening.');return}
+ try{
+  const r=await api('/app/training/sessions/start',{method:'POST'}), d=await r.json();
+  if(!r.ok){setStatus(d.detail||'Nie udało się rozpocząć treningu.');return}
+  current=d.session; render();
+ }catch(e){setStatus('Nie udało się połączyć z serwerem.')}
+}
+function render(){
+ setStatus(current.status==='completed'?'Trening ukończony.':'Trening aktywny — zapisuj każdą serię po wykonaniu.',current.status==='completed');
+ workout.innerHTML='<div class="card">'+(current.planned.exercises||[]).map(ex=>{
+  const logged=(current.sets||[]).filter(s=>s.exercise_key===ex.exercise_key);
+  return '<div class="exercise"><div class="title">'+esc(ex.exercise_name)+'</div><div class="target">Plan: '+ex.sets+' × '+ex.reps+(ex.weight_kg?' · '+ex.weight_kg+' kg':'')+'</div><div class="sets">'+Array.from({length:ex.sets||1},(_,i)=>{
+   const n=i+1, old=logged.find(s=>s.set_number===n);
+   return '<div class="set"><b>Seria '+n+'</b><input id="r-'+ex.exercise_key+'-'+n+'" type="number" min="0" placeholder="powt." value="'+(old?.actual_reps??ex.reps)+'"><input id="w-'+ex.exercise_key+'-'+n+'" type="number" min="0" step="0.5" placeholder="kg" value="'+(old?.actual_weight_kg??ex.weight_kg)+'"><input id="p-'+ex.exercise_key+'-'+n+'" type="number" min="1" max="10" placeholder="RPE" value="'+(old?.actual_rpe??'')+'"><button '+(old?.completed?'class="done"':'')+' onclick="logSet(\''+esc(ex.exercise_key)+'\','+n+')">'+(old?.completed?'Zapisano':'Zapisz')+'</button></div>'
+  }).join('')+'</div></div>'
+ }).join('')+'</div>';
+ complete.classList.toggle('hidden',current.status!=='active');
+}
+async function logSet(key,n){
+ const ex=current.planned.exercises.find(x=>x.exercise_key===key);
+ const reps=Number(document.getElementById('r-'+key+'-'+n).value||0), weight=Number(document.getElementById('w-'+key+'-'+n).value||0);
+ const rpeRaw=document.getElementById('p-'+key+'-'+n).value; const rpe=rpeRaw?Number(rpeRaw):null;
+ const r=await api('/app/training/sessions/'+current.id+'/sets',{method:'POST',body:JSON.stringify({exercise_key:key,set_number:n,actual_reps:reps,actual_weight_kg:weight,actual_rpe:rpe,completed:true})});
+ const d=await r.json(); if(!r.ok){setStatus(d.detail||'Nie udało się zapisać serii.');return}
+ const existing=current.sets.findIndex(x=>x.exercise_key===key&&x.set_number===n); if(existing>=0) current.sets[existing]=d.set; else current.sets.push(d.set); render();
+}
+complete.onclick=async()=>{
+ const rpe=Number(prompt('Końcowe RPE treningu (1–10):')||0); if(!rpe)return;
+ const r=await api('/app/training/sessions/'+current.id+'/complete',{method:'POST',body:JSON.stringify({final_rpe:rpe})});
+ const d=await r.json(); if(!r.ok){setStatus(d.detail||'Nie udało się zakończyć treningu.');return}
+ current=d.session; render(); complete.outerHTML='<a class="primary" href="/app/training/dashboard" style="display:inline-block;text-decoration:none">Zobacz analizę i progres →</a>';
+};
+start();
+</script></body></html>""")
+
 @router.get("/dashboard", response_class=HTMLResponse)
 def training_dashboard():
     """Premium progress dashboard with trend cards and recent session history."""
