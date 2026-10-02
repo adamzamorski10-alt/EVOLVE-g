@@ -175,3 +175,52 @@ def test_exercise_history_is_user_scoped():
     assert own.json()["count"] >= 1
     assert foreign.status_code == 200
     assert foreign.json()["count"] == 0
+
+
+def test_adaptive_preview_aggregates_recent_training_without_mutating_plan():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+    for number in (1, 2, 3):
+        assert _log_set(ctx["token"], sid, number, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7},
+        headers=_headers(ctx["token"]),
+    ).status_code == 200
+
+    preview = client.get("/app/training/adaptive/preview", headers=_headers(ctx["token"]))
+    assert preview.status_code == 200
+    body = preview.json()
+    assert body["has_data"] is True
+    assert body["sessions_analyzed"] >= 1
+    assert body["plan_mutated"] is False
+    assert body["exercises"][0]["proposed"]["weight_kg"] == 102.5
+
+
+def test_adaptive_preview_is_user_scoped():
+    first = _context()
+    second = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(first["token"]))
+    sid = started.json()["session"]["id"]
+    for number in (1, 2, 3):
+        assert _log_set(first["token"], sid, number).status_code == 200
+    assert client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7},
+        headers=_headers(first["token"]),
+    ).status_code == 200
+
+    own = client.get("/app/training/adaptive/preview", headers=_headers(first["token"]))
+    foreign = client.get("/app/training/adaptive/preview", headers=_headers(second["token"]))
+    assert own.status_code == 200
+    assert own.json()["has_data"] is True
+    assert foreign.status_code == 200
+    assert foreign.json()["has_data"] is False
+
+
+def test_training_dashboard_is_available():
+    response = client.get("/app/training/dashboard")
+    assert response.status_code == 200
+    assert "Postępy treningowe" in response.text
