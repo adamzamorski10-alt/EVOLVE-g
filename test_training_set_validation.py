@@ -97,3 +97,38 @@ def test_progression_reduces_after_low_set_completion():
     assert result.status_code == 200
     assert result.json()["exercises"][0]["decision"] == "reduce"
     assert result.json()["exercises"][0]["reason_codes"] == ["LOW_SET_COMPLETION"]
+
+
+def test_next_plan_preview_proposes_load_change_without_mutating_plan():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+
+    for number in (1, 2, 3):
+        response = _log_set(ctx["token"], sid, number, reps=5, weight=100, rpe=7)
+        assert response.status_code == 200
+
+    preview = client.get(
+        f"/app/training/sessions/{sid}/next-plan-preview",
+        headers=_headers(ctx["token"]),
+    )
+    assert preview.status_code == 200
+    body = preview.json()
+    assert body["plan_mutated"] is False
+    exercise = body["exercises"][0]
+    assert exercise["decision"] == "progress"
+    assert exercise["current"]["weight_kg"] == 100
+    assert exercise["proposed"]["weight_kg"] == 102.5
+
+
+def test_next_plan_preview_is_user_scoped():
+    first = _context()
+    second = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(first["token"]))
+    sid = started.json()["session"]["id"]
+
+    response = client.get(
+        f"/app/training/sessions/{sid}/next-plan-preview",
+        headers=_headers(second["token"]),
+    )
+    assert response.status_code == 404
