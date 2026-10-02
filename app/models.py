@@ -374,6 +374,33 @@ class ExerciseResultDB(SQLModel, table=True):
             "logged_at": self.logged_at.isoformat(),
         }
 
+class AdaptivePlanRevisionDB(SQLModel, table=True):
+    """Audit trail for user-owned adaptive plan revisions."""
+    __tablename__ = "adaptive_plan_revisions"
+
+    id: Optional[str] = Field(default_factory=lambda: str(_uuid_mod.uuid4()), primary_key=True)
+    user_id: str = Field(foreign_key="users.id", index=True)
+    source_session_ids_json: str = "[]"
+    previous_plan_json: str
+    applied_plan_json: str
+    decision_summary_json: str = "{}"
+    version: int = Field(default=1, index=True)
+    created_at: datetime = Field(default_factory=datetime.now, index=True)
+
+    def source_session_ids(self) -> list[str]:
+        try:
+            value = json.loads(self.source_session_ids_json or "[]")
+            return value if isinstance(value, list) else []
+        except (TypeError, json.JSONDecodeError):
+            return []
+
+    def decision_summary(self) -> dict:
+        try:
+            value = json.loads(self.decision_summary_json or "{}")
+            return value if isinstance(value, dict) else {}
+        except (TypeError, json.JSONDecodeError):
+            return {}
+
 
 class DrillResultDB(SQLModel, table=True):
     """Wyniki sesji drilli sportowych – serce systemu progresji sportowej."""

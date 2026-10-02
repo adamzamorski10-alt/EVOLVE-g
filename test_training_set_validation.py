@@ -305,3 +305,62 @@ def test_training_session_ui_is_available_and_exposes_execution_loop():
     assert "Dzisiejszy trening" in response.text
     assert "Zapisz" in response.text
     assert "Zakończ trening" in response.text
+
+
+def test_adaptive_plan_apply_creates_version_and_preserves_previous_plan():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+    for number in (1, 2, 3):
+        assert _log_set(ctx["token"], sid, number, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7},
+        headers=_headers(ctx["token"]),
+    ).status_code == 200
+
+    applied = client.post("/app/training/adaptive/apply", headers=_headers(ctx["token"]))
+    assert applied.status_code == 200
+    data = applied.json()
+    assert data["status"] == "applied"
+    assert data["version"] == 1
+    assert data["plan"]["exercises"][0]["weight_kg"] == 102.5
+
+    current = client.get("/app/training/adaptive/plan-current", headers=_headers(ctx["token"]))
+    assert current.status_code == 200
+    assert current.json()["version"] == 1
+    assert current.json()["plan"]["exercises"][0]["weight_kg"] == 102.5
+
+    history = client.get("/app/training/adaptive/history", headers=_headers(ctx["token"]))
+    assert history.status_code == 200
+    assert len(history.json()["versions"]) == 1
+
+
+def test_adaptive_plan_apply_is_idempotent_and_user_scoped():
+    first = _context()
+    second = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(first["token"]))
+    sid = started.json()["session"]["id"]
+    for number in (1, 2, 3):
+        assert _log_set(first["token"], sid, number, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7},
+        headers=_headers(first["token"]),
+    ).status_code == 200
+
+    first_apply = client.post("/app/training/adaptive/apply", headers=_headers(first["token"]))
+    second_apply = client.post("/app/training/adaptive/apply", headers=_headers(first["token"]))
+    assert first_apply.json()["version"] == 1
+    assert second_apply.json()["status"] == "unchanged"
+    assert second_apply.json()["version"] == 1
+
+    foreign = client.get("/app/training/adaptive/history", headers=_headers(second["token"]))
+    assert foreign.status_code == 200
+    assert foreign.json()["versions"] == []
+
+
+def test_adaptive_dashboard_exposes_apply_control():
+    response = client.get("/app/training/dashboard")
+    assert response.status_code == 200
+    assert "Zastosuj adaptację jako nową wersję planu" in response.text

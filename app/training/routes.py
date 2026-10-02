@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 
 from app.auth.dependencies import get_current_user
 from app.database import get_session
-from app.models import ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
+from app.models import AdaptivePlanRevisionDB, ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
 from app.schemas import TrainingCompleteRequest, TrainingSetResultRequest
 
 router = APIRouter(prefix="/app/training", tags=["training-execution"])
@@ -761,6 +761,165 @@ def get_adaptive_training_preview(
     }
 
 
+
+def _build_adaptive_plan(user_id: str, session: Session) -> tuple[dict, list[str], dict]:
+    sessions = list(
+        session.exec(
+            select(TrainingSessionDB)
+            .where(TrainingSessionDB.user_id == user_id)
+            .where(TrainingSessionDB.status == "completed")
+            .order_by(TrainingSessionDB.session_date.desc(), TrainingSessionDB.completed_at.desc())
+            .limit(6)
+        ).all()
+    )
+    if not sessions:
+        return {}, [], {"progress": 0, "maintain": 0, "reduce": 0, "insufficient_data": 0}
+
+    latest = sessions[0]
+    source_ids = [item.id for item in sessions]
+    plan = latest.planned_snapshot()
+    exercises = [item for item in plan.get("exercises", []) if isinstance(item, dict)]
+    if not exercises:
+        return plan, source_ids, {"progress": 0, "maintain": 0, "reduce": 0, "insufficient_data": 0}
+
+    latest_sets = list(
+        session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == latest.id)
+            .where(TrainingSetResultDB.user_id == user_id)
+            .where(TrainingSetResultDB.completed == True)
+        ).all()
+    )
+    by_key: dict[str, list[TrainingSetResultDB]] = {}
+    for item in latest_sets:
+        by_key.setdefault(item.exercise_key, []).append(item)
+
+    next_exercises = []
+    summary = {"progress": 0, "maintain": 0, "reduce": 0, "insufficient_data": 0}
+    for planned in exercises:
+        key = str(planned.get("exercise_key") or "")
+        decision = _progression_decision(planned, by_key.get(key, []))
+        proposed = _next_plan_exercise(planned, decision)
+        next_item = dict(proposed["proposed"])
+        next_item["exercise_key"] = key
+        next_item["exercise_name"] = planned.get("exercise_name") or "Ćwiczenie"
+        next_exercises.append(next_item)
+        summary[decision["decision"]] = summary.get(decision["decision"], 0) + 1
+
+    adapted = dict(plan)
+    adapted["exercises"] = next_exercises
+    adapted["_evolve_adaptation"] = {
+        "source_session_ids": source_ids,
+        "summary": summary,
+        "algorithm": "deterministic-v1",
+    }
+    return adapted, source_ids, summary
+
+
+@router.get("/adaptive/plan-current")
+def get_adaptive_plan_current(
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    latest = session.exec(
+        select(AdaptivePlanRevisionDB)
+        .where(AdaptivePlanRevisionDB.user_id == user.id)
+        .order_by(AdaptivePlanRevisionDB.version.desc(), AdaptivePlanRevisionDB.created_at.desc())
+    ).first()
+    if not latest:
+        return {"has_adapted_plan": False, "version": 0, "plan": None}
+    return {
+        "has_adapted_plan": True,
+        "version": latest.version,
+        "plan": json.loads(latest.applied_plan_json or "{}"),
+        "source_session_ids": latest.source_session_ids(),
+        "created_at": latest.created_at.isoformat(),
+    }
+
+
+@router.post("/adaptive/apply")
+def apply_adaptive_plan(
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Apply one deterministic adaptation with a revision/audit record."""
+    proposed, source_ids, summary = _build_adaptive_plan(user.id, session)
+    if not proposed:
+        raise HTTPException(status_code=422, detail="Brak ukończonego treningu z planem do adaptacji")
+
+    current = session.exec(
+        select(AdaptivePlanRevisionDB)
+        .where(AdaptivePlanRevisionDB.user_id == user.id)
+        .order_by(AdaptivePlanRevisionDB.version.desc(), AdaptivePlanRevisionDB.created_at.desc())
+    ).first()
+    previous = json.loads(current.applied_plan_json) if current else {}
+    version = (current.version + 1) if current else 1
+
+    if current and json.dumps(previous, sort_keys=True) == json.dumps(proposed, sort_keys=True):
+        return {
+            "status": "unchanged",
+            "version": current.version,
+            "plan": previous,
+            "source_session_ids": current.source_session_ids(),
+            "message": "Nowa adaptacja nie różni się od ostatniej zapisanej wersji.",
+        }
+
+    revision = AdaptivePlanRevisionDB(
+        user_id=user.id,
+        source_session_ids_json=json.dumps(source_ids),
+        previous_plan_json=json.dumps(previous, ensure_ascii=False),
+        applied_plan_json=json.dumps(proposed, ensure_ascii=False),
+        decision_summary_json=json.dumps(summary),
+        version=version,
+    )
+    session.add(revision)
+    try:
+        session.commit()
+        session.refresh(revision)
+    except SQLAlchemyError as exc:
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Nie udało się zapisać adaptacji planu") from exc
+
+    return {
+        "status": "applied",
+        "version": revision.version,
+        "plan": proposed,
+        "source_session_ids": source_ids,
+        "decision_summary": summary,
+        "created_at": revision.created_at.isoformat(),
+        "message": "Adaptacja została zapisana jako nowa wersja. Poprzednia wersja pozostaje w audycie.",
+    }
+
+
+@router.get("/adaptive/history")
+def get_adaptive_plan_history(
+    limit: int = 20,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    limit = max(1, min(limit, 100))
+    rows = list(
+        session.exec(
+            select(AdaptivePlanRevisionDB)
+            .where(AdaptivePlanRevisionDB.user_id == user.id)
+            .order_by(AdaptivePlanRevisionDB.version.desc())
+            .limit(limit)
+        ).all()
+    )
+    return {
+        "versions": [
+            {
+                "version": row.version,
+                "created_at": row.created_at.isoformat(),
+                "source_session_ids": row.source_session_ids(),
+                "decision_summary": row.decision_summary(),
+                "plan": json.loads(row.applied_plan_json or "{}"),
+            }
+            for row in rows
+        ]
+    }
+
+
 @router.get("/adaptive/plan-preview")
 def get_adaptive_plan_preview(
     user: UserDB = Depends(get_current_user),
@@ -913,7 +1072,7 @@ h1{margin:0;font-size:32px}.sub{color:var(--muted);margin-top:7px}.back{color:#f
 <section class="grid" id="summary"></section>
 <section class="card"><div class="label">Adaptacja ćwiczeń</div><div id="recommendations" class="list"></div></section>
 <section class="card section"><div class="label">Ostatnie sesje</div><div id="history"></div></section>
-<div class="cta"><a class="btn" href="/app/training/adaptive/plan-preview">Podgląd planu 2-tygodniowego (API)</a><a class="btn" href="/">Wróć do aplikacji</a></div>
+<div class="cta"><button class="btn" id="apply" type="button">Zastosuj adaptację jako nową wersję planu</button><a class="btn" href="/app/training/adaptive/plan-preview">Podgląd planu 2-tygodniowego (API)</a><a class="btn" href="/">Wróć do aplikacji</a></div><div id="applyStatus" class="notice"></div>
 </main>
 <script>
 const token=localStorage.getItem('fitai_token');
@@ -951,6 +1110,17 @@ async function load(){
    '</tbody></table>';
  }catch(e){status.textContent='Nie udało się pobrać danych treningowych.'}
 }
+document.getElementById('apply').onclick=async()=>{
+ if(!token){applyStatus.textContent='Zaloguj się ponownie.';return}
+ if(!confirm('Zastosować obecną adaptację jako nową wersję planu? Poprzednia wersja zostanie zachowana w historii.'))return;
+ applyStatus.textContent='Zapisywanie nowej wersji planu…';
+ try{
+  const r=await fetch('/app/training/adaptive/apply',{method:'POST',headers:{...headers,'Content-Type':'application/json'}});
+  const d=await r.json();
+  if(!r.ok){applyStatus.textContent=d.detail||'Nie udało się zapisać adaptacji.';return}
+  applyStatus.textContent=d.status==='unchanged'?'Plan już zawiera tę samą adaptację.':'Zapisano wersję planu v'+d.version+'. Poprzednia wersja została zachowana w historii.';
+ }catch(e){applyStatus.textContent='Nie udało się zapisać adaptacji.'}
+};
 load();
 </script></body></html>""")
 
