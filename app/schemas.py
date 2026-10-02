@@ -102,16 +102,51 @@ class UserProfile(BaseModel):
 
 class ProfileUpdateRequest(BaseModel):
     """Edycja profilu użytkownika — tylko zmienne pola."""
-    age: Optional[int] = None
-    weight: Optional[float] = None
-    target_weight: Optional[float] = None
-    gender: Optional[str] = None
-    goal: Optional[str] = None
-    frequency: Optional[str] = None
-    diet: Optional[str] = None
-    allergies: Optional[str] = None
-    meals_per_day: Optional[int] = None
-    notes: Optional[str] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    age: Optional[int] = Field(default=None, ge=13, le=100)
+    height: Optional[float] = Field(default=None, gt=100, le=250)
+    weight: Optional[float] = Field(default=None, gt=25, le=400)
+    target_weight: Optional[float] = Field(default=None, gt=25, le=400)
+    gender: Optional[str] = Field(default=None, max_length=40)
+    goal: Optional[str] = Field(default=None, max_length=120)
+    frequency: Optional[str] = Field(default=None, max_length=80)
+    diet: Optional[str] = Field(default=None, max_length=120)
+    allergies: Optional[str] = Field(default=None, max_length=2000)
+    meals_per_day: Optional[int] = Field(default=None, ge=1, le=12)
+    notes: Optional[str] = Field(default=None, max_length=3000)
+    sports: Optional[list[str]] = None
+    training_focus: Optional[list[str]] = None
+    improvement_areas: Optional[list[str]] = None
+    available_equipment: Optional[list[str]] = None
+    avoid_exercises: Optional[list[str]] = None
+    sport_focus: Optional[str] = Field(default=None, max_length=80)
+    sport_specialization: Optional[str] = Field(default=None, max_length=120)
+    sport_training_days: Optional[list[str]] = None
+
+
+class AssessmentRequest(BaseModel):
+    """Versioned baseline assessment used as an input to planning."""
+    training_level: Optional[str] = Field(default=None, max_length=40)
+    training_experience_years: Optional[float] = Field(default=None, ge=0, le=80)
+    sessions_per_week: Optional[int] = Field(default=None, ge=0, le=14)
+    availability_hours_per_week: Optional[float] = Field(default=None, ge=0, le=168)
+    recovery_score: Optional[int] = Field(default=None, ge=1, le=10)
+    basketball_level: Optional[str] = Field(default=None, max_length=40)
+    shooting_pct: Optional[float] = Field(default=None, ge=0, le=100)
+    free_throw_pct: Optional[float] = Field(default=None, ge=0, le=100)
+    sprint_30m_seconds: Optional[float] = Field(default=None, gt=0, le=30)
+    vertical_jump_cm: Optional[float] = Field(default=None, ge=0, le=150)
+    metrics: dict[str, Any] = {}
+    notes: str = Field(default="", max_length=3000)
+
+    @property
+    def has_baseline(self) -> bool:
+        return any(value is not None for value in (
+            self.training_level, self.training_experience_years,
+            self.sessions_per_week, self.availability_hours_per_week,
+            self.recovery_score, self.basketball_level, self.shooting_pct,
+            self.free_throw_pct, self.sprint_30m_seconds, self.vertical_jump_cm,
+        )) or bool(self.metrics)
 
 
 class NicknameChangeRequest(BaseModel):
