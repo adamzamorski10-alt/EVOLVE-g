@@ -15,6 +15,14 @@ from main import app
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    # Registration is intentionally rate-limited in production. Reset the
+    # in-memory limiter between tests so this focused suite tests training
+    # execution rather than cross-test rate-limit state.
+    app.state.limiter._storage.reset()
+
+
 def _context():
     email = f"training-{uuid.uuid4().hex[:10]}@example.com"
     nickname = f"training_{uuid.uuid4().hex[:10]}"
