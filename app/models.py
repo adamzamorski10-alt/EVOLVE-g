@@ -455,3 +455,35 @@ class DrillResultDB(SQLModel, table=True):
         if self.weight_kg is not None:
             base["weight_kg"] = self.weight_kg
         return base
+
+class AssessmentDB(SQLModel, table=True):
+    """Versioned baseline assessment owned by one authenticated user."""
+
+    __tablename__ = "assessments"
+
+    id: Optional[str] = Field(default_factory=lambda: str(_uuid_mod.uuid4()), primary_key=True)
+    user_id: str = Field(foreign_key="users.id", index=True)
+    assessment_version: int = Field(default=1)
+    status: str = Field(default="completed", index=True)
+    assessment_date: date = Field(default_factory=date.today, index=True)
+    training_level: Optional[str] = None
+    training_experience_years: Optional[float] = Field(default=None, ge=0, le=80)
+    sessions_per_week: Optional[int] = Field(default=None, ge=0, le=14)
+    availability_hours_per_week: Optional[float] = Field(default=None, ge=0, le=168)
+    recovery_score: Optional[int] = Field(default=None, ge=1, le=10)
+    basketball_level: Optional[str] = None
+    shooting_pct: Optional[float] = Field(default=None, ge=0, le=100)
+    free_throw_pct: Optional[float] = Field(default=None, ge=0, le=100)
+    sprint_30m_seconds: Optional[float] = Field(default=None, gt=0, le=30)
+    vertical_jump_cm: Optional[float] = Field(default=None, ge=0, le=150)
+    assessment_json: str = "{}"
+    notes: str = ""
+    created_at: datetime = Field(default_factory=datetime.now, index=True)
+
+    def data(self) -> dict:
+        try:
+            value = json.loads(self.assessment_json or "{}")
+            return value if isinstance(value, dict) else {}
+        except (TypeError, json.JSONDecodeError):
+            return {}
+
