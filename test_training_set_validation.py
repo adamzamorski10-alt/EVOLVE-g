@@ -40,3 +40,60 @@ def test_analysis_endpoint_exists():
     response = client.get(f"/app/training/sessions/{sid}/analysis", headers=_headers(ctx["token"]))
     assert response.status_code == 200
     assert response.json()["session_id"] == sid
+
+
+def _log_set(token, sid, set_number, reps=5, weight=100, rpe=7):
+    return client.post(
+        f"/app/training/sessions/{sid}/sets",
+        json={
+            "exercise_key": "squat-1",
+            "set_number": set_number,
+            "actual_reps": reps,
+            "actual_weight_kg": weight,
+            "actual_rpe": rpe,
+        },
+        headers=_headers(token),
+    )
+
+
+def test_progression_returns_progress_after_target_completion():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+    for number in (1, 2, 3):
+        response = _log_set(ctx["token"], sid, number)
+        assert response.status_code == 200
+
+    result = client.get(f"/app/training/sessions/{sid}/progression", headers=_headers(ctx["token"]))
+    assert result.status_code == 200
+    exercise = result.json()["exercises"][0]
+    assert exercise["decision"] == "progress"
+    assert exercise["reason_codes"] == ["TARGET_COMPLETED"]
+    assert result.json()["rules"]["mutates_plan"] is False
+
+
+def test_progression_maintains_after_high_rpe():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+    for number in (1, 2, 3):
+        response = _log_set(ctx["token"], sid, number, rpe=9)
+        assert response.status_code == 200
+
+    result = client.get(f"/app/training/sessions/{sid}/progression", headers=_headers(ctx["token"]))
+    assert result.status_code == 200
+    assert result.json()["exercises"][0]["decision"] == "maintain"
+    assert result.json()["exercises"][0]["reason_codes"] == ["HIGH_RPE"]
+
+
+def test_progression_reduces_after_low_set_completion():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+    response = _log_set(ctx["token"], sid, 1)
+    assert response.status_code == 200
+
+    result = client.get(f"/app/training/sessions/{sid}/progression", headers=_headers(ctx["token"]))
+    assert result.status_code == 200
+    assert result.json()["exercises"][0]["decision"] == "reduce"
+    assert result.json()["exercises"][0]["reason_codes"] == ["LOW_SET_COMPLETION"]
