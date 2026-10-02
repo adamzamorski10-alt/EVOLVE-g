@@ -295,6 +295,73 @@ def log_training_set(
     }
 
 
+
+@router.get("/sessions/{session_id}/analysis")
+def analyze_training_session(
+    session_id: str,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return deterministic post-session facts without changing the plan."""
+    row = _owned_session(session, user, session_id)
+    sets = list(
+        session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == row.id)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .order_by(TrainingSetResultDB.exercise_key, TrainingSetResultDB.set_number)
+        ).all()
+    )
+
+    planned_items = {
+        str(item.get("exercise_key")): item
+        for item in row.planned_snapshot().get("exercises", [])
+        if isinstance(item, dict)
+    }
+    by_exercise: dict[str, list[TrainingSetResultDB]] = {}
+    for item in sets:
+        by_exercise.setdefault(item.exercise_key, []).append(item)
+
+    exercises = []
+    for key, planned in planned_items.items():
+        actual = by_exercise.get(key, [])
+        planned_sets = max(0, int(planned.get("sets") or 0))
+        completed = [item for item in actual if item.completed]
+        target_reps = int(planned.get("reps") or 0)
+        target_weight = float(planned.get("weight_kg") or 0)
+        avg_reps = round(sum(item.actual_reps for item in completed) / len(completed), 2) if completed else 0
+        avg_weight = round(sum(float(item.actual_weight_kg or 0) for item in completed) / len(completed), 2) if completed else 0
+        rpes = [item.actual_rpe for item in completed if item.actual_rpe is not None]
+        avg_rpe = round(sum(rpes) / len(rpes), 2) if rpes else None
+        exercises.append({
+            "exercise_key": key,
+            "exercise_name": str(planned.get("exercise_name") or "Ćwiczenie"),
+            "planned_sets": planned_sets,
+            "completed_sets": len(completed),
+            "set_completion_pct": round((len(completed) / planned_sets) * 100, 1) if planned_sets else 0,
+            "planned_reps": target_reps,
+            "average_actual_reps": avg_reps,
+            "reps_delta": round(avg_reps - target_reps, 2) if completed else None,
+            "planned_weight_kg": target_weight,
+            "average_actual_weight_kg": avg_weight,
+            "weight_delta_kg": round(avg_weight - target_weight, 2) if completed else None,
+            "average_rpe": avg_rpe,
+        })
+
+    total_planned_sets = sum(item["planned_sets"] for item in exercises)
+    total_completed_sets = sum(item["completed_sets"] for item in exercises)
+    return {
+        "session_id": row.id,
+        "session_date": row.session_date.isoformat(),
+        "status": row.status,
+        "final_rpe": row.final_rpe,
+        "planned_sets": total_planned_sets,
+        "completed_sets": total_completed_sets,
+        "completion_pct": round((total_completed_sets / total_planned_sets) * 100, 1) if total_planned_sets else 0,
+        "exercises": exercises,
+    }
+
+
 @router.post("/sessions/{session_id}/complete")
 def complete_training_session(
     session_id: str,
