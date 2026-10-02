@@ -10,6 +10,9 @@ __pycache__/
 fitai_users.json
 *.lock
 *.tmp
+*.db
+*.db-shm
+*.db-wal
 
 # Testy
 .pytest_cache/
