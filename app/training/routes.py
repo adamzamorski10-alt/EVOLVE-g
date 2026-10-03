@@ -11,7 +11,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlmodel import Session, select
 
 from app.auth.dependencies import get_current_user
@@ -477,6 +477,30 @@ def log_training_set(
     try:
         session.commit()
         session.refresh(result)
+    except IntegrityError:
+        session.rollback()
+        existing = session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == row.id)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.exercise_key == payload.exercise_key)
+            .where(TrainingSetResultDB.set_number == payload.set_number)
+        ).first()
+        if existing is None:
+            raise HTTPException(status_code=409, detail="Konflikt zapisu serii")
+        existing.actual_reps = payload.actual_reps
+        existing.actual_weight_kg = payload.actual_weight_kg
+        existing.actual_rpe = payload.actual_rpe
+        existing.completed = payload.completed
+        existing.note = payload.note
+        session.add(existing)
+        try:
+            session.commit()
+            session.refresh(existing)
+        except SQLAlchemyError as exc:
+            session.rollback()
+            raise HTTPException(status_code=500, detail="Nie udało się zapisać serii") from exc
+        result = existing
     except SQLAlchemyError as exc:
         session.rollback()
         raise HTTPException(status_code=500, detail="Nie udało się zapisać serii") from exc
