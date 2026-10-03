@@ -225,7 +225,7 @@ def test_nutrition_adaptation_changes_target_and_plan_macros():
     assert regenerated.status_code == 200, regenerated.text
     regenerated_plan = regenerated.json()["plan"]
     workout_day = next(day for day in regenerated_plan["days"] if day["day_type"] != "rest")
-    assert workout_day["macros"]["calories_kcal"] == base_target + 100
+    assert workout_day["macros"]["kcal"] == base_target + 100
 
 
 def test_assessment_change_invalidates_plan_before_training_and_regeneration_restores_provenance():
