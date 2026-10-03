@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
 
@@ -62,7 +62,6 @@ def create_assessment(
     session: Session = Depends(get_session),
 ):
     if not payload.has_baseline:
-        from fastapi import HTTPException
         raise HTTPException(status_code=422, detail="Podaj co najmniej jeden wynik bazowy assessmentu.")
 
     previous = session.exec(
@@ -90,8 +89,12 @@ def create_assessment(
         notes=payload.notes,
     )
     session.add(row)
-    session.commit()
-    session.refresh(row)
+    try:
+        session.commit()
+        session.refresh(row)
+    except Exception as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Konflikt zapisu assessmentu — spróbuj ponownie.") from exc
     return {"status": "created", "assessment": _serialize(row)}
 
 
@@ -129,7 +132,7 @@ button{border:0;border-radius:11px;padding:12px 16px;background:#8b5cf6;color:#f
 <div class="card"><strong>Ostatni assessment</strong><pre id="latest" style="white-space:pre-wrap;color:#aeb7c8"></pre><pre id="history" style="white-space:pre-wrap;color:#7f8aa0"></pre>
 <div class="links"><a href="/app/plan/ui">Planowanie</a><a href="/app/training/today-ui">Mój dzień</a><a href="/">Aplikacja</a></div></div>
 <script>
-const token=localStorage.getItem("fitai_token"), statusEl=document.getElementById("status"), latest=document.getElementById("latest");
+const token=localStorage.getItem("fitai_token"), statusEl=document.getElementById("status"), latest=document.getElementById("latest"), history=document.getElementById("history");
 const n=v=>v===""?null:Number(v);
 async function load(){if(!token){statusEl.textContent="Zaloguj się, aby zapisać assessment.";return}
  const r=await fetch("/app/assessment/latest",{headers:{Authorization:"Bearer "+token}}); const d=await r.json();
