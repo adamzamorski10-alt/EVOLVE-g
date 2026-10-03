@@ -157,46 +157,76 @@ def delete_goal_api(goal_id: str, user: UserDB = Depends(get_current_user), db: 
 
 
 def _metric_snapshots(db: Session, user: UserDB, goal: GoalDB) -> list[dict[str, Any]]:
+    """Build cumulative goal metric snapshots from the same completed execution source as Progress."""
     metric = goal.metric_key
     if not metric:
         return []
     sessions = list(db.exec(
-        select(TrainingSessionDB).where(TrainingSessionDB.user_id == user.id)
+        select(TrainingSessionDB)
+        .where(TrainingSessionDB.user_id == user.id)
         .where(TrainingSessionDB.status == "completed")
         .where(TrainingSessionDB.session_date >= goal.start_date)
         .order_by(TrainingSessionDB.session_date.asc(), TrainingSessionDB.completed_at.asc())
     ).all())
     exercise_key = goal.metadata().get("exercise_key")
-    snapshots = []
+    snapshots: list[dict[str, Any]] = []
+    cumulative_volume = 0.0
+    cumulative_sets = 0
+    cumulative_rpes: list[float] = []
+    best_weight = 0.0
+    best_reps_at_best_weight = 0
+    training_days: set[str] = set()
+
     for training in sessions:
         sets = list(db.exec(
-            select(TrainingSetResultDB).where(TrainingSetResultDB.session_id == training.id)
-            .where(TrainingSetResultDB.user_id == user.id).where(TrainingSetResultDB.completed == True)
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == training.id)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.completed == True)
         ).all())
         if exercise_key:
             sets = [row for row in sets if row.exercise_key == exercise_key]
-        if metric == "sessions":
-            value = float(len(snapshots) + 1)
-        elif metric == "training_days":
-            prior_days = {item["date"] for item in snapshots}
-            if training.session_date.isoformat() in prior_days: continue
-            value = float(len(prior_days) + 1)
+        if metric in {"sessions", "training_days"}:
+            pass
         elif not sets:
             continue
+
+        if sets:
+            cumulative_sets += len(sets)
+            cumulative_volume += sum(float(row.actual_weight_kg or 0) * int(row.actual_reps or 0) for row in sets)
+            for row in sets:
+                weight = float(row.actual_weight_kg or 0)
+                reps = int(row.actual_reps or 0)
+                if weight > best_weight:
+                    best_weight = weight
+                    best_reps_at_best_weight = reps
+                elif weight == best_weight:
+                    best_reps_at_best_weight = max(best_reps_at_best_weight, reps)
+                if row.actual_rpe is not None:
+                    cumulative_rpes.append(float(row.actual_rpe))
+
+        training_days.add(training.session_date.isoformat())
+        if metric == "sessions":
+            value = float(len([item for item in snapshots]) + 1)
+        elif metric == "training_days":
+            value = float(len(training_days))
         elif metric == "total_volume_kg":
-            value = sum(float(row.actual_weight_kg or 0) * int(row.actual_reps or 0) for row in sets)
+            value = cumulative_volume
         elif metric == "best_weight_kg":
-            value = max(float(row.actual_weight_kg or 0) for row in sets)
+            value = best_weight
         elif metric == "best_reps_at_best_weight":
-            best = max(float(row.actual_weight_kg or 0) for row in sets)
-            value = max(int(row.actual_reps or 0) for row in sets if float(row.actual_weight_kg or 0) == best)
+            value = best_reps_at_best_weight
         elif metric == "average_rpe":
-            rpes = [float(row.actual_rpe) for row in sets if row.actual_rpe is not None]
-            if not rpes: continue
-            value = sum(rpes) / len(rpes)
+            if not cumulative_rpes:
+                continue
+            value = sum(cumulative_rpes) / len(cumulative_rpes)
         else:
             continue
-        snapshots.append({"date": training.session_date.isoformat(), "value": round(value, 2), "session_id": training.id})
+        snapshots.append({
+            "date": training.session_date.isoformat(),
+            "value": round(value, 2),
+            "session_id": training.id,
+        })
     return snapshots
 
 
