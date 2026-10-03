@@ -67,7 +67,13 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user_id = payload["sub"]   # UUID string
+    user_id = payload.get("sub")
+    if not isinstance(user_id, str) or not user_id.strip():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Nieprawidłowy token — brak identyfikatora użytkownika",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     with Session(engine) as session:
         user = session.get(UserDB, user_id)
     if not user:
