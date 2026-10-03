@@ -45,6 +45,43 @@ def test_today_uses_base_plan_without_adaptation():
     assert data["exercises"][0]["weight_kg"] == 100
 
 
+def test_today_reports_active_session_progress():
+    ctx = _context()
+
+    before = client.get("/app/training/today", headers=_headers(ctx["token"]))
+    assert before.status_code == 200
+    assert before.json()["session"]["id"] is None
+    assert before.json()["session"]["status"] is None
+    assert before.json()["session"]["completed_sets"] == 0
+    assert before.json()["session"]["planned_sets"] == 4
+
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200, started.text
+    sid = started.json()["session"]["id"]
+
+    logged = client.post(
+        f"/app/training/sessions/{sid}/sets",
+        json={
+            "exercise_key": "squat-1",
+            "set_number": 1,
+            "actual_reps": 5,
+            "actual_weight_kg": 100,
+            "actual_rpe": 7,
+        },
+        headers=_headers(ctx["token"]),
+    )
+    assert logged.status_code == 200, logged.text
+
+    during = client.get("/app/training/today", headers=_headers(ctx["token"]))
+    assert during.status_code == 200
+    session_data = during.json()["session"]
+    assert session_data["id"] == sid
+    assert session_data["status"] == "active"
+    assert session_data["completed_sets"] == 1
+    assert session_data["planned_sets"] == 4
+    assert session_data["completion_pct"] == 25.0
+
+
 def test_apply_adaptation_becomes_effective_today_plan_and_start_snapshot():
     ctx = _context()
     sid = _complete_one(ctx)
