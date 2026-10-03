@@ -121,3 +121,39 @@ def test_nutrition_payload_rejects_negative_macros():
         json={"name": "Invalid", "calories_kcal": -1},
     )
     assert response.status_code == 422
+
+
+def test_nutrition_adherence_excludes_unlogged_days_and_uses_bounded_rules():
+    token = _register()
+    today = datetime.now()
+    for day_offset, kcal, protein in [(2, 2000, 180), (1, 500, 20)]:
+        response = client.post(
+            "/app/nutrition/entries",
+            headers=_headers(token),
+            json={
+                "name": f"Meal {day_offset}",
+                "consumed_at": (today - timedelta(days=day_offset)).isoformat(),
+                "calories_kcal": kcal,
+                "protein_g": protein,
+            },
+        )
+        assert response.status_code == 201
+
+    response = client.get("/app/nutrition/adherence?days=7", headers=_headers(token))
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["window_days"] == 7
+    assert payload["logged_days"] == 2
+    assert len(payload["daily"]) == 2
+    assert payload["daily"][0]["calorie_target_met"] is True
+    assert payload["daily"][0]["protein_target_met"] is True
+    assert payload["daily"][1]["calorie_target_met"] is False
+    assert payload["daily"][1]["protein_target_met"] is False
+    assert payload["adherence"]["calorie_pct"] == 50.0
+    assert payload["adherence"]["protein_pct"] == 50.0
+
+
+def test_nutrition_adherence_days_are_bounded():
+    token = _register()
+    response = client.get("/app/nutrition/adherence?days=29", headers=_headers(token))
+    assert response.status_code == 422
