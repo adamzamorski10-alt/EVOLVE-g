@@ -296,6 +296,104 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     }
   };
 
+  function injectGoalsShell() {
+    if (document.getElementById("goalsSummary")) return;
+    var content = document.querySelector(".content");
+    var profile = document.getElementById("nav-profile");
+    if (!content) return;
+    if (profile && !document.getElementById("nav-goals")) {
+      profile.insertAdjacentHTML("beforebegin",
+        '<button class="nav-btn" id="nav-goals" data-tab="goals" onclick="showTab(\'goals\')">🎯<span class="nav-tooltip">Cele</span></button>');
+    }
+    var legacy = document.getElementById("tab-goals");
+    if (legacy) { legacy.id = "tab-goals-legacy"; legacy.style.display = "none"; }
+    var section =
+      '<div class="tab-panel" id="tab-goals">' +
+        '<div class="sec-head"><div><div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:700;">Cele 🎯</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">Twoje cele, mierzalny postęp i terminy w jednym miejscu.</div></div><button class="btn btn-primary btn-sm" onclick="openEvolveGoalForm()">+ Nowy cel</button></div>' +
+        '<div id="goalsStatus" class="alert alert-hidden" style="margin-bottom:16px;"></div>' +
+        '<div id="goalsSummary" class="grid-2" style="margin-bottom:16px;"></div>' +
+        '<div id="goalForm" class="card" style="padding:20px;margin-bottom:16px;display:none;"></div>' +
+        '<div id="goalsList"></div>' +
+        '<div id="goalDetail" style="margin-top:16px;"></div>' +
+      '</div>';
+    content.insertAdjacentHTML("afterbegin", section);
+  }
+
+  var goalsLoadSequence = 0;
+
+  function goalEscape(value) { return escapeHtml(value == null ? "" : value); }
+  function goalStatusLabel(status) {
+    return status === "active" ? "Aktywny" : status === "completed" ? "Ukończony" : status === "cancelled" ? "Anulowany" : "Zarchiwizowany";
+  }
+  function goalCard(goal, progress) {
+    var pct = progress && progress.progress_pct != null ? Math.max(0, Math.min(100, Number(progress.progress_pct))) : null;
+    var metric = progress && progress.metric ? progress.metric.unit : "";
+    var current = progress && progress.current_value != null ? progress.current_value : "—";
+    var target = goal.target_value != null ? goal.target_value : "—";
+    var bar = pct == null ? '<div style="font-size:12px;color:var(--muted);">Brak danych pomiarowych</div>' :
+      '<div style="height:7px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:10px;"><div style="height:100%;width:'+pct+'%;background:var(--cyan);border-radius:99px;"></div></div>';
+    return '<div class="card" style="padding:20px;margin-bottom:12px;">' +
+      '<div class="item-card-head"><div><div class="item-card-title">'+goalEscape(goal.title)+'</div><div class="item-card-meta">'+goalEscape(goal.goal_type)+' · '+goalStatusLabel(goal.status)+'</div></div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" onclick="loadEvolveGoalDetail(\''+goal.id+'\')">Szczegóły</button>' +
+      (goal.status === "active" ? '<button class="btn btn-outline btn-sm" onclick="updateEvolveGoalStatus(\''+goal.id+'\',\'completed\')">Ukończ</button>' : '') +
+      (goal.status !== "archived" ? '<button class="btn btn-ghost btn-sm" onclick="archiveEvolveGoal(\''+goal.id+'\')">Archiwizuj</button>' : '')+'</div></div>' +
+      '<div style="margin-top:14px;display:flex;justify-content:space-between;gap:12px;font-size:13px;"><span>'+goalEscape(current)+' '+goalEscape(metric)+'</span><span>cel: '+goalEscape(target)+' '+goalEscape(metric)+'</span></div>'+bar+
+      '<div style="margin-top:9px;font-size:12px;color:var(--muted);">'+(pct == null ? "Postęp oczekuje na dane." : "Postęp: "+pct+"%")+' · termin: '+goalEscape(goal.target_date || "bez terminu")+'</div></div>';
+  }
+
+  window.openEvolveGoalForm = function(existing) {
+    var form = document.getElementById("goalForm");
+    if (!form) return;
+    var g = existing || {};
+    form.style.display = "block";
+    form.innerHTML =
+      '<div style="font-weight:700;font-size:17px;margin-bottom:14px;">'+(existing ? "Edytuj cel" : "Nowy cel")+'</div>' +
+      '<div class="grid-2">' +
+      '<label>Tytuł<input id="goalTitle" class="input" maxlength="200" value="'+goalEscape(g.title)+'"></label>' +
+      '<label>Typ<select id="goalType" class="input"><option value="performance">performance</option><option value="skill">skill</option><option value="strength">strength</option><option value="basketball">basketball</option><option value="body_composition">body_composition</option><option value="habit">habit</option><option value="custom">custom</option></select></label>' +
+      '<label>Metryka<select id="goalMetric" class="input"><option value="">Brak metryki</option><option value="best_weight_kg">best_weight_kg</option><option value="best_reps_at_best_weight">best_reps_at_best_weight</option><option value="total_volume_kg">total_volume_kg</option><option value="sessions">sessions</option><option value="training_days">training_days</option><option value="average_rpe">average_rpe</option></select></label>' +
+      '<label>Ćwiczenie (opcjonalnie)<input id="goalExercise" class="input" placeholder="np. squat" value="'+goalEscape((g.metadata||{}).exercise_key)+'"></label>' +
+      '<label>Wartość bazowa<input id="goalBaseline" class="input" type="number" step="any" value="'+goalEscape(g.baseline_value)+'"></label>' +
+      '<label>Wartość docelowa<input id="goalTarget" class="input" type="number" step="any" value="'+goalEscape(g.target_value)+'"></label>' +
+      '<label>Data rozpoczęcia<input id="goalStart" class="input" type="date" value="'+goalEscape(g.start_date)+'"></label>' +
+      '<label>Termin<input id="goalDeadline" class="input" type="date" value="'+goalEscape(g.target_date)+'"></label></div>' +
+      '<div style="margin-top:14px;display:flex;gap:8px;"><button class="btn btn-primary btn-sm" onclick="saveEvolveGoal('+(existing ? "'"+existing.id+"'" : "null")+')">Zapisz</button><button class="btn btn-ghost btn-sm" onclick="closeEvolveGoalForm()">Anuluj</button></div>';
+    if (existing) {
+      document.getElementById("goalType").value = g.goal_type || "custom";
+      document.getElementById("goalMetric").value = g.metric_key || "";
+    }
+  };
+  window.closeEvolveGoalForm = function(){ var f=document.getElementById("goalForm"); if(f){f.style.display="none";f.innerHTML="";} };
+  window.saveEvolveGoal = async function(id) {
+    var token=localStorage.getItem("fitai_token"); if(!token) return;
+    var metric=document.getElementById("goalMetric").value;
+    var payload={title:document.getElementById("goalTitle").value,goal_type:document.getElementById("goalType").value,metric_key:metric||null,start_date:document.getElementById("goalStart").value||null,target_date:document.getElementById("goalDeadline").value||null,baseline_value:document.getElementById("goalBaseline").value===""?null:Number(document.getElementById("goalBaseline").value),target_value:document.getElementById("goalTarget").value===""?null:Number(document.getElementById("goalTarget").value),metadata:{exercise_key:document.getElementById("goalExercise").value.trim()}};
+    var response=await fetch(id?"/app/goals/"+encodeURIComponent(id):"/app/goals",{method:id?"PATCH":"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    var body=await response.json(); if(!response.ok){showEvolveGoalError(body.detail||"Nie udało się zapisać celu");return;} closeEvolveGoalForm(); loadEvolveGoals();
+  };
+  function showEvolveGoalError(message){var s=document.getElementById("goalsStatus");if(s){s.className="alert alert-warn";s.textContent="⚠️ "+message;}}
+  async function goalFetch(path, options){var token=localStorage.getItem("fitai_token");if(!token) throw new Error("Zaloguj się, aby zarządzać celami.");var response=await fetch(path,Object.assign({headers:{"Authorization":"Bearer "+token},cache:"no-store"},options||{}));var body=await response.json();if(!response.ok)throw new Error(body.detail||"Nie udało się pobrać danych celów.");return body;}
+  window.loadEvolveGoals = async function(){
+    injectGoalsShell(); var id=++goalsLoadSequence; var list=document.getElementById("goalsList"), summary=document.getElementById("goalsSummary"), status=document.getElementById("goalsStatus");
+    if(!list)return; if(status){status.className="alert alert-hidden";status.textContent="";} list.innerHTML='<div class="spinner"></div>';
+    try{
+      var data=await goalFetch("/app/goals"); if(id!==goalsLoadSequence)return;
+      var goals=data.goals||[], active=goals.filter(function(g){return g.status==="active";}), done=goals.filter(function(g){return g.status==="completed";});
+      summary.innerHTML=progressMetricCard("AKTYWNE",active.length,"cele") + progressMetricCard("UKOŃCZONE",done.length,"cele") + progressMetricCard("Z TERMINEM",active.filter(function(g){return g.target_date;}).length,"aktywne") + progressMetricCard("MIERZALNE",active.filter(function(g){return g.metric_key;}).length,"aktywne");
+      var progress=await Promise.all(active.map(function(g){return goalFetch("/app/goals/"+encodeURIComponent(g.id)+"/progress").catch(function(){return null;});}));
+      list.innerHTML=(active.concat(done)).map(function(g){var p=progress[active.indexOf(g)];return goalCard(g,p);}).join("") || '<div class="card" style="padding:28px;text-align:center;color:var(--muted);">Brak celów. Utwórz pierwszy cel, aby rozpocząć.</div>';
+    }catch(e){showEvolveGoalError(e.message);list.innerHTML='<div class="card" style="padding:28px;text-align:center;color:var(--muted);">Nie udało się załadować celów.</div>';}
+  };
+  window.loadEvolveGoalDetail = async function(id){
+    var detail=document.getElementById("goalDetail");if(!detail)return;detail.innerHTML='<div class="spinner"></div>';
+    try{var g=await goalFetch("/app/goals/"+encodeURIComponent(id)),p=await goalFetch("/app/goals/"+encodeURIComponent(id)+"/progress");
+      detail.innerHTML='<div class="card" style="padding:20px;"><div class="sec-head"><div><div style="font-weight:700;font-size:18px;">'+goalEscape(g.title)+'</div><div style="font-size:12px;color:var(--muted);">'+goalStatusLabel(g.status)+' · '+goalEscape(g.description||"")+'</div></div><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'goalDetail\').innerHTML=\'\'">Zamknij</button></div><div style="margin-top:14px;">Aktualnie: <b>'+goalEscape(p.current_value==null?"—":p.current_value)+'</b> · Cel: <b>'+goalEscape(p.target_value==null?"—":p.target_value)+'</b> · Postęp: <b>'+goalEscape(p.progress_pct==null?"—":p.progress_pct+"%")+'</b></div><div style="margin-top:8px;color:var(--muted);">Trend: '+goalEscape(p.trend||"—")+' · Ostatnia aktualizacja: '+goalEscape(p.last_updated||"—")+' · Termin: '+goalEscape(p.deadline||"—")+'</div></div>';
+      detail.scrollIntoView({behavior:"smooth",block:"nearest"});
+    }catch(e){detail.innerHTML='<div class="alert alert-warn">'+goalEscape(e.message)+'</div>';}
+  };
+  window.updateEvolveGoalStatus = async function(id,status){try{await goalFetch("/app/goals/"+encodeURIComponent(id),{method:"PATCH",headers:{"Authorization":"Bearer "+localStorage.getItem("fitai_token"),"Content-Type":"application/json"},body:JSON.stringify({status:status})});loadEvolveGoals();}catch(e){showEvolveGoalError(e.message);}};
+  window.archiveEvolveGoal = async function(id){if(!confirm("Zarchiwizować ten cel?"))return;try{await goalFetch("/app/goals/"+encodeURIComponent(id),{method:"DELETE"});loadEvolveGoals();}catch(e){showEvolveGoalError(e.message);}};
+
   function injectProgressShell() {
     if (document.getElementById("progressSummary")) return;
     var content = document.querySelector(".content");
@@ -444,6 +542,8 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
         window.loadEvolveMyDay();
       } else if (tab === "progress") {
         window.loadEvolveProgress();
+      } else if (tab === "goals") {
+        window.loadEvolveGoals();
       }
       return result;
     };
@@ -452,7 +552,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 
   function installHashRouting() {
     var raw = window.location.hash.replace("#", "");
-    if (raw === "my-day" || raw === "training" || raw === "basketball" || raw === "diet" || raw === "recovery" || raw === "progress" || raw === "profile" || raw === "home") {
+    if (raw === "my-day" || raw === "training" || raw === "basketball" || raw === "diet" || raw === "recovery" || raw === "progress" || raw === "goals" || raw === "profile" || raw === "home") {
       if (typeof showTab === "function") showTab(raw);
     }
   }
@@ -460,6 +560,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
   document.addEventListener("DOMContentLoaded", function () {
     injectMyDayShell();
     injectProgressShell();
+    injectGoalsShell();
     installMyDayRoutingHook();
     installHashRouting();
   });
