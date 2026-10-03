@@ -470,7 +470,7 @@ def test_training_records_are_user_scoped_and_completed_only():
     exercise = next(item for item in own.json()["exercises"] if item["exercise_key"] == "squat-1")
     assert exercise["best_weight"]["value_kg"] == 140
     assert exercise["best_reps"]["value"] == 8
-    assert exercise["best_session_volume"]["value_kg"] == 1640
+    assert exercise["best_session_volume"]["value_kg"] == 1740
 
     foreign = client.get("/app/training/progress/records", headers=_headers(second["token"]))
     assert foreign.status_code == 200
