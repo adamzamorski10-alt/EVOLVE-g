@@ -352,3 +352,41 @@ Implementation may continue to subsequent stages while these checks remain pendi
   - logout clears the usable authenticated session
 - Evidence required: exact test data, screenshots/network evidence where useful, PASS/FAIL for every module, and exact commands/exit codes for API/runtime checks.
 - Do not mark PASS from static inspection alone.
+
+
+## EV-019 — Stage 0–5 full integration / release gate
+
+- Status: PENDING
+- Owner: Antygravity + local test runner
+- Purpose: verify the complete deterministic product loop on a clean runtime before Stage 6.
+- Required flow:
+  1. Register/login
+  2. Complete Profile
+  3. Complete Assessment
+  4. Generate/readiness-check a plan
+  5. Open Mój dzień and confirm the plan is represented there
+  6. Start training
+  7. Log, edit and re-save sets
+  8. Complete training
+  9. Confirm the result appears exactly once in Progress/History/Records
+  10. Create a Goal tied to a supported metric
+  11. Confirm Goal Progress reflects the completed training
+  12. Add Nutrition entries
+  13. Confirm Today → Adherence → Response
+  14. Build sufficient evidence and confirm bounded Adaptation preview
+  15. Apply adaptation once and confirm audit + updated target
+  16. Repeat/refresh all relevant screens and verify deterministic state
+- Negative checks:
+  - malformed IDs and payloads
+  - missing/invalid auth
+  - cross-user direct-ID access
+  - repeated clicks/submissions
+  - incomplete/cancelled sessions excluded from analytics
+  - preview endpoints are non-mutating
+  - concurrent updates do not overwrite newer state
+- Evidence required:
+  - clean runtime/migration output
+  - exact automated test command + exit code
+  - browser screenshots or equivalent evidence for each native domain
+  - final list of discovered defects and their disposition
+- Gate rule: EV-019 remains PENDING until the complete flow has been executed externally. Static inspection and repository tests alone are insufficient.
