@@ -57,7 +57,7 @@ def test_goal_model_is_user_owned_and_lifecycle_is_deterministic():
 
         assert goal.user_id == first.id
         assert goal.status == "active"
-        assert goal.metadata() == {"metric": "best_weight_kg"}
+        assert goal.metadata_dict() == {"metric": "best_weight_kg"}
         assert get_goal_for_user(db, first, goal.id) is not None
         assert get_goal_for_user(db, second, goal.id) is None
         assert list_goals_for_user(db, second) == []
