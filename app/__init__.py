@@ -586,8 +586,8 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 })();
 </script>"""
 
-    if 'id="evolve-my-day-shell-integration"' not in html:
-        html = html.replace("<script id="evolve-nutrition-shell-integration">
+    nutrition_shell_integration = """<script id="evolve-nutrition-shell-integration">
+
 (function () {
   function nutritionEscape(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
@@ -728,7 +728,10 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
   };
 })();
 </script>
-</body>", evolve_shell_integration + "</body>", 1)
+
+</script>"""
+    if 'id="evolve-nutrition-shell-integration"' not in html:
+        html = html.replace("</body>", nutrition_shell_integration + "</body>", 1)
 
     if 'id="evolve-dashboard-first-style"' not in html:
         html = html.replace("</head>", dashboard_first_bootstrap + "</head>", 1)
