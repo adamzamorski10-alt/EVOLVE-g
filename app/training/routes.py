@@ -919,6 +919,7 @@ def _build_adaptive_plan(user_id: str, session: Session) -> tuple[dict, list[str
         adapted = latest.planned_snapshot()
     adapted["exercises"] = next_exercises
     adapted["_evolve_adaptation"] = {
+        "base_plan_fingerprint": _plan_fingerprint(plan),
         "source_session_ids": source_ids,
         "source_day": target_day.isoformat(),
         "summary": summary,
