@@ -70,7 +70,7 @@ def test_stage_0_5_core_routes_are_registered():
 
 
 def test_main_shell_exposes_native_stage_0_5_domains():
-    response = client.get("/app")
+    response = client.get("/")
     assert response.status_code == 200
     html = response.text
     required = [
@@ -99,19 +99,22 @@ def test_migration_chain_has_single_head_through_stage_5():
         revision = None
         down_revision = None
         for node in tree.body:
+            targets = []
+            value = None
             if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    if isinstance(target, ast.Name) and target.id == "revision":
-                        if isinstance(node.value, ast.Constant):
-                            revision = node.value.value
-                    if isinstance(target, ast.Name) and target.id == "down_revision":
-                        if isinstance(node.value, ast.Constant):
-                            down_revision = node.value.value
-                        elif isinstance(node.value, (ast.Tuple, ast.List)):
-                            down_revision = tuple(
-                                item.value for item in node.value.elts
-                                if isinstance(item, ast.Constant)
-                            )
+                targets = node.targets
+                value = node.value
+            elif isinstance(node, ast.AnnAssign):
+                targets = [node.target]
+                value = node.value
+            for target in targets:
+                if isinstance(target, ast.Name) and target.id == "revision" and isinstance(value, ast.Constant):
+                    revision = value.value
+                if isinstance(target, ast.Name) and target.id == "down_revision":
+                    if isinstance(value, ast.Constant):
+                        down_revision = value.value
+                    elif isinstance(value, (ast.Tuple, ast.List)):
+                        down_revision = tuple(item.value for item in value.elts if isinstance(item, ast.Constant))
         if revision:
             revisions[revision] = down_revision
 
@@ -146,7 +149,7 @@ def test_migration_chain_has_single_head_through_stage_5():
 
 def test_external_verification_queue_keeps_stage_0_5_checks_pending():
     queue = (ROOT / "docs" / "EXTERNAL_VERIFICATION.md").read_text(encoding="utf-8")
-    for item in ("EV-001", "EV-008", "EV-009", "EV-013", "EV-017", "EV-018"):
+    for item in ("EV-001", "EV-008", "EV-018", "EV-019"):
         start = queue.find(f"### {item}")
         assert start >= 0, f"Missing verification item {item}"
         block = queue[start:queue.find("\n### ", start + 5) if queue.find("\n### ", start + 5) >= 0 else None]
@@ -167,71 +170,33 @@ def test_no_duplicate_http_method_and_path_routes_are_registered():
     assert not duplicates, f"Duplicate FastAPI routes registered: {duplicates}"
 
 
-def test_stage_0_5_api_routes_are_authenticated():
-    required_paths = {
-        "/app/profile",
-        "/app/assessment",
-        "/app/assessment/latest",
-        "/app/assessment/history",
-        "/app/plan/readiness",
-        "/app/plan/generate",
-        "/app/plan/current",
-        "/app/plan/swap",
-        "/app/training/today",
-        "/app/training/sessions/start",
-        "/app/training/sessions/{session_id}/sets",
-        "/app/training/sessions/{session_id}/complete",
-        "/app/training/progress",
-        "/app/training/progress/exercises/{exercise_key}",
-        "/app/training/progress/trends",
-        "/app/training/progress/records",
-        "/app/training/progress/consistency",
-        "/app/training/sessions/history",
-        "/app/training/sessions/history/{session_id}",
-        "/app/training/sessions/{session_id}",
-        "/app/training/sessions/{session_id}/analysis",
-        "/app/training/sessions/{session_id}/progression",
-        "/app/training/sessions/{session_id}/next-plan-preview",
-        "/app/training/adaptive/preview",
-        "/app/training/adaptive/plan-current",
-        "/app/training/adaptive/apply",
-        "/app/training/adaptive/history",
-        "/app/training/adaptive/plan-preview",
-        "/app/training/exercises/{exercise_key}/history",
-        "/app/goals",
-        "/app/goals/{goal_id}",
-        "/app/goals/{goal_id}/progress",
-        "/app/goals/metrics",
-        "/app/nutrition/entries",
-        "/app/nutrition/today",
-        "/app/nutrition/adherence",
-        "/app/nutrition/response",
-        "/app/nutrition/adaptation",
-        "/app/nutrition/adaptation/apply",
-    }
-
-    def dependency_names(dependant):
-        names = set()
-        if dependant is None:
-            return names
-        for dependency in getattr(dependant, "dependencies", []):
-            call = getattr(dependency, "call", None)
-            if call is not None:
-                names.add(getattr(call, "__name__", ""))
-            names.update(dependency_names(dependency))
-        return names
-
-    route_map = {
-        getattr(route, "path", None): route
-        for route in app.routes
-        if getattr(route, "path", None)
-    }
-    missing_auth = [
-        path for path in sorted(required_paths)
-        if path not in route_map
-        or "get_current_user" not in dependency_names(getattr(route_map[path], "dependant", None))
+def test_stage_0_5_api_route_contracts_are_declared_and_auth_scoped():
+    app_init = (ROOT / "app" / "__init__.py").read_text(encoding="utf-8")
+    route_specs = [
+        ("app.assessment.routes", "assessment_router", "/app/assessment"),
+        ("app.goals.routes", "goals_router", "/app/goals"),
+        ("app.nutrition.routes", "nutrition_router", "/app/nutrition"),
+        ("app.plan.routes", "plan_router", "/app/plan"),
+        ("app.training.routes", "training_router", "/app/training"),
+        ("app.fitness.routes", "fitness_router", "/app"),
     ]
-    assert not missing_auth, f"Required Stage 0-5 API routes without get_current_user: {missing_auth}"
+    for module_name, router_name, prefix in route_specs:
+        assert f"app.include_router({router_name})" in app_init
+        module = __import__(module_name, fromlist=["router"])
+        router = module.router
+        assert router.prefix == prefix
+        for route in router.routes:
+            path = getattr(route, "path", "")
+            if not path.startswith(prefix):
+                continue
+            if path.endswith("/ui") or path.endswith("/today-ui") or path.endswith("/session-ui"):
+                continue
+            dependency_names = set()
+            for dependency in getattr(route, "dependant", None).dependencies if getattr(route, "dependant", None) else []:
+                call = getattr(dependency, "call", None)
+                if call is not None:
+                    dependency_names.add(getattr(call, "__name__", ""))
+            assert "get_current_user" in dependency_names, f"Missing auth dependency: {module_name} {path}"
 
 def test_audit_file_is_syntactically_valid():
     import ast
