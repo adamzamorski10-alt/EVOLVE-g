@@ -7,10 +7,10 @@
   <link rel="manifest" href="./manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="FitAI">
+  <meta name="apple-mobile-web-app-title" content="EVOLVE">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <meta name="theme-color" content="#0a0b10">
-  <title>FitAI — Ultimate SaaS Platform</title>
+  <title>EVOLVE — Personal Performance System</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
@@ -1868,53 +1868,19 @@
     <aside id="sidebar"
       class="hidden md:flex w-64 glass-sidebar p-6 border-r fixed top-16 h-[calc(100vh-64px)] flex-col gap-6 overflow-y-auto z-40"
       style="border-color:var(--border);">
-      <nav class="space-y-1 flex-1">
+      <nav class="space-y-1 flex-1" aria-label="Główna nawigacja">
         <p class="px-3 py-1 text-xs font-bold text-gray-600 uppercase tracking-wider">Menu</p>
-        <a href="#" onclick="showTab('home');return false;" data-tab="home"
-          class="nav-item active flex items-center gap-3 p-3 text-sm font-medium text-cyan-400"><span>🏠</span><span>Home</span></a>
-        <a href="#" onclick="showTab('my-day');return false;" data-tab="my-day"
-          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>📋</span><span>Mój
-            Dzień</span></a>
-        <a href="/app/training/today-ui"
-          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white">
-          <span>🎯</span><span>Today</span>
-        </a>
-
-        <!-- Plan z podzakładkami -->
-        <div class="plan-submenu">
-          <a href="#" onclick="togglePlanSubmenu();return false;"
-            class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white">
-            <span>📅</span><span>Plan</span>
-            <span class="ml-auto text-xs transition-transform" id="planSubmenuArrow">▼</span>
-          </a>
-          <div class="plan-subitems" id="planSubitems">
-            <a href="#" onclick="switchPlanCategoryFromMenu('dieta');return false;"
-              class="nav-subitem flex items-center gap-3 pl-8 pr-3 py-2 text-sm font-medium text-gray-400 hover:text-cyan-400">
-              <span>🥗</span><span>Dieta</span>
-            </a>
-            <a href="#" onclick="switchPlanCategoryFromMenu('trening');return false;"
-              class="nav-subitem flex items-center gap-3 pl-8 pr-3 py-2 text-sm font-medium text-gray-400 hover:text-cyan-400">
-              <span>💪</span><span>Trening</span>
-            </a>
-            <a href="#" onclick="switchPlanCategoryFromMenu('sport');return false;"
-              class="nav-subitem flex items-center gap-3 pl-8 pr-3 py-2 text-sm font-medium text-gray-400 hover:text-cyan-400">
-              <span>⚽</span><span>Sport</span>
-            </a>
-          </div>
-        </div>
-
-        <a href="#" onclick="showTab('postepy');return false;" data-tab="postepy"
-          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>📈</span><span>Postępy</span></a>
-        <a href="#" onclick="showTab('profile');return false;" data-tab="profile"
-          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>👤</span><span>Profil</span></a>
-        <a href="#" onclick="showTab('contact');return false;" data-tab="contact"
-          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>💬</span><span>Kontakt</span></a>
-        <a href="#"
-          onclick="showTab('plan'); switchPlanCategory('dieta'); setTimeout(() => switchPlanSubTab('dieta', 'kuchnia'), 50);return false;"
-          data-tab="kuchnia"
-          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🤖</span><span>Kuchnia
-            AI</span></a>
-      </nav>
+        <a href="#" onclick="showTab('home');return false;" data-tab="home" class="nav-item active flex items-center gap-3 p-3 text-sm font-medium text-cyan-400"><span>🏠</span><span>Home</span></a>
+        <a href="/app/training/today-ui" data-tab="my-day" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Dzisiejszy plan, wykonanie i zadania"><span>🎯</span><span>Mój dzień</span></a>
+        <a href="#" onclick="showTab('plan'); switchPlanCategory('trening'); return false;" data-tab="training" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🏋️</span><span>Trening</span></a>
+        <a href="#" onclick="showTab('plan'); switchPlanCategory('sport'); return false;" data-tab="basketball" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🏀</span><span>Koszykówka</span></a>
+        <a href="#" onclick="showTab('plan'); switchPlanCategory('dieta'); return false;" data-tab="diet" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🥗</span><span>Dieta</span></a>
+        <a href="#" onclick="showTab('recovery'); return false;" data-tab="recovery" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>😴</span><span>Recovery</span></a>
+        <a href="#" onclick="showTab('postepy'); return false;" data-tab="postepy" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>📈</span><span>Postępy</span></a>
+        <a href="#" onclick="showTab('profile'); return false;" data-tab="profile" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>👤</span><span>Profil</span></a>
+        <a href="#" onclick="showTab('contact'); return false;" data-tab="contact" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>💬</span><span>Kontakt</span></a>
+        <a href="#" onclick="showTab('plan'); switchPlanCategory('dieta'); setTimeout(() => switchPlanSubTab('dieta', 'kuchnia'), 50); return false;" data-tab="kuchnia" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🤖</span><span>Kuchnia AI</span></a>
+      /nav>
       <div class="glass rounded-2xl p-4">
         <p class="text-xs font-bold text-gray-500 uppercase mb-3">Twój Fundament</p>
         <div class="space-y-2 text-xs">
@@ -4697,6 +4663,25 @@
       </section>
 
       <!-- ====== TAB: KUCHNIA AI ====== -->
+      <!-- ====== TAB: RECOVERY ====== -->
+      <section id="tab-recovery" class="hidden space-y-6" data-domain="recovery">
+        <div class="glass rounded-3xl p-6 md:p-8">
+          <p class="text-xs font-bold uppercase tracking-[0.18em] mb-2" style="color:var(--cyan);">Daily state</p>
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h3 class="text-3xl font-extrabold text-white" style="font-family:'Syne',sans-serif;">Recovery 😴</h3>
+              <p class="text-sm text-gray-400 mt-2 max-w-2xl">Centrum regeneracji EVOLVE. Docelowo tutaj będą sen, zmęczenie, soreness, stres, readiness oraz trendy, które wpływają na decyzje treningowe.</p>
+            </div>
+            <a href="/app/training/today-ui" class="btn-neon px-5 py-3 rounded-xl text-sm font-bold no-underline">Otwórz Mój dzień →</a>
+          </div>
+        </div>
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="glass rounded-2xl p-5"><p class="text-xs text-gray-500 uppercase tracking-wider">Sen</p><p class="text-2xl font-bold text-white mt-2">—</p><p class="text-xs text-gray-500 mt-1">Źródło danych zostanie podłączone w kolejnym etapie.</p></div>
+          <div class="glass rounded-2xl p-5"><p class="text-xs text-gray-500 uppercase tracking-wider">Gotowość</p><p class="text-2xl font-bold text-white mt-2">—</p><p class="text-xs text-gray-500 mt-1">Będzie zasilać Decision Engine.</p></div>
+          <div class="glass rounded-2xl p-5"><p class="text-xs text-gray-500 uppercase tracking-wider">Trend</p><p class="text-2xl font-bold text-white mt-2">—</p><p class="text-xs text-gray-500 mt-1">Historia pojawi się po wdrożeniu domeny Recovery.</p></div>
+        </div>
+      </section>
+
       <!-- ====== TAB: POSTĘPY ====== -->
       <section id="tab-postepy" class="hidden space-y-6">
 
