@@ -20,14 +20,13 @@ client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def _disable_registration_rate_limit():
-    # Registration is intentionally rate-limited in production. This focused
-    # suite isolates tests from that production throttle.
-    previous = auth_routes.limiter.enabled
-    auth_routes.limiter.enabled = False
+def _isolate_training_data():
+    with Session(engine) as db:
+        db.query(TrainingSetResultDB).delete()
+        db.query(ExerciseResultDB).delete()
+        db.query(TrainingSessionDB).delete()
+        db.commit()
     yield
-    auth_routes.limiter.enabled = previous
-
 
 def _context():
     email = f"training-{uuid.uuid4().hex[:10]}@example.com"
