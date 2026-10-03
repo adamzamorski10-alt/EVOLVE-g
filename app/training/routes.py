@@ -12,7 +12,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy.exc import SQLAlchemyError
-from sqlmodel import Session, select
+from sqlmodel import Session, select, update
 
 from app.auth.dependencies import get_current_user
 from app.database import get_session
@@ -1295,6 +1295,31 @@ def complete_training_session(
     if row.status != "active":
         raise HTTPException(status_code=409, detail="Sesja nie jest aktywna")
 
+    # Claim completion atomically so two concurrent complete requests cannot
+    # both create downstream ExerciseResult rows.
+    claimed = session.exec(
+        update(TrainingSessionDB)
+        .where(TrainingSessionDB.id == row.id)
+        .where(TrainingSessionDB.user_id == user.id)
+        .where(TrainingSessionDB.status == "active")
+        .values(
+            status="completed",
+            completed_at=datetime.now(),
+            final_rpe=payload.final_rpe,
+            notes=payload.notes,
+            updated_at=datetime.now(),
+        )
+    ).rowcount
+    if claimed != 1:
+        session.rollback()
+        refreshed = _owned_session(session, user, session_id)
+        if refreshed.status == "completed":
+            sets = list(session.exec(select(TrainingSetResultDB).where(TrainingSetResultDB.session_id == refreshed.id)).all())
+            return {"status": "already_completed", "session": _serialize_session(refreshed, sets)}
+        raise HTTPException(status_code=409, detail="Sesja nie jest aktywna")
+
+    row = _owned_session(session, user, session_id)
+
     sets = list(
         session.exec(
             select(TrainingSetResultDB)
@@ -1305,13 +1330,6 @@ def complete_training_session(
     )
     if not sets:
         raise HTTPException(status_code=422, detail="Nie można zakończyć pustej sesji")
-
-    row.status = "completed"
-    row.completed_at = datetime.now()
-    row.final_rpe = payload.final_rpe
-    row.notes = payload.notes
-    row.updated_at = datetime.now()
-    session.add(row)
 
     by_exercise: dict[str, list[TrainingSetResultDB]] = {}
     for item in sets:
