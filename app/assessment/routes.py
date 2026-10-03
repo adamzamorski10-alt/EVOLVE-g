@@ -141,3 +141,16 @@ document.getElementById("f").addEventListener("submit",async e=>{e.preventDefaul
 });
 load();
 </script></main></body></html>""")
+
+
+@router.get("/history")
+def get_assessment_history(
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    rows = session.exec(
+        select(AssessmentDB)
+        .where(AssessmentDB.user_id == user.id)
+        .order_by(AssessmentDB.assessment_version.desc(), AssessmentDB.created_at.desc())
+    ).all()
+    return {"count": len(rows), "assessments": [_serialize(row) for row in rows]}
