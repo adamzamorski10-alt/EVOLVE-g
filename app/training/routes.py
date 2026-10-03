@@ -1607,22 +1607,23 @@ def training_session_ui():
 <script>
 const token=localStorage.getItem('fitai_token');
 const headers=token?{'Authorization':'Bearer '+token,'Content-Type':'application/json'}:{};
+const statusEl=document.getElementById('status'),progressEl=document.getElementById('progress'),workoutEl=document.getElementById('workout'),completeEl=document.getElementById('complete');
 let current=null, saving=false;
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-function setStatus(t,type=''){status.textContent=t;status.className='status '+type}
+function setStatus(t,type=''){statusEl.textContent=t;statusEl.className='status '+type}
 async function api(url,opts={}){return fetch(url,{...opts,headers:{...headers,...(opts.headers||{})},cache:'no-store'})}
 function completedCount(){return (current?.sets||[]).filter(x=>x.completed).length}
 function plannedCount(){return (current?.planned?.exercises||[]).reduce((n,x)=>n+Math.max(0,Number(x.sets||0)),0)}
 function renderProgress(){
  const done=completedCount(), total=plannedCount(), pct=total?Math.round(done/total*100):0;
- progress.innerHTML='<div class="progress-row"><span>Wykonanie</span><span>'+done+' / '+total+' serii · '+pct+'%</span></div><div class="bar"><i style="width:'+pct+'%"></i></div><div class="meta">'+(current?.status==='active'?'Sesja jest zapisana na serwerze. Możesz odświeżyć stronę i wznowić.':'Sesja ukończona.')+'</div>';
- complete.disabled=current?.status!=='active'||done===0||saving;
+ progressEl.innerHTML='<div class="progress-row"><span>Wykonanie</span><span>'+done+' / '+total+' serii · '+pct+'%</span></div><div class="bar"><i style="width:'+pct+'%"></i></div><div class="meta">'+(current?.status==='active'?'Sesja jest zapisana na serwerze. Możesz odświeżyć stronę i wznowić.':'Sesja ukończona.')+'</div>';
+ completeEl.disabled=current?.status!=='active'||done===0||saving;
 }
 function render(){
  if(!current)return;
  setStatus(current.status==='completed'?'Trening ukończony.':'Aktywna sesja · zapisuj serię po jej wykonaniu.',current.status==='completed'?'success':'');
  const exercises=current.planned?.exercises||[];
- workout.innerHTML=exercises.length?exercises.map((ex,ei)=>{
+ workoutEl.innerHTML=exercises.length?exercises.map((ex,ei)=>{
   const logged=(current.sets||[]).filter(s=>s.exercise_key===ex.exercise_key);
   const done=logged.filter(s=>s.completed).length;
   return '<section class="exercise '+(done<Number(ex.sets||0)?'active':'')+'"><div class="head"><div><div class="title">'+(ei+1)+'. '+esc(ex.exercise_name)+'</div><div class="target">Cel: '+ex.sets+' × '+ex.reps+(ex.weight_kg?' · '+ex.weight_kg+' kg':'')+(ex.rpe?' · RPE '+ex.rpe:'')+'</div></div><span class="tag">'+done+'/'+ex.sets+' serie</span></div><div class="sets">'+Array.from({length:Math.max(0,Number(ex.sets||0))},(_,i)=>{
@@ -1654,7 +1655,7 @@ async function logSet(encodedKey,n,button){
   setStatus('Seria '+n+' zapisana.','success');render();
  }catch(e){setStatus(e.message,'error')}finally{saving=false;renderProgress()}
 }
-complete.onclick=async()=>{
+completeEl.onclick=async()=>{
  if(!current||current.status!=='active'||completedCount()===0)return;
  const raw=prompt('Końcowe RPE treningu (1–10):');
  if(raw===null)return;
@@ -1665,16 +1666,16 @@ complete.onclick=async()=>{
   const r=await api('/app/training/sessions/'+encodeURIComponent(current.id)+'/complete',{method:'POST',body:JSON.stringify({final_rpe:finalRpe})});
   const d=await r.json();if(!r.ok)throw new Error(d.detail||'Nie udało się zakończyć treningu.');
   current=d.session;render();setStatus('Trening zapisany. Dane są już dostępne w Postępach.','success');
-  complete.textContent='Przejdź do Postępów →';complete.onclick=()=>location.href='/app#progress';complete.disabled=false;
+  completeEl.textContent='Przejdź do Postępów →';completeEl.onclick=()=>location.href='/app#progress';completeEl.disabled=false;
  }catch(e){setStatus(e.message,'error');saving=false;renderProgress()}
 }
 async function startOrResume(){
- if(!token){setStatus('Zaloguj się w EVOLVE, aby rozpocząć trening.','error');workout.innerHTML='<div class="progress-card empty">Brak aktywnej sesji użytkownika.</div>';return}
+ if(!token){setStatus('Zaloguj się w EVOLVE, aby rozpocząć trening.','error');workoutEl.innerHTML='<div class="progress-card empty">Brak aktywnej sesji użytkownika.</div>';return}
  try{
   const r=await api('/app/training/sessions/start',{method:'POST'}),d=await r.json();
   if(!r.ok)throw new Error(d.detail||'Nie udało się rozpocząć treningu.');
   current=d.session;setStatus(d.status==='resumed'?'Wznowiono aktywną sesję.':'Rozpoczęto nową sesję.','success');render();
- }catch(e){setStatus(e.message,'error');workout.innerHTML='<div class="progress-card empty">Nie udało się załadować treningu. Wróć do Mój dzień i spróbuj ponownie.</div>'}
+ }catch(e){setStatus(e.message,'error');workoutEl.innerHTML='<div class="progress-card empty">Nie udało się załadować treningu. Wróć do Mój dzień i spróbuj ponownie.</div>'}
 }
 startOrResume();
 </script></body></html>""")
@@ -1714,17 +1715,17 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&
 const decisionLabel=d=>({progress:'progres',maintain:'utrzymaj',reduce:'zmniejsz',insufficient_data:'brak danych'}[d]||d);
 const trendLabel=d=>({up:'↗ trend wzrostowy',down:'↘ trend spadkowy',stable:'→ stabilnie',new_baseline:'nowa baza',insufficient_data:'za mało danych'}[d]||d);
 async function load(){
- if(!token){status.textContent='Zaloguj się w głównym EVOLVE, aby zobaczyć swoje dane.';return}
+ if(!token){statusEl.textContent='Zaloguj się w głównym EVOLVE, aby zobaczyć swoje dane.';return}
  try{
   const [p,a,h]=await Promise.all([
    fetch('/app/training/progress?limit=12',{headers}),
    fetch('/app/training/adaptive/preview',{headers}),
    fetch('/app/training/sessions/history?limit=8',{headers})
   ]);
-  if([p,a,h].some(r=>r.status===401||r.status===403)){status.textContent='Sesja logowania wygasła. Wróć do EVOLVE i zaloguj się ponownie.';return}
+  if([p,a,h].some(r=>r.status===401||r.status===403)){statusEl.textContent='Sesja logowania wygasła. Wróć do EVOLVE i zaloguj się ponownie.';return}
   const prog=await p.json(), d=await a.json(), hist=await h.json();
-  if(!prog.period_sessions){status.textContent='Brak ukończonych treningów. Ukończ pierwszy trening, aby uruchomić historię i analizę.';return}
-  status.textContent=d.message+' Dane podsumowania pochodzą z ukończonych serii.';
+  if(!prog.period_sessions){statusEl.textContent='Brak ukończonych treningów. Ukończ pierwszy trening, aby uruchomić historię i analizę.';return}
+  statusEl.textContent=d.message+' Dane podsumowania pochodzą z ukończonych serii.';
   const progress=d.exercises.filter(e=>e.decision==='progress').length;
   const reduce=d.exercises.filter(e=>e.decision==='reduce').length;
   summary.innerHTML='<div class="card"><div class="label">Sesje</div><div class="value">'+prog.period_sessions+'</div></div>'+
@@ -1742,7 +1743,7 @@ async function load(){
   history.innerHTML='<table class="history"><thead><tr><th>Data</th><th>RPE</th><th>Serie</th><th>Ukończenie</th><th>Ćwiczenia</th></tr></thead><tbody>'+
    (hist.sessions||[]).map(x=>'<tr><td>'+esc(x.session_date)+'</td><td>'+(x.final_rpe??'—')+'</td><td>'+x.completed_sets+'/'+x.planned_sets+'</td><td>'+x.completion_pct+'%</td><td>'+esc((x.exercises||[]).join(', '))+'</td></tr>').join('')+
    '</tbody></table>';
- }catch(e){status.textContent='Nie udało się pobrać danych treningowych.'}
+ }catch(e){statusEl.textContent='Nie udało się pobrać danych treningowych.'}
 }
 document.getElementById('apply').onclick=async()=>{
  if(!token){applyStatus.textContent='Zaloguj się ponownie.';return}
@@ -3077,7 +3078,7 @@ def training_session_ui():
 const token=localStorage.getItem('fitai_token'), headers=token?{'Authorization':'Bearer '+token,'Content-Type':'application/json'}:{};
 let current=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-function setStatus(t,ok=false){status.textContent=t;status.className=ok?'notice success':'notice'}
+function setStatus(t,ok=false){statusEl.textContent=t;statusEl.className=ok?'notice success':'notice'}
 async function api(url,opts={}){return fetch(url,{...opts,headers:{...headers,...(opts.headers||{})}})}
 async function start(){
  if(!token){setStatus('Zaloguj się w EVOLVE, aby rozpocząć trening.');return}
@@ -3089,7 +3090,7 @@ async function start(){
 }
 function render(){
  setStatus(current.status==='completed'?'Trening ukończony.':'Trening aktywny — zapisuj każdą serię po wykonaniu.',current.status==='completed');
- workout.innerHTML='<div class="card">'+(current.planned.exercises||[]).map(ex=>{
+ workoutEl.innerHTML='<div class="card">'+(current.planned.exercises||[]).map(ex=>{
   const logged=(current.sets||[]).filter(s=>s.exercise_key===ex.exercise_key);
   return '<div class="exercise"><div class="title">'+esc(ex.exercise_name)+'</div><div class="target">Plan: '+ex.sets+' × '+ex.reps+(ex.weight_kg?' · '+ex.weight_kg+' kg':'')+'</div><div class="sets">'+Array.from({length:ex.sets||1},(_,i)=>{
    const n=i+1, old=logged.find(s=>s.set_number===n);
@@ -3106,7 +3107,7 @@ async function logSet(key,n){
  const d=await r.json(); if(!r.ok){setStatus(d.detail||'Nie udało się zapisać serii.');return}
  const existing=current.sets.findIndex(x=>x.exercise_key===key&&x.set_number===n); if(existing>=0) current.sets[existing]=d.set; else current.sets.push(d.set); render();
 }
-complete.onclick=async()=>{
+completeEl.onclick=async()=>{
  const rpe=Number(prompt('Końcowe RPE treningu (1–10):')||0); if(!rpe)return;
  const r=await api('/app/training/sessions/'+current.id+'/complete',{method:'POST',body:JSON.stringify({final_rpe:rpe})});
  const d=await r.json(); if(!r.ok){setStatus(d.detail||'Nie udało się zakończyć treningu.');return}
@@ -3149,16 +3150,16 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&
 const decisionLabel=d=>({progress:'progres',maintain:'utrzymaj',reduce:'zmniejsz',insufficient_data:'brak danych'}[d]||d);
 const trendLabel=d=>({up:'↗ trend wzrostowy',down:'↘ trend spadkowy',stable:'→ stabilnie',new_baseline:'nowa baza',insufficient_data:'za mało danych'}[d]||d);
 async function load(){
- if(!token){status.textContent='Zaloguj się w głównym EVOLVE, aby zobaczyć swoje dane.';return}
+ if(!token){statusEl.textContent='Zaloguj się w głównym EVOLVE, aby zobaczyć swoje dane.';return}
  try{
   const [a,h]=await Promise.all([
    fetch('/app/training/adaptive/preview',{headers}),
    fetch('/app/training/sessions/history?limit=8',{headers})
   ]);
-  if([a,h].some(r=>r.status===401||r.status===403)){status.textContent='Sesja logowania wygasła. Wróć do EVOLVE i zaloguj się ponownie.';return}
+  if([a,h].some(r=>r.status===401||r.status===403)){statusEl.textContent='Sesja logowania wygasła. Wróć do EVOLVE i zaloguj się ponownie.';return}
   const d=await a.json(), hist=await h.json();
-  if(!d.has_data){status.textContent='Brak ukończonych treningów. Ukończ pierwszy trening, aby uruchomić analizę.';return}
-  status.textContent=d.message;
+  if(!d.has_data){statusEl.textContent='Brak ukończonych treningów. Ukończ pierwszy trening, aby uruchomić analizę.';return}
+  statusEl.textContent=d.message;
   const progress=d.exercises.filter(e=>e.decision==='progress').length;
   const reduce=d.exercises.filter(e=>e.decision==='reduce').length;
   summary.innerHTML='<div class="card"><div class="label">Sesje analizowane</div><div class="value">'+d.sessions_analyzed+'</div></div>'+
@@ -3176,7 +3177,7 @@ async function load(){
   history.innerHTML='<table class="history"><thead><tr><th>Data</th><th>RPE</th><th>Serie</th><th>Ukończenie</th><th>Ćwiczenia</th></tr></thead><tbody>'+
    (hist.sessions||[]).map(x=>'<tr><td>'+esc(x.session_date)+'</td><td>'+(x.final_rpe??'—')+'</td><td>'+x.completed_sets+'/'+x.planned_sets+'</td><td>'+x.completion_pct+'%</td><td>'+esc((x.exercises||[]).join(', '))+'</td></tr>').join('')+
    '</tbody></table>';
- }catch(e){status.textContent='Nie udało się pobrać danych treningowych.'}
+ }catch(e){statusEl.textContent='Nie udało się pobrać danych treningowych.'}
 }
 document.getElementById('apply').onclick=async()=>{
  if(!token){applyStatus.textContent='Zaloguj się ponownie.';return}
