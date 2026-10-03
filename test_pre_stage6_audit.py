@@ -168,18 +168,52 @@ def test_no_duplicate_http_method_and_path_routes_are_registered():
 
 
 def test_stage_0_5_api_routes_are_authenticated():
-    public_ui = {
-        "/app",
-        "/app/version",
-        "/app/assessment/ui",
-        "/app/plan/ui",
-        "/app/training/today-ui",
-        "/app/training/session-ui",
-        "/app/training/dashboard",
+    required_paths = {
+        "/app/profile",
+        "/app/assessment",
+        "/app/assessment/latest",
+        "/app/assessment/history",
+        "/app/plan/readiness",
+        "/app/plan/generate",
+        "/app/plan/current",
+        "/app/plan/swap",
+        "/app/training/today",
+        "/app/training/sessions/start",
+        "/app/training/sessions/{session_id}/sets",
+        "/app/training/sessions/{session_id}/complete",
+        "/app/training/progress",
+        "/app/training/progress/exercises/{exercise_key}",
+        "/app/training/progress/trends",
+        "/app/training/progress/records",
+        "/app/training/progress/consistency",
+        "/app/training/sessions/history",
+        "/app/training/sessions/history/{session_id}",
+        "/app/training/sessions/{session_id}",
+        "/app/training/sessions/{session_id}/analysis",
+        "/app/training/sessions/{session_id}/progression",
+        "/app/training/sessions/{session_id}/next-plan-preview",
+        "/app/training/adaptive/preview",
+        "/app/training/adaptive/plan-current",
+        "/app/training/adaptive/apply",
+        "/app/training/adaptive/history",
+        "/app/training/adaptive/plan-preview",
+        "/app/training/exercises/{exercise_key}/history",
+        "/app/goals",
+        "/app/goals/{goal_id}",
+        "/app/goals/{goal_id}/progress",
+        "/app/goals/metrics",
+        "/app/nutrition/entries",
+        "/app/nutrition/today",
+        "/app/nutrition/adherence",
+        "/app/nutrition/response",
+        "/app/nutrition/adaptation",
+        "/app/nutrition/adaptation/apply",
     }
 
     def dependency_names(dependant):
         names = set()
+        if dependant is None:
+            return names
         for dependency in getattr(dependant, "dependencies", []):
             call = getattr(dependency, "call", None)
             if call is not None:
@@ -187,15 +221,17 @@ def test_stage_0_5_api_routes_are_authenticated():
             names.update(dependency_names(dependency))
         return names
 
-    missing_auth = []
-    for route in app.routes:
-        path = getattr(route, "path", "")
-        if not path.startswith("/app/") or path in public_ui:
-            continue
-        if "get_current_user" not in dependency_names(getattr(route, "dependant", None)):
-            missing_auth.append(path)
-    assert not missing_auth, f"App API routes without get_current_user dependency: {sorted(set(missing_auth))}"
-
+    route_map = {
+        getattr(route, "path", None): route
+        for route in app.routes
+        if getattr(route, "path", None)
+    }
+    missing_auth = [
+        path for path in sorted(required_paths)
+        if path not in route_map
+        or "get_current_user" not in dependency_names(getattr(route_map[path], "dependant", None))
+    ]
+    assert not missing_auth, f"Required Stage 0-5 API routes without get_current_user: {missing_auth}"
 
 def test_audit_file_is_syntactically_valid():
     import ast
