@@ -379,6 +379,47 @@ class ExerciseResultDB(SQLModel, table=True):
             "logged_at": self.logged_at.isoformat(),
         }
 
+class GoalDB(SQLModel, table=True):
+    """User-owned goal definition used by the deterministic Goal layer.
+
+    Goal metrics and progress calculations are intentionally kept out of this
+    foundation model; Stage 3C owns metric semantics. This table stores the
+    goal identity and lifecycle only.
+    """
+    __tablename__ = "goals"
+
+    id: Optional[str] = Field(
+        default_factory=lambda: str(_uuid_mod.uuid4()),
+        primary_key=True,
+    )
+    user_id: str = Field(foreign_key="users.id", index=True)
+    goal_type: str = Field(index=True)
+    title: str
+    description: str = ""
+    status: str = Field(default="active", index=True)
+    start_date: date = Field(default_factory=date.today, index=True)
+    target_date: Optional[date] = Field(default=None, index=True)
+    completed_at: Optional[datetime] = None
+    archived_at: Optional[datetime] = None
+    priority: int = Field(default=0, ge=0, le=100)
+    metadata_json: str = "{}"
+    created_at: datetime = Field(default_factory=datetime.now, index=True)
+    updated_at: datetime = Field(default_factory=datetime.now, index=True)
+
+    user: "UserDB" = Relationship(
+        sa_relationship=relationship(
+            "UserDB",
+            lazy="select",
+        )
+    )
+
+    def metadata(self) -> dict:
+        try:
+            value = json.loads(self.metadata_json or "{}")
+            return value if isinstance(value, dict) else {}
+        except (TypeError, json.JSONDecodeError):
+            return {}
+
 class AdaptivePlanRevisionDB(SQLModel, table=True):
     """Audit trail for user-owned adaptive plan revisions."""
     __tablename__ = "adaptive_plan_revisions"
