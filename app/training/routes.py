@@ -1585,62 +1585,100 @@ def training_today_ui():
 
 @router.get("/session-ui", response_class=HTMLResponse)
 def training_session_ui():
-    """Browser UI for the deterministic PLAN -> START -> LOG -> COMPLETE loop."""
+    """Responsive execution UI for START -> EXECUTE -> SAVE SET -> COMPLETE."""
     return HTMLResponse("""<!doctype html>
 <html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>EVOLVE · Trening</title>
 <style>
-:root{color-scheme:dark;--bg:#090b12;--panel:#121722;--line:#242b3a;--text:#f4f6fb;--muted:#9aa4b5;--accent:#8b5cf6;--good:#34d399}
+:root{color-scheme:dark;--bg:#090b12;--panel:#121722;--panel2:#171d29;--line:#293142;--text:#f4f6fb;--muted:#9aa4b5;--accent:#8b5cf6;--good:#34d399;--warn:#fbbf24;--danger:#fb7185}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0%,#1b1530 0,#090b12 48%);font:15px Inter,system-ui,sans-serif;color:var(--text)}
-.wrap{max-width:900px;margin:auto;padding:30px 18px 60px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center}.top h1{margin:0;font-size:30px}.back{color:#fff;text-decoration:none;border:1px solid var(--line);padding:9px 12px;border-radius:10px}
-.notice{color:var(--muted);margin:12px 0 18px}.card{background:rgba(18,23,34,.94);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:14px}.exercise{border-top:1px solid var(--line);padding:16px 0}.exercise:first-child{border-top:0}.title{font-size:18px;font-weight:750}.target{color:var(--muted);margin:5px 0 12px}.sets{display:grid;gap:8px}.set{display:grid;grid-template-columns:55px 1fr 1fr 1fr auto;gap:8px;align-items:center}.set input{width:100%;padding:9px;background:#0d111a;border:1px solid var(--line);color:#fff;border-radius:8px}.set button,.primary{border:0;background:var(--accent);color:#fff;padding:9px 12px;border-radius:9px;font-weight:700;cursor:pointer}.set button.done{background:#173d30}.primary{margin-top:16px}.hidden{display:none}.success{color:var(--good)}@media(max-width:650px){.set{grid-template-columns:1fr 1fr 1fr}.set button{grid-column:1/-1}.set b{grid-column:1/-1}}
+.wrap{max-width:980px;margin:auto;padding:24px 16px 70px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center}.top h1{margin:0;font-size:28px}.back,.btn{color:#fff;text-decoration:none;border:1px solid var(--line);background:var(--panel2);padding:9px 12px;border-radius:10px;font-weight:700;cursor:pointer}
+.status{color:var(--muted);margin:10px 0 16px}.error{color:var(--danger)}.success{color:var(--good)}
+.progress-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}.progress-row{display:flex;justify-content:space-between;gap:12px;font-weight:700}.bar{height:8px;background:#252c3a;border-radius:99px;overflow:hidden;margin-top:10px}.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+.exercise{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin:12px 0}.exercise.active{border-color:#6545a8}.head{display:flex;justify-content:space-between;gap:12px;align-items:start}.title{font-size:19px;font-weight:800}.target{color:var(--muted);margin-top:5px}.tag{font-size:12px;padding:6px 9px;border-radius:99px;background:#222a38;color:var(--muted);white-space:nowrap}.sets{display:grid;gap:9px;margin-top:16px}.set{display:grid;grid-template-columns:58px 1fr 1fr 100px 82px;gap:8px;align-items:center;background:#0e131d;border:1px solid var(--line);border-radius:12px;padding:9px}.set.saved{border-color:#245c49}.set b{font-size:12px;color:var(--muted)}.set input,.set textarea{width:100%;padding:9px;background:#090d15;border:1px solid var(--line);color:var(--text);border-radius:8px}.set textarea{resize:vertical;min-height:38px}.save{border:0;background:var(--accent);color:#fff;padding:9px 10px;border-radius:8px;font-weight:800;cursor:pointer}.save.done{background:#173d30}.save:disabled{opacity:.55;cursor:wait}.complete{width:100%;margin-top:16px;background:var(--good);color:#07130e;border:0;padding:13px;border-radius:11px;font-weight:900;cursor:pointer}.complete:disabled{opacity:.5}.empty{text-align:center;padding:28px;color:var(--muted)}.meta{font-size:12px;color:var(--muted);margin-top:7px}
+@media(max-width:700px){.wrap{padding:18px 11px 55px}.top{align-items:flex-start}.top h1{font-size:23px}.set{grid-template-columns:48px 1fr 1fr}.set input:nth-of-type(3),.set textarea{grid-column:1/-1}.set .save{grid-column:1/-1}.head{align-items:flex-start}}
 </style></head><body><main class="wrap">
-<div class="top"><h1>Dzisiejszy trening</h1><a class="back" href="/">← EVOLVE</a></div>
-<div id="status" class="notice">Ładowanie…</div>
+<div class="top"><h1>Trening</h1><a class="back" href="/app#my-day">← Mój dzień</a></div>
+<div id="status" class="status">Ładowanie sesji…</div>
+<div id="progress" class="progress-card"></div>
 <div id="workout"></div>
-<button id="complete" class="primary hidden">Zakończ trening</button>
+<button id="complete" class="complete" disabled>Zakończ trening</button>
 </main>
 <script>
-const token=localStorage.getItem('fitai_token'), headers=token?{'Authorization':'Bearer '+token,'Content-Type':'application/json'}:{};
-let current=null;
+const token=localStorage.getItem('fitai_token');
+const headers=token?{'Authorization':'Bearer '+token,'Content-Type':'application/json'}:{};
+let current=null, saving=false;
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-function setStatus(t,ok=false){status.textContent=t;status.className=ok?'notice success':'notice'}
-async function api(url,opts={}){return fetch(url,{...opts,headers:{...headers,...(opts.headers||{})}})}
-async function start(){
- if(!token){setStatus('Zaloguj się w EVOLVE, aby rozpocząć trening.');return}
- try{
-  const r=await api('/app/training/sessions/start',{method:'POST'}), d=await r.json();
-  if(!r.ok){setStatus(d.detail||'Nie udało się rozpocząć treningu.');return}
-  current=d.session; render();
- }catch(e){setStatus('Nie udało się połączyć z serwerem.')}
+function setStatus(t,type=''){status.textContent=t;status.className='status '+type}
+async function api(url,opts={}){return fetch(url,{...opts,headers:{...headers,...(opts.headers||{})},cache:'no-store'})}
+function completedCount(){return (current?.sets||[]).filter(x=>x.completed).length}
+function plannedCount(){return (current?.planned?.exercises||[]).reduce((n,x)=>n+Math.max(0,Number(x.sets||0)),0)}
+function renderProgress(){
+ const done=completedCount(), total=plannedCount(), pct=total?Math.round(done/total*100):0;
+ progress.innerHTML='<div class="progress-row"><span>Wykonanie</span><span>'+done+' / '+total+' serii · '+pct+'%</span></div><div class="bar"><i style="width:'+pct+'%"></i></div><div class="meta">'+(current?.status==='active'?'Sesja jest zapisana na serwerze. Możesz odświeżyć stronę i wznowić.':'Sesja ukończona.')+'</div>';
+ complete.disabled=current?.status!=='active'||done===0||saving;
 }
 function render(){
- setStatus(current.status==='completed'?'Trening ukończony.':'Trening aktywny — zapisuj każdą serię po wykonaniu.',current.status==='completed');
- workout.innerHTML='<div class="card">'+(current.planned.exercises||[]).map(ex=>{
+ if(!current)return;
+ setStatus(current.status==='completed'?'Trening ukończony.':'Aktywna sesja · zapisuj serię po jej wykonaniu.',current.status==='completed'?'success':'');
+ const exercises=current.planned?.exercises||[];
+ workout.innerHTML=exercises.length?exercises.map((ex,ei)=>{
   const logged=(current.sets||[]).filter(s=>s.exercise_key===ex.exercise_key);
-  return '<div class="exercise"><div class="title">'+esc(ex.exercise_name)+'</div><div class="target">Plan: '+ex.sets+' × '+ex.reps+(ex.weight_kg?' · '+ex.weight_kg+' kg':'')+'</div><div class="sets">'+Array.from({length:ex.sets||1},(_,i)=>{
-   const n=i+1, old=logged.find(s=>s.set_number===n);
-   return '<div class="set"><b>Seria '+n+'</b><input id="r-'+ex.exercise_key+'-'+n+'" type="number" min="0" placeholder="powt." value="'+(old?.actual_reps??ex.reps)+'"><input id="w-'+ex.exercise_key+'-'+n+'" type="number" min="0" step="0.5" placeholder="kg" value="'+(old?.actual_weight_kg??ex.weight_kg)+'"><input id="p-'+ex.exercise_key+'-'+n+'" type="number" min="1" max="10" placeholder="RPE" value="'+(old?.actual_rpe??'')+'"><button '+(old?.completed?'class="done"':'')+' onclick="logSet(\''+esc(ex.exercise_key)+'\','+n+')">'+(old?.completed?'Zapisano':'Zapisz')+'</button></div>'
-  }).join('')+'</div></div>'
- }).join('')+'</div>';
- complete.classList.toggle('hidden',current.status!=='active');
+  const done=logged.filter(s=>s.completed).length;
+  return '<section class="exercise '+(done<Number(ex.sets||0)?'active':'')+'"><div class="head"><div><div class="title">'+(ei+1)+'. '+esc(ex.exercise_name)+'</div><div class="target">Cel: '+ex.sets+' × '+ex.reps+(ex.weight_kg?' · '+ex.weight_kg+' kg':'')+(ex.rpe?' · RPE '+ex.rpe:'')+'</div></div><span class="tag">'+done+'/'+ex.sets+' serie</span></div><div class="sets">'+Array.from({length:Math.max(0,Number(ex.sets||0))},(_,i)=>{
+   const n=i+1,old=logged.find(s=>s.set_number===n),safe=encodeURIComponent(ex.exercise_key);
+   return '<div class="set '+(old?.completed?'saved':'')+'"><b>Seria '+n+'</b>'+
+    '<input id="r-'+safe+'-'+n+'" type="number" min="0" max="1000" value="'+(old?.actual_reps??ex.reps)+'" aria-label="Powtórzenia">'+
+    '<input id="w-'+safe+'-'+n+'" type="number" min="0" max="10000" step="0.5" value="'+(old?.actual_weight_kg??ex.weight_kg??0)+'" aria-label="Ciężar kg">'+
+    '<input id="p-'+safe+'-'+n+'" type="number" min="1" max="10" value="'+(old?.actual_rpe??'')+'" placeholder="RPE" aria-label="RPE">'+
+    '<button class="save '+(old?.completed?'done':'')+'" onclick="logSet(\''+encodeURIComponent(ex.exercise_key)+'\','+n+',this)">'+(old?.completed?'Edytuj / zapisz':'Zapisz serię')+'</button>'+
+    '<textarea id="n-'+safe+'-'+n+'" maxlength="1000" placeholder="Notatka">'+esc(old?.note||'')+'</textarea></div>';
+  }).join('')+'</div></section>'
+ }).join(''):'<div class="progress-card empty">Brak ćwiczeń w snapshotcie tej sesji.</div>';
+ renderProgress();
 }
-async function logSet(key,n){
- const ex=current.planned.exercises.find(x=>x.exercise_key===key);
- const reps=Number(document.getElementById('r-'+key+'-'+n).value||0), weight=Number(document.getElementById('w-'+key+'-'+n).value||0);
- const rpeRaw=document.getElementById('p-'+key+'-'+n).value; const rpe=rpeRaw?Number(rpeRaw):null;
- const r=await api('/app/training/sessions/'+current.id+'/sets',{method:'POST',body:JSON.stringify({exercise_key:key,set_number:n,actual_reps:reps,actual_weight_kg:weight,actual_rpe:rpe,completed:true})});
- const d=await r.json(); if(!r.ok){setStatus(d.detail||'Nie udało się zapisać serii.');return}
- const existing=current.sets.findIndex(x=>x.exercise_key===key&&x.set_number===n); if(existing>=0) current.sets[existing]=d.set; else current.sets.push(d.set); render();
+async function logSet(encodedKey,n,button){
+ if(!current||current.status!=='active'||saving)return;
+ const key=decodeURIComponent(encodedKey), safe=encodeURIComponent(key);
+ const reps=Number(document.getElementById('r-'+safe+'-'+n).value||0);
+ const weight=Number(document.getElementById('w-'+safe+'-'+n).value||0);
+ const raw=document.getElementById('p-'+safe+'-'+n).value;
+ const rpe=raw?Number(raw):null, note=document.getElementById('n-'+safe+'-'+n).value||'';
+ saving=true;button.disabled=true;setStatus('Zapisywanie serii…');
+ try{
+  const r=await api('/app/training/sessions/'+encodeURIComponent(current.id)+'/sets',{method:'POST',body:JSON.stringify({exercise_key:key,set_number:n,actual_reps:reps,actual_weight_kg:weight,actual_rpe:rpe,completed:true,note})});
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.detail||'Nie udało się zapisać serii.');
+  const idx=current.sets.findIndex(x=>x.exercise_key===key&&x.set_number===n);
+  if(idx>=0)current.sets[idx]=d.set;else current.sets.push(d.set);
+  setStatus('Seria '+n+' zapisana.','success');render();
+ }catch(e){setStatus(e.message,'error')}finally{saving=false;renderProgress()}
 }
 complete.onclick=async()=>{
- const rpe=Number(prompt('Końcowe RPE treningu (1–10):')||0); if(!rpe)return;
- const r=await api('/app/training/sessions/'+current.id+'/complete',{method:'POST',body:JSON.stringify({final_rpe:rpe})});
- const d=await r.json(); if(!r.ok){setStatus(d.detail||'Nie udało się zakończyć treningu.');return}
- current=d.session; render(); complete.outerHTML='<a class="primary" href="/app/training/dashboard" style="display:inline-block;text-decoration:none">Zobacz analizę i progres →</a>';
-};
-start();
+ if(!current||current.status!=='active'||completedCount()===0)return;
+ const raw=prompt('Końcowe RPE treningu (1–10):');
+ if(raw===null)return;
+ const finalRpe=Number(raw);
+ if(!Number.isInteger(finalRpe)||finalRpe<1||finalRpe>10){setStatus('Końcowe RPE musi być liczbą 1–10.','error');return}
+ saving=true;renderProgress();setStatus('Kończenie treningu…');
+ try{
+  const r=await api('/app/training/sessions/'+encodeURIComponent(current.id)+'/complete',{method:'POST',body:JSON.stringify({final_rpe:finalRpe})});
+  const d=await r.json();if(!r.ok)throw new Error(d.detail||'Nie udało się zakończyć treningu.');
+  current=d.session;render();setStatus('Trening zapisany. Dane są już dostępne w Postępach.','success');
+  complete.textContent='Przejdź do Postępów →';complete.onclick=()=>location.href='/app#progress';complete.disabled=false;
+ }catch(e){setStatus(e.message,'error');saving=false;renderProgress()}
+}
+async function startOrResume(){
+ if(!token){setStatus('Zaloguj się w EVOLVE, aby rozpocząć trening.','error');workout.innerHTML='<div class="progress-card empty">Brak aktywnej sesji użytkownika.</div>';return}
+ try{
+  const r=await api('/app/training/sessions/start',{method:'POST'}),d=await r.json();
+  if(!r.ok)throw new Error(d.detail||'Nie udało się rozpocząć treningu.');
+  current=d.session;setStatus(d.status==='resumed'?'Wznowiono aktywną sesję.':'Rozpoczęto nową sesję.','success');render();
+ }catch(e){setStatus(e.message,'error');workout.innerHTML='<div class="progress-card empty">Nie udało się załadować treningu. Wróć do Mój dzień i spróbuj ponownie.</div>'}
+}
+startOrResume();
 </script></body></html>""")
+
 
 @router.get("/dashboard", response_class=HTMLResponse)
 def training_dashboard():
