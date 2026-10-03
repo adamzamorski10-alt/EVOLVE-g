@@ -383,3 +383,37 @@ def test_progress_limit_is_bounded():
     response = client.get("/app/training/progress?limit=0", headers=_headers(ctx["token"]))
     assert response.status_code == 200
     assert response.json()["limit"] == 1
+
+
+def test_exercise_progress_is_completed_and_user_scoped():
+    first = _context()
+    second = _context()
+
+    started = client.post("/app/training/sessions/start", headers=_headers(first["token"]))
+    sid = started.json()["session"]["id"]
+    logged = client.post(
+        f"/app/training/sessions/{sid}/sets",
+        json={"exercise_key": "squat-1", "set_number": 1, "actual_reps": 5, "actual_weight_kg": 110, "actual_rpe": 8},
+        headers=_headers(first["token"]),
+    )
+    assert logged.status_code == 200
+    completed = client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 8},
+        headers=_headers(first["token"]),
+    )
+    assert completed.status_code == 200
+
+    own = client.get("/app/training/progress/exercises/squat-1", headers=_headers(first["token"]))
+    assert own.status_code == 200
+    data = own.json()
+    assert data["exercise_name"] == "Przysiad"
+    assert data["sessions"] == 1
+    assert data["best_weight_kg"] == 110
+    assert data["total_volume_kg"] == 550
+    assert len(data["history"]) == 1
+
+    other = client.get("/app/training/progress/exercises/squat-1", headers=_headers(second["token"]))
+    assert other.status_code == 200
+    assert other.json()["sessions"] == 0
+    assert other.json()["history"] == []
