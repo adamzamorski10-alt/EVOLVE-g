@@ -2,32 +2,21 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).parent
-INDEX = ROOT / "fitai_dashboard.html"
+TRAINING_ROUTES = (ROOT / "app" / "training" / "routes.py").read_text(encoding="utf-8")
 APP_INIT = (ROOT / "app" / "__init__.py").read_text(encoding="utf-8")
 
 
-def test_training_execution_ui_is_wired_to_stage2_api():
-    html = INDEX.read_text(encoding="utf-8")
+def test_training_execution_api_contract_is_present():
     required = [
-        "evolveStartTrainingBtn",
-        "window.evolveStartTraining",
-        "/app/training/sessions/start",
-        "/app/training/sessions/",
-        "encodeURIComponent(session.id)",
-        "/sets",
-        "/complete",
-        "data-save-ex",
-        "✓ Zakończ trening",
+        '@router.post("/sessions/start")',
+        '@router.post("/sessions/{session_id}/sets")',
+        '@router.post("/sessions/{session_id}/complete")',
+        "def start_training_session",
+        "def log_training_set",
+        "def complete_training_session",
     ]
     for marker in required:
-        assert marker in html, f"Missing training UI integration marker: {marker}"
-
-
-def test_training_execution_ui_keeps_existing_today_container():
-    html = INDEX.read_text(encoding="utf-8")
-    assert 'id="activeDayExerciseList"' in html
-    assert "loadTodayData" in html
-    assert "renderWorkoutsList" in html
+        assert marker in TRAINING_ROUTES, f"Missing training execution marker: {marker}"
 
 
 def test_my_day_is_integrated_into_shared_dashboard_shell():
@@ -39,7 +28,9 @@ def test_my_day_is_integrated_into_shared_dashboard_shell():
         'fetch("/app/training/today"',
         'id="myDayWorkout"',
         'id="myDayExercises"',
+        'id="myDaySessionProgress"',
         'href="/app/training/session-ui"',
+        "Wznów trening",
     ]
     for marker in required:
         assert marker in APP_INIT, f"Missing Mój dzień shell marker: {marker}"
