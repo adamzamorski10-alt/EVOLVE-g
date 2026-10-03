@@ -150,3 +150,21 @@ def test_assessment_is_not_shared_between_users():
     assert own.json()["has_assessment"] is True
     assert foreign.status_code == 200
     assert foreign.json()["has_assessment"] is False
+
+
+
+def test_low_recovery_reduces_session_volume():
+    ctx = _context()
+    _baseline(ctx, sessions_per_week=3, recovery_score=4)
+    generated = client.post(
+        "/app/plan/generate",
+        json={"force": True},
+        headers=_headers(ctx["token"]),
+    )
+    assert generated.status_code == 200, generated.text
+    workout_days = [
+        day for day in generated.json()["plan"]["days"]
+        if day["day_type"] != "rest"
+    ]
+    assert workout_days
+    assert all(len(day["workout"]["exercises"]) <= 2 for day in workout_days if not day["is_sport_session"])
