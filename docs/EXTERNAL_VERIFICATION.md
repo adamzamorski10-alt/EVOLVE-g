@@ -238,3 +238,9 @@ Implementation may continue to subsequent stages while these checks remain pendi
 - no duplicated or conflicting visible values in Goals vs Progress
 - target, remaining, percentage, trend and on-track states remain deterministic
 **Evidence required:** exact test commands and exit codes, API/browser evidence, representative real data, discrepancies. Do not mark PASS from static inspection alone.
+
+
+## EV-012 — Stage 4A-4C Training UX
+**Status:** PENDING  
+**Scope:** end-to-end training start/resume/execution UI; plan snapshot; responsive set cards; actual reps/weight/RPE/notes; edit/re-save/idempotency; refresh/resume; duplicate clicks; cross-user isolation; completed-session lock; mobile layout; error/loading states.
+**Evidence required:** browser/device walkthrough, screenshots or equivalent evidence, reload/resume test, repeated-save test, malformed input/error handling, and exact automated test results. Do not mark PASS from static inspection alone.
