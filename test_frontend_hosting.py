@@ -24,3 +24,14 @@ def test_frontend_deep_link_enters_dashboard_before_selecting_tab():
     assert "typeof enterDashboard === 'function'" in html
     assert "enterDashboard();" in html
     assert "showTab(tabId);" in html
+
+
+def test_server_serves_dashboard_first_without_landing_flash():
+    app_init = (Path(__file__).parent / "app" / "__init__.py").read_text(encoding="utf-8")
+
+    assert 'id="evolve-dashboard-first-style"' in app_init
+    assert "#landingPage { display: none !important; }" in app_init
+    assert "#dashboardPage.hidden { display: flex !important; }" in app_init
+    assert "document.documentElement.classList.add('evolve-dashboard-first')" in app_init
+    assert 'id="evolve-dashboard-first-boot"' in app_init
+    assert "if (typeof enterDashboard === 'function') enterDashboard();" in app_init
