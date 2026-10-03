@@ -303,3 +303,25 @@ Implementation may continue to subsequent stages while these checks remain pendi
 - Evidence required: focused tests with exit codes plus browser/mobile evidence.
 - Do not mark PASS from static inspection alone.
 
+
+
+## EV-017 — Stage 5E Nutrition Adaptation
+- Status: PENDING
+- Scope:
+  - minimum 7 nutrition evidence days
+  - minimum 2 completed training sessions in evidence window
+  - deterministic preview
+  - maximum ±100 kcal per application
+  - absolute 1200–5000 kcal bounds
+  - protein target remains unchanged
+  - GET preview is non-mutating
+  - explicit apply action only
+  - optimistic concurrency conflict handling
+  - adaptation audit persistence
+  - native Dieta adaptation UX
+  - cross-user isolation
+  - repeated apply behavior
+  - migration integrity `evolve18nutrition -> evolve19nutrition_adaptations`
+- Evidence required: exact focused/full test commands and exit codes, migration execution, browser/mobile evidence, concurrency evidence.
+- Do not mark PASS from static inspection alone.
+

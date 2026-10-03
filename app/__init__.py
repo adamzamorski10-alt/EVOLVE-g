@@ -640,15 +640,18 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     }
     try {
       var headers = {Authorization: "Bearer " + token};
-      var [todayResponse, responseSignal] = await Promise.all([
+      var [todayResponse, responseSignal, adaptationResponse] = await Promise.all([
         fetch("/app/nutrition/today", {headers:headers, cache:"no-store"}),
-        fetch("/app/nutrition/response?days=7", {headers:headers, cache:"no-store"})
+        fetch("/app/nutrition/response?days=7", {headers:headers, cache:"no-store"}),
+        fetch("/app/nutrition/adaptation?days=14", {headers:headers, cache:"no-store"})
       ]);
       var today = await todayResponse.json();
       var signal = await responseSignal.json();
+      var adaptation = await adaptationResponse.json();
       if (requestId !== nutritionLoadSequence) return;
       if (!todayResponse.ok) throw new Error(today.detail || "Nie udało się pobrać diety.");
       if (!responseSignal.ok) throw new Error(signal.detail || "Nie udało się pobrać reakcji żywieniowej.");
+      if (!adaptationResponse.ok) throw new Error(adaptation.detail || "Nie udało się pobrać propozycji adaptacji.");
 
       var totals = today.totals || {};
       var targets = today.targets || {};
@@ -664,10 +667,27 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
           '<div class="item-card-meta">' + nutritionEscape(entry.calories_kcal) + ' kcal · ' + nutritionEscape(entry.protein_g) + ' g białka</div></div>';
       }).join("") || '<div style="padding:20px;color:var(--muted);text-align:center;">Brak wpisów na dziś.</div>';
 
-      responseEl.innerHTML = signal.status === "insufficient_data"
+      responseEl.innerHTML = (signal.status === "insufficient_data"
         ? '<div style="font-weight:700;">Reakcja żywieniowa</div><div style="margin-top:8px;color:var(--muted);">' + nutritionEscape(signal.message) + '</div>'
         : '<div style="font-weight:700;">Reakcja żywieniowa</div><div style="margin-top:8px;">' + nutritionEscape(signal.message) + '</div>' +
-          '<div style="margin-top:8px;color:var(--muted);">Średnio: ' + nutritionEscape(signal.averages.calories_kcal) + ' kcal · ' + nutritionEscape(signal.averages.protein_g) + ' g białka · ' + nutritionEscape(signal.logged_days) + ' dni danych</div>';
+          '<div style="margin-top:8px;color:var(--muted);">Średnio: ' + nutritionEscape(signal.averages.calories_kcal) + ' kcal · ' + nutritionEscape(signal.averages.protein_g) + ' g białka · ' + nutritionEscape(signal.logged_days) + ' dni danych</div>') +
+        '<div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px;"><div style="font-weight:700;">Adaptacja celu</div>' +
+        '<div style="margin-top:8px;color:var(--muted);">' + nutritionEscape(adaptation.reason || "Brak propozycji.") + '</div>' +
+        '<div style="margin-top:8px;">' + nutritionEscape(adaptation.proposed_calories_kcal || today.targets.calories_kcal) + ' kcal · zmiana ' + nutritionEscape(adaptation.change_kcal || 0) + ' kcal</div>' +
+        (adaptation.adaptation_allowed ? '<button class="btn btn-primary btn-sm" id="nutritionApplyAdaptation" type="button" style="margin-top:12px;">Zastosuj zmianę</button>' : '') +
+        '</div>';
+      var applyButton = document.getElementById("nutritionApplyAdaptation");
+      if (applyButton) applyButton.addEventListener("click", async function () {
+        applyButton.disabled = true;
+        var applyResponse = await fetch("/app/nutrition/adaptation/apply?days=14", {method:"POST", headers:headers});
+        var applyData = await applyResponse.json();
+        if (!applyResponse.ok) {
+          window.alert(applyData.detail || "Nie udało się zastosować zmiany.");
+          applyButton.disabled = false;
+          return;
+        }
+        window.loadEvolveNutrition();
+      });
 
       Array.from(document.querySelectorAll("[data-nutrition-delete]")).forEach(function (button) {
         button.addEventListener("click", async function () {
