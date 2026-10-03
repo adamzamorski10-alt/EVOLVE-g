@@ -115,7 +115,7 @@ def test_plan_readiness_and_generation_keep_provenance():
     )
     assert generated.status_code == 200, generated.text
     plan = generated.json()["plan"]
-    assert plan["_evolve_core"]["planning_source"] == "deterministic-v1"
+    assert plan["_evolve_core"]["planning_source"] == "deterministic-v2"
     assert plan["_evolve_core"]["assessment_version"] == 1
 
 
