@@ -163,6 +163,7 @@ def _metric_snapshots(db: Session, user: UserDB, goal: GoalDB) -> list[dict[str,
     sessions = list(db.exec(
         select(TrainingSessionDB).where(TrainingSessionDB.user_id == user.id)
         .where(TrainingSessionDB.status == "completed")
+        .where(TrainingSessionDB.session_date >= goal.start_date)
         .order_by(TrainingSessionDB.session_date.asc(), TrainingSessionDB.completed_at.asc())
     ).all())
     exercise_key = goal.metadata().get("exercise_key")
