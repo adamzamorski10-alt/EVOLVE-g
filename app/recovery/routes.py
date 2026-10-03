@@ -26,18 +26,32 @@ _SIGNAL_LABELS = {
 
 def _signal_scores(log: DailyLogDB) -> dict[str, float]:
     scores: dict[str, float] = {}
-    if log.sleep_hours is not None:
-        scores["sleep_hours"] = min(float(log.sleep_hours) / 8.0, 1.0) * 100.0
-    if log.sleep_quality is not None:
-        scores["sleep_quality"] = float(log.sleep_quality) * 10.0
-    if log.energy_level is not None:
-        scores["energy_level"] = float(log.energy_level) * 10.0
-    if log.stress_level is not None:
-        scores["stress_level"] = (11.0 - float(log.stress_level)) * 10.0
-    if log.fatigue_score is not None:
-        scores["fatigue_score"] = (11.0 - float(log.fatigue_score)) * 10.0
-    if log.mood_score is not None:
-        scores["mood_score"] = float(log.mood_score) * 20.0
+
+    def bounded(value: Any, minimum: float, maximum: float) -> float | None:
+        if value is None:
+            return None
+        numeric = float(value)
+        return numeric if minimum <= numeric <= maximum else None
+
+    sleep_hours = bounded(log.sleep_hours, 0.0, 24.0)
+    sleep_quality = bounded(log.sleep_quality, 1.0, 10.0)
+    energy_level = bounded(log.energy_level, 1.0, 10.0)
+    stress_level = bounded(log.stress_level, 1.0, 10.0)
+    fatigue_score = bounded(log.fatigue_score, 1.0, 10.0)
+    mood_score = bounded(log.mood_score, 1.0, 5.0)
+
+    if sleep_hours is not None:
+        scores["sleep_hours"] = min(sleep_hours / 8.0, 1.0) * 100.0
+    if sleep_quality is not None:
+        scores["sleep_quality"] = sleep_quality * 10.0
+    if energy_level is not None:
+        scores["energy_level"] = energy_level * 10.0
+    if stress_level is not None:
+        scores["stress_level"] = (11.0 - stress_level) * 10.0
+    if fatigue_score is not None:
+        scores["fatigue_score"] = (11.0 - fatigue_score) * 10.0
+    if mood_score is not None:
+        scores["mood_score"] = mood_score * 20.0
     return {key: round(max(0.0, min(100.0, value)), 1) for key, value in scores.items()}
 
 
