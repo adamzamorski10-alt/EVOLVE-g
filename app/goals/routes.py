@@ -186,9 +186,7 @@ def _metric_snapshots(db: Session, user: UserDB, goal: GoalDB) -> list[dict[str,
         ).all())
         if exercise_key:
             sets = [row for row in sets if row.exercise_key == exercise_key]
-        if metric in {"sessions", "training_days"}:
-            pass
-        elif not sets:
+        if not sets and (exercise_key or metric not in {"sessions", "training_days"}):
             continue
 
         if sets:
