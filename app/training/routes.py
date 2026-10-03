@@ -1608,7 +1608,21 @@ def training_session_ui():
 const token=localStorage.getItem('fitai_token');
 const headers=token?{'Authorization':'Bearer '+token,'Content-Type':'application/json'}:{};
 const statusEl=document.getElementById('status'),progressEl=document.getElementById('progress'),workoutEl=document.getElementById('workout'),completeEl=document.getElementById('complete');
-let current=null, saving=false;
+let current=null, saving=false, restTimer=null, restSeconds=0, activeExerciseIndex=0;
+function stopRest(){if(restTimer){clearInterval(restTimer);restTimer=null}document.getElementById('rest')?.remove()}
+function startRest(seconds=90){
+ stopRest(); const el=document.createElement('div');el.id='rest';el.className='progress-card';
+ el.innerHTML='<div class="progress-row"><span>Odpoczynek</span><strong id="restValue"></strong></div><button id="skipRest" class="btn">Pomiń</button>';
+ progressEl.after(el);restSeconds=seconds;
+ const tick=()=>{const m=String(Math.floor(restSeconds/60)).padStart(2,'0'),s=String(restSeconds%60).padStart(2,'0');document.getElementById('restValue').textContent=m+':'+s;if(restSeconds<=0){stopRest();setStatus('Odpoczynek zakończony.','success')}restSeconds--};
+ document.getElementById('skipRest').onclick=()=>{stopRest();setStatus('Odpoczynek pominięty.','success')};tick();restTimer=setInterval(tick,1000)
+}
+function focusNext(){
+ const exs=current?.planned?.exercises||[];
+ activeExerciseIndex=exs.findIndex(ex=>(current.sets||[]).filter(s=>s.exercise_key===ex.exercise_key&&s.completed).length<Number(ex.sets||0));
+ document.querySelectorAll('.exercise').forEach((el,i)=>el.classList.toggle('active',i===activeExerciseIndex));
+ if(activeExerciseIndex>=0)document.querySelectorAll('.exercise')[activeExerciseIndex]?.scrollIntoView({behavior:'smooth',block:'start'});
+}
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function setStatus(t,type=''){statusEl.textContent=t;statusEl.className='status '+type}
 async function api(url,opts={}){return fetch(url,{...opts,headers:{...headers,...(opts.headers||{})},cache:'no-store'})}
