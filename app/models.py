@@ -300,6 +300,49 @@ class DailyLogDB(SQLModel, table=True):
 
 
 
+
+
+
+class NutritionEntryDB(SQLModel, table=True):
+    """User-owned nutrition intake entry.
+
+    This is the canonical structured source for actual intake. Legacy
+    DailyLogDB meal JSON remains supported for compatibility, but new
+    nutrition analytics should consume this table.
+    """
+    __tablename__ = "nutrition_entries"
+
+    id: Optional[str] = Field(
+        default_factory=lambda: str(_uuid_mod.uuid4()),
+        primary_key=True,
+    )
+    user_id: str = Field(foreign_key="users.id", index=True)
+    consumed_at: datetime = Field(default_factory=datetime.now, index=True)
+    meal_type: str = Field(default="other", index=True)
+    name: str
+    calories_kcal: float = Field(default=0, ge=0)
+    protein_g: float = Field(default=0, ge=0)
+    carbs_g: float = Field(default=0, ge=0)
+    fat_g: float = Field(default=0, ge=0)
+    fiber_g: float = Field(default=0, ge=0)
+    water_liters: float = Field(default=0, ge=0)
+    notes: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "consumed_at": self.consumed_at.isoformat(),
+            "meal_type": self.meal_type,
+            "name": self.name,
+            "calories_kcal": self.calories_kcal,
+            "protein_g": self.protein_g,
+            "carbs_g": self.carbs_g,
+            "fat_g": self.fat_g,
+            "fiber_g": self.fiber_g,
+            "water_liters": self.water_liters,
+            "notes": self.notes,
+        }
+
 class TrainingSessionDB(SQLModel, table=True):
     __tablename__ = "training_sessions"
 
