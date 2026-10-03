@@ -410,6 +410,7 @@ def test_exercise_progress_is_completed_and_user_scoped():
     assert data["exercise_name"] == "Przysiad"
     assert data["sessions"] == 1
     assert data["best_weight_kg"] == 110
+    assert data["best_reps_at_best_weight"] == 5
     assert data["total_volume_kg"] == 550
     assert len(data["history"]) == 1
 
