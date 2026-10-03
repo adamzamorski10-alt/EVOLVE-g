@@ -1,13 +1,35 @@
 from pathlib import Path
 
 
-def test_hosted_frontend_uses_same_origin_backend_on_render_and_exposes_today():
+def test_hosted_frontend_uses_same_origin_backend_on_render_and_exposes_my_day():
     html = (Path(__file__).parent / "index.html").read_text(encoding="utf-8")
 
     assert "location.hostname.endsWith('.onrender.com')" in html
     assert "location.origin" in html
     assert 'href="/app/training/today-ui"' in html
-    assert "<span>Today</span>" in html
+    assert "<span>Mój dzień</span>" in html
+    assert "<span>Today</span>" not in html
+
+
+def test_main_navigation_matches_evolve_domain_model():
+    html = (Path(__file__).parent / "index.html").read_text(encoding="utf-8")
+
+    expected = [
+        "Home",
+        "Mój dzień",
+        "Trening",
+        "Koszykówka",
+        "Dieta",
+        "Recovery",
+        "Postępy",
+        "Profil",
+    ]
+    for label in expected:
+        assert f"<span>{label}</span>" in html
+
+    assert "<span>Plan</span>" not in html
+    assert 'id="tab-recovery"' in html
+    assert "data-tab="recovery"" in html
 
 
 def test_frontend_supports_hash_deep_link_to_my_day():
