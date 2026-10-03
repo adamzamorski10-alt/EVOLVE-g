@@ -114,3 +114,17 @@ def test_external_verification_queue_keeps_stage_0_5_checks_pending():
         assert start >= 0, f"Missing verification item {item}"
         block = queue[start:queue.find("\n### ", start + 5) if queue.find("\n### ", start + 5) >= 0 else None]
         assert "Status: PENDING" in block or "- Status: PENDING" in block
+
+
+def test_no_duplicate_http_method_and_path_routes_are_registered():
+    seen: set[tuple[str, str]] = set()
+    duplicates: list[tuple[str, str]] = []
+    for route in app.routes:
+        path = getattr(route, "path", None)
+        methods = getattr(route, "methods", set()) or set()
+        for method in methods:
+            key = (method, path)
+            if key in seen:
+                duplicates.append(key)
+            seen.add(key)
+    assert not duplicates, f"Duplicate FastAPI routes registered: {duplicates}"
