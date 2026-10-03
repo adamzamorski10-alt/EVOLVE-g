@@ -211,9 +211,18 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     if (legacyPanel) legacyPanel.style.display = "none";
   }
 
+  var myDayLoadSequence = 0;
+
   window.loadEvolveMyDay = async function () {
     var exercisesEl = document.getElementById("myDayExercises");
     if (!exercisesEl) return;
+    var requestId = ++myDayLoadSequence;
+    var statusEl = document.getElementById("myDayStatus");
+    if (statusEl) {
+      statusEl.className = "alert alert-hidden";
+      statusEl.textContent = "";
+    }
+    exercisesEl.innerHTML = '<div class="spinner"></div>';
 
     var token = localStorage.getItem("fitai_token");
     if (!token) {
@@ -223,13 +232,13 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       return;
     }
 
-    exercisesEl.innerHTML = '<div class="spinner"></div>';
     try {
       var response = await fetch("/app/training/today", {
         headers: {Authorization: "Bearer " + token},
         cache: "no-store"
       });
       var data = await response.json();
+      if (requestId !== myDayLoadSequence) return;
       if (!response.ok) throw new Error(data.detail || "Nie udało się pobrać danych Mój dzień");
 
       document.getElementById("myDayDate").textContent = data.day_label ? data.day_label + ", " + data.date : (data.date || "—");
@@ -266,6 +275,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
           '<div class="item-card-meta">' + reps + " powtórzeń" + (weight ? " · " + weight : "") + "</div></div>";
       }).join("");
     } catch (error) {
+      if (requestId !== myDayLoadSequence) return;
       var statusEl = document.getElementById("myDayStatus");
       statusEl.className = "alert alert-warn";
       statusEl.textContent = "⚠️ " + error.message;
