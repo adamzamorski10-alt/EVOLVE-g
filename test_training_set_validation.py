@@ -1,5 +1,7 @@
 import pytest
 from pathlib import Path
+from sqlmodel import Session, select
+from app.database import engine
 
 from app.auth import routes as auth_routes
 from test_training_execution import _context, _headers, client
