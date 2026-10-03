@@ -1901,6 +1901,15 @@
             </div>
             <a id="myDayStart" href="/app/training/session-ui" class="btn-neon px-5 py-3 rounded-xl text-sm font-bold no-underline hidden">▶ Rozpocznij trening</a>
           </div>
+          <div id="myDaySessionProgress" class="hidden mt-5">
+            <div class="flex items-center justify-between text-xs mb-2">
+              <span id="myDaySessionStatus" class="font-bold text-white">Sesja aktywna</span>
+              <span id="myDaySessionFraction" style="color:var(--cyan);">0/0</span>
+            </div>
+            <div class="progress-bar" style="height:7px;">
+              <div id="myDaySessionProgressBar" class="progress-fill" style="width:0%;"></div>
+            </div>
+          </div>
           <div id="myDayExercises" class="grid md:grid-cols-2 gap-3 mt-5"></div>
           <div id="myDayReason" class="text-xs text-gray-500 mt-4"></div>
         </div>
@@ -6797,12 +6806,17 @@
       const exercisesEl = document.getElementById('myDayExercises');
       const reasonEl = document.getElementById('myDayReason');
       const startEl = document.getElementById('myDayStart');
+      const progressEl = document.getElementById('myDaySessionProgress');
+      const progressStatusEl = document.getElementById('myDaySessionStatus');
+      const fractionEl = document.getElementById('myDaySessionFraction');
+      const progressBarEl = document.getElementById('myDaySessionProgressBar');
       if (!dateEl || !statusEl || !metaEl || !titleEl || !exercisesEl) return;
       if (!token) {
         statusEl.textContent = 'Zaloguj się';
         metaEl.textContent = 'Po zalogowaniu Mój dzień pobierze aktualny plan.';
         exercisesEl.innerHTML = '<p class="text-sm text-gray-500">Brak aktywnej sesji.</p>';
         startEl.classList.add('hidden');
+        progressEl?.classList.add('hidden');
         return;
       }
       try {
@@ -6810,8 +6824,14 @@
         const response = await fetch('/app/training/today', {headers:{Authorization:'Bearer '+token}});
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Nie udało się pobrać planu.');
+        const sessionState = data.session || {};
+        const hasActiveSession = sessionState.status === 'active' && sessionState.id;
+        const plannedSets = Number(sessionState.planned_sets || 0);
+        const completedSets = Number(sessionState.completed_sets || 0);
+        const completionPct = Math.max(0, Math.min(100, Number(sessionState.completion_pct || 0)));
+
         dateEl.textContent = data.day_label + ' · ' + data.date;
-        statusEl.textContent = data.has_workout ? 'Trening gotowy' : 'Dzień bez treningu';
+        statusEl.textContent = hasActiveSession ? 'Trening w toku' : (data.has_workout ? 'Trening gotowy' : 'Dzień bez treningu');
         titleEl.textContent = data.has_workout ? 'Dzisiejszy trening' : 'Brak zaplanowanego treningu';
         metaEl.textContent = data.plan?.source === 'adaptive' ? 'Plan v' + data.plan.version + ' · zastosowana adaptacja' : 'Bazowy plan tygodniowy';
         exercisesEl.innerHTML = (data.exercises || []).map(ex =>
@@ -6819,16 +6839,23 @@
           escapeMyDayHtml(ex.exercise_name) + '</p><p class="text-sm text-gray-500 mt-1">' + ex.sets + ' × ' + ex.reps +
           (ex.weight_kg ? ' · ' + ex.weight_kg + ' kg' : '') + (ex.rpe ? ' · RPE ' + ex.rpe : '') + '</p></div>'
         ).join('') || '<p class="text-sm text-gray-500">Na dziś nie ma ćwiczeń w aktywnym planie.</p>';
-        reasonEl.textContent = data.plan?.source === 'adaptive' ? 'Plan pochodzi z zastosowanej wersji adaptacyjnej.' : 'Plan pochodzi z bazowego planu tygodniowego.';
+        reasonEl.textContent = hasActiveSession
+          ? 'Masz rozpoczętą sesję. Możesz wrócić do jej wykonania bez tworzenia drugiej sesji.'
+          : (data.plan?.source === 'adaptive' ? 'Plan pochodzi z zastosowanej wersji adaptacyjnej.' : 'Plan pochodzi z bazowego planu tygodniowego.');
+        startEl.textContent = hasActiveSession ? '▶ Wznów trening' : '▶ Rozpocznij trening';
         startEl.classList.toggle('hidden', !data.has_workout);
+        progressEl?.classList.toggle('hidden', !hasActiveSession);
+        if (progressStatusEl) progressStatusEl.textContent = 'Sesja aktywna';
+        if (fractionEl) fractionEl.textContent = plannedSets ? completedSets + '/' + plannedSets : '0/0';
+        if (progressBarEl) progressBarEl.style.width = completionPct + '%';
       } catch (error) {
         statusEl.textContent = 'Błąd ładowania';
         metaEl.textContent = error.message || 'Nie udało się pobrać danych.';
         exercisesEl.innerHTML = '<p class="text-sm text-gray-500">Spróbuj ponownie później.</p>';
         startEl.classList.add('hidden');
+        progressEl?.classList.add('hidden');
       }
     }
-
     function showTab(tabId) {
       document.querySelectorAll('section[id^="tab-"]').forEach(s => {
         s.classList.add('hidden');
