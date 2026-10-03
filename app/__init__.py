@@ -37,6 +37,7 @@ from app.notifications.discord_bot import bot as discord_bot
 from app.notifications.routes import router as notifications_router
 from app.nutrition.routes import router as nutrition_router
 from app.plan.routes import router as plan_router
+from app.recovery.routes import router as recovery_router
 from app.training.routes import router as training_router
 
 # Eager bootstrap for normal application runtime; Alembic imports the models without mutating the target DB.
@@ -82,6 +83,7 @@ app.include_router(meta_router)
 app.include_router(notifications_router)
 app.include_router(nutrition_router)
 app.include_router(plan_router)
+app.include_router(recovery_router)
 app.include_router(training_router)
 app.include_router(legacy_router)
 
