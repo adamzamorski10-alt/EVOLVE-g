@@ -168,7 +168,7 @@ def _metric_snapshots(db: Session, user: UserDB, goal: GoalDB) -> list[dict[str,
         .where(TrainingSessionDB.session_date >= goal.start_date)
         .order_by(TrainingSessionDB.session_date.asc(), TrainingSessionDB.completed_at.asc())
     ).all())
-    exercise_key = goal.metadata().get("exercise_key")
+    exercise_key = goal.metadata_dict().get("exercise_key")
     snapshots: list[dict[str, Any]] = []
     cumulative_volume = 0.0
     cumulative_sets = 0
