@@ -547,3 +547,25 @@ Nutrition now has the first analytical layer:
 - Add response/adaptation rules using sufficient evidence.
 - Keep adaptation bounded and explainable.
 - Integrate training/recovery context before changing nutrition targets.
+
+
+## Stage 5C–5D — Nutrition Response + Native Dieta UX — 2026-10-03
+
+### DONE
+- Added deterministic `GET /app/nutrition/response?days=3..28`.
+- Requires at least 3 logged days before producing a response signal.
+- Distinguishes under-target, near-target and over-target calorie patterns.
+- Separately reports protein signal.
+- Explicitly returns `adaptation_allowed=false`; this stage never mutates nutrition targets.
+- Added native Dieta shell to the main application.
+- Dieta shows today's calories/protein, entries and deterministic response.
+- Added authenticated create/delete interaction and stale-request protection.
+- Added native navigation loading for the Dieta tab.
+- Added API/UI regression contracts.
+
+### CURRENT
+Nutrition loop is now:
+`PROFILE TARGETS → ACTUAL INTAKE → ADHERENCE → RESPONSE → DIETA UX`.
+
+### NEXT
+Stage 5E will connect nutrition evidence with training/recovery context and define bounded adaptation eligibility. Target changes remain disabled until that evidence gate is implemented and tested.
