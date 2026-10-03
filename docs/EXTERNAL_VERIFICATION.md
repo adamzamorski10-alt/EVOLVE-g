@@ -206,3 +206,20 @@ Implementation may continue to subsequent stages while these checks remain pendi
 - malformed IDs/payloads and repeated update/delete behavior
 - responsive UI/API behavior once Goals UX is added in Stage 3E
 **Evidence required:** exact commands, exit codes, API/browser screenshots where applicable, test data, discrepancies. Do not mark PASS from static inspection alone.
+
+
+## EV-010 — Stage 3E Goals UX
+**Status:** PENDING  
+**Owner:** Antygravity  
+**Scope:**
+- native Cele navigation in shared shell
+- active/completed/archive states
+- create/edit goal flow
+- metric and target fields
+- progress cards and detail view
+- complete/archive actions
+- empty and error states
+- refresh/repeated navigation and stale-response behavior
+- mobile/responsive layout
+- authenticated user sees only owned goals
+**Evidence required:** screenshots, test data, navigation/reload behavior, responsive check, discrepancies. Do not mark PASS from static review alone.
