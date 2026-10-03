@@ -736,7 +736,19 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 
     dashboard_boot = """<script id="evolve-dashboard-first-boot">
 document.addEventListener('DOMContentLoaded', function () {
-  if (typeof enterApp === 'function') enterApp();
+  // The landing page is legacy-only markup. The hosted EVOLVE experience is dashboard-first.
+  var landing = document.getElementById('landing');
+  var dashboard = document.getElementById('appContainer');
+  if (landing) {
+    landing.style.display = 'none';
+    landing.setAttribute('aria-hidden', 'true');
+  }
+  if (dashboard) {
+    dashboard.style.display = 'flex';
+    dashboard.removeAttribute('aria-hidden');
+  }
+  // Keep the legacy initializer when available, but dashboard visibility must not depend on it.
+  if (typeof initApp === 'function') initApp();
 });
 </script>"""
     if 'id="evolve-dashboard-first-boot"' not in html:
