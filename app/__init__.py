@@ -28,6 +28,7 @@ from app.auth import _rate_limit_key
 from app.auth.routes import router as auth_router
 from app.assessment.routes import router as assessment_router
 from app.health.routes import router as health_router
+from app.goals.routes import router as goals_router
 from app.config import CORS_ORIGINS, APP_NAME, APP_VERSION, DEBUG, DISCORD_TOKEN
 from app.database import create_db_and_tables
 from app.legacy_routes import router as legacy_router
@@ -67,6 +68,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(assessment_router)
 app.include_router(health_router)
+app.include_router(goals_router)
 
 # Import fitness routes
 from app.fitness.routes import router as fitness_router
