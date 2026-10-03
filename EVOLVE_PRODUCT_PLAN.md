@@ -502,3 +502,28 @@ PROFILE → ASSESSMENT → PLAN → TODAY → TRAINING EXECUTION.
 ### NEXT
 - **Core Loop hardening:** connect assessment/profile constraints more deeply to plan selection (availability, equipment and basketball specialization) without breaking the existing deterministic generator.
 - Then continue with **History + Progress → rolling 1–2 week planning → basketball development → recovery → nutrition**.
+
+
+## Stage 5A — Nutrition Foundation Checkpoint — 2026-10-03
+
+### DONE
+- Added canonical structured `NutritionEntryDB` for actual food/water intake.
+- Added Alembic migration `evolve18nutrition` after `evolve17goalmetrics`.
+- Added authenticated user-scoped nutrition endpoints:
+  - `POST /app/nutrition/entries`
+  - `GET /app/nutrition/entries`
+  - `GET /app/nutrition/today`
+  - `DELETE /app/nutrition/entries/{entry_id}`
+- Added deterministic daily aggregation for calories, protein, carbohydrates, fat, fiber and water.
+- Added calorie/protein target exposure from the existing user profile calculation.
+- Added bounded date-range validation and ownership checks.
+- Kept legacy `DailyLogDB` meal JSON intact for compatibility; it is not the new canonical analytics source.
+
+### CURRENT
+Stage 5A establishes a real structured source for **ACTUAL INTAKE**. No adaptation is performed yet.
+
+### NEXT
+- Nutrition target semantics and adherence windows.
+- Connect actual intake with training/load and recovery signals.
+- Build bounded deterministic nutrition response/adaptation rules.
+- Native Dieta UX should consume the structured API rather than legacy JSON.
