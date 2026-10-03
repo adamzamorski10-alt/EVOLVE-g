@@ -268,3 +268,20 @@ Implementation may continue to subsequent stages while these checks remain pendi
 - Evidence required: exact automated commands and exit codes, API/browser evidence where applicable, migration check output and discrepancies.
 - Do not mark PASS from static inspection alone.
 
+
+
+## EV-015 — Stage 5B Nutrition Adherence
+- Status: PENDING
+- Owner: local test runner / Antygravity
+- Scope:
+  - 1–28 day adherence window validation
+  - only days with actual structured intake count toward adherence
+  - deterministic calorie 90–110% rule
+  - deterministic protein >=90% rule
+  - daily ratios and rolling averages match stored entries
+  - cross-user isolation
+  - no silent classification of missing days as failures
+  - native Dieta presentation once UX is introduced
+- Evidence required: exact test commands and exit codes plus representative API/browser evidence.
+- Do not mark PASS from static inspection alone.
+
