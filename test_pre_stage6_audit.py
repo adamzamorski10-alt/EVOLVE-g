@@ -165,6 +165,7 @@ def test_stage_0_5_api_route_contracts_are_declared_and_auth_scoped():
         ("app.nutrition.routes", "nutrition_router", "/app/nutrition"),
         ("app.plan.routes", "plan_router", "/app/plan"),
         ("app.training.routes", "training_router", "/app/training"),
+        ("app.recovery.routes", "recovery_router", "/app/recovery"),
         ("app.fitness.routes", "fitness_router", "/app"),
     ]
     for module_name, router_name, prefix in route_specs:
