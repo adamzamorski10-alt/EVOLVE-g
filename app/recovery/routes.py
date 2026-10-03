@@ -83,4 +83,14 @@ def get_recovery_history(days: int = Query(default=14, ge=1, le=28), user: UserD
         target = date.today() - timedelta(days=offset)
         item = by_date.get(target)
         history.append({"date": target.isoformat(), **(item if item else {"status": "missing", "readiness_score": None, "signal_count": 0, "signals": {}, "constraint": "none", "message": "Brak check-inu."})})
-    return {"days": days, "history": history}
+    scored = [item for item in history if item.get("readiness_score") is not None]
+    constrained = [item for item in history if item.get("constraint") in {"reduce_volume_25", "reduce_volume_50"}]
+    summary = {
+        "days_with_data": len(scored),
+        "missing_days": sum(1 for item in history if item.get("status") == "missing"),
+        "average_readiness": round(sum(item["readiness_score"] for item in scored) / len(scored), 1) if scored else None,
+        "constrained_days": len(constrained),
+        "recovery_days": sum(1 for item in history if item.get("constraint") == "reduce_volume_50"),
+        "caution_days": sum(1 for item in history if item.get("constraint") == "reduce_volume_25"),
+    }
+    return {"days": days, "history": history, "summary": summary}
