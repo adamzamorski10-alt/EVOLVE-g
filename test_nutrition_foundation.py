@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import uuid
+from pathlib import Path
+import pytest
+
+from app.auth import routes as auth_routes
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
@@ -11,6 +15,17 @@ from app.models import NutritionAdaptationDB, NutritionEntryDB, TrainingSessionD
 from main import app
 
 client = TestClient(app)
+
+
+ROOT = Path(__file__).parent
+
+
+@pytest.fixture(autouse=True)
+def _disable_registration_rate_limit():
+    previous = auth_routes.limiter.enabled
+    auth_routes.limiter.enabled = False
+    yield
+    auth_routes.limiter.enabled = previous
 
 
 def _register():
