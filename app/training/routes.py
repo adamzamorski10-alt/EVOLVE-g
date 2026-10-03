@@ -1342,34 +1342,25 @@ def complete_training_session(
     for item in sets:
         by_exercise.setdefault(item.exercise_key, []).append(item)
 
-    existing_results = list(
-        session.exec(
-            select(ExerciseResultDB).where(ExerciseResultDB.user_id == user.id)
-        ).all()
-    )
-    existing_keys = {
-        (
-            item.exercise_name,
-            item.session_date,
-            item.sets,
-            item.reps,
-            round(float(item.weight_kg or 0), 3),
-        )
-        for item in existing_results
-    }
-
-    for exercise_sets in by_exercise.values():
+    for exercise_key, exercise_sets in by_exercise.items():
         reps = round(sum(item.actual_reps for item in exercise_sets) / len(exercise_sets))
         weight = round(sum(float(item.actual_weight_kg or 0) for item in exercise_sets) / len(exercise_sets), 3)
         rpes = [item.actual_rpe for item in exercise_sets if item.actual_rpe is not None]
         rpe = round(sum(rpes) / len(rpes)) if rpes else (payload.final_rpe or 1)
         name = exercise_sets[0].exercise_name
-        key = (name, row.session_date, len(exercise_sets), reps, weight)
-        if key in existing_keys:
+        existing_result = session.exec(
+            select(ExerciseResultDB)
+            .where(ExerciseResultDB.user_id == user.id)
+            .where(ExerciseResultDB.source_session_id == row.id)
+            .where(ExerciseResultDB.source_exercise_key == exercise_key)
+        ).first()
+        if existing_result:
             continue
         session.add(
             ExerciseResultDB(
                 user_id=user.id,
+                source_session_id=row.id,
+                source_exercise_key=exercise_key,
                 exercise_name=name,
                 session_date=row.session_date,
                 sets=len(exercise_sets),
