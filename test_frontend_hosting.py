@@ -6,7 +6,7 @@ APP_INIT = (ROOT / "app" / "__init__.py").read_text(encoding="utf-8")
 
 
 def test_hosted_frontend_uses_same_origin_backend_on_render():
-    assert "location.hostname.endsWith('.onrender.com')" in APP_INIT or "location.origin" in APP_INIT
+    assert 'fetch("/app/training/today"' in APP_INIT
 
 
 def test_dashboard_first_targets_actual_legacy_shell_ids():
