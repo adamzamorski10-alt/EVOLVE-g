@@ -80,8 +80,22 @@ def _extract_workout(plan: dict, target: date) -> list[dict[str, Any]]:
 
 
 def _normalize_plan_item(item: dict[str, Any], index: int) -> dict[str, Any]:
+    import re
+
     name = str(item.get("name") or item.get("exercise_name") or "Ćwiczenie").strip()
     key = str(item.get("id") or item.get("item_id") or f"exercise-{index + 1}")
+
+    def _numeric(value: Any, default: int = 0) -> int:
+        if isinstance(value, bool):
+            return int(value)
+        match = re.search(r"\d+", str(value or ""))
+        return int(match.group()) if match else default
+
+    raw_reps = str(item.get("reps") or "").strip()
+    rep_numbers = [int(value) for value in re.findall(r"\d+", raw_reps)]
+    reps = max(0, rep_numbers[-1] if rep_numbers else 0)
+    reps_label = raw_reps or str(reps)
+
     weight = item.get("weight_kg", item.get("weight", 0))
     try:
         weight = float(weight or 0)
@@ -91,10 +105,11 @@ def _normalize_plan_item(item: dict[str, Any], index: int) -> dict[str, Any]:
     return {
         "exercise_key": key,
         "exercise_name": name,
-        "sets": max(0, int(item.get("sets") or 0)),
-        "reps": max(0, int(item.get("reps") or 0)),
+        "sets": max(0, _numeric(item.get("sets"))),
+        "reps": reps,
+        "reps_label": reps_label,
         "weight_kg": max(0.0, weight),
-        "rpe": int(item["rpe"]) if item.get("rpe") is not None else None,
+        "rpe": _numeric(item.get("rpe"), 0) if item.get("rpe") is not None else None,
         "notes": str(item.get("notes") or ""),
     }
 
