@@ -8150,6 +8150,15 @@
       }
     }
 
+
+    function showTabFromHash() {
+      const tabId = decodeURIComponent(window.location.hash.replace(/^#/, ''));
+      if (!tabId || !document.getElementById('tab-' + tabId)) return;
+      showTab(tabId);
+    }
+
+    window.addEventListener('DOMContentLoaded', showTabFromHash);
+    window.addEventListener('hashchange', showTabFromHash);
     let weeklyAnalysisData = null;
     let weeklyAnalysisLoading = null;
 
