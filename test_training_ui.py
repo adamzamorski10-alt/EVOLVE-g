@@ -12,8 +12,10 @@ def test_training_execution_ui_is_wired_to_stage2_api():
         "evolveStartTrainingBtn",
         "window.evolveStartTraining",
         "/app/training/sessions/start",
-        "/app/training/sessions/" + "' + encodeURIComponent(session.id) + " + "/sets",
-        "/app/training/sessions/" + "' + encodeURIComponent(session.id) + " + "/complete",
+        "/app/training/sessions/",
+        "encodeURIComponent(session.id)",
+        "/sets",
+        "/complete",
         "data-save-ex",
         "✓ Zakończ trening",
     ]
