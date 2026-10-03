@@ -572,7 +572,128 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 </script>"""
 
     if 'id="evolve-my-day-shell-integration"' not in html:
-        html = html.replace("</body>", evolve_shell_integration + "</body>", 1)
+        html = html.replace("<script id="evolve-nutrition-shell-integration">
+(function () {
+  function nutritionEscape(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char];
+    });
+  }
+  var nutritionLoadSequence = 0;
+
+  function injectNutritionShell() {
+    if (document.getElementById("nutritionSummary")) return;
+    var content = document.querySelector(".content");
+    if (!content) return;
+    var section =
+      '<div class="tab-panel" id="tab-diet">' +
+        '<div class="sec-head"><div><div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:700;">Dieta 🥗</div>' +
+        '<div style="font-size:13px;color:var(--muted);margin-top:4px;">Dzisiejsze spożycie, cele i reakcja systemu.</div></div>' +
+        '<button class="btn btn-primary btn-sm" id="nutritionAddBtn" type="button">+ Dodaj posiłek</button></div>' +
+        '<div id="nutritionStatus" class="alert alert-hidden" style="margin-bottom:16px;"></div>' +
+        '<div id="nutritionSummary" class="grid-2" style="margin-bottom:16px;"></div>' +
+        '<div id="nutritionResponse" class="card" style="padding:20px;margin-bottom:16px;"></div>' +
+        '<div class="card" style="padding:20px;"><div class="sec-head" style="margin-bottom:12px;"><div style="font-weight:700;font-size:16px;">Dzisiejsze wpisy</div><div id="nutritionEntryCount" style="font-size:12px;color:var(--muted);">—</div></div>' +
+        '<div id="nutritionEntries"><div class="spinner"></div></div></div>' +
+      '</div>';
+    content.insertAdjacentHTML("afterbegin", section);
+    document.getElementById("nutritionAddBtn").addEventListener("click", function () {
+      var name = window.prompt("Nazwa posiłku:");
+      if (!name || !name.trim()) return;
+      var kcal = Number(window.prompt("Kalorie (kcal):", "0"));
+      var protein = Number(window.prompt("Białko (g):", "0"));
+      if (!Number.isFinite(kcal) || kcal < 0 || !Number.isFinite(protein) || protein < 0) {
+        window.alert("Podaj poprawne wartości.");
+        return;
+      }
+      window.saveEvolveNutritionEntry({name:name.trim(), calories_kcal:kcal, protein_g:protein});
+    });
+  }
+
+  window.loadEvolveNutrition = async function () {
+    injectNutritionShell();
+    var summaryEl = document.getElementById("nutritionSummary");
+    var entriesEl = document.getElementById("nutritionEntries");
+    var responseEl = document.getElementById("nutritionResponse");
+    if (!summaryEl || !entriesEl || !responseEl) return;
+    var requestId = ++nutritionLoadSequence;
+    var token = localStorage.getItem("fitai_token");
+    if (!token) {
+      summaryEl.innerHTML = '<div class="card" style="padding:20px;">Zaloguj się, aby zobaczyć dietę.</div>';
+      entriesEl.innerHTML = "";
+      responseEl.innerHTML = "";
+      return;
+    }
+    try {
+      var headers = {Authorization: "Bearer " + token};
+      var [todayResponse, responseSignal] = await Promise.all([
+        fetch("/app/nutrition/today", {headers:headers, cache:"no-store"}),
+        fetch("/app/nutrition/response?days=7", {headers:headers, cache:"no-store"})
+      ]);
+      var today = await todayResponse.json();
+      var signal = await responseSignal.json();
+      if (requestId !== nutritionLoadSequence) return;
+      if (!todayResponse.ok) throw new Error(today.detail || "Nie udało się pobrać diety.");
+      if (!responseSignal.ok) throw new Error(signal.detail || "Nie udało się pobrać reakcji żywieniowej.");
+
+      var totals = today.totals || {};
+      var targets = today.targets || {};
+      summaryEl.innerHTML =
+        '<div class="card" style="padding:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);">KALORIE</div><div style="font-size:28px;font-weight:700;margin-top:8px;">' +
+        nutritionEscape(totals.calories_kcal || 0) + ' / ' + nutritionEscape(targets.calories_kcal || 0) + ' kcal</div></div>' +
+        '<div class="card" style="padding:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);">BIAŁKO</div><div style="font-size:28px;font-weight:700;margin-top:8px;">' +
+        nutritionEscape(totals.protein_g || 0) + ' / ' + nutritionEscape(targets.protein_g || 0) + ' g</div></div>';
+      document.getElementById("nutritionEntryCount").textContent = (today.entries || []).length + " wpisów";
+      entriesEl.innerHTML = (today.entries || []).map(function (entry) {
+        return '<div class="item-card" style="cursor:default;margin-bottom:8px;"><div class="item-card-head"><div class="item-card-title">' +
+          nutritionEscape(entry.name) + '</div><button class="btn btn-ghost btn-sm" type="button" data-nutrition-delete="' + nutritionEscape(entry.id) + '">Usuń</button></div>' +
+          '<div class="item-card-meta">' + nutritionEscape(entry.calories_kcal) + ' kcal · ' + nutritionEscape(entry.protein_g) + ' g białka</div></div>';
+      }).join("") || '<div style="padding:20px;color:var(--muted);text-align:center;">Brak wpisów na dziś.</div>';
+
+      responseEl.innerHTML = signal.status === "insufficient_data"
+        ? '<div style="font-weight:700;">Reakcja żywieniowa</div><div style="margin-top:8px;color:var(--muted);">' + nutritionEscape(signal.message) + '</div>'
+        : '<div style="font-weight:700;">Reakcja żywieniowa</div><div style="margin-top:8px;">' + nutritionEscape(signal.message) + '</div>' +
+          '<div style="margin-top:8px;color:var(--muted);">Średnio: ' + nutritionEscape(signal.averages.calories_kcal) + ' kcal · ' + nutritionEscape(signal.averages.protein_g) + ' g białka · ' + nutritionEscape(signal.logged_days) + ' dni danych</div>';
+
+      Array.from(document.querySelectorAll("[data-nutrition-delete]")).forEach(function (button) {
+        button.addEventListener("click", async function () {
+          var deleteResponse = await fetch("/app/nutrition/entries/" + encodeURIComponent(button.getAttribute("data-nutrition-delete")), {
+            method:"DELETE", headers:headers
+          });
+          if (!deleteResponse.ok) {
+            var errorData = await deleteResponse.json();
+            window.alert(errorData.detail || "Nie udało się usunąć wpisu.");
+            return;
+          }
+          window.loadEvolveNutrition();
+        });
+      });
+    } catch (error) {
+      if (requestId !== nutritionLoadSequence) return;
+      document.getElementById("nutritionStatus").className = "alert alert-warn";
+      document.getElementById("nutritionStatus").textContent = "⚠️ " + error.message;
+      entriesEl.innerHTML = '<div style="padding:20px;color:var(--muted);">Błąd ładowania danych.</div>';
+    }
+  };
+
+  window.saveEvolveNutritionEntry = async function (payload) {
+    var token = localStorage.getItem("fitai_token");
+    if (!token) return;
+    var response = await fetch("/app/nutrition/entries", {
+      method:"POST",
+      headers:{"Content-Type":"application/json", Authorization:"Bearer " + token},
+      body:JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      var data = await response.json();
+      window.alert(data.detail || "Nie udało się zapisać wpisu.");
+      return;
+    }
+    window.loadEvolveNutrition();
+  };
+})();
+</script>
+</body>", evolve_shell_integration + "</body>", 1)
 
     if 'id="evolve-dashboard-first-style"' not in html:
         html = html.replace("</head>", dashboard_first_bootstrap + "</head>", 1)
