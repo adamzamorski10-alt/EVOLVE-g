@@ -88,8 +88,6 @@ def upgrade() -> None:
         sa.Column("weight", sa.Float(), nullable=True),
         sa.Column("water_liters", sa.Float(), nullable=True),
         sa.Column("sleep_duration_minutes", sa.Integer(), nullable=True),
-        sa.Column("mood_score", sa.Integer(), nullable=True),
-        sa.Column("training_rpe", sa.Integer(), nullable=True),
         sa.Column("waist_cm", sa.Float(), nullable=True),
         sa.Column("chest_cm", sa.Float(), nullable=True),
         sa.Column("photo_path", sa.String(), nullable=True),
