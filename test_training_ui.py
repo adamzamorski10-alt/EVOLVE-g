@@ -39,3 +39,11 @@ def test_my_day_is_integrated_into_shared_dashboard_shell():
 def test_my_day_no_longer_navigates_to_standalone_today_ui():
     assert 'id="nav-my-day"' in APP_INIT
     assert "/app/training/today-ui" not in APP_INIT
+
+
+def test_my_day_routing_loads_daily_data_when_native_tab_opens():
+    assert "function installMyDayRoutingHook()" in APP_INIT
+    assert "var originalShowTab = window.showTab;" in APP_INIT
+    assert 'if (tab === "my-day") {' in APP_INIT
+    assert "window.loadEvolveMyDay();" in APP_INIT
+    assert "installMyDayRoutingHook();" in APP_INIT
