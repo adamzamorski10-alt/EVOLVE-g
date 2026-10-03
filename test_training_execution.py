@@ -417,3 +417,46 @@ def test_exercise_progress_is_completed_and_user_scoped():
     assert other.status_code == 200
     assert other.json()["sessions"] == 0
     assert other.json()["history"] == []
+
+
+def test_training_trends_are_deterministic_and_completed_only():
+    ctx = _context()
+    first = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid1 = first.json()["session"]["id"]
+    assert _log_set(ctx["token"], sid1, 1, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(f"/app/training/sessions/{sid1}/complete", json={"final_rpe": 7}, headers=_headers(ctx["token"])).status_code == 200
+
+    second = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid2 = second.json()["session"]["id"]
+    assert _log_set(ctx["token"], sid2, 1, reps=5, weight=120, rpe=7).status_code == 200
+    assert client.post(f"/app/training/sessions/{sid2}/complete", json={"final_rpe": 7}, headers=_headers(ctx["token"])).status_code == 200
+
+    response = client.get("/app/training/progress/trends?limit=12", headers=_headers(ctx["token"]))
+    assert response.status_code == 200
+    exercise = next(item for item in response.json()["exercises"] if item["exercise_key"] == "squat-1")
+    assert exercise["sessions"] == 2
+    assert exercise["weight"]["trend"] == "up"
+    assert exercise["weight"]["change_pct"] > 0
+    assert exercise["history"][0]["best_weight_kg"] == 120
+    assert exercise["history"][1]["best_weight_kg"] == 100
+
+
+def test_training_records_are_user_scoped_and_completed_only():
+    first = _context()
+    second = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(first["token"]))
+    sid = started.json()["session"]["id"]
+    assert _log_set(first["token"], sid, 1, reps=8, weight=130, rpe=8).status_code == 200
+    assert _log_set(first["token"], sid, 2, reps=5, weight=140, rpe=9).status_code == 200
+    assert client.post(f"/app/training/sessions/{sid}/complete", json={"final_rpe": 9}, headers=_headers(first["token"])).status_code == 200
+
+    own = client.get("/app/training/progress/records", headers=_headers(first["token"]))
+    assert own.status_code == 200
+    exercise = next(item for item in own.json()["exercises"] if item["exercise_key"] == "squat-1")
+    assert exercise["best_weight"]["value_kg"] == 140
+    assert exercise["best_reps"]["value"] == 8
+    assert exercise["best_session_volume"]["value_kg"] == 1640
+
+    foreign = client.get("/app/training/progress/records", headers=_headers(second["token"]))
+    assert foreign.status_code == 200
+    assert foreign.json()["exercises"] == []
