@@ -16,7 +16,9 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-# Import SQLModel metadata
+# Import SQLModel metadata without triggering the application's eager DB bootstrap.
+import os
+os.environ["EVOLVE_ALEMBIC_CONTEXT"] = "1"
 from app.models import SQLModel
 from app.config import DATABASE_URL
 

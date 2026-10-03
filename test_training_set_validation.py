@@ -1,4 +1,7 @@
 import pytest
+from pathlib import Path
+from sqlmodel import Session, select
+from app.database import engine
 
 from app.auth import routes as auth_routes
 from test_training_execution import _context, _headers, client
@@ -364,3 +367,58 @@ def test_adaptive_dashboard_exposes_apply_control():
     response = client.get("/app/training/dashboard")
     assert response.status_code == 200
     assert "Zastosuj adaptację jako nową wersję planu" in response.text
+
+
+def test_training_set_identity_is_database_unique_and_owner_scoped():
+    migration = (Path(__file__).parent / "alembic" / "versions" / "evolve13set_unique.py").read_text(encoding="utf-8")
+    routes = (Path(__file__).parent / "app" / "training" / "routes.py").read_text(encoding="utf-8")
+    assert "uq_training_set_session_exercise_number" in migration
+    assert "ON training_set_results(session_id, exercise_key, set_number)" in migration
+    assert ".where(TrainingSetResultDB.user_id == user.id)" in routes
+    assert "except IntegrityError:" in routes
+
+
+def test_completion_is_atomic_and_claims_only_active_owned_session():
+    routes = Path(__file__).parent / "app" / "training" / "routes.py"
+    source = routes.read_text(encoding="utf-8")
+    assert "update(TrainingSessionDB)" in source
+    assert ".where(TrainingSessionDB.user_id == user.id)" in source
+    assert '.where(TrainingSessionDB.status == "active")' in source
+    assert "if claimed != 1:" in source
+
+
+def test_adaptive_revision_version_is_database_unique_and_conflicts_are_handled():
+    migration = (Path(__file__).parent / "alembic" / "versions" / "evolve15adaptive_unique.py").read_text(encoding="utf-8")
+    routes = (Path(__file__).parent / "app" / "training" / "routes.py").read_text(encoding="utf-8")
+    assert "uq_adaptive_plan_revision_user_version" in migration
+    assert "ON adaptive_plan_revisions(user_id, version)" in migration
+    assert "except IntegrityError:" in routes
+    assert "Równoległa adaptacja utworzyła już tę samą wersję planu." in routes
+
+
+def test_training_set_update_is_idempotent_and_editable():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+
+    first = _log_set(ctx["token"], sid, 1, reps=5, weight=100, rpe=7)
+    assert first.status_code == 200
+    second = _log_set(ctx["token"], sid, 1, reps=6, weight=105, rpe=8)
+    assert second.status_code == 200
+    assert second.json()["status"] == "updated"
+    assert second.json()["set"]["actual_reps"] == 6
+    assert second.json()["set"]["actual_weight_kg"] == 105
+
+    with Session(engine) as db:
+        from app.models import UserDB, TrainingSetResultDB
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        rows = db.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.session_id == sid)
+            .where(TrainingSetResultDB.exercise_key == "squat-1")
+            .where(TrainingSetResultDB.set_number == 1)
+        ).all()
+        assert len(rows) == 1
+        assert rows[0].actual_reps == 6
+        assert rows[0].actual_weight_kg == 105

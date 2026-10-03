@@ -502,3 +502,101 @@ PROFILE → ASSESSMENT → PLAN → TODAY → TRAINING EXECUTION.
 ### NEXT
 - **Core Loop hardening:** connect assessment/profile constraints more deeply to plan selection (availability, equipment and basketball specialization) without breaking the existing deterministic generator.
 - Then continue with **History + Progress → rolling 1–2 week planning → basketball development → recovery → nutrition**.
+
+
+## Stage 5A — Nutrition Foundation Checkpoint — 2026-10-03
+
+### DONE
+- Added canonical structured `NutritionEntryDB` for actual food/water intake.
+- Added Alembic migration `evolve18nutrition` after `evolve17goalmetrics`.
+- Added authenticated user-scoped nutrition endpoints:
+  - `POST /app/nutrition/entries`
+  - `GET /app/nutrition/entries`
+  - `GET /app/nutrition/today`
+  - `DELETE /app/nutrition/entries/{entry_id}`
+- Added deterministic daily aggregation for calories, protein, carbohydrates, fat, fiber and water.
+- Added calorie/protein target exposure from the existing user profile calculation.
+- Added bounded date-range validation and ownership checks.
+- Kept legacy `DailyLogDB` meal JSON intact for compatibility; it is not the new canonical analytics source.
+
+### CURRENT
+Stage 5A establishes a real structured source for **ACTUAL INTAKE**. No adaptation is performed yet.
+
+### NEXT
+- Nutrition target semantics and adherence windows.
+- Connect actual intake with training/load and recovery signals.
+- Build bounded deterministic nutrition response/adaptation rules.
+- Native Dieta UX should consume the structured API rather than legacy JSON.
+
+
+## Stage 5B — Nutrition Adherence Checkpoint — 2026-10-03
+
+### DONE
+- Added deterministic `GET /app/nutrition/adherence?days=1..28`.
+- Aggregates only days with actual structured intake.
+- Reports calorie adherence using a bounded 90–110% target window.
+- Reports protein adherence at >=90% of target.
+- Exposes daily ratios and rolling averages.
+- Missing intake days are not silently classified as failures.
+
+### CURRENT
+Nutrition now has the first analytical layer:
+**PROFILE TARGETS → ACTUAL INTAKE → ADHERENCE**.
+
+### NEXT
+- Add response/adaptation rules using sufficient evidence.
+- Keep adaptation bounded and explainable.
+- Integrate training/recovery context before changing nutrition targets.
+
+
+## Stage 5C–5D — Nutrition Response + Native Dieta UX — 2026-10-03
+
+### DONE
+- Added deterministic `GET /app/nutrition/response?days=3..28`.
+- Requires at least 3 logged days before producing a response signal.
+- Distinguishes under-target, near-target and over-target calorie patterns.
+- Separately reports protein signal.
+- Explicitly returns `adaptation_allowed=false`; this stage never mutates nutrition targets.
+- Added native Dieta shell to the main application.
+- Dieta shows today's calories/protein, entries and deterministic response.
+- Added authenticated create/delete interaction and stale-request protection.
+- Added native navigation loading for the Dieta tab.
+- Added API/UI regression contracts.
+
+### CURRENT
+Nutrition loop is now:
+`PROFILE TARGETS → ACTUAL INTAKE → ADHERENCE → RESPONSE → DIETA UX`.
+
+### NEXT
+Stage 5E will connect nutrition evidence with training/recovery context and define bounded adaptation eligibility. Target changes remain disabled until that evidence gate is implemented and tested.
+
+
+## Stage 5E — Nutrition Adaptation Checkpoint — 2026-10-03
+
+### DONE
+- Added a separate `NutritionAdaptationDB` audit trail.
+- Added Alembic `evolve19nutrition_adaptations`.
+- Added deterministic adaptation preview requiring:
+  - at least 7 logged nutrition days,
+  - at least 2 completed training sessions in the same 14–28 day evidence window.
+- Adaptation is bounded to a maximum ±100 kcal per application and a safe absolute range of 1200–5000 kcal.
+- Protein target is not automatically changed by this stage.
+- Added optimistic concurrency protection: the target is updated only if its stored base value still matches the preview base.
+- Added explicit user-triggered apply endpoint.
+- Added native Dieta presentation and explicit “Zastosuj zmianę” action.
+- Added audit record for every applied adaptation.
+
+### SAFETY INVARIANTS
+- No adaptation from a single day.
+- No adaptation without training context.
+- No silent mutation from a GET/preview.
+- No unbounded calorie jump.
+- No automatic protein-target mutation.
+- Concurrent target changes produce a conflict instead of overwriting newer data.
+
+### CURRENT
+Stage 5 nutrition loop is complete:
+`PROFILE → TARGETS → ACTUAL INTAKE → ADHERENCE → RESPONSE → EVIDENCE → BOUNDED ADAPTATION → AUDIT → DIETA UX`.
+
+### NEXT
+Stage 6 — Recovery Response.
