@@ -16,8 +16,9 @@ from sqlmodel import Session, select, update
 
 from app.auth.dependencies import get_current_user
 from app.database import get_session
-from app.models import AdaptivePlanRevisionDB, AssessmentDB, ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
+from app.models import AdaptivePlanRevisionDB, AssessmentDB, DailyLogDB, ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
 from app.plan.routes import _assessment_inputs, _fingerprint, _profile_inputs
+from app.recovery.routes import evaluate_recovery
 from app.schemas import TrainingCompleteRequest, TrainingSetResultRequest
 
 router = APIRouter(prefix="/app/training", tags=["training-execution"])
@@ -203,10 +204,46 @@ def _plan_fingerprint(plan: dict) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _apply_recovery_constraint(plan: dict, recovery: dict) -> tuple[dict, str]:
+    """Apply a transient, bounded volume constraint without mutating the stored plan."""
+    constraint = str(recovery.get("constraint") or "none")
+    if constraint == "none" or not isinstance(plan, dict):
+        return plan, "none"
+    factor = 0.75 if constraint == "reduce_volume_25" else 0.5 if constraint == "reduce_volume_50" else 1.0
+    if factor >= 1.0:
+        return plan, "none"
+
+    constrained = json.loads(json.dumps(plan, ensure_ascii=False))
+    days = constrained.get("days")
+    if isinstance(days, list):
+        for day in days:
+            workout = day.get("workout") if isinstance(day, dict) else None
+            exercises = workout.get("exercises") if isinstance(workout, dict) else None
+            if isinstance(exercises, list):
+                for exercise in exercises:
+                    if not isinstance(exercise, dict):
+                        continue
+                    try:
+                        sets = max(0, int(exercise.get("sets") or 0))
+                    except (TypeError, ValueError):
+                        sets = 0
+                    if sets:
+                        exercise["sets"] = max(1, round(sets * factor))
+    return constrained, constraint
+
+
 def _effective_plan(user: UserDB, session: Session) -> tuple[dict, dict]:
-    """Resolve only an adaptive revision derived from the current base plan."""
+    """Resolve adaptive plan, then apply today's deterministic recovery constraint."""
     base = _load_base_plan(user)
     revision = _latest_adaptive_revision(user.id, session)
+    resolved = base
+    meta = {
+        "source": "base",
+        "version": 0,
+        "created_at": None,
+        "source_session_ids": [],
+        "algorithm": None,
+    }
     if revision and isinstance(base, dict) and base:
         try:
             adapted = json.loads(revision.applied_plan_json or "{}")
@@ -219,20 +256,27 @@ def _effective_plan(user: UserDB, session: Session) -> tuple[dict, dict]:
             and isinstance(metadata, dict)
             and metadata.get("base_plan_fingerprint") == _plan_fingerprint(base)
         ):
-            return adapted, {
+            resolved = adapted
+            meta = {
                 "source": "adaptive",
                 "version": revision.version,
                 "created_at": revision.created_at.isoformat(),
                 "source_session_ids": revision.source_session_ids(),
                 "algorithm": metadata.get("algorithm", "deterministic-v1"),
             }
-    return base, {
-        "source": "base",
-        "version": 0,
-        "created_at": None,
-        "source_session_ids": [],
-        "algorithm": None,
-    }
+
+    recovery = evaluate_recovery(
+        session.exec(
+            select(DailyLogDB)
+            .where(DailyLogDB.user_id == user.id)
+            .where(DailyLogDB.log_date == date.today())
+        ).first()
+    )
+    resolved, recovery_constraint = _apply_recovery_constraint(resolved, recovery)
+    meta["recovery_constraint"] = recovery_constraint
+    meta["recovery_status"] = recovery.get("status")
+    meta["readiness_score"] = recovery.get("readiness_score")
+    return resolved, meta
 
 def _owned_session(session: Session, user: UserDB, session_id: str) -> TrainingSessionDB:
     row = session.exec(
