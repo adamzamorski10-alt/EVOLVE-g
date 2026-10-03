@@ -600,3 +600,24 @@ Stage 5 nutrition loop is complete:
 
 ### NEXT
 Stage 6 — Recovery Response.
+
+
+## Stage 6A — Recovery Response Foundation — 2026-10-03
+
+### DONE
+- Added authenticated `/app/recovery/today` and bounded `/app/recovery/history` endpoints using the existing structured daily check-in signals.
+- Added deterministic readiness scoring from sleep, sleep quality, energy, stress, fatigue and mood when available.
+- Requires at least two recovery signals before applying a training constraint.
+- Uses three explainable states: ready, caution and recovery.
+- Recovery constraints are bounded to no reduction, ~25% volume reduction or ~50% volume reduction.
+- The effective training plan now consumes today's recovery state transiently; the stored base/adaptive plan is never mutated by the recovery response.
+- Added focused readiness and non-mutation regression tests and registered the recovery router in the Stage 0–5 audit contract.
+
+### CURRENT
+Recovery has its first deterministic product link:
+`CHECK-IN → READINESS → BOUNDED TRAINING CONSTRAINT → TODAY/TRAINING`.
+
+### NEXT
+- Add native Recovery UX to the shared shell.
+- Verify recovery constraint behavior through the full Today → Training browser flow.
+- Add history/trend presentation and safety/edge-case tests before expanding the model.
