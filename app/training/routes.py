@@ -733,6 +733,8 @@ def get_training_today(
         "date": target.isoformat(),
         "day_label": _DAY_LABELS[target.weekday()],
         "has_workout": bool(exercises),
+        "plan_stale": plan_stale,
+        "can_start": (bool(exercises) and not plan_stale) or bool(active),
         "plan": meta,
         "exercises": exercises,
         "session": {
@@ -746,7 +748,9 @@ def get_training_today(
             ),
         },
         "message": (
-            "Dzisiejszy trening pochodzi z zastosowanej adaptacji planu."
+            "Plan jest nieaktualny względem profilu lub assessmentu. Wygeneruj aktualny plan przed rozpoczęciem nowego treningu."
+            if plan_stale and not active
+            else "Dzisiejszy trening pochodzi z zastosowanej adaptacji planu."
             if meta["source"] == "adaptive"
             else "Dzisiejszy trening pochodzi z bazowego planu tygodniowego."
         ),
