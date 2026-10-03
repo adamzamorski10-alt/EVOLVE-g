@@ -381,5 +381,5 @@ def test_completion_is_atomic_and_claims_only_active_owned_session():
     source = routes.read_text(encoding="utf-8")
     assert "update(TrainingSessionDB)" in source
     assert ".where(TrainingSessionDB.user_id == user.id)" in source
-    assert ".where(TrainingSessionDB.status == "active")" in source
+    assert '.where(TrainingSessionDB.status == "active")' in source
     assert "if claimed != 1:" in source
