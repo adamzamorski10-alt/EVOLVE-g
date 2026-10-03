@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
-      - run: pytest -q test_training_execution.py test_training_ui.py test_training_set_validation.py test_training_today.py test_core_foundation.py
+      - run: pytest -q test_training_execution.py test_training_ui.py test_training_set_validation.py test_training_today.py test_core_foundation.py test_core_planning_contract.py
 
   legacy-baseline:
     name: Legacy regression (informational)
