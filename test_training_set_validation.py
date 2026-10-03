@@ -392,3 +392,31 @@ def test_adaptive_revision_version_is_database_unique_and_conflicts_are_handled(
     assert "ON adaptive_plan_revisions(user_id, version)" in migration
     assert "except IntegrityError:" in routes
     assert "Równoległa adaptacja utworzyła już tę samą wersję planu." in routes
+
+
+def test_training_set_update_is_idempotent_and_editable():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+
+    first = _log_set(ctx["token"], sid, 1, reps=5, weight=100, rpe=7)
+    assert first.status_code == 200
+    second = _log_set(ctx["token"], sid, 1, reps=6, weight=105, rpe=8)
+    assert second.status_code == 200
+    assert second.json()["status"] == "updated"
+    assert second.json()["set"]["actual_reps"] == 6
+    assert second.json()["set"]["actual_weight_kg"] == 105
+
+    with Session(engine) as db:
+        from app.models import UserDB, TrainingSetResultDB
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        rows = db.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.session_id == sid)
+            .where(TrainingSetResultDB.exercise_key == "squat-1")
+            .where(TrainingSetResultDB.set_number == 1)
+        ).all()
+        assert len(rows) == 1
+        assert rows[0].actual_reps == 6
+        assert rows[0].actual_weight_kg == 105
