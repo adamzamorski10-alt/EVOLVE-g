@@ -461,3 +461,15 @@ def test_training_records_are_user_scoped_and_completed_only():
     foreign = client.get("/app/training/progress/records", headers=_headers(second["token"]))
     assert foreign.status_code == 200
     assert foreign.json()["exercises"] == []
+
+
+def test_consistency_endpoint_returns_only_completed_owned_sessions():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+    assert _log_set(ctx["token"], sid, 1, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(f"/app/training/sessions/{sid}/complete", json={"final_rpe": 7}, headers=_headers(ctx["token"])).status_code == 200
+    response = client.get("/app/training/progress/consistency", headers=_headers(ctx["token"]))
+    assert response.status_code == 200
+    assert response.json()["sessions"] == 1
+    assert response.json()["training_days"] == 1
