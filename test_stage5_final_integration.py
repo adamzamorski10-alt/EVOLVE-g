@@ -252,6 +252,11 @@ def test_assessment_change_invalidates_plan_before_training_and_regeneration_res
     blocked = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
     assert blocked.status_code == 409, blocked.text
 
+    today = client.get("/app/training/today", headers=_headers(ctx["token"]))
+    assert today.status_code == 200, today.text
+    assert today.json()["plan_stale"] is True
+    assert today.json()["can_start"] is False
+
     regenerated = client.post(
         "/app/plan/generate",
         json={"force": False},
