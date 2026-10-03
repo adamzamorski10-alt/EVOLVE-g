@@ -79,11 +79,20 @@ def _extract_workout(plan: dict, target: date) -> list[dict[str, Any]]:
     return []
 
 
+def _plan_item_key(item: dict[str, Any], index: int = 0) -> str:
+    explicit = item.get("exercise_key") or item.get("id") or item.get("item_id")
+    if explicit:
+        return str(explicit)
+    name = str(item.get("name") or item.get("exercise_name") or "").strip().lower()
+    normalized = "".join(char if char.isalnum() else "-" for char in name).strip("-")
+    return normalized or f"exercise-{index + 1}"
+
+
 def _normalize_plan_item(item: dict[str, Any], index: int) -> dict[str, Any]:
     import re
 
     name = str(item.get("name") or item.get("exercise_name") or "Ćwiczenie").strip()
-    key = str(item.get("id") or item.get("item_id") or f"exercise-{index + 1}")
+    key = _plan_item_key(item, index)
 
     def _numeric(value: Any, default: int = 0) -> int:
         if isinstance(value, bool):
@@ -1425,7 +1434,7 @@ def _build_adaptive_plan(user_id: str, session: Session) -> tuple[dict, list[str
                     if not isinstance(item, dict):
                         updated.append(item)
                         continue
-                    key = str(item.get("id") or item.get("item_id") or "")
+                    key = _plan_item_key(item)
                     replacement = by_key.get(key)
                     updated.append({**item, **({"sets": replacement["sets"], "reps": replacement["reps"], "weight_kg": replacement["weight_kg"]} if replacement else {})})
                     if replacement:
