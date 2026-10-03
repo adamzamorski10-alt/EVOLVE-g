@@ -113,6 +113,7 @@ def test_goals_ux_native_shell_contract():
         'loadEvolveGoals',
         'openEvolveGoalForm',
         'saveEvolveGoal',
+        'editEvolveGoal',
         'loadEvolveGoalDetail',
         'updateEvolveGoalStatus',
         'archiveEvolveGoal',
@@ -133,6 +134,7 @@ def test_goals_ux_has_empty_error_and_lifecycle_states():
         'Zarchiwizować ten cel?',
         'Ukończ',
         'Archiwizuj',
+        'ARCHIWUM',
     ]
     for marker in required:
         assert marker in APP_INIT, f"Missing Goals UX state marker: {marker}"
