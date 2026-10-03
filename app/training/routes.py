@@ -268,6 +268,10 @@ def get_exercise_progress(
     weights = [float(item.actual_weight_kg or 0) for item, _ in rows]
     rpes = [float(item.actual_rpe) for item, _ in rows if item.actual_rpe is not None]
     best_weight = max(weights, default=0.0)
+    best_reps_at_best_weight = max(
+        (int(item.actual_reps or 0) for item, _ in rows if float(item.actual_weight_kg or 0) == best_weight),
+        default=0,
+    )
     history = []
     for training in session_order:
         items = [item for item, row in rows if row.id == training.id]
@@ -280,6 +284,10 @@ def get_exercise_progress(
             "sets": len(items),
             "total_volume_kg": volume,
             "best_weight_kg": round(max(float(item.actual_weight_kg or 0) for item in items), 2),
+            "best_reps_at_best_weight": max(
+                (int(item.actual_reps or 0) for item in items if float(item.actual_weight_kg or 0) == max(float(item.actual_weight_kg or 0) for item in items)),
+                default=0,
+            ),
             "average_rpe": round(sum(float(item.actual_rpe) for item in items if item.actual_rpe is not None) / len([item for item in items if item.actual_rpe is not None]), 2) if any(item.actual_rpe is not None for item in items) else None,
         })
     return {
@@ -288,6 +296,7 @@ def get_exercise_progress(
         "limit": limit,
         "sessions": len(history),
         "best_weight_kg": round(best_weight, 2),
+        "best_reps_at_best_weight": best_reps_at_best_weight,
         "total_volume_kg": round(sum(weights[i] * int(rows[i][0].actual_reps or 0) for i in range(len(rows))), 2),
         "average_rpe": round(sum(rpes) / len(rpes), 2) if rpes else None,
         "history": history,
@@ -397,6 +406,16 @@ def get_training_records(
         grouped.setdefault(item.exercise_key, []).append((item, training))
     records = []
     for exercise_key, items in grouped.items():
+        session_ids = []
+        seen_sessions = set()
+        for item, training in sorted(items, key=lambda pair: (pair[1].session_date, pair[1].completed_at or datetime.min), reverse=True):
+            if training.id not in seen_sessions:
+                seen_sessions.add(training.id)
+                session_ids.append(training.id)
+            if len(session_ids) >= limit:
+                break
+        allowed_sessions = set(session_ids)
+        items = [(item, training) for item, training in items if training.id in allowed_sessions]
         best_weight = max((float(item.actual_weight_kg or 0) for item, _ in items), default=0.0)
         best_weight_rows = [(item, training) for item, training in items if float(item.actual_weight_kg or 0) == best_weight]
         best_reps = max((int(item.actual_reps or 0) for item, _ in items), default=0)
