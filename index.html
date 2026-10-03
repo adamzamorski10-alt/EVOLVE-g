@@ -21,7 +21,9 @@
     window.API_BASE = window.API_BASE || (
       location.hostname === 'localhost' || location.hostname === '127.0.0.1'
         ? 'http://localhost:8000'
-        : 'https://fitai-backend-l918.onrender.com'
+        : (location.hostname.endsWith('.onrender.com')
+          ? location.origin
+          : 'https://fitai-backend-l918.onrender.com')
     );
     // Logowanie/rejestracja dostępne tylko na docelowej domenie GitHub Pages.
     // Otwierając plik lokalnie (file://) lub z innej domeny widoczny jest tylko podgląd.
@@ -1873,6 +1875,10 @@
         <a href="#" onclick="showTab('my-day');return false;" data-tab="my-day"
           class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>📋</span><span>Mój
             Dzień</span></a>
+        <a href="/app/training/today-ui"
+          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white">
+          <span>🎯</span><span>Today</span>
+        </a>
 
         <!-- Plan z podzakładkami -->
         <div class="plan-submenu">
