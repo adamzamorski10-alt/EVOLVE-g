@@ -247,8 +247,7 @@ html = """<!DOCTYPE html>
     /* DAY CAROUSEL */
     .day-carousel{display:flex;align-items:center;gap:10px;margin-bottom:20px;}
     .day-btn-arrow{
-      width:36px;height:36px;border-radius:10px;border:1px solid var(--border-cyan);
-      background:transparent;color:var(--cyan);cursor:pointer;font-size:16px;
+      width:36px;height:36px;border-radius:10px;border:1px solid var(--border-cyan);      background:transparent;color:var(--cyan);cursor:pointer;font-size:16px;
       display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;
     }
     .day-btn-arrow:hover{background:rgba(0,229,255,0.1);}
@@ -497,7 +496,6 @@ html = """<!DOCTYPE html>
       <div class="topbar-badge" id="topbar-plan">FREE</div>
       <div style="font-size:12px;color:var(--muted);padding:5px 10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid var(--border);" id="topbar-email">Zaloguj się</div>
     </header>
-
     <div class="content">
 
       <!-- ===== HOME TAB ===== -->
@@ -747,8 +745,7 @@ html = """<!DOCTYPE html>
                   <button type="submit" class="w-full px-6 py-3 rounded-lg bg-cyan-400 text-slate-900 font-bold hover:brightness-110">Zapisz Profil</button>
                 </form>
         <div style="margin-top:16px;text-align:center;">
-          <button class="btn btn-primary btn-lg" onclick="submitCheckin()">✅ Zapisz Dzienny Raport</button>
-        </div>
+          <button class="btn btn-primary btn-lg" onclick="submitCheckin()">✅ Zapisz Dzienny Raport</button>        </div>
       </div>
 
       <!-- ===== PLAN TAB ===== -->
@@ -997,8 +994,7 @@ html = """<!DOCTYPE html>
           </div>
         </div>
         <div class="card" style="padding:20px;max-width:600px;margin-top:16px;">
-          <div style="font-weight:700;margin-bottom:10px;">📩 Wyślij Wiadomość do AI</div>
-          <div class="form-group"><textarea class="form-textarea" id="contact-msg" placeholder="Napisz pytanie lub opinię..."></textarea></div>
+          <div style="font-weight:700;margin-bottom:10px;">📩 Wyślij Wiadomość do AI</div>          <div class="form-group"><textarea class="form-textarea" id="contact-msg" placeholder="Napisz pytanie lub opinię..."></textarea></div>
           <button class="btn btn-primary" onclick="sendContactAI()">Wyślij do AI →</button>
           <div id="contact-ai-resp" style="margin-top:12px;"></div>
         </div>
@@ -1247,8 +1243,7 @@ function showTab(tab){
 // PROFILE SUBTABS
 // ============================================================
 function showProfileSub(sub){
-  ['user','goals','prefs','billing'].forEach(s=>{
-    document.getElementById('psub-'+s).classList.remove('active');
+  ['user','goals','prefs','billing'].forEach(s=>{    document.getElementById('psub-'+s).classList.remove('active');
     document.getElementById('psub-panel-'+s).style.display='none';
   });
   document.getElementById('psub-'+sub).classList.add('active');
@@ -1497,8 +1492,7 @@ Uwzględnij dni odpoczynku (workout.type:"rest", brak exercises). Dni tygodnia: 
     const data=await resp.json();
     let text=(data.content||[]).map(i=>i.text||'').join('');
     text=text.replace(/```json|```/g,'').trim();
-    const parsed=JSON.parse(text);
-    state.plan=parsed;
+    const parsed=JSON.parse(text);    state.plan=parsed;
     saveToStorage();
     renderPlanDay();
     showToast('✅ Plan wygenerowany!');
