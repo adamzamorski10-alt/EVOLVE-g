@@ -77,7 +77,7 @@ def test_core_loop_profile_assessment_plan_training_progress_goal():
     assert started.status_code == 200, started.text
     sid = started.json()["session"]["id"]
     exercise = started.json()["session"]["planned"]["exercises"][0]
-    exercise_key = exercise.get("id") or exercise.get("exercise_key") or "squat-1"
+    exercise_key = exercise.get("exercise_key") or exercise.get("id") or "squat-1"
 
     logged = client.post(
         f"/app/training/sessions/{sid}/sets",
