@@ -294,6 +294,143 @@ def get_exercise_progress(
     }
 
 
+@router.get("/progress/trends")
+def get_training_trends(
+    limit: int = 12,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return deterministic exercise trends from completed execution data."""
+    limit = max(2, min(limit, 52))
+    rows = list(session.exec(
+        select(TrainingSetResultDB, TrainingSessionDB)
+        .join(TrainingSessionDB, TrainingSetResultDB.session_id == TrainingSessionDB.id)
+        .where(TrainingSetResultDB.user_id == user.id)
+        .where(TrainingSetResultDB.completed == True)
+        .where(TrainingSessionDB.user_id == user.id)
+        .where(TrainingSessionDB.status == "completed")
+        .order_by(TrainingSessionDB.session_date.desc(), TrainingSetResultDB.set_number.desc())
+    ).all())
+    by_exercise = {}
+    for item, training in rows:
+        by_exercise.setdefault(item.exercise_key, {}).setdefault(training.id, {"session": training, "sets": []})["sets"].append(item)
+
+    trends = []
+    for exercise_key, session_map in by_exercise.items():
+        sessions = sorted(
+            session_map.values(),
+            key=lambda value: (value["session"].session_date, value["session"].completed_at or datetime.min),
+            reverse=True,
+        )[:limit]
+        points = []
+        for value in sessions:
+            items = value["sets"]
+            volume = sum(float(item.actual_weight_kg or 0) * int(item.actual_reps or 0) for item in items)
+            best_weight = max((float(item.actual_weight_kg or 0) for item in items), default=0.0)
+            rpes = [float(item.actual_rpe) for item in items if item.actual_rpe is not None]
+            points.append({
+                "session_id": value["session"].id,
+                "session_date": value["session"].session_date.isoformat(),
+                "volume_kg": round(volume, 2),
+                "best_weight_kg": round(best_weight, 2),
+                "average_rpe": round(sum(rpes) / len(rpes), 2) if rpes else None,
+            })
+        latest = points[0]
+        previous = points[1:]
+        def trend(metric):
+            if len(points) < 2:
+                return "new_baseline", None
+            baseline = sum(point[metric] for point in previous) / len(previous)
+            if baseline == 0:
+                if latest[metric] > 0:
+                    return "up", None
+                return "stable", 0.0
+            change_pct = round((latest[metric] - baseline) / baseline * 100, 1)
+            if change_pct >= 2:
+                return "up", change_pct
+            if change_pct <= -2:
+                return "down", change_pct
+            return "stable", change_pct
+        weight_trend, weight_change = trend("best_weight_kg")
+        volume_trend, volume_change = trend("volume_kg")
+        rpe_points = [point["average_rpe"] for point in points if point["average_rpe"] is not None]
+        if len(rpe_points) < 2:
+            rpe_trend, rpe_change = "new_baseline", None
+        else:
+            latest_rpe = rpe_points[0]
+            baseline_rpe = sum(rpe_points[1:]) / len(rpe_points[1:])
+            rpe_change = round(latest_rpe - baseline_rpe, 2)
+            rpe_trend = "up" if rpe_change >= 0.5 else "down" if rpe_change <= -0.5 else "stable"
+        trends.append({
+            "exercise_key": exercise_key,
+            "exercise_name": sessions[0]["sets"][0].exercise_name,
+            "sessions": len(points),
+            "latest": latest,
+            "weight": {"trend": weight_trend, "change_pct": weight_change},
+            "volume": {"trend": volume_trend, "change_pct": volume_change},
+            "rpe": {"trend": rpe_trend, "change": rpe_change},
+            "history": points,
+        })
+    trends.sort(key=lambda item: item["exercise_name"])
+    return {"limit": limit, "exercises": trends}
+
+
+@router.get("/progress/records")
+def get_training_records(
+    limit: int = 52,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return deterministic personal records from completed execution data."""
+    limit = max(1, min(limit, 52))
+    rows = list(session.exec(
+        select(TrainingSetResultDB, TrainingSessionDB)
+        .join(TrainingSessionDB, TrainingSetResultDB.session_id == TrainingSessionDB.id)
+        .where(TrainingSetResultDB.user_id == user.id)
+        .where(TrainingSetResultDB.completed == True)
+        .where(TrainingSessionDB.user_id == user.id)
+        .where(TrainingSessionDB.status == "completed")
+        .order_by(TrainingSessionDB.session_date.desc(), TrainingSetResultDB.set_number.desc())
+    ).all())
+    grouped = {}
+    for item, training in rows:
+        grouped.setdefault(item.exercise_key, []).append((item, training))
+    records = []
+    for exercise_key, items in grouped.items():
+        best_weight = max((float(item.actual_weight_kg or 0) for item, _ in items), default=0.0)
+        best_weight_rows = [(item, training) for item, training in items if float(item.actual_weight_kg or 0) == best_weight]
+        best_reps = max((int(item.actual_reps or 0) for item, _ in items), default=0)
+        best_rep_rows = [(item, training) for item, training in items if int(item.actual_reps or 0) == best_reps]
+        session_volumes = {}
+        for item, training in items:
+            session_volumes.setdefault(training.id, {"session": training, "volume": 0.0})
+            session_volumes[training.id]["volume"] += float(item.actual_weight_kg or 0) * int(item.actual_reps or 0)
+        best_volume = max((value["volume"] for value in session_volumes.values()), default=0.0)
+        best_volume_row = next((value for value in session_volumes.values() if value["volume"] == best_volume), None)
+        records.append({
+            "exercise_key": exercise_key,
+            "exercise_name": items[0][0].exercise_name,
+            "best_weight": {
+                "value_kg": round(best_weight, 2),
+                "session_id": best_weight_rows[0][1].id if best_weight_rows else None,
+                "session_date": best_weight_rows[0][1].session_date.isoformat() if best_weight_rows else None,
+            },
+            "best_reps": {
+                "value": best_reps,
+                "weight_kg": round(float(best_rep_rows[0][0].actual_weight_kg or 0), 2) if best_rep_rows else 0,
+                "session_id": best_rep_rows[0][1].id if best_rep_rows else None,
+                "session_date": best_rep_rows[0][1].session_date.isoformat() if best_rep_rows else None,
+            },
+            "best_session_volume": {
+                "value_kg": round(best_volume, 2),
+                "session_id": best_volume_row["session"].id if best_volume_row else None,
+                "session_date": best_volume_row["session"].session_date.isoformat() if best_volume_row else None,
+            },
+        })
+    records.sort(key=lambda item: item["exercise_name"])
+    return {"limit": limit, "exercises": records}
+
+
 @router.get("/exercises/{exercise_key}/history")
 def get_exercise_history(
     exercise_key: str,
