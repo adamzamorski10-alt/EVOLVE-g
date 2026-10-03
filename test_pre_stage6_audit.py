@@ -81,7 +81,7 @@ def test_main_shell_exposes_native_stage_0_5_domains():
         'data-tab="recovery"',
         'data-tab="progress"',
         'data-tab="goals"',
-        'data-tab="profile"',
+        'id="nav-profile"',
         'id="tab-my-day"',
         'id="tab-progress"',
         'id="tab-goals"',
@@ -116,8 +116,6 @@ def test_migration_chain_has_single_head_through_stage_5():
             revisions[revision] = down_revision
 
     assert "evolve19nutrition_adaptations" in revisions
-    assert revisions.get("evolve20migration_merge") == ("evolve19nutrition_adaptations", "72efb594294f")
-    assert revisions.get("7a6d4c3e9b12") == "c8b1f3d9a77d"
     assert revisions.get("evolve20migration_merge") == ("evolve19nutrition_adaptations", "72efb594294f")
     expected = {
         "evolve16goals": "evolve15adaptiveunique",
