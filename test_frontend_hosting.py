@@ -57,3 +57,18 @@ def test_my_day_empty_state_disables_training_start_cta():
 def test_frontend_has_fallback_when_generated_index_is_empty():
     assert 'if not html.strip():' in APP_INIT
     assert 'STATIC_DIR / "fitai_dashboard.html"' in APP_INIT
+
+
+def test_shared_shell_contains_native_recovery_integration():
+    required = [
+        'id="evolve-recovery-shell-integration"',
+        'id="tab-recovery"',
+        'id="nav-recovery"',
+        'fetch("/app/recovery/today"',
+        "window.loadEvolveRecovery",
+        'id="recoverySummary"',
+        'id="recoverySignals"',
+        'id="recoveryEffect"',
+    ]
+    for marker in required:
+        assert marker in APP_INIT, f"Missing Recovery shell marker: {marker}"
