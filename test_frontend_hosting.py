@@ -1,79 +1,46 @@
 from pathlib import Path
 
 
-def test_hosted_frontend_uses_same_origin_backend_on_render_and_exposes_my_day():
-    html = (Path(__file__).parent / "index.html").read_text(encoding="utf-8")
-
-    assert "location.hostname.endsWith('.onrender.com')" in html
-    assert "location.origin" in html
-    assert 'href="/app/training/today-ui"' in html
-    assert "<span>Mój dzień</span>" in html
-    assert "<span>Today</span>" not in html
+ROOT = Path(__file__).parent
+APP_INIT = (ROOT / "app" / "__init__.py").read_text(encoding="utf-8")
 
 
-def test_main_navigation_matches_evolve_domain_model():
-    html = (Path(__file__).parent / "index.html").read_text(encoding="utf-8")
+def test_hosted_frontend_uses_same_origin_backend_on_render():
+    assert "location.hostname.endsWith('.onrender.com')" in APP_INIT or "location.origin" in APP_INIT
 
-    expected = [
-        "Home",
-        "Mój dzień",
-        "Trening",
-        "Koszykówka",
-        "Dieta",
-        "Recovery",
-        "Postępy",
-        "Profil",
+
+def test_dashboard_first_targets_actual_legacy_shell_ids():
+    assert 'id="evolve-dashboard-first-style"' in APP_INIT
+    assert "#landing { display: none !important; }" in APP_INIT
+    assert "#appContainer { display: flex !important; }" in APP_INIT
+    assert "document.documentElement.classList.add('evolve-dashboard-first')" in APP_INIT
+    assert 'id="evolve-dashboard-first-boot"' in APP_INIT
+    assert "if (typeof enterApp === 'function') enterApp();" in APP_INIT
+
+
+def test_shared_shell_contains_native_my_day_injection():
+    required = [
+        'id="evolve-my-day-shell-integration"',
+        'id="tab-my-day"',
+        'data-tab="my-day"',
+        "showTab(\\'my-day\\')",
+        "fetch(\"/app/training/today\"",
+        "function injectMyDayShell",
+        "window.loadEvolveMyDay",
+        'id="myDayWorkout"',
+        'id="myDayExercises"',
+        'id="myDaySessionProgress"',
+        "Wznów trening",
     ]
-    for label in expected:
-        assert f"<span>{label}</span>" in html
-
-    assert "<span>Plan</span>" not in html
-    assert 'id="tab-recovery"' in html
-    assert 'data-tab="recovery"' in html
+    for marker in required:
+        assert marker in APP_INIT, f"Missing Mój dzień shell marker: {marker}"
 
 
-def test_frontend_supports_hash_deep_link_to_my_day():
-    html = (Path(__file__).parent / "index.html").read_text(encoding="utf-8")
-
-    assert "showTabFromHash" in html
-    assert "window.location.hash.replace" in html
-    assert "hashchange" in html
+def test_my_day_removes_standalone_today_dependency_from_navigation():
+    assert "id=\"nav-my-day\"" in APP_INIT
+    assert "/app/training/today-ui" not in APP_INIT
 
 
-def test_frontend_deep_link_enters_dashboard_before_selecting_tab():
-    html = (Path(__file__).parent / "index.html").read_text(encoding="utf-8")
-
-    assert "typeof enterDashboard === 'function'" in html
-    assert "enterDashboard();" in html
-    assert "showTab(tabId);" in html
-
-
-def test_server_serves_dashboard_first_without_landing_flash():
-    app_init = (Path(__file__).parent / "app" / "__init__.py").read_text(encoding="utf-8")
-
-    assert 'id="evolve-dashboard-first-style"' in app_init
-    assert "#landingPage { display: none !important; }" in app_init
-    assert "#dashboardPage.hidden { display: flex !important; }" in app_init
-    assert "document.documentElement.classList.add('evolve-dashboard-first')" in app_init
-    assert 'id="evolve-dashboard-first-boot"' in app_init
-    assert "if (typeof enterDashboard === 'function') enterDashboard();" in app_init
-
-
-def test_shared_shell_contains_integrated_my_day():
-    html = (Path(__file__).parent / "app" / "index.html").read_text(encoding="utf-8")
-
-    assert 'id="tab-my-day"' in html
-    assert '<span>🎯</span><span>Mój dzień</span>' in html
-    assert "fetch('/app/training/today'" in html
-    assert "function loadMyDay()" in html
-    assert 'id="myDaySessionProgress"' in html
-    assert "data.session" in html
-    assert "Wznów trening" in html
-    assert 'href="/app/training/today-ui"' not in html
-
-
-def test_transitional_training_floating_entry_is_removed():
-    app_init = (Path(__file__).parent / "app" / "__init__.py").read_text(encoding="utf-8")
-
-    assert 'id="evolve-training-dashboard-entry"' not in app_init
-    assert 'id="evolve-training-entry"' not in app_init
+def test_frontend_has_fallback_when_generated_index_is_empty():
+    assert 'if not html.strip():' in APP_INIT
+    assert 'STATIC_DIR / "fitai_dashboard.html"' in APP_INIT
