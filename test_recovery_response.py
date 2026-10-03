@@ -62,3 +62,72 @@ def test_recovery_history_summary_is_deterministic():
     assert summary["constrained_days"] == 2
     assert summary["caution_days"] == 1
     assert summary["recovery_days"] == 1
+
+
+def test_recovery_today_and_history_are_user_scoped():
+    from datetime import date
+    from sqlmodel import Session, select
+    from app.database import engine
+    from app.models import UserDB
+    from test_training_execution import _context, _headers, client
+
+    first = _context()
+    second = _context()
+    with Session(engine) as session:
+        user = session.exec(select(UserDB).where(UserDB.email == first["email"])).first()
+        assert user is not None
+        session.add(DailyLogDB(
+            user_id=user.id,
+            log_date=date.today(),
+            sleep_hours=6,
+            sleep_quality=6,
+            energy_level=6,
+            stress_level=6,
+        ))
+        session.commit()
+
+    today = client.get("/app/recovery/today", headers=_headers(first["token"]))
+    assert today.status_code == 200
+    assert today.json()["status"] == "caution"
+
+    history = client.get("/app/recovery/history?days=2", headers=_headers(first["token"]))
+    assert history.status_code == 200
+    assert history.json()["summary"]["days_with_data"] == 1
+    assert history.json()["summary"]["missing_days"] == 1
+
+    other = client.get("/app/recovery/today", headers=_headers(second["token"]))
+    assert other.status_code == 200
+    assert other.json()["status"] == "insufficient_data"
+
+
+def test_recovery_caution_reduces_today_training_without_mutating_stored_plan():
+    from datetime import date
+    from sqlmodel import Session, select
+    from app.database import engine
+    from app.models import UserDB
+    from test_training_execution import _context, _headers, client
+
+    ctx = _context()
+    with Session(engine) as session:
+        user = session.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        assert user is not None
+        original_plan = user.weekly_plan_json
+        session.add(DailyLogDB(
+            user_id=user.id,
+            log_date=date.today(),
+            sleep_hours=6,
+            sleep_quality=6,
+            energy_level=6,
+            stress_level=6,
+        ))
+        session.commit()
+
+    today = client.get("/app/training/today", headers=_headers(ctx["token"]))
+    assert today.status_code == 200
+    data = today.json()
+    assert data["plan"]["source"] == "base"
+    assert data["exercises"][0]["sets"] == 2
+
+    with Session(engine) as session:
+        user = session.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        assert user.weekly_plan_json == original_plan
