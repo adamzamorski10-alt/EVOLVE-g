@@ -4,6 +4,7 @@ Training Execution — deterministic session lifecycle for planned workouts.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import date, datetime
 from typing import Any
@@ -143,24 +144,33 @@ def _latest_adaptive_revision(user_id: str, session: Session) -> AdaptivePlanRev
     ).first()
 
 
+def _plan_fingerprint(plan: dict) -> str:
+    canonical = json.dumps(plan, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def _effective_plan(user: UserDB, session: Session) -> tuple[dict, dict]:
-    """Resolve the plan actually used by TODAY and training execution."""
+    """Resolve only an adaptive revision derived from the current base plan."""
     base = _load_base_plan(user)
     revision = _latest_adaptive_revision(user.id, session)
-    if revision:
+    if revision and isinstance(base, dict) and base:
         try:
             adapted = json.loads(revision.applied_plan_json or "{}")
         except (TypeError, json.JSONDecodeError):
             adapted = {}
-        # Stage 9 revisions were session snapshots. Do not let those legacy
-        # revisions replace the user's whole weekly plan.
-        if isinstance(adapted, dict) and isinstance(adapted.get("days"), list):
+        metadata = adapted.get("_evolve_adaptation") if isinstance(adapted, dict) else None
+        if (
+            isinstance(adapted, dict)
+            and isinstance(adapted.get("days"), list)
+            and isinstance(metadata, dict)
+            and metadata.get("base_plan_fingerprint") == _plan_fingerprint(base)
+        ):
             return adapted, {
                 "source": "adaptive",
                 "version": revision.version,
                 "created_at": revision.created_at.isoformat(),
                 "source_session_ids": revision.source_session_ids(),
-                "algorithm": (adapted.get("_evolve_adaptation") or {}).get("algorithm", "deterministic-v1"),
+                "algorithm": metadata.get("algorithm", "deterministic-v1"),
             }
     return base, {
         "source": "base",
@@ -169,7 +179,6 @@ def _effective_plan(user: UserDB, session: Session) -> tuple[dict, dict]:
         "source_session_ids": [],
         "algorithm": None,
     }
-
 
 def _owned_session(session: Session, user: UserDB, session_id: str) -> TrainingSessionDB:
     row = session.exec(
