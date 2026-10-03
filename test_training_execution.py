@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from pathlib import Path
 
 import pytest
 from datetime import date
@@ -225,3 +226,11 @@ def test_effective_plan_rejects_adaptation_derived_from_stale_base():
     assert today.json()["plan"]["source"] == "base"
     assert today.json()["exercises"][0]["weight_kg"] == 999
     assert original_plan["exercises"][0]["weight_kg"] == 100
+
+
+def test_completion_route_uses_atomic_active_claim():
+    routes = (Path(__file__).parent / "app" / "training" / "routes.py").read_text(encoding="utf-8")
+    assert 'update(TrainingSessionDB)' in routes
+    assert '.where(TrainingSessionDB.status == "active")' in routes
+    assert 'if claimed != 1:' in routes
+    assert 'status="completed"' in routes
