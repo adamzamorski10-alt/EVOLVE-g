@@ -325,3 +325,30 @@ Implementation may continue to subsequent stages while these checks remain pendi
 - Evidence required: exact focused/full test commands and exit codes, migration execution, browser/mobile evidence, concurrency evidence.
 - Do not mark PASS from static inspection alone.
 
+
+
+## EV-018 — Full Stage 0–5 second-user isolation / release E2E
+
+- Status: PENDING
+- Owner: Antygravity + local test runner
+- Purpose: independent verification that a second account can use the complete current EVOLVE without seeing, modifying or inheriting User A data.
+- Setup:
+  1. Create User A and User B independently.
+  2. Give User A distinctive profile, assessment, goals, training execution, progress and nutrition/adaptation data.
+  3. Give User B different data.
+- Required checks:
+  - login/logout/session switching
+  - Profile ownership and update isolation
+  - Assessment history/latest isolation
+  - Plan readiness/generation isolation
+  - Mój dzień and active-session isolation
+  - Training session/set/completion/history isolation
+  - Progress/trends/records/consistency/exercise drill-down isolation
+  - Goal CRUD/progress/metrics isolation
+  - Nutrition entries/today/adherence/response/adaptation isolation
+  - cross-user direct-ID requests return 403/404 and never mutate the other account
+  - repeated actions do not duplicate downstream records
+  - refresh/new tab does not leak the previous account's UI state
+  - logout clears the usable authenticated session
+- Evidence required: exact test data, screenshots/network evidence where useful, PASS/FAIL for every module, and exact commands/exit codes for API/runtime checks.
+- Do not mark PASS from static inspection alone.
