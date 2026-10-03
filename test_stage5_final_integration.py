@@ -249,6 +249,9 @@ def test_assessment_change_invalidates_plan_before_training_and_regeneration_res
     assert readiness.json()["plan_stale"] is True
     assert readiness.json()["assessment_version"] == 2
 
+    blocked = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert blocked.status_code == 409, blocked.text
+
     regenerated = client.post(
         "/app/plan/generate",
         json={"force": False},
@@ -258,6 +261,9 @@ def test_assessment_change_invalidates_plan_before_training_and_regeneration_res
     new_plan = regenerated.json()["plan"]
     assert new_plan["_evolve_core"]["assessment_id"] == second.json()["assessment"]["id"]
     assert new_plan["_evolve_core"]["assessment_version"] == 2
+
+    resumed_after_regeneration = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert resumed_after_regeneration.status_code == 200, resumed_after_regeneration.text
 
     with Session(engine) as db:
         user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
