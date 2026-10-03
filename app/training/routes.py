@@ -288,12 +288,46 @@ def get_training_today(
         for index, item in enumerate(raw)
         if isinstance(item, dict)
     ]
+
+    active = session.exec(
+        select(TrainingSessionDB)
+        .where(TrainingSessionDB.user_id == user.id)
+        .where(TrainingSessionDB.session_date == target)
+        .where(TrainingSessionDB.status == "active")
+    ).first()
+
+    active_sets = 0
+    if active:
+        active_sets = len(
+            session.exec(
+                select(TrainingSetResultDB)
+                .where(TrainingSetResultDB.session_id == active.id)
+                .where(TrainingSetResultDB.user_id == user.id)
+                .where(TrainingSetResultDB.completed == True)
+            ).all()
+        )
+
+    planned_sets = sum(
+        max(0, int(item.get("sets") or 0))
+        for item in exercises
+    )
+
     return {
         "date": target.isoformat(),
         "day_label": _DAY_LABELS[target.weekday()],
         "has_workout": bool(exercises),
         "plan": meta,
         "exercises": exercises,
+        "session": {
+            "id": active.id if active else None,
+            "status": active.status if active else None,
+            "completed_sets": active_sets,
+            "planned_sets": planned_sets,
+            "completion_pct": (
+                round((active_sets / planned_sets) * 100, 1)
+                if planned_sets else 0
+            ),
+        },
         "message": (
             "Dzisiejszy trening pochodzi z zastosowanej adaptacji planu."
             if meta["source"] == "adaptive"
