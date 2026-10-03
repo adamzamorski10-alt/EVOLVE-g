@@ -223,3 +223,18 @@ Implementation may continue to subsequent stages while these checks remain pendi
 - mobile/responsive layout
 - authenticated user sees only owned goals
 **Evidence required:** screenshots, test data, navigation/reload behavior, responsive check, discrepancies. Do not mark PASS from static review alone.
+
+
+## EV-011 — Stage 3F Goal ↔ Progress Integration
+**Status:** PENDING  
+**Owner:** Antygravity / local test runner  
+**Scope:**
+- Goal Progress values match existing Training Progress for the same completed execution window
+- Records/Trends/Exercise Progress semantics remain consistent
+- cumulative metrics do not regress to last-session-only values
+- active/cancelled sessions and incomplete sets never contribute
+- exercise-specific goals only use the selected exercise
+- cross-user isolation
+- no duplicated or conflicting visible values in Goals vs Progress
+- target, remaining, percentage, trend and on-track states remain deterministic
+**Evidence required:** exact test commands and exit codes, API/browser evidence, representative real data, discrepancies. Do not mark PASS from static inspection alone.
