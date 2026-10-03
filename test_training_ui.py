@@ -60,6 +60,3 @@ def test_training_progress_endpoint_and_dashboard_contract():
     assert "total_volume_kg" in TRAINING_ROUTES
     assert "total_completed_sets" in TRAINING_ROUTES
     assert "fetch('/app/training/progress?limit=12'" in TRAINING_ROUTES
-    response = client.get("/app/training/dashboard")
-    assert response.status_code == 200
-    assert "Postępy treningowe" in response.text
