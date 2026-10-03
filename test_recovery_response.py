@@ -1,7 +1,7 @@
 from datetime import date
 
 from app.models import DailyLogDB
-from app.recovery.routes import _apply_recovery_constraint, evaluate_recovery
+from app.recovery.routes import _apply_recovery_constraint, evaluate_recovery, summarize_recovery_history
 
 
 def _log(**kwargs):
@@ -49,8 +49,16 @@ def test_recovery_constraint_reduces_planned_sets_without_mutating_input():
 
 
 def test_recovery_history_summary_is_deterministic():
-    from app.recovery.routes import evaluate_recovery
-    ready = evaluate_recovery(_log(sleep_hours=8, energy_level=9))
-    caution = evaluate_recovery(_log(sleep_hours=6, energy_level=6))
-    assert ready["constraint"] == "none"
-    assert caution["constraint"] == "reduce_volume_25"
+    history = [
+        {"status": "ready", "readiness_score": 90, "constraint": "none"},
+        {"status": "caution", "readiness_score": 60, "constraint": "reduce_volume_25"},
+        {"status": "recovery", "readiness_score": 40, "constraint": "reduce_volume_50"},
+        {"status": "missing", "readiness_score": None, "constraint": "none"},
+    ]
+    summary = summarize_recovery_history(history)
+    assert summary["days_with_data"] == 3
+    assert summary["missing_days"] == 1
+    assert summary["average_readiness"] == 63.3
+    assert summary["constrained_days"] == 2
+    assert summary["caution_days"] == 1
+    assert summary["recovery_days"] == 1
