@@ -251,3 +251,12 @@ def test_nutrition_adaptation_rejects_insufficient_evidence():
         headers=_headers(token),
     )
     assert response.status_code == 422
+
+
+def test_nutrition_adaptation_ui_contract_is_explicit_and_bounded():
+    source = (ROOT / "app" / "__init__.py").read_text(encoding="utf-8")
+    assert '/app/nutrition/adaptation?days=14' in source
+    assert '/app/nutrition/adaptation/apply?days=14' in source
+    assert 'Zastosuj zmianę' in source
+    assert 'adaptation_allowed' in source
+    assert 'applyButton.disabled = true' in source
