@@ -47,3 +47,9 @@ def test_my_day_routing_loads_daily_data_when_native_tab_opens():
     assert 'if (tab === "my-day") {' in APP_INIT
     assert "window.loadEvolveMyDay();" in APP_INIT
     assert "installMyDayRoutingHook();" in APP_INIT
+
+
+def test_my_day_shell_ignores_stale_daily_responses():
+    assert "var myDayLoadSequence = 0;" in APP_INIT
+    assert "var requestId = ++myDayLoadSequence;" in APP_INIT
+    assert "if (requestId !== myDayLoadSequence) return;" in APP_INIT
