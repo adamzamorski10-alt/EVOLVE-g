@@ -7,9 +7,9 @@ html = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FitAI — Premium Dashboard</title>
+  <title>EVOLVE — Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <title>FitAI — SaaS Dashboard</title>
+  <title>EVOLVE — Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -467,19 +467,31 @@ html = """<!DOCTYPE html>
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="logo" onclick="showTab('home')">F</div>
-    <button class="nav-btn active" id="nav-home" onclick="showTab('home')">
+    <button class="nav-btn active" id="nav-home" data-tab="home" onclick="showTab('home')">
       🏠<span class="nav-tooltip">Home</span>
     </button>
-    <button class="nav-btn" id="nav-myday" onclick="showTab('myday')">
-      📝<span class="nav-tooltip">Mój Dzień</span>
+    <button class="nav-btn" id="nav-my-day" data-tab="my-day" onclick="showTab('my-day')">
+      🎯<span class="nav-tooltip">Mój dzień</span>
     </button>
-    <button class="nav-btn" id="nav-plan" onclick="showTab('plan')">
-      💪<span class="nav-tooltip">Plan</span>
+    <button class="nav-btn" id="nav-training" data-tab="training" onclick="showTab('training')">
+      🏋️<span class="nav-tooltip">Trening</span>
     </button>
-    <button class="nav-btn" id="nav-profile" onclick="showTab('profile')">
+    <button class="nav-btn" id="nav-basketball" data-tab="basketball" onclick="showTab('basketball')">
+      🏀<span class="nav-tooltip">Koszykówka</span>
+    </button>
+    <button class="nav-btn" id="nav-diet" data-tab="diet" onclick="showTab('diet')">
+      🥗<span class="nav-tooltip">Dieta</span>
+    </button>
+    <button class="nav-btn" id="nav-recovery" data-tab="recovery" onclick="showTab('recovery')">
+      😴<span class="nav-tooltip">Recovery</span>
+    </button>
+    <button class="nav-btn" id="nav-progress" data-tab="progress" onclick="showTab('progress')">
+      📈<span class="nav-tooltip">Postępy</span>
+    </button>
+    <button class="nav-btn" id="nav-profile" data-tab="profile" onclick="showTab('profile')">
       👤<span class="nav-tooltip">Profil</span>
     </button>
-    <button class="nav-btn" id="nav-contact" onclick="showTab('contact')">
+    <button class="nav-btn" id="nav-contact" data-tab="contact" onclick="showTab('contact')">
       💬<span class="nav-tooltip">Kontakt</span>
     </button>
     <div class="nav-spacer"></div>
@@ -491,7 +503,7 @@ html = """<!DOCTYPE html>
   <!-- MAIN CONTENT -->
   <div class="main">
     <header class="topbar">
-      <div class="topbar-title">Fit<span>AI</span></div>
+      <div class="topbar-title">EVO<span>LVE</span></div>
       <div id="topbar-subtitle" style="font-size:13px;color:var(--muted);margin-left:8px;"></div>
       <div class="topbar-spacer"></div>
       <div class="topbar-badge" id="topbar-plan">FREE</div>
@@ -618,6 +630,69 @@ html = """<!DOCTYPE html>
               <div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Brak wpisów. Zacznij logowanie!</div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- ===== EVOLVE MÓJ DZIEŃ ===== -->
+      <div class="tab-panel" id="tab-my-day">
+        <div class="sec-head">
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:700;">Mój dzień 🎯</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:4px;">Dzisiejszy plan, wykonanie i stan sesji w jednym miejscu.</div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);" id="myDayDate">—</div>
+        </div>
+        <div id="myDayStatus" class="alert alert-hidden" style="margin-bottom:16px;"></div>
+        <div class="grid-2" style="margin-bottom:16px;">
+          <div class="card" style="padding:20px;">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">DZISIAJ</div>
+            <div id="myDayWorkout" style="font-size:22px;font-weight:700;margin-top:8px;">Ładowanie…</div>
+            <div id="myDayPlanMeta" style="font-size:12px;color:var(--muted);margin-top:6px;">—</div>
+            <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+              <a id="myDayStartLink" class="btn btn-primary btn-sm" href="/app/training/session-ui">Rozpocznij trening</a>
+              <a class="btn btn-outline btn-sm" href="/app/training/dashboard">Analiza treningu</a>
+            </div>
+          </div>
+          <div class="card" style="padding:20px;">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">WYKONANIE</div>
+            <div id="myDaySessionProgress" style="font-size:28px;font-weight:700;color:var(--cyan);margin-top:8px;">0%</div>
+            <div id="myDaySessionMeta" style="font-size:12px;color:var(--muted);margin-top:4px;">Brak aktywnej sesji</div>
+            <div class="prog-bar"><div class="prog-fill" id="myDaySessionBar" style="width:0%"></div></div>
+          </div>
+        </div>
+        <div class="card" style="padding:20px;">
+          <div class="sec-head" style="margin-bottom:12px;">
+            <div style="font-weight:700;font-size:16px;">🏋️ Dzisiejszy trening</div>
+            <div id="myDayExerciseCount" style="font-size:12px;color:var(--muted);">—</div>
+          </div>
+          <div id="myDayExercises"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-training">
+        <div class="sec-head"><div><div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:700;">Trening 🏋️</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">Plan, wykonanie i analiza treningu siłowego.</div></div></div>
+        <div class="grid-2">
+          <div class="card" style="padding:20px;"><div style="font-weight:700;font-size:16px;">Plan treningowy</div><p style="font-size:13px;color:var(--muted);margin:8px 0 16px;">Przejdź do aktualnego planu i jego historii.</p><a class="btn btn-outline btn-sm" href="/app/plan/ui">Otwórz plan</a></div>
+          <div class="card" style="padding:20px;"><div style="font-weight:700;font-size:16px;">Wykonanie</div><p style="font-size:13px;color:var(--muted);margin:8px 0 16px;">Rozpocznij lub przeanalizuj dzisiejszą sesję.</p><a class="btn btn-primary btn-sm" href="/app/training/session-ui">Sesja treningowa</a></div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-basketball">
+        <div class="sec-head"><div><div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:700;">Koszykówka 🏀</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">Miejsce na plan, sesje i rozwój koszykarski.</div></div></div>
+        <div class="card" style="padding:24px;"><div style="font-weight:700;font-size:16px;">Moduł przygotowany do rozbudowy</div><p style="font-size:13px;color:var(--muted);margin-top:8px;line-height:1.6;">Nie dodajemy fikcyjnych danych. Ten obszar zostanie podłączony do właściwego planowania koszykarskiego w kolejnym etapie.</p></div>
+      </div>
+      <div class="tab-panel" id="tab-diet">
+        <div class="sec-head"><div><div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:700;">Dieta 🥗</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">Konfiguracja, plan, logowanie i analiza odżywiania.</div></div></div>
+        <div class="card" style="padding:24px;"><div style="font-weight:700;font-size:16px;">Plan diety</div><p style="font-size:13px;color:var(--muted);margin:8px 0 16px;">Aktualny moduł planowania pozostaje dostępny bez tworzenia osobnego top-level „Plan”.</p><a class="btn btn-outline btn-sm" href="/app/plan/ui">Otwórz konfigurację</a></div>
+      </div>
+      <div class="tab-panel" id="tab-recovery">
+        <div class="sec-head"><div><div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:700;">Recovery 😴</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">Sen, zmęczenie, soreness, stres i gotowość.</div></div></div>
+        <div class="card" style="padding:24px;"><div style="font-weight:700;font-size:16px;">Recovery nie jest jeszcze źródłem danych</div><p style="font-size:13px;color:var(--muted);margin-top:8px;line-height:1.6;">Nie pokazujemy pustych wykresów ani wymyślonych wskaźników. Moduł zostanie podłączony po zbudowaniu wiarygodnego modelu danych.</p></div>
+      </div>
+      <div class="tab-panel" id="tab-progress">
+        <div class="sec-head"><div><div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:700;">Postępy 📈</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">Wyniki, trendy i analiza wykonania.</div></div></div>
+        <div class="grid-2">
+          <div class="card" style="padding:20px;"><div style="font-weight:700;font-size:16px;">Trening</div><p style="font-size:13px;color:var(--muted);margin:8px 0 16px;">Przejdź do istniejącego dashboardu treningowego.</p><a class="btn btn-outline btn-sm" href="/app/training/dashboard">Postępy treningowe</a></div>
+          <div class="card" style="padding:20px;"><div style="font-weight:700;font-size:16px;">Kolejny krok</div><p style="font-size:13px;color:var(--muted);margin-top:8px;">Rozszerzymy analizę o koszykówkę, recovery i cele po domknięciu core loop.</p></div>
         </div>
       </div>
 
@@ -1212,6 +1287,64 @@ function initCharts(){
     document.getElementById('loginModal').addEventListener('click', () => window.netlifyIdentity?.open('login'));
     document.getElementById('signupModal').addEventListener('click', () => window.netlifyIdentity?.open('signup'));
 // ============================================================
+// EVOLVE MÓJ DZIEŃ — SHARED SHELL
+// ============================================================
+let _evolveMyDayRequest = 0;
+function evolveEscapeHtml(value){
+  return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+}
+async function loadEvolveMyDay(){
+  const requestId = ++_evolveMyDayRequest;
+  const token = localStorage.getItem('fitai_token');
+  const exercisesEl = document.getElementById('myDayExercises');
+  const statusEl = document.getElementById('myDayStatus');
+  if(!exercisesEl) return;
+  if(!token){
+    document.getElementById('myDayWorkout').textContent='Zaloguj się, aby zobaczyć dzisiejszy plan';
+    document.getElementById('myDayPlanMeta').textContent='Dane treningowe są chronione przez uwierzytelnienie.';
+    exercisesEl.innerHTML='<div style="padding:20px;color:var(--muted);text-align:center;">Brak aktywnej sesji użytkownika.</div>';
+    return;
+  }
+  exercisesEl.innerHTML='<div class="spinner"></div>';
+  statusEl.className='alert alert-hidden';
+  try{
+    const response=await fetch('/app/training/today',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+    const data=await response.json();
+    if(!response.ok) throw new Error(data.detail || 'Nie udało się pobrać danych Mój dzień');
+    if(requestId!==_evolveMyDayRequest) return;
+    document.getElementById('myDayDate').textContent=data.day_label ? data.day_label+', '+data.date : (data.date||'—');
+    document.getElementById('myDayWorkout').textContent=data.has_workout?'Trening zaplanowany':'Dzień bez treningu';
+    document.getElementById('myDayPlanMeta').textContent=data.plan ? ((data.plan.source==='adaptive'?'Plan adaptacyjny':'Plan bazowy')+(data.plan.version?' · wersja '+data.plan.version:'')) : (data.message||'Brak metadanych planu');
+    const session=data.session||{}, pct=Math.max(0,Math.min(100,Number(session.completion_pct||0)));
+    document.getElementById('myDaySessionProgress').textContent=Math.round(pct)+'%';
+    document.getElementById('myDaySessionMeta').textContent=session.id ? (session.completed_sets||0)+' / '+(session.planned_sets||0)+' serii' : 'Brak aktywnej sesji';
+    document.getElementById('myDaySessionBar').style.width=pct+'%';
+    const startLink=document.getElementById('myDayStartLink');
+    startLink.textContent=session.id?'Wznów trening':(data.has_workout?'Rozpocznij trening':'Brak treningu');
+    startLink.href='/app/training/session-ui';
+    document.getElementById('myDayExerciseCount').textContent=(data.exercises||[]).length+' ćwiczeń';
+    if(!data.has_workout){
+      exercisesEl.innerHTML='<div style="padding:20px;color:var(--muted);text-align:center;">Brak zaplanowanego treningu na dziś.</div>';
+      return;
+    }
+    exercisesEl.innerHTML=(data.exercises||[]).map((exercise,index)=>{
+      const sets=Number(exercise.sets||0);
+      const reps=evolveEscapeHtml(exercise.reps||'—');
+      const name=evolveEscapeHtml(exercise.exercise_name||exercise.name||('Ćwiczenie '+(index+1)));
+      const weight=exercise.weight_kg!=null ? evolveEscapeHtml(exercise.weight_kg+' kg') : '';
+      return '<div class="item-card" style="cursor:default;"><div class="item-card-head"><div class="item-card-title">'+(index+1)+'. '+name+'</div><div class="tag">'+sets+' serie</div></div><div class="item-card-meta">'+reps+' powtórzeń'+(weight?' · '+weight:'')+'</div></div>';
+    }).join('');
+  }catch(error){
+    if(requestId!==_evolveMyDayRequest) return;
+    statusEl.className='alert alert-warn';
+    statusEl.textContent='⚠️ '+error.message;
+    document.getElementById('myDayWorkout').textContent='Nie udało się pobrać planu';
+    document.getElementById('myDayPlanMeta').textContent='Spróbuj ponownie po chwili.';
+    exercisesEl.innerHTML='<div style="padding:20px;color:var(--muted);text-align:center;">Błąd ładowania danych.</div>';
+  }
+}
+
+// ============================================================
 // TABS
 // ============================================================
 function showTab(tab){
@@ -1221,8 +1354,10 @@ function showTab(tab){
   if(panel) panel.classList.add('active');
   const navBtn = document.getElementById('nav-'+tab);
   if(navBtn) navBtn.classList.add('active');
-  const subtitles = {home:'Centrum Dowodzenia',myday:'Mój Dzień',plan:'Plan AI',profile:'Profil',contact:'Kontakt'};
-  document.getElementById('topbar-subtitle').textContent = subtitles[tab]||'';
+  const subtitles = {home:'Centrum Dowodzenia','my-day':'Dzisiejsze wykonanie',training:'Trening',basketball:'Koszykówka',diet:'Dieta',recovery:'Recovery',progress:'Postępy',profile:'Profil',contact:'Kontakt'};
+  const subtitle = document.getElementById('topbar-subtitle');
+  if(subtitle) subtitle.textContent = subtitles[tab]||'';
+  if(tab === 'my-day' && typeof loadEvolveMyDay === 'function') loadEvolveMyDay();
 }
 
     if (window.netlifyIdentity) {
