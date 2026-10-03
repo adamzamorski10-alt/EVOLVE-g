@@ -1047,6 +1047,20 @@ def apply_adaptive_plan(
     try:
         session.commit()
         session.refresh(revision)
+    except IntegrityError:
+        session.rollback()
+        latest = _latest_adaptive_revision(user.id, session)
+        if latest and latest.version >= version:
+            latest_plan = json.loads(latest.applied_plan_json or "{}")
+            if json.dumps(latest_plan, sort_keys=True) == json.dumps(proposed, sort_keys=True):
+                return {
+                    "status": "unchanged",
+                    "version": latest.version,
+                    "plan": latest_plan,
+                    "source_session_ids": latest.source_session_ids(),
+                    "message": "Równoległa adaptacja utworzyła już tę samą wersję planu.",
+                }
+        raise HTTPException(status_code=409, detail="Konflikt zapisu adaptacji planu")
     except SQLAlchemyError as exc:
         session.rollback()
         raise HTTPException(status_code=500, detail="Nie udało się zapisać adaptacji planu") from exc
