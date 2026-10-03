@@ -75,7 +75,7 @@ def test_main_shell_exposes_native_stage_0_5_domains():
 
 def test_migration_chain_has_single_head_through_stage_5():
     versions = ROOT / "alembic" / "versions"
-    revisions: dict[str, str | None] = {}
+    revisions: dict[str, object] = {}
     for path in versions.glob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         revision = None
@@ -89,6 +89,11 @@ def test_migration_chain_has_single_head_through_stage_5():
                     if isinstance(target, ast.Name) and target.id == "down_revision":
                         if isinstance(node.value, ast.Constant):
                             down_revision = node.value.value
+                        elif isinstance(node.value, (ast.Tuple, ast.List)):
+                            down_revision = tuple(
+                                item.value for item in node.value.elts
+                                if isinstance(item, ast.Constant)
+                            )
         if revision:
             revisions[revision] = down_revision
 
@@ -104,7 +109,12 @@ def test_migration_chain_has_single_head_through_stage_5():
     for revision, parent in expected.items():
         assert revisions.get(revision) == parent
 
-    children = {parent for parent in revisions.values() if parent}
+    children = set()
+    for parent in revisions.values():
+        if isinstance(parent, tuple):
+            children.update(parent)
+        elif parent:
+            children.add(parent)
     heads = sorted(revision for revision in revisions if revision not in children)
     assert heads == ["evolve20migration_merge"], heads
 
