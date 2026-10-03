@@ -1,7 +1,7 @@
 from datetime import date
 
 from app.models import DailyLogDB
-from app.recovery.routes import evaluate_recovery
+from app.recovery.routes import _apply_recovery_constraint, evaluate_recovery
 
 
 def _log(**kwargs):
@@ -37,3 +37,12 @@ def test_recovery_missing_checkin_is_safe():
     result = evaluate_recovery(None)
     assert result["status"] == "insufficient_data"
     assert result["readiness_score"] is None
+
+
+
+def test_recovery_constraint_reduces_planned_sets_without_mutating_input():
+    plan = {"days": [{"workout": {"exercises": [{"name": "Squat", "sets": 4, "reps": 5}]}}]}
+    constrained, constraint = _apply_recovery_constraint(plan, {"constraint": "reduce_volume_50"})
+    assert constraint == "reduce_volume_50"
+    assert constrained["days"][0]["workout"]["exercises"][0]["sets"] == 2
+    assert plan["days"][0]["workout"]["exercises"][0]["sets"] == 4
