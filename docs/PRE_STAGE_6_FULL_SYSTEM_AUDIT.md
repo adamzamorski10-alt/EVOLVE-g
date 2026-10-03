@@ -69,3 +69,10 @@ Do not implement Recovery until:
 - second-user isolation is externally verified,
 - full Stage 0–5 integration flow is externally verified,
 - all discovered defects are dispositioned.
+
+
+## Latest automated evidence
+
+- Current EVOLVE Stage 0–5 regression: rerun required after the latest test-isolation and audit-contract fixes.
+- Alembic clean-database upgrade: FAIL; historical migration root is not a clean-install baseline. The first failure is in `f9fd63cba750_initial_schema_users_daily_logs_.py`, which attempts to drop an index that does not exist on a fresh database. This remains a release blocker and must not be bypassed by weakening the migration gate.
+- Legacy regression remains informational and is not the current Stage 0–5 release gate.
