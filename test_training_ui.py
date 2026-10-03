@@ -164,7 +164,7 @@ def test_training_4abc_execution_ui_contract():
 
 
 def test_training_4def_rest_flow_and_completion_summary_contract():
-    source = Path("app/training/routes.py").read_text(encoding="utf-8")
+    source = (Path(__file__).parent / "app" / "training" / "routes.py").read_text(encoding="utf-8")
     assert "startRest(90)" in source
     assert "skipRest" in source
     assert "focusNext()" in source
