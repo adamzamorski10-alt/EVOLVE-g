@@ -383,3 +383,12 @@ def test_completion_is_atomic_and_claims_only_active_owned_session():
     assert ".where(TrainingSessionDB.user_id == user.id)" in source
     assert '.where(TrainingSessionDB.status == "active")' in source
     assert "if claimed != 1:" in source
+
+
+def test_adaptive_revision_version_is_database_unique_and_conflicts_are_handled():
+    migration = (Path(__file__).parent / "alembic" / "versions" / "evolve15adaptive_unique.py").read_text(encoding="utf-8")
+    routes = (Path(__file__).parent / "app" / "training" / "routes.py").read_text(encoding="utf-8")
+    assert "uq_adaptive_plan_revision_user_version" in migration
+    assert "ON adaptive_plan_revisions(user_id, version)" in migration
+    assert "except IntegrityError:" in routes
+    assert "Równoległa adaptacja utworzyła już tę samą wersję planu." in routes
