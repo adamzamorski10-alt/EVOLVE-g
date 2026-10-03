@@ -261,7 +261,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       document.getElementById("myDaySessionBar").style.width = pct + "%";
 
       var startLink = document.getElementById("myDayStartLink");
-      var canStartTraining = Boolean(data.has_workout || session.id);
+      var canStartTraining = Boolean(data.can_start || session.id);
       startLink.textContent = session.id ? "Wznów trening" : (data.has_workout ? "Rozpocznij trening" : "Brak treningu");
       if (canStartTraining) {
         startLink.href = "/app/training/session-ui";
