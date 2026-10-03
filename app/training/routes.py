@@ -1595,7 +1595,7 @@ def training_session_ui():
 .wrap{max-width:980px;margin:auto;padding:24px 16px 70px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center}.top h1{margin:0;font-size:28px}.back,.btn{color:#fff;text-decoration:none;border:1px solid var(--line);background:var(--panel2);padding:9px 12px;border-radius:10px;font-weight:700;cursor:pointer}
 .status{color:var(--muted);margin:10px 0 16px}.error{color:var(--danger)}.success{color:var(--good)}
 .progress-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}.progress-row{display:flex;justify-content:space-between;gap:12px;font-weight:700}.bar{height:8px;background:#252c3a;border-radius:99px;overflow:hidden;margin-top:10px}.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
-.exercise{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin:12px 0}.exercise.active{border-color:#6545a8}.head{display:flex;justify-content:space-between;gap:12px;align-items:start}.title{font-size:19px;font-weight:800}.target{color:var(--muted);margin-top:5px}.tag{font-size:12px;padding:6px 9px;border-radius:99px;background:#222a38;color:var(--muted);white-space:nowrap}.sets{display:grid;gap:9px;margin-top:16px}.set{display:grid;grid-template-columns:58px 1fr 1fr 100px 82px;gap:8px;align-items:center;background:#0e131d;border:1px solid var(--line);border-radius:12px;padding:9px}.set.saved{border-color:#245c49}.set b{font-size:12px;color:var(--muted)}.set input,.set textarea{width:100%;padding:9px;background:#090d15;border:1px solid var(--line);color:var(--text);border-radius:8px}.set textarea{resize:vertical;min-height:38px}.save{border:0;background:var(--accent);color:#fff;padding:9px 10px;border-radius:8px;font-weight:800;cursor:pointer}.save.done{background:#173d30}.save:disabled{opacity:.55;cursor:wait}.complete{width:100%;margin-top:16px;background:var(--good);color:#07130e;border:0;padding:13px;border-radius:11px;font-weight:900;cursor:pointer}.complete:disabled{opacity:.5}.empty{text-align:center;padding:28px;color:var(--muted)}.meta{font-size:12px;color:var(--muted);margin-top:7px}
+.exercise{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin:12px 0}.exercise.active{border-color:#6545a8}.head{display:flex;justify-content:space-between;gap:12px;align-items:start}.title{font-size:19px;font-weight:800}.target{color:var(--muted);margin-top:5px}.tag{font-size:12px;padding:6px 9px;border-radius:99px;background:#222a38;color:var(--muted);white-space:nowrap}.sets{display:grid;gap:9px;margin-top:16px}.set{display:grid;grid-template-columns:58px 1fr 1fr 100px 82px;gap:8px;align-items:center;background:#0e131d;border:1px solid var(--line);border-radius:12px;padding:9px}.set.saved{border-color:#245c49}.set b{font-size:12px;color:var(--muted)}.set input,.set textarea{width:100%;padding:9px;background:#090d15;border:1px solid var(--line);color:var(--text);border-radius:8px}.set textarea{resize:vertical;min-height:38px}.save{border:0;background:var(--accent);color:#fff;padding:9px 10px;border-radius:8px;font-weight:800;cursor:pointer}.save.done{background:#173d30}.save:disabled{opacity:.55;cursor:wait}.complete{width:100%;margin-top:16px;background:var(--good);color:#07130e;border:0;padding:13px;border-radius:11px;font-weight:900;cursor:pointer}.complete:disabled{opacity:.5}.hidden{display:none}.empty{text-align:center;padding:28px;color:var(--muted)}.meta{font-size:12px;color:var(--muted);margin-top:7px}
 @media(max-width:700px){.wrap{padding:18px 11px 55px}.top{align-items:flex-start}.top h1{font-size:23px}.set{grid-template-columns:48px 1fr 1fr}.set input:nth-of-type(3),.set textarea{grid-column:1/-1}.set .save{grid-column:1/-1}.head{align-items:flex-start}}
 </style></head><body><main class="wrap">
 <div class="top"><h1>Trening</h1><a class="back" href="/app#my-day">← Mój dzień</a></div>
@@ -1608,7 +1608,21 @@ def training_session_ui():
 const token=localStorage.getItem('fitai_token');
 const headers=token?{'Authorization':'Bearer '+token,'Content-Type':'application/json'}:{};
 const statusEl=document.getElementById('status'),progressEl=document.getElementById('progress'),workoutEl=document.getElementById('workout'),completeEl=document.getElementById('complete');
-let current=null, saving=false;
+let current=null, saving=false, restTimer=null, restSeconds=0, activeExerciseIndex=0;
+function stopRest(){if(restTimer){clearInterval(restTimer);restTimer=null}document.getElementById('rest')?.remove()}
+function startRest(seconds=90){
+ stopRest(); const el=document.createElement('div');el.id='rest';el.className='progress-card';
+ el.innerHTML='<div class="progress-row"><span>Odpoczynek</span><strong id="restValue"></strong></div><button id="skipRest" class="btn">Pomiń</button>';
+ progressEl.after(el);restSeconds=seconds;
+ const tick=()=>{const m=String(Math.floor(restSeconds/60)).padStart(2,'0'),s=String(restSeconds%60).padStart(2,'0');document.getElementById('restValue').textContent=m+':'+s;if(restSeconds<=0){stopRest();setStatus('Odpoczynek zakończony.','success')}restSeconds--};
+ document.getElementById('skipRest').onclick=()=>{stopRest();setStatus('Odpoczynek pominięty.','success')};tick();restTimer=setInterval(tick,1000)
+}
+function focusNext(){
+ const exs=current?.planned?.exercises||[];
+ activeExerciseIndex=exs.findIndex(ex=>(current.sets||[]).filter(s=>s.exercise_key===ex.exercise_key&&s.completed).length<Number(ex.sets||0));
+ document.querySelectorAll('.exercise').forEach((el,i)=>el.classList.toggle('active',i===activeExerciseIndex));
+ if(activeExerciseIndex>=0)document.querySelectorAll('.exercise')[activeExerciseIndex]?.scrollIntoView({behavior:'smooth',block:'start'});
+}
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function setStatus(t,type=''){statusEl.textContent=t;statusEl.className='status '+type}
 async function api(url,opts={}){return fetch(url,{...opts,headers:{...headers,...(opts.headers||{})},cache:'no-store'})}
@@ -1637,6 +1651,15 @@ function render(){
   }).join('')+'</div></section>'
  }).join(''):'<div class="progress-card empty">Brak ćwiczeń w snapshotcie tej sesji.</div>';
  renderProgress();
+ if(current.status==='active')focusNext(); else renderSummary();
+}
+function renderSummary(){
+ const sets=(current.sets||[]).filter(s=>s.completed);
+ const volume=sets.reduce((n,s)=>n+Number(s.actual_weight_kg||0)*Number(s.actual_reps||0),0);
+ const rpes=sets.filter(s=>s.actual_rpe!=null);
+ const avg=rpes.length?(rpes.reduce((n,s)=>n+Number(s.actual_rpe),0)/rpes.length).toFixed(1):'—';
+ workoutEl.innerHTML='<div class="progress-card"><h2>Podsumowanie treningu</h2><p><b>'+sets.length+'</b> wykonanych serii z '+plannedCount()+' · <b>'+Math.round(sets.length/Math.max(plannedCount(),1)*100)+'%</b> planu</p><p>Wolumen: <b>'+Math.round(volume*10)/10+' kg</b> · Śr. RPE serii: <b>'+avg+'</b></p><p class="meta">Końcowe RPE: '+(current.final_rpe??'—')+' · '+(current.session_date||'')+'</p><a class="btn" href="/app#progress">Przejdź do Postępów →</a></div>';
+ completeEl.classList.add('hidden');stopRest();focusNext();
 }
 async function logSet(encodedKey,n,button){
  if(!current||current.status!=='active'||saving)return;
@@ -1652,7 +1675,7 @@ async function logSet(encodedKey,n,button){
   if(!r.ok)throw new Error(d.detail||'Nie udało się zapisać serii.');
   const idx=current.sets.findIndex(x=>x.exercise_key===key&&x.set_number===n);
   if(idx>=0)current.sets[idx]=d.set;else current.sets.push(d.set);
-  setStatus('Seria '+n+' zapisana.','success');render();
+  setStatus('Seria '+n+' zapisana.','success');render();startRest(90);focusNext();
  }catch(e){setStatus(e.message,'error')}finally{saving=false;renderProgress()}
 }
 completeEl.onclick=async()=>{

@@ -244,3 +244,9 @@ Implementation may continue to subsequent stages while these checks remain pendi
 **Status:** PENDING  
 **Scope:** end-to-end training start/resume/execution UI; plan snapshot; responsive set cards; actual reps/weight/RPE/notes; edit/re-save/idempotency; refresh/resume; duplicate clicks; cross-user isolation; completed-session lock; mobile layout; error/loading states.
 **Evidence required:** browser/device walkthrough, screenshots or equivalent evidence, reload/resume test, repeated-save test, malformed input/error handling, and exact automated test results. Do not mark PASS from static inspection alone.
+
+
+## EV-013 — Stage 4D-4F Rest, Flow, Completion and Final Audit
+- Status: PENDING
+- Scope: rest timer/skip, next exercise focus, partial execution, completion summary, Progress/History consistency, refresh/resume, repeated actions, mobile layout, security/ownership, focused tests, full regression and migration integrity.
+- Evidence required: exact commands and exit codes plus browser/device evidence. Do not mark PASS from static inspection alone.
