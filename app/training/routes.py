@@ -1295,6 +1295,17 @@ def complete_training_session(
     if row.status != "active":
         raise HTTPException(status_code=409, detail="Sesja nie jest aktywna")
 
+    sets = list(
+        session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == row.id)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.completed == True)
+        ).all()
+    )
+    if not sets:
+        raise HTTPException(status_code=422, detail="Nie można zakończyć pustej sesji")
+
     # Claim completion atomically so two concurrent complete requests cannot
     # both create downstream ExerciseResult rows.
     claimed = session.exec(
@@ -1314,22 +1325,16 @@ def complete_training_session(
         session.rollback()
         refreshed = _owned_session(session, user, session_id)
         if refreshed.status == "completed":
-            sets = list(session.exec(select(TrainingSetResultDB).where(TrainingSetResultDB.session_id == refreshed.id)).all())
-            return {"status": "already_completed", "session": _serialize_session(refreshed, sets)}
+            final_sets = list(
+                session.exec(
+                    select(TrainingSetResultDB)
+                    .where(TrainingSetResultDB.session_id == refreshed.id)
+                ).all()
+            )
+            return {"status": "already_completed", "session": _serialize_session(refreshed, final_sets)}
         raise HTTPException(status_code=409, detail="Sesja nie jest aktywna")
 
     row = _owned_session(session, user, session_id)
-
-    sets = list(
-        session.exec(
-            select(TrainingSetResultDB)
-            .where(TrainingSetResultDB.session_id == row.id)
-            .where(TrainingSetResultDB.user_id == user.id)
-            .where(TrainingSetResultDB.completed == True)
-        ).all()
-    )
-    if not sets:
-        raise HTTPException(status_code=422, detail="Nie można zakończyć pustej sesji")
 
     by_exercise: dict[str, list[TrainingSetResultDB]] = {}
     for item in sets:
