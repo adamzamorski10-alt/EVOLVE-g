@@ -30,6 +30,7 @@ def test_stage_0_5_core_router_contracts_are_registered():
         "goals_router": "/app/goals",
         "nutrition_router": "/app/nutrition",
         "plan_router": "/app/plan",
+        "recovery_router": "/app/recovery",
         "training_router": "/app/training",
         "fitness_router": "/app",
     }
@@ -47,6 +48,8 @@ def test_stage_0_5_core_router_contracts_are_registered():
             module = __import__("app.plan.routes", fromlist=["router"])
         elif router_name == "training_router":
             module = __import__("app.training.routes", fromlist=["router"])
+        elif router_name == "recovery_router":
+            module = __import__("app.recovery.routes", fromlist=["router"])
         else:
             module = __import__("app.fitness.routes", fromlist=["router"])
         assert module.router.prefix == prefix
