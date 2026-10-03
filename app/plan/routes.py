@@ -1,5 +1,6 @@
 """Plan Routes — weekly plan generation, current plan, and swaps."""
 
+import hashlib
 import json
 from datetime import datetime
 
@@ -10,15 +11,52 @@ from sqlmodel import Session, select
 
 from app.auth.dependencies import get_current_user
 from app.database import get_session
-from app.legacy_routes import (
-    _build_weekly_plan,
-    _enrich_exercises_with_progression,
-    _is_profile_ready_for_plan,
-)
+from app.legacy_routes import _is_profile_ready_for_plan
+from app.plan.deterministic import build_deterministic_plan
 from app.models import AssessmentDB, UserDB
 from app.schemas import PlanGenerateRequest, PlanSwapRequest, WeeklyPlanSaveRequest
 
 router = APIRouter(prefix="/app/plan", tags=["plan"])
+
+
+def _profile_inputs(user: UserDB) -> dict:
+    return {
+        "goal": user.goal,
+        "frequency": user.frequency,
+        "sports": user.get_list("sports_json"),
+        "training_focus": user.get_list("training_focus_json"),
+        "improvement_areas": user.get_list("improvement_areas_json"),
+        "available_equipment": user.get_list("available_equipment_json"),
+        "avoid_exercises": user.get_list("avoid_exercises_json"),
+        "sport_focus": user.sport_focus,
+        "sport_specialization": user.sport_specialization,
+        "sport_training_days": user.get_list("sport_training_days_json"),
+    }
+
+
+def _assessment_inputs(assessment: AssessmentDB | None) -> dict | None:
+    if assessment is None:
+        return None
+    return {
+        "id": assessment.id,
+        "version": assessment.assessment_version,
+        "training_level": assessment.training_level,
+        "training_experience_years": assessment.training_experience_years,
+        "sessions_per_week": assessment.sessions_per_week,
+        "availability_hours_per_week": assessment.availability_hours_per_week,
+        "recovery_score": assessment.recovery_score,
+        "basketball_level": assessment.basketball_level,
+        "shooting_pct": assessment.shooting_pct,
+        "free_throw_pct": assessment.free_throw_pct,
+        "sprint_30m_seconds": assessment.sprint_30m_seconds,
+        "vertical_jump_cm": assessment.vertical_jump_cm,
+        "metrics": assessment.data(),
+    }
+
+
+def _fingerprint(value: object) -> str:
+    canonical = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 @router.get("/readiness", tags=["plan"])
 def planning_readiness(
@@ -37,14 +75,27 @@ def planning_readiness(
         .where(AssessmentDB.user_id == user.id)
         .order_by(AssessmentDB.assessment_version.desc())
     ).first()
+    profile_inputs = _profile_inputs(user)
+    assessment_inputs = _assessment_inputs(assessment)
+    current_plan = user.get_dict("weekly_plan_json") if user.weekly_plan_json else {}
+    provenance = current_plan.get("_evolve_core", {}) if isinstance(current_plan, dict) else {}
+    profile_stale = bool(provenance.get("profile_fingerprint")) and provenance.get("profile_fingerprint") != _fingerprint(profile_inputs)
+    assessment_stale = bool(provenance.get("assessment_fingerprint")) and provenance.get("assessment_fingerprint") != _fingerprint(assessment_inputs)
+    plan_stale = bool(user.weekly_plan_json) and (profile_stale or assessment_stale)
+    assessment_ready = assessment is not None
     return {
-        "ready": not missing_profile,
+        "ready": not missing_profile and assessment_ready,
         "profile_ready": not missing_profile,
         "missing_profile": missing_profile,
-        "assessment_ready": assessment is not None,
+        "assessment_ready": assessment_ready,
         "assessment_version": assessment.assessment_version if assessment else None,
+        "assessment_id": assessment.id if assessment else None,
+        "plan_exists": bool(user.weekly_plan_json),
+        "plan_stale": plan_stale,
+        "profile_stale": profile_stale,
+        "assessment_stale": assessment_stale,
         "personalization_level": "assessed" if assessment else "profile_only",
-        "next": "generate_plan" if not missing_profile else "complete_profile",
+        "next": "complete_profile" if missing_profile else ("complete_assessment" if not assessment else ("regenerate_plan" if plan_stale else "generate_plan")),
     }
 
 
@@ -81,62 +132,56 @@ def app_generate_plan(
     user: UserDB = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    try:
-        if not _is_profile_ready_for_plan(user):
-            raise HTTPException(status_code=400, detail="Najpierw uzupełnij pełny onboarding")
-        if payload.force or not user.weekly_plan_json:
-            plan = _build_weekly_plan(user)
-            assessment = session.exec(
-                select(AssessmentDB)
-                .where(AssessmentDB.user_id == user.id)
-                .order_by(AssessmentDB.assessment_version.desc())
-            ).first()
-            plan["_evolve_core"] = {
-                "schema_version": 1,
-                "planning_source": "deterministic-v1",
-                "profile_inputs": {
-                    "goal": user.goal,
-                    "frequency": user.frequency,
-                    "sports": user.get_list("sports_json"),
-                    "training_focus": user.get_list("training_focus_json"),
-                    "improvement_areas": user.get_list("improvement_areas_json"),
-                    "available_equipment": user.get_list("available_equipment_json"),
-                },
-                "assessment_version": assessment.assessment_version if assessment else None,
-            }
-            user.set_dict("weekly_plan_json", plan)
-            # Wzbogać plan o sugestie progresji
-            for day in plan.get("days", []):
-                exercises = day.get("workout", {}).get("exercises", [])
-                if exercises:
-                    day["workout"]["exercises"] = _enrich_exercises_with_progression(exercises, user, session)
-            user.set_dict("weekly_plan_json", plan)
-            user.updated_at = datetime.now()
-            try:
-                session.commit()
-            except IntegrityError as exc:
-                session.rollback()
-                print(f"[FitAI][app_generate_plan] IntegrityError user_id={user.id}: {exc}")
-                raise HTTPException(status_code=409, detail="Konflikt zapisu planu — spróbuj ponownie.")
-            except SQLAlchemyError as exc:
-                session.rollback()
-                print(f"[FitAI][app_generate_plan] SQLAlchemyError user_id={user.id}: {exc}")
-                raise HTTPException(status_code=500, detail="Database error — please try again later")
-        return {
-            "status": "ok",
-            "plan": user.get_dict("weekly_plan_json"),
-            "personalization_level": "assessed" if session.exec(
-                select(AssessmentDB).where(AssessmentDB.user_id == user.id).order_by(AssessmentDB.assessment_version.desc())
-            ).first() else "profile_only",
+    if not _is_profile_ready_for_plan(user):
+        raise HTTPException(status_code=400, detail="Najpierw uzupełnij pełny profil.")
+
+    assessment = session.exec(
+        select(AssessmentDB)
+        .where(AssessmentDB.user_id == user.id)
+        .order_by(AssessmentDB.assessment_version.desc(), AssessmentDB.created_at.desc())
+    ).first()
+    if assessment is None:
+        raise HTTPException(status_code=400, detail="Najpierw wykonaj assessment początkowy.")
+
+    profile_inputs = _profile_inputs(user)
+    assessment_inputs = _assessment_inputs(assessment)
+    current = user.get_dict("weekly_plan_json") if user.weekly_plan_json else {}
+    current_provenance = current.get("_evolve_core", {}) if isinstance(current, dict) else {}
+    stale = (
+        current_provenance.get("profile_fingerprint") != _fingerprint(profile_inputs)
+        or current_provenance.get("assessment_fingerprint") != _fingerprint(assessment_inputs)
+    )
+    reused_existing = bool(user.weekly_plan_json) and not payload.force and not stale
+
+    if not reused_existing:
+        plan = build_deterministic_plan(user, assessment)
+        plan["generated_at"] = datetime.now().isoformat()
+        plan["_evolve_core"] = {
+            "schema_version": 2,
+            "planning_source": "deterministic-v2",
+            "profile_inputs": profile_inputs,
+            "profile_fingerprint": _fingerprint(profile_inputs),
+            "assessment_id": assessment.id,
+            "assessment_version": assessment.assessment_version,
+            "assessment_inputs": assessment_inputs,
+            "assessment_fingerprint": _fingerprint(assessment_inputs),
         }
-    except HTTPException:
-        raise
-    except SQLAlchemyError as exc:
-        session.rollback()
-        raise HTTPException(status_code=500, detail="Database error — please try again later") from exc
-    except Exception as exc:
-        print(f"[FitAI][app_generate_plan] ERROR user_id={user.id} — {type(exc).__name__}: {exc}")
-        raise HTTPException(status_code=500, detail="Błąd generowania planu. Spróbuj ponownie.")
+        user.set_dict("weekly_plan_json", plan)
+        user.updated_at = datetime.now()
+        try:
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+        except SQLAlchemyError as exc:
+            session.rollback()
+            raise HTTPException(status_code=500, detail="Database error — please try again later") from exc
+
+    return {
+        "status": "ok",
+        "plan": user.get_dict("weekly_plan_json"),
+        "personalization_level": "assessed",
+        "reused_existing": reused_existing,
+    }
 
 
 @router.get("/current", tags=["plan"])
