@@ -228,3 +228,93 @@ def nutrition_adherence(
             },
             "daily": daily,
         }
+
+
+@router.get("/response")
+def nutrition_response(
+    days: int = Query(default=7, ge=3, le=28),
+    current_user=Depends(get_current_user),
+):
+    """Explain nutrition adherence deterministically without mutating targets.
+
+    A response requires at least 3 logged days. It is intentionally advisory:
+    it does not change profile targets or training plans.
+    """
+    end_day = date.today()
+    start_day = end_day - timedelta(days=days - 1)
+    start_dt, _ = _date_bounds(start_day)
+    _, end_dt = _date_bounds(end_day)
+
+    with Session(engine) as session:
+        user = _owned_user(session, current_user)
+        entries = session.exec(
+            select(NutritionEntryDB)
+            .where(NutritionEntryDB.user_id == user.id)
+            .where(NutritionEntryDB.consumed_at >= start_dt)
+            .where(NutritionEntryDB.consumed_at < end_dt)
+            .order_by(NutritionEntryDB.consumed_at.asc(), NutritionEntryDB.id.asc())
+        ).all()
+
+        calorie_target = float(user.calories_target or calc_calories(user))
+        protein_target = float(user.protein_target or calc_protein(user))
+        by_day: dict[date, list[NutritionEntryDB]] = {}
+        for entry in entries:
+            by_day.setdefault(entry.consumed_at.date(), []).append(entry)
+
+        daily = []
+        for entry_day, day_entries in sorted(by_day.items()):
+            kcal = sum(e.calories_kcal for e in day_entries)
+            protein = sum(e.protein_g for e in day_entries)
+            daily.append((entry_day, kcal, protein))
+
+        logged_days = len(daily)
+        if logged_days < 3:
+            return {
+                "status": "insufficient_data",
+                "days_requested": days,
+                "logged_days": logged_days,
+                "minimum_logged_days": 3,
+                "signal": "collect_more_data",
+                "message": "Potrzeba co najmniej 3 zalogowanych dni, aby wyznaczyć reakcję żywieniową.",
+                "target_change": None,
+            }
+
+        avg_kcal = sum(row[1] for row in daily) / logged_days
+        avg_protein = sum(row[2] for row in daily) / logged_days
+        kcal_ratio = avg_kcal / calorie_target if calorie_target else 0
+        protein_ratio = avg_protein / protein_target if protein_target else 0
+
+        if kcal_ratio < 0.85:
+            signal = "consistently_under_target"
+            message = "Średnia podaż energii jest wyraźnie poniżej celu."
+        elif kcal_ratio > 1.15:
+            signal = "consistently_over_target"
+            message = "Średnia podaż energii jest wyraźnie powyżej celu."
+        else:
+            signal = "calories_near_target"
+            message = "Średnia podaż energii znajduje się blisko celu."
+
+        if protein_ratio < 0.90:
+            protein_signal = "protein_below_target"
+        elif protein_ratio > 1.20:
+            protein_signal = "protein_above_target"
+        else:
+            protein_signal = "protein_near_target"
+
+        return {
+            "status": "ready",
+            "days_requested": days,
+            "logged_days": logged_days,
+            "targets": {"calories_kcal": calorie_target, "protein_g": protein_target},
+            "averages": {
+                "calories_kcal": round(avg_kcal, 1),
+                "protein_g": round(avg_protein, 1),
+                "calorie_ratio": round(kcal_ratio, 3),
+                "protein_ratio": round(protein_ratio, 3),
+            },
+            "signal": signal,
+            "protein_signal": protein_signal,
+            "message": message,
+            "target_change": None,
+            "adaptation_allowed": False,
+        }

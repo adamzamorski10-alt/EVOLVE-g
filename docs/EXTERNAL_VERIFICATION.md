@@ -285,3 +285,21 @@ Implementation may continue to subsequent stages while these checks remain pendi
 - Evidence required: exact test commands and exit codes plus representative API/browser evidence.
 - Do not mark PASS from static inspection alone.
 
+
+
+## EV-016 — Stage 5C–5D Nutrition Response + Native Dieta
+- Status: PENDING
+- Scope:
+  - response requires >=3 logged days
+  - deterministic under/near/over target signals
+  - protein signal
+  - response never mutates profile targets
+  - native Dieta shell and main navigation
+  - today's totals and entries
+  - authenticated add/delete
+  - refresh/stale-response behavior
+  - mobile layout and interaction
+  - cross-user isolation
+- Evidence required: focused tests with exit codes plus browser/mobile evidence.
+- Do not mark PASS from static inspection alone.
+
