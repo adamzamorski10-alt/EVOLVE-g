@@ -326,6 +326,19 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     return value === "up" ? "↗ rośnie" : value === "down" ? "↘ spada" : value === "stable" ? "→ stabilnie" : "• nowa baza";
   }
 
+  function progressSparkline(points) {
+    var values = (points || []).map(function(point){ return Number(point.best_weight_kg || 0); }).reverse();
+    if (values.length < 2) return '<div style="height:4px;"></div>';
+    var max = Math.max.apply(null, values), min = Math.min.apply(null, values);
+    var span = max - min || 1;
+    var coords = values.map(function(value, index) {
+      var x = 4 + (index * 92 / Math.max(1, values.length - 1));
+      var y = 28 - ((value - min) / span * 24);
+      return x.toFixed(1) + "," + y.toFixed(1);
+    }).join(" ");
+    return '<svg viewBox="0 0 100 32" preserveAspectRatio="none" style="width:100%;height:38px;margin-top:8px;display:block;" aria-label="Trend ciężaru"><polyline points="' + coords + '" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"></polyline></svg>';
+  }
+
   window.loadEvolveProgress = async function () {
     injectProgressShell();
     var requestId = ++progressLoadSequence;
