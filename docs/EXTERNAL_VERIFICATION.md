@@ -187,3 +187,22 @@ For every future implementation stage:
 The user is currently unable to run external verification prompts. Do not block implementation on this. EV-001 through EV-008 remain **PENDING** and must be executed later when the user has access to Antygravity/Copilot/Kilo. Generate the copy-paste prompts from the scopes above at that time. Do not mark these checks PASS based on static review alone.
 
 Implementation may continue to subsequent stages while these checks remain pending, provided each new stage records its own required external verification items here.
+
+
+## EV-009 — Stage 3 Goals API + Metrics + Progress
+**Status:** PENDING  
+**Owner:** Antygravity / local test runner  
+**Scope:**
+- authenticated Goal CRUD through /app/goals
+- create/edit/archive lifecycle
+- validation of goal type, dates, metric and target
+- second-user IDOR isolation
+- /app/goals/metrics supported metric catalog
+- completed training data drives Goal Progress
+- active/cancelled sessions and incomplete sets must not contribute
+- exercise-specific goals honor metadata.exercise_key
+- progress %, remaining, trend, deadline and on-track semantics
+- empty/no-metric goal behavior
+- malformed IDs/payloads and repeated update/delete behavior
+- responsive UI/API behavior once Goals UX is added in Stage 3E
+**Evidence required:** exact commands, exit codes, API/browser screenshots where applicable, test data, discrepancies. Do not mark PASS from static inspection alone.
