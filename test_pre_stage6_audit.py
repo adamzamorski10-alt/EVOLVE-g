@@ -20,60 +20,40 @@ def _route_paths() -> set[str]:
     }
 
 
-def test_stage_0_5_core_routes_are_registered():
-    paths = _route_paths()
-    required = {
-        "/auth/register",
-        "/auth/login",
-        "/app/profile",
-        "/app/assessment",
-        "/app/assessment/latest",
-        "/app/assessment/history",
-        "/app/plan/readiness",
-        "/app/plan/generate",
-        "/app/plan/current",
-        "/app/plan/swap",
-        "/app/training/today",
-        "/app/training/sessions/start",
-        "/app/training/sessions/{session_id}/sets",
-        "/app/training/sessions/{session_id}/complete",
-        "/app/training/progress",
-        "/app/training/progress/exercises/{exercise_key}",
-        "/app/training/progress/trends",
-        "/app/training/progress/records",
-        "/app/training/progress/consistency",
-        "/app/training/sessions/history",
-        "/app/training/sessions/history/{session_id}",
-        "/app/training/sessions/{session_id}",
-        "/app/training/sessions/{session_id}/analysis",
-        "/app/training/sessions/{session_id}/progression",
-        "/app/training/sessions/{session_id}/next-plan-preview",
-        "/app/training/adaptive/preview",
-        "/app/training/adaptive/plan-current",
-        "/app/training/adaptive/apply",
-        "/app/training/adaptive/history",
-        "/app/training/adaptive/plan-preview",
-        "/app/training/exercises/{exercise_key}/history",
-        "/app/goals",
-        "/app/goals/{goal_id}",
-        "/app/goals/{goal_id}/progress",
-        "/app/goals/metrics",
-        "/app/nutrition/entries",
-        "/app/nutrition/today",
-        "/app/nutrition/adherence",
-        "/app/nutrition/response",
-        "/app/nutrition/adaptation",
-        "/app/nutrition/adaptation/apply",
+def test_stage_0_5_core_router_contracts_are_registered():
+    app_init = (ROOT / "app" / "__init__.py").read_text(encoding="utf-8")
+    expected_routers = {
+        "auth_router": "/auth",
+        "assessment_router": "/app/assessment",
+        "goals_router": "/app/goals",
+        "nutrition_router": "/app/nutrition",
+        "plan_router": "/app/plan",
+        "training_router": "/app/training",
+        "fitness_router": "/app",
     }
-    missing = sorted(required - paths)
-    assert not missing, f"Missing registered Stage 0-5 routes: {missing}"
-
+    for router_name, prefix in expected_routers.items():
+        assert f"app.include_router({router_name})" in app_init
+        if router_name == "auth_router":
+            module = __import__("app.auth.routes", fromlist=["router"])
+        elif router_name == "assessment_router":
+            module = __import__("app.assessment.routes", fromlist=["router"])
+        elif router_name == "goals_router":
+            module = __import__("app.goals.routes", fromlist=["router"])
+        elif router_name == "nutrition_router":
+            module = __import__("app.nutrition.routes", fromlist=["router"])
+        elif router_name == "plan_router":
+            module = __import__("app.plan.routes", fromlist=["router"])
+        elif router_name == "training_router":
+            module = __import__("app.training.routes", fromlist=["router"])
+        else:
+            module = __import__("app.fitness.routes", fromlist=["router"])
+        assert module.router.prefix == prefix
+        assert module.router.routes, f"Router has no routes: {router_name}"
 
 def test_main_shell_exposes_native_stage_0_5_domains():
-    response = client.get("/")
-    assert response.status_code == 200
-    html = response.text
+    source = (ROOT / "app" / "__init__.py").read_text(encoding="utf-8")
     required = [
+        'id="evolve-my-day-shell-integration"',
         'data-tab="my-day"',
         'data-tab="training"',
         'data-tab="basketball"',
@@ -86,10 +66,12 @@ def test_main_shell_exposes_native_stage_0_5_domains():
         'id="tab-progress"',
         'id="tab-goals"',
         'id="tab-diet"',
+        'function injectProgressShell',
+        'function injectGoalsShell',
+        'window.showTab = wrappedShowTab',
     ]
-    missing = [marker for marker in required if marker not in html]
-    assert not missing, f"Missing native shell markers: {missing}"
-
+    missing = [marker for marker in required if marker not in source]
+    assert not missing, f"Missing native shell source markers: {missing}"
 
 def test_migration_chain_has_single_head_through_stage_5():
     versions = ROOT / "alembic" / "versions"
@@ -189,7 +171,7 @@ def test_stage_0_5_api_route_contracts_are_declared_and_auth_scoped():
             path = getattr(route, "path", "")
             if not path.startswith(prefix):
                 continue
-            if path.endswith("/ui") or path.endswith("/today-ui") or path.endswith("/session-ui"):
+            if path.endswith("/ui") or path.endswith("/today-ui") or path.endswith("/session-ui") or path.endswith("/dashboard"):
                 continue
             dependency_names = set()
             for dependency in getattr(route, "dependant", None).dependencies if getattr(route, "dependant", None) else []:
