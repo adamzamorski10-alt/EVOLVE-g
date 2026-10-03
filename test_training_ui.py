@@ -161,3 +161,14 @@ def test_training_4abc_execution_ui_contract():
     ]
     for marker in required:
         assert marker in TRAINING_ROUTES, f"Missing Training UX 4A/4B/4C marker: {marker}"
+
+
+def test_training_4def_rest_flow_and_completion_summary_contract():
+    source = Path("app/training/routes.py").read_text(encoding="utf-8")
+    assert "startRest(90)" in source
+    assert "skipRest" in source
+    assert "focusNext()" in source
+    assert "renderSummary()" in source
+    assert "Końcowe RPE" in source
+    assert "Przejdź do Postępów" in source
+    assert "current.status==='completed'" in source
