@@ -142,11 +142,6 @@ html.evolve-dashboard-first #dashboardPage.hidden { display: flex !important; }
     if 'id="evolve-dashboard-first-style"' not in html:
         html = html.replace("</head>", dashboard_first_bootstrap + "</head>", 1)
 
-    marker = 'id="evolve-training-dashboard-entry"'
-    if marker not in html:
-        entry = """<div id="evolve-training-entry" style="position:fixed;right:18px;bottom:18px;z-index:99999;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><a href="/app/training/today-ui" style="background:#171d29;border:1px solid #30384a;color:#fff;text-decoration:none;padding:11px 15px;border-radius:12px;font:700 13px system-ui;box-shadow:0 8px 24px #0005">🗓️ Mój dzień</a><a href="/app/training/session-ui" style="background:#8b5cf6;color:#fff;text-decoration:none;padding:11px 15px;border-radius:12px;font:700 13px system-ui;box-shadow:0 8px 24px #0005">▶ Rozpocznij trening</a><a id="evolve-training-dashboard-entry" href="/app/training/dashboard" style="background:#171d29;border:1px solid #30384a;color:#fff;text-decoration:none;padding:11px 15px;border-radius:12px;font:700 13px system-ui;box-shadow:0 8px 24px #0005">📈 Postępy treningowe</a></div>"""
-        html = html.replace("</body>", entry + "</body>", 1)
-
     # Run the normal dashboard initializer after all legacy scripts/functions exist.
     # The CSS above handles the first-paint flash; this call handles application state.
     dashboard_boot = """<script id="evolve-dashboard-first-boot">

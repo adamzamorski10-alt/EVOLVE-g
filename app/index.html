@@ -1700,44 +1700,16 @@
         <p class="px-3 py-1 text-xs font-bold text-gray-600 uppercase tracking-wider">Menu</p>
         <a href="#" onclick="showTab('home');return false;" data-tab="home"
           class="nav-item active flex items-center gap-3 p-3 text-sm font-medium text-cyan-400"><span>🏠</span><span>Home</span></a>
-        <a href="#" onclick="showTab('my-day');return false;" data-tab="my-day"
-          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>📋</span><span>Mój
-            Dzień</span></a>
-
-        <!-- Plan z podzakładkami -->
-        <div class="plan-submenu">
-          <a href="#" onclick="togglePlanSubmenu();return false;"
-            class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white">
-            <span>📅</span><span>Plan</span>
-            <span class="ml-auto text-xs transition-transform" id="planSubmenuArrow">▼</span>
-          </a>
-          <div class="plan-subitems" id="planSubitems">
-            <a href="#" onclick="switchPlanCategoryFromMenu('dieta');return false;"
-              class="nav-subitem flex items-center gap-3 pl-8 pr-3 py-2 text-sm font-medium text-gray-400 hover:text-cyan-400">
-              <span>🥗</span><span>Dieta</span>
-            </a>
-            <a href="#" onclick="switchPlanCategoryFromMenu('trening');return false;"
-              class="nav-subitem flex items-center gap-3 pl-8 pr-3 py-2 text-sm font-medium text-gray-400 hover:text-cyan-400">
-              <span>💪</span><span>Trening</span>
-            </a>
-            <a href="#" onclick="switchPlanCategoryFromMenu('sport');return false;"
-              class="nav-subitem flex items-center gap-3 pl-8 pr-3 py-2 text-sm font-medium text-gray-400 hover:text-cyan-400">
-              <span>⚽</span><span>Sport</span>
-            </a>
-          </div>
-        </div>
-
-        <a href="#" onclick="showTab('postepy');return false;" data-tab="postepy"
-          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>📈</span><span>Postępy</span></a>
-        <a href="#" onclick="showTab('profile');return false;" data-tab="profile"
-          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>👤</span><span>Profil</span></a>
-        <a href="#" onclick="showTab('contact');return false;" data-tab="contact"
-          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>💬</span><span>Kontakt</span></a>
-        <a href="#"
-          onclick="showTab('plan'); switchPlanCategory('dieta'); setTimeout(() => switchPlanSubTab('dieta', 'kuchnia'), 50);return false;"
-          data-tab="kuchnia"
-          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🤖</span><span>Kuchnia
-            AI</span></a>
+        <a href="#" onclick="showTab('home');return false;" data-tab="home" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-cyan-400"><span>🏠</span><span>Home</span></a>
+        <a href="#" onclick="showTab('my-day');return false;" data-tab="my-day" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Dzisiejszy plan, wykonanie i zadania"><span>🎯</span><span>Mój dzień</span></a>
+        <a href="#" onclick="showTab('plan'); switchPlanCategory('trening'); return false;" data-tab="training" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🏋️</span><span>Trening</span></a>
+        <a href="#" onclick="showTab('plan'); switchPlanCategory('sport'); return false;" data-tab="basketball" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🏀</span><span>Koszykówka</span></a>
+        <a href="#" onclick="showTab('plan'); switchPlanCategory('dieta'); return false;" data-tab="diet" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🥗</span><span>Dieta</span></a>
+        <a href="#" onclick="showTab('recovery');return false;" data-tab="recovery" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>😴</span><span>Recovery</span></a>
+        <a href="#" onclick="showTab('postepy');return false;" data-tab="postepy" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>📈</span><span>Postępy</span></a>
+        <a href="#" onclick="showTab('profile');return false;" data-tab="profile" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>👤</span><span>Profil</span></a>
+        <a href="#" onclick="showTab('contact');return false;" data-tab="contact" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>💬</span><span>Kontakt</span></a>
+        <a href="#" onclick="showTab('plan'); switchPlanCategory('dieta'); setTimeout(() => switchPlanSubTab('dieta', 'kuchnia'), 50);return false;" data-tab="kuchnia" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🤖</span><span>Kuchnia AI</span></a>
       </nav>
       <div class="glass rounded-2xl p-4">
         <p class="text-xs font-bold text-gray-500 uppercase mb-3">Twój Fundament</p>
@@ -1907,666 +1879,35 @@
 
       <!-- ====== TAB: MY DAY ====== -->
       <section id="tab-my-day" class="hidden space-y-6">
-        <div class="glass rounded-3xl p-5 md:p-6 space-y-5" id="activeDayHeaderCard">
-          <div class="flex justify-between items-start flex-wrap gap-3">
+        <div class="glass rounded-3xl p-6 md:p-8">
+          <div class="flex items-start justify-between gap-5 flex-wrap">
             <div>
-              <h3 class="text-3xl font-bold" style="font-family:'Syne',sans-serif;">Mój Dzień</h3>
-              <p class="text-sm text-gray-500 mt-1" id="todayDayLabel">—</p>
-              <p class="text-xs text-gray-500 mt-1" id="todayDateLabel">—</p>
+              <p class="text-xs font-bold uppercase tracking-[0.18em] mb-2" style="color:var(--cyan);">DZISIAJ</p>
+              <h3 class="text-4xl font-extrabold text-white leading-none" style="font-family:'Syne',sans-serif;">Mój dzień</h3>
+              <p id="myDayDate" class="text-sm text-gray-500 mt-2">Ładowanie…</p>
             </div>
             <div class="text-right">
-              <p class="text-xs text-gray-500 mb-1">Dzisiejszy postęp</p>
-              <p class="text-2xl font-bold text-cyan-400" style="font-family:'Syne',sans-serif;" id="activeDayProgress">
-                0%</p>
-              <p class="text-xs text-gray-600 mt-1" id="dayProgressCount">0 / 0 zadań</p>
-            </div>
-          </div>
-
-          <div class="grid gap-3 md:grid-cols-2">
-            <div class="rounded-2xl p-4" style="background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.14);">
-              <div class="flex items-center justify-between gap-3 mb-2">
-                <p class="text-xs font-bold uppercase tracking-wider text-cyan-200">Kalorie</p>
-                <p class="text-sm font-semibold text-cyan-100" id="dayKcalSummary">0 / 0 kcal</p>
-              </div>
-              <div class="progress-bar">
-                <div id="dayKcalProgressBar" class="progress-fill bg-gradient-to-r from-cyan-400 to-sky-500"
-                  style="width:0%"></div>
-              </div>
-            </div>
-            <div class="rounded-2xl p-4"
-              style="background:rgba(124,58,237,0.05);border:1px solid rgba(124,58,237,0.14);">
-              <div class="flex items-center justify-between gap-3 mb-2">
-                <p class="text-xs font-bold uppercase tracking-wider text-violet-200">Białko</p>
-                <p class="text-sm font-semibold text-violet-100" id="dayProteinSummary">0 / 0 g białka</p>
-              </div>
-              <div class="progress-bar">
-                <div id="dayProteinProgressBar" class="progress-fill bg-gradient-to-r from-violet-500 to-fuchsia-500"
-                  style="width:0%"></div>
-              </div>
+              <p class="text-xs text-gray-500 uppercase tracking-wider">Status</p>
+              <p id="myDayStatus" class="text-lg font-bold text-white mt-1">Ładowanie…</p>
             </div>
           </div>
         </div>
-        <div id="macroAlertBanner" class="hidden alert-warn">
-          <p id="macroAlertText" class="text-sm font-medium"></p>
-        </div>
-        <div class="grid grid-cols-3 gap-3">
-          <div class="glass p-4 text-center">
-            <p class="text-xs text-gray-500 mb-1">Kalorie</p>
-            <p class="text-lg font-bold text-cyan-400" style="font-family:'Syne',sans-serif;"><span
-                id="daySumKcal">0</span> kcal</p>
-          </div>
-          <div class="glass p-4 text-center">
-            <p class="text-xs text-gray-500 mb-1">Białko</p>
-            <p class="text-lg font-bold text-violet-400" style="font-family:'Syne',sans-serif;"><span
-                id="daySumProt">0</span>g</p>
-          </div>
-          <div class="glass p-4 text-center">
-            <p class="text-xs text-gray-500 mb-1">Aktywności</p>
-            <p class="text-lg font-bold text-yellow-400" style="font-family:'Syne',sans-serif;" id="dayTrainCount">0</p>
-          </div>
-        </div>
-
-        <!-- ══════════ AKTYWNY DZIEŃ ══════════ -->
-        <div class="glass rounded-2xl overflow-hidden" id="activeDayCard">
-
-          <!-- Header z togglem -->
-          <div class="px-5 py-4 flex items-center justify-between"
-            style="background:rgba(0,229,255,0.04);border-bottom:1px solid rgba(255,255,255,0.07);">
-            <div class="flex items-center gap-2">
-              <span class="text-xl">📋</span>
-              <h4 class="text-base font-bold text-white" style="font-family:'Syne',sans-serif;">
-                Plan na dziś
-              </h4>
-              <span id="activeDayDate" class="text-xs text-gray-500"></span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span id="activeDayProgress" class="text-sm font-bold text-cyan-400">0%</span>
-              <button onclick="toggleActiveDaySection()" id="activeDayToggle"
-                class="text-gray-500 hover:text-white text-lg transition-colors">▼</button>
-            </div>
-          </div>
-
-          <!-- Zawartość (toggle) -->
-          <div id="activeDayContent" class="p-5 space-y-5">
-
-            <!-- ── Posiłki ───────────────────────────────────── -->
+        <div id="myDayTrainingCard" class="glass rounded-3xl p-6">
+          <div class="flex items-center justify-between gap-4 flex-wrap">
             <div>
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  🍽️ Posiłki
-                </p>
-                <button onclick="openAddMealToDay()" class="text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
-                  style="background:rgba(0,229,255,0.08);
-                   border:1px solid rgba(0,229,255,0.25);color:#00e5ff;">
-                  ➕ Dodaj
-                </button>
-              </div>
-              <div id="activeDayMealsList" class="space-y-2">
-                <p class="text-sm text-gray-600 italic text-center py-3">
-                  Brak planu diety na dziś — kliknij "Dodaj" aby dodać posiłek
-                </p>
-              </div>
-              <!-- Podsumowanie kalorii -->
-              <div id="activeDayKcalSummary" class="mt-3 rounded-xl px-4 py-2.5 flex items-center justify-between"
-                style="background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.1);">
-                <span class="text-xs text-gray-400">Łącznie kalorii</span>
-                <span class="text-sm font-bold text-cyan-400">
-                  <span id="activeDayKcalDone">0</span>
-                  / <span id="activeDayKcalTarget">0</span> kcal
-                </span>
-              </div>
+              <p class="text-xs font-bold uppercase tracking-wider" style="color:var(--cyan);">TRENING</p>
+              <h4 id="myDayTrainingTitle" class="text-2xl font-bold text-white mt-1">Dzisiejszy trening</h4>
+              <p id="myDayTrainingMeta" class="text-sm text-gray-500 mt-1">Ładowanie planu…</p>
             </div>
-
-            <!-- Separator -->
-            <div style="height:1px;background:rgba(255,255,255,0.07);"></div>
-
-            <!-- ── Trening ──────────────────────────────────── -->
-            <div>
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  💪 Trening
-                </p>
-                <button onclick="openAddExerciseToDay()" class="text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
-                  style="background:rgba(124,58,237,0.1);
-                   border:1px solid rgba(124,58,237,0.3);color:#a78bfa;">
-                  ➕ Dodaj
-                </button>
-              </div>
-              <div id="activeDayExerciseList" class="space-y-2">
-                <p class="text-sm text-gray-600 italic text-center py-3">
-                  Brak planu treningu na dziś — kliknij "Dodaj" aby dodać ćwiczenie
-                </p>
-              </div>
-
-              <!-- RPE treningu (widoczne gdy są ćwiczenia) -->
-              <div id="rpeSection" class="hidden mt-4 p-4 rounded-xl"
-                style="background:rgba(124,58,237,0.06);border:1px solid rgba(124,58,237,0.15);">
-                <div class="flex items-center justify-between mb-2">
-                  <label class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-                    🔥 RPE treningu
-                    <span class="text-gray-600 font-normal normal-case">
-                      (Rate of Perceived Exertion)
-                    </span>
-                  </label>
-                  <span id="rpeValue" class="text-xl font-extrabold text-violet-400"
-                    style="font-family:'Syne',sans-serif;">—</span>
-                </div>
-                <input type="range" id="rpeSlider" min="1" max="10" value="5" oninput="updateRPE(this.value)"
-                  class="w-full" style="accent-color:#a78bfa;">
-                <div class="flex justify-between text-xs mt-1" style="color:#4b5563;">
-                  <span>1 Brak wysiłku</span>
-                  <span class="text-center">5-6 Umiarkowany</span>
-                  <span>10 Maksymalny</span>
-                </div>
-                <p id="activeDayRpeDesc" class="text-xs mt-2 text-center text-violet-300"></p>
-              </div>
-            </div>
-
-            <!-- Separator -->
-            <div style="height:1px;background:rgba(255,255,255,0.07);"></div>
-
-            <!-- ── Podsumowanie dnia / inteligentne sugestie ───────────────── -->
-            <div id="activeDayInsightCard" class="rounded-xl p-4"
-              style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-              <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">🧠 Podsumowanie dnia</p>
-              <p id="activeDaySummaryText" class="text-sm text-white">Rozpocznij dzień od pierwszego zadania.</p>
-              <div id="activeDaySuggestions" class="mt-2 space-y-1"></div>
-            </div>
-
+            <a id="myDayStart" href="/app/training/session-ui" class="btn-neon px-5 py-3 rounded-xl text-sm font-bold no-underline hidden">▶ Rozpocznij trening</a>
           </div>
+          <div id="myDayExercises" class="grid md:grid-cols-2 gap-3 mt-5"></div>
+          <div id="myDayReason" class="text-xs text-gray-500 mt-4"></div>
         </div>
-
-        <!-- MODAL: Dodaj posiłek do dnia -->
-        <div id="addMealToDayModal" class="fixed inset-0 hidden items-center justify-center p-4"
-          style="background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);z-index:9999;"
-          onclick="if(event.target===this)closeAddMealToDay()">
-          <div class="glass rounded-2xl w-full max-w-md flex flex-col"
-            style="border:1px solid rgba(0,229,255,0.2);max-height:85vh;">
-            <div class="flex-shrink-0 px-5 py-4 flex items-center justify-between"
-              style="border-bottom:1px solid rgba(255,255,255,0.07);">
-              <h3 class="text-base font-bold text-white" style="font-family:'Syne',sans-serif;">
-                🍽️ Dodaj posiłek do dnia
-              </h3>
-              <button onclick="closeAddMealToDay()" class="text-gray-500 hover:text-white text-2xl">×</button>
-            </div>
-            <div class="flex-1 overflow-y-auto p-5 space-y-4">
-              <!-- Wyszukiwarka -->
-              <input type="text" id="addMealSearch" placeholder="🔍 Szukaj posiłku z bazy..."
-                oninput="searchMealForDay(this.value)" class="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style="background:rgba(255,255,255,0.06);
-                 border:1px solid rgba(255,255,255,0.1);color:#fff;"
-                onfocus="this.style.borderColor='rgba(0,229,255,0.4)'"
-                onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
-
-              <div id="addMealSearchResults" class="space-y-1 max-h-48 overflow-y-auto"></div>
-
-              <!-- Separator -->
-              <div class="flex items-center gap-3">
-                <div style="flex:1;height:1px;background:rgba(255,255,255,0.08);"></div>
-                <span class="text-xs text-gray-600">lub wpisz własny</span>
-                <div style="flex:1;height:1px;background:rgba(255,255,255,0.08);"></div>
-              </div>
-
-              <!-- Własny posiłek -->
-              <div class="space-y-3 p-4 rounded-xl"
-                style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);">
-                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Własny posiłek
-                </p>
-                <input type="text" id="customMealName" placeholder="Nazwa posiłku"
-                  class="w-full px-3 py-2 rounded-xl text-sm" style="background:rgba(255,255,255,0.06);
-                   border:1px solid rgba(255,255,255,0.1);color:#fff;">
-                <div class="grid grid-cols-2 gap-2">
-                  <input type="number" id="customMealKcal" placeholder="Kalorie (kcal)"
-                    class="px-3 py-2 rounded-xl text-sm" style="background:rgba(255,255,255,0.06);
-                     border:1px solid rgba(255,255,255,0.1);color:#00e5ff;">
-                  <input type="number" id="customMealProtein" placeholder="Białko (g)"
-                    class="px-3 py-2 rounded-xl text-sm" style="background:rgba(255,255,255,0.06);
-                     border:1px solid rgba(255,255,255,0.1);color:#a78bfa;">
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                  <input type="number" id="customMealCarbs" placeholder="Węglowodany (g)"
-                    class="px-3 py-2 rounded-xl text-sm" style="background:rgba(255,255,255,0.06);
-                     border:1px solid rgba(255,255,255,0.1);color:#fb923c;">
-                  <input type="number" id="customMealFat" placeholder="Tłuszcze (g)"
-                    class="px-3 py-2 rounded-xl text-sm" style="background:rgba(255,255,255,0.06);
-                     border:1px solid rgba(255,255,255,0.1);color:#facc15;">
-                </div>
-                <select id="customMealCategory" class="w-full px-3 py-2 rounded-xl text-sm" style="background:rgba(20,20,30,0.95);
-                   border:1px solid rgba(255,255,255,0.1);color:#9ca3af;">
-                  <option value="śniadanie">🌅 Śniadanie</option>
-                  <option value="przekąska">🍎 Przekąska</option>
-                  <option value="obiad" selected>☀️ Obiad</option>
-                  <option value="kolacja">🌙 Kolacja</option>
-                  <option value="inne">🍽️ Inne</option>
-                </select>
-                <button onclick="addCustomMealToDay()" class="w-full py-2.5 rounded-xl text-sm font-bold transition-all"
-                  style="background:rgba(0,229,255,0.15);
-                   border:1px solid rgba(0,229,255,0.4);color:#00e5ff;">
-                  ✅ Dodaj własny posiłek
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- MODAL: Dodaj ćwiczenie do dnia -->
-        <div id="addExerciseToDayModal" class="fixed inset-0 hidden items-center justify-center p-4"
-          style="background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);z-index:9999;"
-          onclick="if(event.target===this)closeAddExerciseToDay()">
-          <div class="glass rounded-2xl w-full max-w-md flex flex-col"
-            style="border:1px solid rgba(124,58,237,0.2);max-height:85vh;">
-            <div class="flex-shrink-0 px-5 py-4 flex items-center justify-between"
-              style="border-bottom:1px solid rgba(255,255,255,0.07);">
-              <h3 class="text-base font-bold text-white" style="font-family:'Syne',sans-serif;">
-                💪 Dodaj ćwiczenie do dnia
-              </h3>
-              <button onclick="closeAddExerciseToDay()" class="text-gray-500 hover:text-white text-2xl">×</button>
-            </div>
-            <div class="flex-1 overflow-y-auto p-5 space-y-4">
-              <input type="text" id="addExerciseSearch" placeholder="🔍 Szukaj ćwiczenia lub drilla..."
-                oninput="searchExerciseForDay(this.value)" class="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-                style="background:rgba(255,255,255,0.06);
-                 border:1px solid rgba(255,255,255,0.1);color:#fff;"
-                onfocus="this.style.borderColor='rgba(124,58,237,0.5)'"
-                onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
-              <div id="addExerciseSearchResults" class="space-y-1 max-h-48 overflow-y-auto"></div>
-
-              <div class="flex items-center gap-3">
-                <div style="flex:1;height:1px;background:rgba(255,255,255,0.08);"></div>
-                <span class="text-xs text-gray-600">lub wpisz własne</span>
-                <div style="flex:1;height:1px;background:rgba(255,255,255,0.08);"></div>
-              </div>
-
-              <div class="space-y-3 p-4 rounded-xl"
-                style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);">
-                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Własne ćwiczenie
-                </p>
-                <input type="text" id="customExName" placeholder="Nazwa ćwiczenia"
-                  class="w-full px-3 py-2 rounded-xl text-sm" style="background:rgba(255,255,255,0.06);
-                   border:1px solid rgba(255,255,255,0.1);color:#fff;">
-                <div class="grid grid-cols-3 gap-2">
-                  <input type="number" id="customExSets" placeholder="Serie" min="1"
-                    class="px-3 py-2 rounded-xl text-sm text-center font-bold" style="background:rgba(255,255,255,0.06);
-                     border:1px solid rgba(255,255,255,0.1);color:#a78bfa;">
-                  <input type="number" id="customExReps" placeholder="Powt." min="1"
-                    class="px-3 py-2 rounded-xl text-sm text-center font-bold" style="background:rgba(255,255,255,0.06);
-                     border:1px solid rgba(255,255,255,0.1);color:#00e5ff;">
-                  <input type="number" id="customExWeight" placeholder="kg" min="0" step="0.5"
-                    class="px-3 py-2 rounded-xl text-sm text-center font-bold" style="background:rgba(255,255,255,0.06);
-                     border:1px solid rgba(255,255,255,0.1);color:#facc15;">
-                </div>
-                <input type="text" id="customExNotes" placeholder="Notatka (opcjonalna)"
-                  class="w-full px-3 py-2 rounded-xl text-xs" style="background:rgba(255,255,255,0.06);
-                   border:1px solid rgba(255,255,255,0.1);color:#9ca3af;">
-                <button onclick="addCustomExerciseToDay()"
-                  class="w-full py-2.5 rounded-xl text-sm font-bold transition-all" style="background:rgba(124,58,237,0.15);
-                   border:1px solid rgba(124,58,237,0.4);color:#a78bfa;">
-                  ✅ Dodaj ćwiczenie
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ══════ SMART WATER TRACKER ══════ -->
-        <div class="glass p-5 rounded-2xl" id="waterTrackerCard">
-          <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-            <div class="flex items-center gap-2">
-              <span class="text-xl">💧</span>
-              <h4 class="text-base font-bold text-white" style="font-family:'Syne',sans-serif;">Smart Water Tracker</h4>
-              <span id="weatherBadge" class="hidden text-xs px-2 py-0.5 rounded-full font-bold"
-                style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.4);color:#fbbf24;"></span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span id="waterGoalLabel" class="text-xs font-bold" style="color:var(--muted);">Cel: 2500 ml</span>
-              <button onclick="water.fetchWeather()" class="btn-ghost px-3 py-1.5 rounded-xl text-xs">📍 Pogoda</button>
-              <button onclick="water.reset()" class="btn-ghost px-3 py-1.5 rounded-xl text-xs"
-                title="Resetuj dzienny licznik wody">Reset</button>
-            </div>
-          </div>
-          <!-- Ring + current ml -->
-          <div class="flex items-center gap-5 mb-4">
-            <div style="position:relative;flex-shrink:0;width:80px;height:80px;">
-              <svg width="80" height="80" viewBox="0 0 80 80">
-                <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(56,189,248,0.1)" stroke-width="8" />
-                <circle id="waterRing" cx="40" cy="40" r="34" fill="none" stroke="url(#wg)" stroke-width="8"
-                  stroke-linecap="round" stroke-dasharray="213.6" stroke-dashoffset="213.6"
-                  style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset 0.7s cubic-bezier(0.4,0,0.2,1);" />
-                <defs>
-                  <linearGradient id="wg" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stop-color="#38bdf8" />
-                    <stop offset="100%" stop-color="#0ea5e9" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
-                <span id="waterPct" class="text-xs font-extrabold"
-                  style="color:#38bdf8;font-family:'Syne',sans-serif;">0%</span>
-              </div>
-            </div>
-            <div class="flex-1">
-              <div class="flex items-end gap-1 mb-1">
-                <span id="waterCurrentMl" class="text-3xl font-extrabold"
-                  style="font-family:'Syne',sans-serif;color:#38bdf8;">0</span>
-                <span class="text-sm mb-0.5" style="color:var(--muted);">/ <span id="waterGoalMl">2500</span> ml</span>
-              </div>
-              <div id="waterCupsRow" class="flex gap-1 flex-wrap mt-1"></div>
-              <p id="waterMotivation" class="text-xs mt-2" style="color:var(--muted);">Zacznij dzień od szklanki wody!
-              </p>
-            </div>
-          </div>
-          <!-- Quick add buttons -->
-          <div class="grid grid-cols-5 gap-2 mb-3">
-            <button onclick="water.add(150)"
-              class="btn-ghost py-2 rounded-xl text-xs font-bold flex flex-col items-center gap-0.5"><span
-                style="font-size:1.1rem;">🥤</span><span>150ml</span></button>
-            <button onclick="water.add(200)"
-              class="btn-ghost py-2 rounded-xl text-xs font-bold flex flex-col items-center gap-0.5"><span
-                style="font-size:1.1rem;">🫙</span><span>200ml</span></button>
-            <button onclick="water.add(250)"
-              class="btn-ghost py-2 rounded-xl text-xs font-bold flex flex-col items-center gap-0.5"><span
-                style="font-size:1.1rem;">🥛</span><span>250ml</span></button>
-            <button onclick="water.add(330)"
-              class="btn-ghost py-2 rounded-xl text-xs font-bold flex flex-col items-center gap-0.5"><span
-                style="font-size:1.1rem;">🍺</span><span>330ml</span></button>
-            <button onclick="water.add(500)"
-              class="btn-ghost py-2 rounded-xl text-xs font-bold flex flex-col items-center gap-0.5"><span
-                style="font-size:1.1rem;">🍶</span><span>500ml</span></button>
-          </div>
-          <!-- Custom + undo -->
-          <div class="flex gap-2">
-            <input type="number" id="waterCustomMl" placeholder="Własna ilość ml" min="1" max="2000"
-              class="flex-1 text-sm" style="color:#38bdf8;">
-            <button onclick="water.addCustom()" class="btn-outline-cyan px-4 py-2 rounded-xl text-xs font-bold">+
-              Dodaj</button>
-            <button onclick="water.undo()" class="btn-ghost px-3 py-2 rounded-xl text-xs font-bold"
-              title="Cofnij ostatni wpis">↩</button>
-          </div>
-          <!-- Weather info row -->
-          <div id="weatherInfoRow" class="hidden mt-3 rounded-xl px-4 py-3 flex items-center gap-3"
-            style="background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);">
-            <span id="weatherIcon" class="text-2xl">☀️</span>
-            <div class="flex-1">
-              <p id="weatherDesc" class="text-xs font-bold text-yellow-300"></p>
-              <p id="weatherAdvice" class="text-xs mt-0.5" style="color:var(--muted);"></p>
-            </div>
-          </div>
-          <!-- Location + Temperature info strip -->
-          <div id="waterLocationStrip" class="mt-3 rounded-xl px-4 py-2.5 flex items-center justify-between gap-2"
-            style="background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.12);">
-            <span id="waterLocationText" class="text-xs font-semibold flex items-center gap-1.5"
-              style="color:var(--muted);">
-              <span class="animate-pulse"
-                style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--cyan);opacity:0.5;"></span>
-              Pobieranie lokalizacji…
-            </span>
-            <span id="waterTempText" class="text-xs font-extrabold"
-              style="color:var(--cyan);font-family:'Syne',sans-serif;letter-spacing:0.03em;opacity:0.5;">—°C</span>
-          </div>
-        </div>
-
-        <!-- ══════════ CHECK-IN v2 ══════════ -->
-        <div class="glass p-6 rounded-2xl space-y-6">
-          <div class="flex items-center gap-3 mb-1">
-            <span class="text-xl">📊</span>
-            <h4 class="text-lg font-bold text-white" style="font-family:'Syne',sans-serif;">Dzienny Check-in</h4>
-            <span class="text-xs px-2 py-0.5 rounded-full font-bold"
-              style="background:rgba(0,229,255,0.1);color:var(--cyan);border:1px solid rgba(0,229,255,0.25);">v2</span>
-          </div>
-
-          <!-- Row 1: Sleep / Energy / Stress -->
-          <div class="grid grid-cols-1 gap-5 md:grid-cols-3">
-
-            <!-- Sen -->
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">😴
-                  Jakość snu</label>
-                <span id="sleepVal" class="text-lg font-extrabold"
-                  style="font-family:'Syne',sans-serif;color:var(--cyan);">—</span>
-              </div>
-              <!-- Czas snu — dodaj PRZED istniejącym suwakrem jakości snu -->
-              <div class="grid grid-cols-2 gap-2 mb-3">
-                <div>
-                  <label class="text-xs text-gray-500 block mb-1">🌙 Położyłem się</label>
-                  <input type="time" id="sleepStart" value="23:00"
-                    class="w-full px-2 py-1.5 rounded-lg text-sm font-bold text-center" style="background:rgba(255,255,255,0.06);
-               border:1px solid rgba(255,255,255,0.1);color:#00e5ff;" oninput="updateSleepDuration()">
-                </div>
-                <div>
-                  <label class="text-xs text-gray-500 block mb-1">☀️ Wstałem</label>
-                  <input type="time" id="sleepEnd" value="07:00"
-                    class="w-full px-2 py-1.5 rounded-lg text-sm font-bold text-center" style="background:rgba(255,255,255,0.06);
-               border:1px solid rgba(255,255,255,0.1);color:#00e5ff;" oninput="updateSleepDuration()">
-                </div>
-              </div>
-              <div id="sleepDurationBadge" class="text-center text-sm font-bold mb-3 py-1.5 rounded-xl hidden"
-                style="background:rgba(0,229,255,0.08);color:#00e5ff;">
-                Czas snu: <span id="sleepHours">0h 0min</span>
-              </div>
-              <input type="range" id="checkinSleep" min="1" max="10" value="7"
-                oninput="updateCheckinSlider('sleep',this.value)" class="w-full" style="accent-color:var(--cyan);">
-              <div class="flex justify-between text-xs mt-1" style="color:var(--muted);">
-                <span>Fatalne</span><span>Świetnie</span>
-              </div>
-              <p id="sleepDesc" class="text-xs mt-1 text-center" style="color:var(--muted);">Przesuń, aby ocenić</p>
-            </div>
-
-            <!-- Energia -->
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">⚡
-                  Poziom energii</label>
-                <span id="energyVal" class="text-lg font-extrabold"
-                  style="font-family:'Syne',sans-serif;color:#a78bfa;">—</span>
-              </div>
-              <input type="range" id="checkinEnergy" min="1" max="10" value="7"
-                oninput="updateCheckinSlider('energy',this.value)" class="w-full" style="accent-color:#a78bfa;">
-              <div class="flex justify-between text-xs mt-1" style="color:var(--muted);">
-                <span>Wyczerpany</span><span>Pełen mocy</span>
-              </div>
-              <p id="energyDesc" class="text-xs mt-1 text-center" style="color:var(--muted);">Przesuń, aby ocenić</p>
-            </div>
-
-            <!-- Stres -->
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">🧠
-                  Poziom stresu</label>
-                <span id="stressVal" class="text-lg font-extrabold"
-                  style="font-family:'Syne',sans-serif;color:#fb923c;">—</span>
-              </div>
-              <input type="range" id="checkinStress" min="1" max="10" value="5"
-                oninput="updateCheckinSlider('stress',this.value)" class="w-full" style="accent-color:#fb923c;">
-              <div class="flex justify-between text-xs mt-1" style="color:var(--muted);">
-                <span>Spokój</span><span>Bardzo wysoki</span>
-              </div>
-              <p id="stressDesc" class="text-xs mt-1 text-center" style="color:var(--muted);">Przesuń, aby ocenić</p>
-            </div>
-          </div>
-
-          <!-- Divider -->
-          <div style="height:1px;background:var(--border);"></div>
-
-          <!-- Nastrój -->
-          <div>
-            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider
-                  flex items-center gap-1.5 mb-3">
-              🎭 Nastrój dnia
-            </label>
-            <div class="flex gap-2 justify-center">
-              <button onclick="setMood(1)" id="mood_1" class="mood-btn flex flex-col items-center gap-1 px-4 py-3 rounded-xl
-               transition-all text-2xl"
-                style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
-                😴
-                <span class="text-xs text-gray-600">Fatalny</span>
-              </button>
-              <button onclick="setMood(2)" id="mood_2" class="mood-btn flex flex-col items-center gap-1 px-4 py-3 rounded-xl
-               transition-all text-2xl"
-                style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
-                😐
-                <span class="text-xs text-gray-600">Słaby</span>
-              </button>
-              <button onclick="setMood(3)" id="mood_3" class="mood-btn flex flex-col items-center gap-1 px-4 py-3 rounded-xl
-               transition-all text-2xl"
-                style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
-                🙂
-                <span class="text-xs text-gray-600">OK</span>
-              </button>
-              <button onclick="setMood(4)" id="mood_4" class="mood-btn flex flex-col items-center gap-1 px-4 py-3 rounded-xl
-               transition-all text-2xl"
-                style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
-                😄
-                <span class="text-xs text-gray-600">Dobry</span>
-              </button>
-              <button onclick="setMood(5)" id="mood_5" class="mood-btn flex flex-col items-center gap-1 px-4 py-3 rounded-xl
-               transition-all text-2xl"
-                style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
-                🔥
-                <span class="text-xs text-gray-600">Świetny</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Row 2: Weight + Measurements (woda obsługiwana przez Smart Water Tracker) -->
-          <div class="grid grid-cols-1 gap-5">
-
-            <!-- Waga + Pomiary -->
-            <div class="space-y-3">
-              <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">⚖️
-                Pomiary (opcjonalne)</label>
-              <div class="grid grid-cols-3 gap-2">
-                <div>
-                  <label class="text-xs text-gray-500 mb-1 block">Waga (kg)</label>
-                  <input type="number" id="checkinWeight" placeholder="75.0" step="0.1" min="30" max="250"
-                    class="w-full text-sm text-center font-bold" style="color:var(--cyan);"
-                    oninput="updateCheckinWeight(this.value)">
-                </div>
-                <div>
-                  <label class="text-xs text-gray-500 mb-1 block">Pas (cm)</label>
-                  <input type="number" id="checkinWaist" placeholder="80" step="0.5" min="40" max="200"
-                    class="w-full text-sm text-center">
-                </div>
-                <div>
-                  <label class="text-xs text-gray-500 mb-1 block">Klatka (cm)</label>
-                  <input type="number" id="checkinChest" placeholder="100" step="0.5" min="50" max="200"
-                    class="w-full text-sm text-center">
-                </div>
-              </div>
-              <!-- Zdjęcie sylwetki -->
-              <div>
-                <label class="text-xs text-gray-500 mb-1 block">📸 Zdjęcie sylwetki</label>
-                <div class="flex items-center gap-2">
-                  <input type="text" id="checkinPhoto" placeholder="np. /zdjecia/tydzien-1-front.jpg"
-                    class="flex-1 text-xs" style="color:var(--muted);">
-                  <span id="photoPreviewIcon" class="text-lg hidden">🖼️</span>
-                </div>
-                <p class="text-xs mt-1" style="color:var(--muted);">Podaj ścieżkę lub nazwę pliku dla własnej
-                  dokumentacji</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Divider -->
-          <div style="height:1px;background:var(--border);"></div>
-
-          <!-- Autoregulacja hint -->
-          <div id="checkinHint" class="hidden rounded-xl p-3 text-sm font-medium"
-            style="background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.25);color:#fb923c;">
-          </div>
-
-          <!-- Save button -->
-          <div class="flex items-center justify-between flex-wrap gap-3">
-            <p class="text-xs" style="color:var(--muted);">Check-in zapisuje się raz dziennie — kolejne wpisy nadpisują
-              dzisiejsze dane.</p>
-            <button onclick="submitCheckin()"
-              class="btn-neon px-7 py-3 rounded-2xl font-bold text-sm flex items-center gap-2">
-              <span>✅</span> Zapisz Check-in
-            </button>
-          </div>
-          <div id="checkinConfirmModal" class="hidden fixed inset-0 items-center justify-center p-4"
-            style="z-index:10000;min-height:100dvh;background:rgba(0,0,0,0.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);">
-            <div class="glass rounded-2xl w-full max-w-3xl max-h-[88vh] overflow-y-auto p-6 shadow-2xl"
-              style="margin:auto;border:1px solid rgba(0,229,255,0.28);box-shadow:0 32px 90px rgba(0,0,0,0.78),0 0 80px rgba(0,229,255,0.08);">
-              <div class="flex items-start justify-between gap-4 mb-5">
-                <div>
-                  <h4 class="text-2xl font-bold text-white" style="font-family:'Syne',sans-serif;">Podsumowanie
-                    check-in</h4>
-                  <p class="text-sm mt-1" style="color:var(--muted);">Sprawdź dane przed zapisaniem raportu.</p>
-                </div>
-                <button id="checkinSummaryCancelTop" type="button"
-                  class="btn-ghost px-4 py-2 rounded-xl text-sm font-bold">Anuluj</button>
-              </div>
-
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-                <div class="rounded-xl p-3"
-                  style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-                  <div class="text-xs uppercase tracking-wider" style="color:var(--muted);">Posiłki</div>
-                  <div id="checkinSummaryMealsCount" class="text-2xl font-extrabold text-white mt-1">0</div>
-                </div>
-                <div class="rounded-xl p-3"
-                  style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-                  <div class="text-xs uppercase tracking-wider" style="color:var(--muted);">Kcal</div>
-                  <div id="checkinSummaryKcal" class="text-2xl font-extrabold text-white mt-1">0</div>
-                </div>
-                <div class="rounded-xl p-3"
-                  style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-                  <div class="text-xs uppercase tracking-wider" style="color:var(--muted);">Białko</div>
-                  <div id="checkinSummaryProtein" class="text-2xl font-extrabold text-white mt-1">0 g</div>
-                </div>
-                <div class="rounded-xl p-3"
-                  style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-                  <div class="text-xs uppercase tracking-wider" style="color:var(--muted);">Woda</div>
-                  <div id="checkinSummaryWater" class="text-2xl font-extrabold text-white mt-1">0.0 L</div>
-                </div>
-                <div class="rounded-xl p-3"
-                  style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-                  <div class="text-xs uppercase tracking-wider" style="color:var(--muted);">Sen</div>
-                  <div id="checkinSummarySleep" class="text-xl font-extrabold text-white mt-1">—</div>
-                </div>
-                <div class="rounded-xl p-3"
-                  style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-                  <div class="text-xs uppercase tracking-wider" style="color:var(--muted);">Nastrój</div>
-                  <div id="checkinSummaryMood" class="text-xl font-extrabold text-white mt-1">—</div>
-                </div>
-                <div class="rounded-xl p-3"
-                  style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-                  <div class="text-xs uppercase tracking-wider" style="color:var(--muted);">Energia</div>
-                  <div id="checkinSummaryEnergy" class="text-xl font-extrabold text-white mt-1">—</div>
-                </div>
-                <div class="rounded-xl p-3"
-                  style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-                  <div class="text-xs uppercase tracking-wider" style="color:var(--muted);">Stres</div>
-                  <div id="checkinSummaryStress" class="text-xl font-extrabold text-white mt-1">—</div>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="rounded-2xl p-4"
-                  style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-                  <h5 class="text-sm font-bold text-white mb-3">Lista posiłków</h5>
-                  <div id="checkinSummaryMealsList" class="space-y-2 text-sm" style="color:var(--muted);"></div>
-                </div>
-                <div class="rounded-2xl p-4"
-                  style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-                  <h5 class="text-sm font-bold text-white mb-3">Lista treningów</h5>
-                  <div id="checkinSummaryWorkoutsList" class="space-y-2 text-sm" style="color:var(--muted);"></div>
-                </div>
-              </div>
-
-              <div class="flex items-center justify-end gap-3 mt-6 flex-wrap">
-                <button id="checkinSummaryCancel" type="button"
-                  class="btn-ghost px-5 py-2.5 rounded-xl text-sm font-bold">Anuluj</button>
-                <button id="checkinSummaryConfirm" type="button"
-                  class="btn-neon px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2">
-                  <span>✅</span> Potwierdź i zapisz
-                </button>
-              </div>
-            </div>
-          </div>
-          <div id="checkinFeedback" class="hidden text-sm font-semibold text-center py-2 rounded-xl"
-            style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);color:#34d399;"></div>
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="glass rounded-2xl p-5"><p class="text-xs text-gray-500 uppercase tracking-wider">Koszykówka</p><p class="text-white font-bold mt-2">Brak osobnej sesji na dziś</p><p class="text-xs text-gray-500 mt-1">Domena zostanie podłączona do Mój dzień.</p></div>
+          <div class="glass rounded-2xl p-5"><p class="text-xs text-gray-500 uppercase tracking-wider">Dieta</p><p class="text-white font-bold mt-2">Dane w przygotowaniu</p><p class="text-xs text-gray-500 mt-1">Docelowo posiłki i realizacja dnia.</p></div>
+          <div class="glass rounded-2xl p-5"><p class="text-xs text-gray-500 uppercase tracking-wider">Recovery</p><p class="text-white font-bold mt-2">Brak check-inu</p><p class="text-xs text-gray-500 mt-1">Docelowo sen, zmęczenie i readiness.</p></div>
         </div>
       </section>
 
@@ -4050,6 +3391,15 @@
       </section>
 
       <!-- ====== TAB: KUCHNIA AI ====== -->
+      <!-- ====== TAB: RECOVERY ====== -->
+      <section id="tab-recovery" class="hidden space-y-6">
+        <div class="glass rounded-3xl p-6 md:p-8">
+          <p class="text-xs font-bold uppercase tracking-[0.18em] mb-2" style="color:var(--cyan);">DAILY STATE</p>
+          <h3 class="text-3xl font-extrabold text-white" style="font-family:'Syne',sans-serif;">Recovery 😴</h3>
+          <p class="text-sm text-gray-500 mt-2">Fundament regeneracji EVOLVE. Dane Recovery zostaną podłączone do Mój dzień i Decision Engine w kolejnym etapie.</p>
+        </div>
+      </section>
+
       <!-- ====== TAB: POSTĘPY ====== -->
       <section id="tab-postepy" class="hidden space-y-6">
 
@@ -7438,12 +6788,54 @@
     // NAWIGACJA ZAKŁADEK
     // ═══════════════════════════════════════════════════════════════════
 
+    async function loadMyDay() {
+      const token = localStorage.getItem('fitai_token');
+      const dateEl = document.getElementById('myDayDate');
+      const statusEl = document.getElementById('myDayStatus');
+      const metaEl = document.getElementById('myDayTrainingMeta');
+      const titleEl = document.getElementById('myDayTrainingTitle');
+      const exercisesEl = document.getElementById('myDayExercises');
+      const reasonEl = document.getElementById('myDayReason');
+      const startEl = document.getElementById('myDayStart');
+      if (!dateEl || !statusEl || !metaEl || !titleEl || !exercisesEl) return;
+      if (!token) {
+        statusEl.textContent = 'Zaloguj się';
+        metaEl.textContent = 'Po zalogowaniu Mój dzień pobierze aktualny plan.';
+        exercisesEl.innerHTML = '<p class="text-sm text-gray-500">Brak aktywnej sesji.</p>';
+        startEl.classList.add('hidden');
+        return;
+      }
+      try {
+        const escapeMyDayHtml = value => String(value ?? '').replace(/[&<>\"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[char]));
+        const response = await fetch('/app/training/today', {headers:{Authorization:'Bearer '+token}});
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Nie udało się pobrać planu.');
+        dateEl.textContent = data.day_label + ' · ' + data.date;
+        statusEl.textContent = data.has_workout ? 'Trening gotowy' : 'Dzień bez treningu';
+        titleEl.textContent = data.has_workout ? 'Dzisiejszy trening' : 'Brak zaplanowanego treningu';
+        metaEl.textContent = data.plan?.source === 'adaptive' ? 'Plan v' + data.plan.version + ' · zastosowana adaptacja' : 'Bazowy plan tygodniowy';
+        exercisesEl.innerHTML = (data.exercises || []).map(ex =>
+          '<div class="rounded-2xl p-4" style="background:rgba(255,255,255,.025);border:1px solid var(--border);"><p class="font-bold text-white">' +
+          escapeMyDayHtml(ex.exercise_name) + '</p><p class="text-sm text-gray-500 mt-1">' + ex.sets + ' × ' + ex.reps +
+          (ex.weight_kg ? ' · ' + ex.weight_kg + ' kg' : '') + (ex.rpe ? ' · RPE ' + ex.rpe : '') + '</p></div>'
+        ).join('') || '<p class="text-sm text-gray-500">Na dziś nie ma ćwiczeń w aktywnym planie.</p>';
+        reasonEl.textContent = data.plan?.source === 'adaptive' ? 'Plan pochodzi z zastosowanej wersji adaptacyjnej.' : 'Plan pochodzi z bazowego planu tygodniowego.';
+        startEl.classList.toggle('hidden', !data.has_workout);
+      } catch (error) {
+        statusEl.textContent = 'Błąd ładowania';
+        metaEl.textContent = error.message || 'Nie udało się pobrać danych.';
+        exercisesEl.innerHTML = '<p class="text-sm text-gray-500">Spróbuj ponownie później.</p>';
+        startEl.classList.add('hidden');
+      }
+    }
+
     function showTab(tabId) {
       document.querySelectorAll('section[id^="tab-"]').forEach(s => {
         s.classList.add('hidden');
       });
       const target = document.getElementById('tab-' + tabId);
       if (target) target.classList.remove('hidden');
+      if (tabId === 'my-day') loadMyDay();
 
       document.querySelectorAll('[data-tab]').forEach(link => {
         const active = link.getAttribute('data-tab') === tabId;
