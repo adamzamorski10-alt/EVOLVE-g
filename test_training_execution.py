@@ -299,3 +299,189 @@ def test_partial_completion_materializes_only_completed_sets():
         assert results[0].sets == 1
         assert results[0].reps == 5
         assert results[0].weight_kg == 105
+
+
+def test_progress_aggregates_only_completed_owned_execution_data():
+    first = _context()
+    second = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(first["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+    for number in (1, 2, 3):
+        assert _log_set(first["token"], sid, number, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7},
+        headers=_headers(first["token"]),
+    ).status_code == 200
+
+    own = client.get("/app/training/progress", headers=_headers(first["token"]))
+    foreign = client.get("/app/training/progress", headers=_headers(second["token"]))
+    assert own.status_code == 200
+    assert own.json()["period_sessions"] == 1
+    assert own.json()["total_completed_sets"] == 3
+    assert own.json()["total_volume_kg"] == 1500
+    assert own.json()["exercises"][0]["best_weight_kg"] == 100
+    assert foreign.status_code == 200
+    assert foreign.json()["period_sessions"] == 0
+    assert foreign.json()["total_completed_sets"] == 0
+
+
+def test_progress_endpoint_ignores_incomplete_sets():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+    assert _log_set(ctx["token"], sid, 1, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(
+        f"/app/training/sessions/{sid}/sets",
+        json={"exercise_key":"squat-1","set_number":2,"actual_reps":20,"actual_weight_kg":200,"actual_rpe":10,"completed":False},
+        headers=_headers(ctx["token"]),
+    ).status_code == 200
+    assert client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7},
+        headers=_headers(ctx["token"]),
+    ).status_code == 200
+    progress = client.get("/app/training/progress", headers=_headers(ctx["token"]))
+    assert progress.status_code == 200
+    assert progress.json()["total_completed_sets"] == 1
+    assert progress.json()["total_volume_kg"] == 500
+
+
+def test_progress_excludes_active_and_cancelled_sessions():
+    ctx = _context()
+
+    active = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert active.status_code == 200
+    active_id = active.json()["session"]["id"]
+    assert _log_set(ctx["token"], active_id, 1, reps=5, weight=100, rpe=7).status_code == 200
+
+    with Session(engine) as db:
+        cancelled_row = TrainingSessionDB(
+            user_id=db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first().id,
+            session_date=date.today(),
+            status="cancelled",
+            planned_snapshot_json=json.dumps({"exercises": []}),
+        )
+        db.add(cancelled_row)
+        db.commit()
+
+    progress = client.get("/app/training/progress?limit=52", headers=_headers(ctx["token"]))
+    assert progress.status_code == 200
+    assert progress.json()["period_sessions"] == 0
+    assert progress.json()["total_completed_sets"] == 0
+    assert progress.json()["exercises"] == []
+
+
+def test_progress_limit_is_bounded():
+    ctx = _context()
+    response = client.get("/app/training/progress?limit=9999", headers=_headers(ctx["token"]))
+    assert response.status_code == 200
+    assert response.json()["limit"] == 52
+    assert len(response.json()["sessions"]) <= 52
+
+    response = client.get("/app/training/progress?limit=0", headers=_headers(ctx["token"]))
+    assert response.status_code == 200
+    assert response.json()["limit"] == 1
+
+
+def test_exercise_progress_is_completed_and_user_scoped():
+    first = _context()
+    second = _context()
+
+    started = client.post("/app/training/sessions/start", headers=_headers(first["token"]))
+    sid = started.json()["session"]["id"]
+    logged = client.post(
+        f"/app/training/sessions/{sid}/sets",
+        json={"exercise_key": "squat-1", "set_number": 1, "actual_reps": 5, "actual_weight_kg": 110, "actual_rpe": 8},
+        headers=_headers(first["token"]),
+    )
+    assert logged.status_code == 200
+    completed = client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 8},
+        headers=_headers(first["token"]),
+    )
+    assert completed.status_code == 200
+
+    own = client.get("/app/training/progress/exercises/squat-1", headers=_headers(first["token"]))
+    assert own.status_code == 200
+    data = own.json()
+    assert data["exercise_name"] == "Przysiad"
+    assert data["sessions"] == 1
+    assert data["best_weight_kg"] == 110
+    assert data["best_reps_at_best_weight"] == 5
+    assert data["total_volume_kg"] == 550
+    assert len(data["history"]) == 1
+
+    other = client.get("/app/training/progress/exercises/squat-1", headers=_headers(second["token"]))
+    assert other.status_code == 200
+    assert other.json()["sessions"] == 0
+    assert other.json()["history"] == []
+
+
+def test_training_trends_are_deterministic_and_completed_only():
+    ctx = _context()
+    first = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid1 = first.json()["session"]["id"]
+    assert _log_set(ctx["token"], sid1, 1, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(f"/app/training/sessions/{sid1}/complete", json={"final_rpe": 7}, headers=_headers(ctx["token"])).status_code == 200
+
+    second = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid2 = second.json()["session"]["id"]
+    assert _log_set(ctx["token"], sid2, 1, reps=5, weight=120, rpe=7).status_code == 200
+    assert client.post(f"/app/training/sessions/{sid2}/complete", json={"final_rpe": 7}, headers=_headers(ctx["token"])).status_code == 200
+
+    response = client.get("/app/training/progress/trends?limit=12", headers=_headers(ctx["token"]))
+    assert response.status_code == 200
+    exercise = next(item for item in response.json()["exercises"] if item["exercise_key"] == "squat-1")
+    assert exercise["sessions"] == 2
+    assert exercise["weight"]["trend"] == "up"
+    assert exercise["weight"]["change_pct"] > 0
+    assert exercise["history"][0]["best_weight_kg"] == 120
+    assert exercise["history"][1]["best_weight_kg"] == 100
+
+
+def test_training_records_are_user_scoped_and_completed_only():
+    first = _context()
+    second = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(first["token"]))
+    sid = started.json()["session"]["id"]
+    assert _log_set(first["token"], sid, 1, reps=8, weight=130, rpe=8).status_code == 200
+    assert _log_set(first["token"], sid, 2, reps=5, weight=140, rpe=9).status_code == 200
+    assert client.post(f"/app/training/sessions/{sid}/complete", json={"final_rpe": 9}, headers=_headers(first["token"])).status_code == 200
+
+    own = client.get("/app/training/progress/records", headers=_headers(first["token"]))
+    assert own.status_code == 200
+    exercise = next(item for item in own.json()["exercises"] if item["exercise_key"] == "squat-1")
+    assert exercise["best_weight"]["value_kg"] == 140
+    assert exercise["best_reps"]["value"] == 8
+    assert exercise["best_session_volume"]["value_kg"] == 1640
+
+    foreign = client.get("/app/training/progress/records", headers=_headers(second["token"]))
+    assert foreign.status_code == 200
+    assert foreign.json()["exercises"] == []
+
+
+def test_consistency_endpoint_returns_only_completed_owned_sessions():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+    assert _log_set(ctx["token"], sid, 1, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(f"/app/training/sessions/{sid}/complete", json={"final_rpe": 7}, headers=_headers(ctx["token"])).status_code == 200
+    response = client.get("/app/training/progress/consistency", headers=_headers(ctx["token"]))
+    assert response.status_code == 200
+    assert response.json()["sessions"] == 1
+    assert response.json()["training_days"] == 1
+
+
+def test_completed_session_history_detail_is_owned():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+    assert _log_set(ctx["token"], sid, 1, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(f"/app/training/sessions/{sid}/complete", json={"final_rpe": 7}, headers=_headers(ctx["token"])).status_code == 200
+    response = client.get(f"/app/training/sessions/history/{sid}", headers=_headers(ctx["token"]))
+    assert response.status_code == 200
+    assert response.json()["id"] == sid
+    assert len(response.json()["sets"]) == 1

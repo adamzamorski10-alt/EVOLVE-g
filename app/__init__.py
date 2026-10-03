@@ -294,6 +294,144 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     }
   };
 
+  function injectProgressShell() {
+    if (document.getElementById("progressSummary")) return;
+    var content = document.querySelector(".content");
+    if (!content) return;
+    var legacyPanel = document.getElementById("tab-progress");
+    if (legacyPanel) {
+      legacyPanel.id = "tab-progress-legacy";
+      legacyPanel.style.display = "none";
+    }
+    var section =
+      '<div class="tab-panel" id="tab-progress">' +
+        '<div class="sec-head"><div><div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:700;">Postępy 📈</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">Wyniki, trendy, rekordy i regularność oparte wyłącznie na ukończonych treningach.</div></div><div id="progressUpdatedAt" style="font-size:12px;color:var(--muted);">—</div></div>' +
+        '<div id="progressStatus" class="alert alert-hidden" style="margin-bottom:16px;"></div>' +
+        '<div id="progressSummary" class="grid-2" style="margin-bottom:16px;"></div>' +
+        '<div class="grid-2" style="margin-bottom:16px;"><div class="card" style="padding:20px;"><div class="sec-head" style="margin-bottom:12px;"><div style="font-weight:700;">📈 Trendy</div><div style="font-size:12px;color:var(--muted);">ostatnia sesja vs baza</div></div><div id="progressTrends"></div></div><div class="card" style="padding:20px;"><div class="sec-head" style="margin-bottom:12px;"><div style="font-weight:700;">🏆 Rekordy</div></div><div id="progressRecords"></div></div></div>' +
+        '<div class="card" style="padding:20px;margin-bottom:16px;"><div class="sec-head" style="margin-bottom:12px;"><div style="font-weight:700;">🏋️ Ćwiczenia</div><div style="font-size:12px;color:var(--muted);">kliknij, aby zobaczyć drill-down</div></div><div id="progressExercises"></div><div id="progressExerciseDetail" style="margin-top:16px;"></div></div>' +
+        '<div class="grid-2" style="margin-bottom:16px;"><div class="card" style="padding:20px;"><div class="sec-head" style="margin-bottom:12px;"><div style="font-weight:700;">📅 Regularność</div></div><div id="progressConsistency"></div></div><div class="card" style="padding:20px;"><div class="sec-head" style="margin-bottom:12px;"><div style="font-weight:700;">🗂️ Historia sesji</div></div><div id="progressHistory"></div></div></div>' +
+        '<div id="progressSessionDetail"></div>' +
+      '</div>';
+    content.insertAdjacentHTML("afterbegin", section);
+  }
+
+  var progressLoadSequence = 0;
+
+  function progressMetricCard(label, value, meta) {
+    return '<div class="card" style="padding:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">' + escapeHtml(label) + '</div><div style="font-size:28px;font-weight:700;margin-top:8px;">' + escapeHtml(value) + '</div><div style="font-size:12px;color:var(--muted);margin-top:4px;">' + escapeHtml(meta || "") + '</div></div>';
+  }
+
+  function progressTrendLabel(value) {
+    return value === "up" ? "↗ rośnie" : value === "down" ? "↘ spada" : value === "stable" ? "→ stabilnie" : "• nowa baza";
+  }
+
+  function progressSparkline(points) {
+    var values = (points || []).map(function(point){ return Number(point.best_weight_kg || 0); }).reverse();
+    if (values.length < 2) return '<div style="height:4px;"></div>';
+    var max = Math.max.apply(null, values), min = Math.min.apply(null, values);
+    var span = max - min || 1;
+    var coords = values.map(function(value, index) {
+      var x = 4 + (index * 92 / Math.max(1, values.length - 1));
+      var y = 28 - ((value - min) / span * 24);
+      return x.toFixed(1) + "," + y.toFixed(1);
+    }).join(" ");
+    return '<svg viewBox="0 0 100 32" preserveAspectRatio="none" style="width:100%;height:38px;margin-top:8px;display:block;" aria-label="Trend ciężaru"><polyline points="' + coords + '" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"></polyline></svg>';
+  }
+
+  window.loadEvolveProgress = async function () {
+    injectProgressShell();
+    var requestId = ++progressLoadSequence;
+    var token = localStorage.getItem("fitai_token");
+    var status = document.getElementById("progressStatus");
+    if (!token) {
+      if (status) { status.className = "alert alert-warn"; status.textContent = "Zaloguj się, aby zobaczyć swoje postępy."; }
+      return;
+    }
+    ["progressSummary","progressTrends","progressRecords","progressExercises","progressConsistency","progressHistory"].forEach(function(id) {
+      var el=document.getElementById(id); if(el) el.innerHTML='<div class="spinner"></div>';
+    });
+    try {
+      var headers = {Authorization: "Bearer " + token};
+      var results = await Promise.all([
+        fetch("/app/training/progress?limit=12", {headers:headers, cache:"no-store"}),
+        fetch("/app/training/progress/trends?limit=12", {headers:headers, cache:"no-store"}),
+        fetch("/app/training/progress/records?limit=52", {headers:headers, cache:"no-store"}),
+        fetch("/app/training/progress/consistency?limit=52", {headers:headers, cache:"no-store"}),
+        fetch("/app/training/sessions/history?limit=12", {headers:headers, cache:"no-store"})
+      ]);
+      var data = await Promise.all(results.map(function(response) { return response.json().then(function(body){ return {response:response, body:body}; }); }));
+      if (requestId !== progressLoadSequence) return;
+      var failed = data.find(function(item){ return !item.response.ok; });
+      if (failed) throw new Error(failed.body.detail || "Nie udało się pobrać danych postępów");
+      var progress=data[0].body, trends=data[1].body, records=data[2].body, consistency=data[3].body, history=data[4].body;
+      document.getElementById("progressUpdatedAt").textContent = new Date().toLocaleTimeString("pl-PL",{hour:"2-digit",minute:"2-digit"});
+      document.getElementById("progressSummary").innerHTML =
+        progressMetricCard("SESJE", progress.period_sessions, "ukończone") +
+        progressMetricCard("SERIE", progress.total_completed_sets, "ukończone") +
+        progressMetricCard("WOLUMEN", progress.total_volume_kg + " kg", "łącznie") +
+        progressMetricCard("ŚR. WYKONANIA", progress.average_session_completion_pct + "%", "na sesję");
+
+      document.getElementById("progressTrends").innerHTML = (trends.exercises || []).map(function(item) {
+        var wc=item.weight.change_pct == null ? "—" : (item.weight.change_pct > 0 ? "+" : "") + item.weight.change_pct + "%";
+        return '<button class="item-card" style="width:100%;text-align:left;" onclick="loadEvolveProgressExercise(\'' + encodeURIComponent(item.exercise_key) + '\')"><div class="item-card-head"><div class="item-card-title">' + escapeHtml(item.exercise_name) + '</div><div class="tag">' + item.sessions + ' sesji</div></div><div class="item-card-meta">Ciężar ' + progressTrendLabel(item.weight.trend) + ' (' + wc + ') · Wolumen ' + progressTrendLabel(item.volume.trend) + ' · RPE ' + progressTrendLabel(item.rpe.trend) + '</div>' + progressSparkline(item.history) + '</button>';
+      }).join("") || '<div style="color:var(--muted);">Brak danych do wyznaczenia trendów.</div>';
+
+      document.getElementById("progressRecords").innerHTML = (records.exercises || []).map(function(item) {
+        return '<div class="item-card" style="cursor:default;"><div class="item-card-head"><div class="item-card-title">' + escapeHtml(item.exercise_name) + '</div></div><div class="item-card-meta">🏋️ ' + item.best_weight.value_kg + ' kg · 🔁 ' + item.best_reps.value + ' powt. przy ' + item.best_reps.weight_kg + ' kg · 📦 ' + item.best_session_volume.value_kg + ' kg/sesję</div></div>';
+      }).join("") || '<div style="color:var(--muted);">Brak rekordów.</div>';
+
+      document.getElementById("progressExercises").innerHTML = (progress.exercises || []).map(function(item) {
+        return '<button class="item-card" style="width:100%;text-align:left;" onclick="loadEvolveProgressExercise(\'' + encodeURIComponent(item.exercise_key) + '\')"><div class="item-card-head"><div class="item-card-title">' + escapeHtml(item.exercise_name) + '</div><div class="tag">' + item.sessions + ' sesji</div></div><div class="item-card-meta">' + item.total_volume_kg + ' kg wolumenu · rekord ' + item.best_weight_kg + ' kg · śr. RPE ' + (item.average_rpe == null ? '—' : item.average_rpe) + '</div></button>';
+      }).join("") || '<div style="padding:12px;color:var(--muted);">Brak ukończonych danych treningowych.</div>';
+
+      document.getElementById("progressConsistency").innerHTML =
+        progressMetricCard("DNI TRENINGOWE", consistency.training_days, "w analizowanym okresie") +
+        progressMetricCard("SESJE / TYDZ.", consistency.average_sessions_per_week, "średnia") +
+        progressMetricCard("BIEŻĄCA SERIA", consistency.current_streak_days + " dni", "kolejne dni treningowe") +
+        progressMetricCard("NAJDŁUŻSZA SERIA", consistency.longest_streak_days + " dni", "kolejne dni treningowe");
+
+      document.getElementById("progressHistory").innerHTML = (history.sessions || []).map(function(item) {
+        return '<button class="item-card" style="width:100%;text-align:left;" onclick="loadEvolveSessionDetail(\'' + item.session_id + '\')"><div class="item-card-head"><div class="item-card-title">' + escapeHtml(item.session_date) + '</div><div class="tag">' + item.completion_pct + '%</div></div><div class="item-card-meta">' + item.completed_sets + '/' + item.planned_sets + ' serii · ' + item.exercise_count + ' ćwiczeń' + (item.final_rpe != null ? ' · RPE ' + item.final_rpe : '') + '</div></button>';
+      }).join("") || '<div style="color:var(--muted);">Brak ukończonych sesji.</div>';
+      if (status) { status.className = "alert alert-hidden"; status.textContent = ""; }
+    } catch (error) {
+      if (requestId !== progressLoadSequence) return;
+      if (status) { status.className = "alert alert-warn"; status.textContent = "⚠️ " + error.message; }
+    }
+  };
+
+  window.loadEvolveProgressExercise = async function (encodedKey) {
+    var detail = document.getElementById("progressExerciseDetail");
+    if (!detail) return;
+    try {
+      detail.innerHTML='<div class="spinner"></div>';
+      var token=localStorage.getItem("fitai_token");
+      var response=await fetch("/app/training/progress/exercises/" + encodeURIComponent(decodeURIComponent(encodedKey)) + "?limit=12",{headers:{Authorization:"Bearer "+token},cache:"no-store"});
+      var data=await response.json();
+      if(!response.ok) throw new Error(data.detail || "Nie udało się pobrać progresu ćwiczenia");
+      var rows=(data.history||[]).map(function(row){return '<div class="item-card" style="cursor:default;"><div class="item-card-head"><div class="item-card-title">'+escapeHtml(row.session_date)+'</div><div class="tag">'+row.sets+' serii</div></div><div class="item-card-meta">'+row.best_weight_kg+' kg · '+row.best_reps_at_best_weight+' powt. · '+row.total_volume_kg+' kg wolumenu'+(row.average_rpe!=null?' · RPE '+row.average_rpe:'')+'</div></div>';}).join("");
+      detail.innerHTML='<div class="card" style="padding:18px;border:1px solid var(--border);"><div class="sec-head"><div><div style="font-weight:700;">'+escapeHtml(data.exercise_name||data.exercise_key)+'</div><div style="font-size:12px;color:var(--muted);">'+data.sessions+' sesji · rekord '+data.best_weight_kg+' kg · wolumen '+data.total_volume_kg+' kg</div></div><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'progressExerciseDetail\').innerHTML=\'\'">Zamknij</button></div>'+(rows||'<div style="color:var(--muted);">Brak historii.</div>')+'</div>';
+    } catch(error) { detail.innerHTML='<div class="alert alert-warn">'+escapeHtml(error.message)+'</div>'; }
+  };
+
+  window.loadEvolveSessionDetail = async function (sessionId) {
+    var detail=document.getElementById("progressSessionDetail");
+    if(!detail) return;
+    detail.innerHTML='<div class="card" style="padding:20px;"><div class="spinner"></div></div>';
+    try {
+      var token=localStorage.getItem("fitai_token");
+      var response=await fetch("/app/training/sessions/history/"+encodeURIComponent(sessionId),{headers:{Authorization:"Bearer "+token},cache:"no-store"});
+      var data=await response.json();
+      if(!response.ok) throw new Error(data.detail || "Nie udało się pobrać sesji");
+      var grouped={};
+      (data.sets||[]).forEach(function(item){(grouped[item.exercise_name] ||= []).push(item);});
+      var body=Object.keys(grouped).map(function(name){return '<div style="margin-bottom:14px;"><div style="font-weight:700;margin-bottom:6px;">'+escapeHtml(name)+'</div>'+grouped[name].map(function(item){return '<div style="font-size:13px;color:var(--muted);padding:4px 0;">Seria '+item.set_number+': '+item.actual_reps+' × '+item.actual_weight_kg+' kg'+(item.actual_rpe!=null?' · RPE '+item.actual_rpe:'')+'</div>';}).join("")+'</div>';}).join("");
+      detail.innerHTML='<div class="card" style="padding:20px;margin-bottom:16px;"><div class="sec-head"><div><div style="font-weight:700;">Sesja '+escapeHtml(data.session_date)+'</div><div style="font-size:12px;color:var(--muted);">Ukończono: '+escapeHtml(data.completed_at||"—")+'</div></div><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'progressSessionDetail\').innerHTML=\'\'">Zamknij</button></div>'+body+'</div>';
+      detail.scrollIntoView({behavior:"smooth",block:"nearest"});
+    } catch(error) { detail.innerHTML='<div class="alert alert-warn">'+escapeHtml(error.message)+'</div>'; }
+  };
+
   function installMyDayRoutingHook() {
     if (window.__evolveMyDayRoutingHookInstalled) return;
     if (typeof window.showTab !== "function") return;
@@ -302,6 +440,8 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       var result = originalShowTab.apply(this, arguments);
       if (tab === "my-day") {
         window.loadEvolveMyDay();
+      } else if (tab === "progress") {
+        window.loadEvolveProgress();
       }
       return result;
     };
@@ -317,6 +457,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 
   document.addEventListener("DOMContentLoaded", function () {
     injectMyDayShell();
+    injectProgressShell();
     installMyDayRoutingHook();
     installHashRouting();
   });

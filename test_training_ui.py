@@ -53,3 +53,49 @@ def test_my_day_shell_ignores_stale_daily_responses():
     assert "var myDayLoadSequence = 0;" in APP_INIT
     assert "var requestId = ++myDayLoadSequence;" in APP_INIT
     assert "if (requestId !== myDayLoadSequence) return;" in APP_INIT
+
+
+def test_training_progress_endpoint_and_dashboard_contract():
+    assert '@router.get("/progress")' in TRAINING_ROUTES
+    assert "total_volume_kg" in TRAINING_ROUTES
+    assert "total_completed_sets" in TRAINING_ROUTES
+    assert "fetch('/app/training/progress?limit=12'" in TRAINING_ROUTES
+
+
+def test_training_progress_2abc_contracts_are_present():
+    required = [
+        '@router.get("/progress/exercises/{exercise_key}")',
+        '@router.get("/progress/trends")',
+        '@router.get("/progress/records")',
+        '"best_weight"',
+        '"best_reps"',
+        '"best_session_volume"',
+        '"weight": {"trend"',
+        '"volume": {"trend"',
+        '"rpe": {"trend"',
+    ]
+    for marker in required:
+        assert marker in TRAINING_ROUTES, f"Missing Progress 2A/2B/2C marker: {marker}"
+
+
+def test_progress_2def_native_shell_contract():
+    required = [
+        'id="nav-progress"',
+        'id="tab-progress"',
+        'id="progressSummary"',
+        'id="progressTrends"',
+        'id="progressRecords"',
+        'id="progressExercises"',
+        'id="progressConsistency"',
+        'id="progressHistory"',
+        'loadEvolveProgress',
+        'loadEvolveProgressExercise',
+        'loadEvolveSessionDetail',
+        'progressSparkline',
+        '/app/training/progress/consistency?limit=52',
+        '/app/training/sessions/history?limit=12',
+        '/app/training/sessions/history/"',
+        'else if (tab === "progress")',
+    ]
+    for marker in required:
+        assert marker in APP_INIT or marker in TRAINING_ROUTES, f"Missing Progress 2D/2E/2F marker: {marker}"
