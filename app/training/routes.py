@@ -11,12 +11,14 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
-from sqlalchemy.exc import SQLAlchemyError
-from sqlmodel import Session, select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlmodel import Session, select, update
 
 from app.auth.dependencies import get_current_user
 from app.database import get_session
-from app.models import AdaptivePlanRevisionDB, ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
+from app.models import AdaptivePlanRevisionDB, AssessmentDB, DailyLogDB, ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
+from app.plan.routes import _assessment_inputs, _fingerprint, _profile_inputs
+from app.recovery.routes import evaluate_recovery
 from app.schemas import TrainingCompleteRequest, TrainingSetResultRequest
 
 router = APIRouter(prefix="/app/training", tags=["training-execution"])
@@ -78,9 +80,32 @@ def _extract_workout(plan: dict, target: date) -> list[dict[str, Any]]:
     return []
 
 
+def _plan_item_key(item: dict[str, Any], index: int = 0) -> str:
+    explicit = item.get("exercise_key") or item.get("id") or item.get("item_id")
+    if explicit:
+        return str(explicit)
+    name = str(item.get("name") or item.get("exercise_name") or "").strip().lower()
+    normalized = "".join(char if char.isalnum() else "-" for char in name).strip("-")
+    return normalized or f"exercise-{index + 1}"
+
+
 def _normalize_plan_item(item: dict[str, Any], index: int) -> dict[str, Any]:
+    import re
+
     name = str(item.get("name") or item.get("exercise_name") or "Ćwiczenie").strip()
-    key = str(item.get("id") or item.get("item_id") or f"exercise-{index + 1}")
+    key = _plan_item_key(item, index)
+
+    def _numeric(value: Any, default: int = 0) -> int:
+        if isinstance(value, bool):
+            return int(value)
+        match = re.search(r"\d+", str(value or ""))
+        return int(match.group()) if match else default
+
+    raw_reps = str(item.get("reps") or "").strip()
+    rep_numbers = [int(value) for value in re.findall(r"\d+", raw_reps)]
+    reps = max(0, rep_numbers[-1] if rep_numbers else 0)
+    reps_label = raw_reps or str(reps)
+
     weight = item.get("weight_kg", item.get("weight", 0))
     try:
         weight = float(weight or 0)
@@ -90,10 +115,11 @@ def _normalize_plan_item(item: dict[str, Any], index: int) -> dict[str, Any]:
     return {
         "exercise_key": key,
         "exercise_name": name,
-        "sets": max(0, int(item.get("sets") or 0)),
-        "reps": max(0, int(item.get("reps") or 0)),
+        "sets": max(0, _numeric(item.get("sets"))),
+        "reps": reps,
+        "reps_label": reps_label,
         "weight_kg": max(0.0, weight),
-        "rpe": int(item["rpe"]) if item.get("rpe") is not None else None,
+        "rpe": _numeric(item.get("rpe"), 0) if item.get("rpe") is not None else None,
         "notes": str(item.get("notes") or ""),
     }
 
@@ -136,6 +162,35 @@ def _load_base_plan(user: UserDB) -> dict:
         return {}
 
 
+def _base_plan_is_stale(user: UserDB, session: Session, base: dict) -> bool:
+    """Return True when a provenance-aware plan no longer matches current inputs."""
+    provenance = base.get("_evolve_core") if isinstance(base, dict) else None
+    if not isinstance(provenance, dict):
+        return False
+
+    latest_assessment = session.exec(
+        select(AssessmentDB)
+        .where(AssessmentDB.user_id == user.id)
+        .order_by(AssessmentDB.assessment_version.desc(), AssessmentDB.created_at.desc())
+    ).first()
+    current_assessment = _assessment_inputs(latest_assessment)
+
+    if provenance.get("assessment_id") != (latest_assessment.id if latest_assessment else None):
+        return True
+    if provenance.get("assessment_version") != (latest_assessment.assessment_version if latest_assessment else None):
+        return True
+
+    expected_assessment_fp = provenance.get("assessment_fingerprint")
+    if expected_assessment_fp and expected_assessment_fp != _fingerprint(current_assessment):
+        return True
+
+    expected_profile_fp = provenance.get("profile_fingerprint")
+    if expected_profile_fp and expected_profile_fp != _fingerprint(_profile_inputs(user)):
+        return True
+
+    return False
+
+
 def _latest_adaptive_revision(user_id: str, session: Session) -> AdaptivePlanRevisionDB | None:
     return session.exec(
         select(AdaptivePlanRevisionDB)
@@ -149,10 +204,46 @@ def _plan_fingerprint(plan: dict) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _apply_recovery_constraint(plan: dict, recovery: dict) -> tuple[dict, str]:
+    """Apply a transient, bounded volume constraint without mutating the stored plan."""
+    constraint = str(recovery.get("constraint") or "none")
+    if constraint == "none" or not isinstance(plan, dict):
+        return plan, "none"
+    factor = 0.75 if constraint == "reduce_volume_25" else 0.5 if constraint == "reduce_volume_50" else 1.0
+    if factor >= 1.0:
+        return plan, "none"
+
+    constrained = json.loads(json.dumps(plan, ensure_ascii=False))
+    days = constrained.get("days")
+    if isinstance(days, list):
+        for day in days:
+            workout = day.get("workout") if isinstance(day, dict) else None
+            exercises = workout.get("exercises") if isinstance(workout, dict) else None
+            if isinstance(exercises, list):
+                for exercise in exercises:
+                    if not isinstance(exercise, dict):
+                        continue
+                    try:
+                        sets = max(0, int(exercise.get("sets") or 0))
+                    except (TypeError, ValueError):
+                        sets = 0
+                    if sets:
+                        exercise["sets"] = max(1, round(sets * factor))
+    return constrained, constraint
+
+
 def _effective_plan(user: UserDB, session: Session) -> tuple[dict, dict]:
-    """Resolve only an adaptive revision derived from the current base plan."""
+    """Resolve adaptive plan, then apply today's deterministic recovery constraint."""
     base = _load_base_plan(user)
     revision = _latest_adaptive_revision(user.id, session)
+    resolved = base
+    meta = {
+        "source": "base",
+        "version": 0,
+        "created_at": None,
+        "source_session_ids": [],
+        "algorithm": None,
+    }
     if revision and isinstance(base, dict) and base:
         try:
             adapted = json.loads(revision.applied_plan_json or "{}")
@@ -165,20 +256,27 @@ def _effective_plan(user: UserDB, session: Session) -> tuple[dict, dict]:
             and isinstance(metadata, dict)
             and metadata.get("base_plan_fingerprint") == _plan_fingerprint(base)
         ):
-            return adapted, {
+            resolved = adapted
+            meta = {
                 "source": "adaptive",
                 "version": revision.version,
                 "created_at": revision.created_at.isoformat(),
                 "source_session_ids": revision.source_session_ids(),
                 "algorithm": metadata.get("algorithm", "deterministic-v1"),
             }
-    return base, {
-        "source": "base",
-        "version": 0,
-        "created_at": None,
-        "source_session_ids": [],
-        "algorithm": None,
-    }
+
+    recovery = evaluate_recovery(
+        session.exec(
+            select(DailyLogDB)
+            .where(DailyLogDB.user_id == user.id)
+            .where(DailyLogDB.log_date == date.today())
+        ).first()
+    )
+    resolved, recovery_constraint = _apply_recovery_constraint(resolved, recovery)
+    meta["recovery_constraint"] = recovery_constraint
+    meta["recovery_status"] = recovery.get("status")
+    meta["readiness_score"] = recovery.get("readiness_score")
+    return resolved, meta
 
 def _owned_session(session: Session, user: UserDB, session_id: str) -> TrainingSessionDB:
     row = session.exec(
@@ -236,6 +334,310 @@ def get_training_history(
     return {"limit": limit, "count": len(result), "sessions": result}
 
 
+@router.get("/progress/consistency")
+def get_training_consistency(
+    limit: int = 52,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return deterministic consistency metrics from completed training."""
+    limit = max(1, min(limit, 52))
+    rows = list(session.exec(
+        select(TrainingSessionDB)
+        .where(TrainingSessionDB.user_id == user.id)
+        .where(TrainingSessionDB.status == "completed")
+        .order_by(TrainingSessionDB.session_date.desc(), TrainingSessionDB.completed_at.desc())
+        .limit(limit)
+    ).all())
+    if not rows:
+        return {
+            "limit": limit, "sessions": 0, "training_days": 0,
+            "average_completion_pct": 0, "average_sessions_per_week": 0,
+            "current_streak_days": 0, "longest_streak_days": 0, "history": [],
+        }
+
+    history = []
+    days = []
+    for row in rows:
+        sets = list(session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == row.id)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.completed == True)
+        ).all())
+        planned = row.planned_snapshot()
+        planned_sets = sum(max(0, int(item.get("sets") or 0)) for item in planned.get("exercises", []) if isinstance(item, dict))
+        completion_pct = round((len(sets) / planned_sets) * 100, 1) if planned_sets else 0
+        history.append({
+            "session_id": row.id, "session_date": row.session_date.isoformat(),
+            "completed_sets": len(sets), "planned_sets": planned_sets,
+            "completion_pct": completion_pct,
+        })
+        days.append(row.session_date)
+    unique_days = sorted(set(days), reverse=True)
+    streaks = []
+    for day in unique_days:
+        if not streaks or (streaks[-1][-1] - day).days != 1:
+            streaks.append([day])
+        else:
+            streaks[-1].append(day)
+    longest = max((len(group) for group in streaks), default=0)
+    current = len(streaks[0]) if streaks and streaks[0][0] == date.today() else 0
+    if len(unique_days) >= 2:
+        span_days = max(1, (unique_days[0] - unique_days[-1]).days + 1)
+        weeks = max(1 / 7, span_days / 7)
+        sessions_per_week = round(len(rows) / weeks, 2)
+    else:
+        sessions_per_week = float(len(rows))
+    return {
+        "limit": limit,
+        "sessions": len(rows),
+        "training_days": len(unique_days),
+        "average_completion_pct": round(sum(item["completion_pct"] for item in history) / len(history), 1),
+        "average_sessions_per_week": sessions_per_week,
+        "current_streak_days": current,
+        "longest_streak_days": longest,
+        "history": history,
+    }
+
+
+@router.get("/sessions/history/{session_id}")
+def get_training_history_detail(
+    session_id: str,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return one completed training session with owned execution details."""
+    row = session.exec(
+        select(TrainingSessionDB)
+        .where(TrainingSessionDB.id == session_id)
+        .where(TrainingSessionDB.user_id == user.id)
+    ).first()
+    if not row or row.status != "completed":
+        raise HTTPException(status_code=404, detail="Ukończona sesja treningowa nie istnieje")
+    sets = list(session.exec(
+        select(TrainingSetResultDB)
+        .where(TrainingSetResultDB.session_id == row.id)
+        .where(TrainingSetResultDB.user_id == user.id)
+        .order_by(TrainingSetResultDB.exercise_key, TrainingSetResultDB.set_number)
+    ).all())
+    return _serialize_session(row, sets)
+
+
+@router.get("/progress/exercises/{exercise_key}")
+def get_exercise_progress(
+    exercise_key: str,
+    limit: int = 12,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Detailed progress for one exercise, sourced only from completed execution."""
+    limit = max(1, min(limit, 52))
+    rows = list(session.exec(
+        select(TrainingSetResultDB, TrainingSessionDB)
+        .join(TrainingSessionDB, TrainingSetResultDB.session_id == TrainingSessionDB.id)
+        .where(TrainingSetResultDB.user_id == user.id)
+        .where(TrainingSetResultDB.exercise_key == exercise_key)
+        .where(TrainingSetResultDB.completed == True)
+        .where(TrainingSessionDB.user_id == user.id)
+        .where(TrainingSessionDB.status == "completed")
+        .order_by(TrainingSessionDB.session_date.desc(), TrainingSetResultDB.set_number.desc())
+    ).all())
+    session_order = []
+    seen = set()
+    for item, training in rows:
+        if training.id not in seen:
+            seen.add(training.id)
+            session_order.append(training)
+        if len(session_order) >= limit:
+            break
+    allowed = {training.id for training in session_order}
+    rows = [(item, training) for item, training in rows if training.id in allowed]
+    weights = [float(item.actual_weight_kg or 0) for item, _ in rows]
+    rpes = [float(item.actual_rpe) for item, _ in rows if item.actual_rpe is not None]
+    best_weight = max(weights, default=0.0)
+    best_reps_at_best_weight = max(
+        (int(item.actual_reps or 0) for item, _ in rows if float(item.actual_weight_kg or 0) == best_weight),
+        default=0,
+    )
+    history = []
+    for training in session_order:
+        items = [item for item, row in rows if row.id == training.id]
+        if not items:
+            continue
+        volume = round(sum(float(item.actual_weight_kg or 0) * int(item.actual_reps or 0) for item in items), 2)
+        history.append({
+            "session_id": training.id,
+            "session_date": training.session_date.isoformat(),
+            "sets": len(items),
+            "total_volume_kg": volume,
+            "best_weight_kg": round(max(float(item.actual_weight_kg or 0) for item in items), 2),
+            "best_reps_at_best_weight": max(
+                (int(item.actual_reps or 0) for item in items if float(item.actual_weight_kg or 0) == max(float(item.actual_weight_kg or 0) for item in items)),
+                default=0,
+            ),
+            "average_rpe": round(sum(float(item.actual_rpe) for item in items if item.actual_rpe is not None) / len([item for item in items if item.actual_rpe is not None]), 2) if any(item.actual_rpe is not None for item in items) else None,
+        })
+    return {
+        "exercise_key": exercise_key,
+        "exercise_name": rows[0][0].exercise_name if rows else None,
+        "limit": limit,
+        "sessions": len(history),
+        "best_weight_kg": round(best_weight, 2),
+        "best_reps_at_best_weight": best_reps_at_best_weight,
+        "total_volume_kg": round(sum(weights[i] * int(rows[i][0].actual_reps or 0) for i in range(len(rows))), 2),
+        "average_rpe": round(sum(rpes) / len(rpes), 2) if rpes else None,
+        "history": history,
+    }
+
+
+@router.get("/progress/trends")
+def get_training_trends(
+    limit: int = 12,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return deterministic exercise trends from completed execution data."""
+    limit = max(2, min(limit, 52))
+    rows = list(session.exec(
+        select(TrainingSetResultDB, TrainingSessionDB)
+        .join(TrainingSessionDB, TrainingSetResultDB.session_id == TrainingSessionDB.id)
+        .where(TrainingSetResultDB.user_id == user.id)
+        .where(TrainingSetResultDB.completed == True)
+        .where(TrainingSessionDB.user_id == user.id)
+        .where(TrainingSessionDB.status == "completed")
+        .order_by(TrainingSessionDB.session_date.desc(), TrainingSetResultDB.set_number.desc())
+    ).all())
+    by_exercise = {}
+    for item, training in rows:
+        by_exercise.setdefault(item.exercise_key, {}).setdefault(training.id, {"session": training, "sets": []})["sets"].append(item)
+
+    trends = []
+    for exercise_key, session_map in by_exercise.items():
+        sessions = sorted(
+            session_map.values(),
+            key=lambda value: (value["session"].session_date, value["session"].completed_at or datetime.min),
+            reverse=True,
+        )[:limit]
+        points = []
+        for value in sessions:
+            items = value["sets"]
+            volume = sum(float(item.actual_weight_kg or 0) * int(item.actual_reps or 0) for item in items)
+            best_weight = max((float(item.actual_weight_kg or 0) for item in items), default=0.0)
+            rpes = [float(item.actual_rpe) for item in items if item.actual_rpe is not None]
+            points.append({
+                "session_id": value["session"].id,
+                "session_date": value["session"].session_date.isoformat(),
+                "volume_kg": round(volume, 2),
+                "best_weight_kg": round(best_weight, 2),
+                "average_rpe": round(sum(rpes) / len(rpes), 2) if rpes else None,
+            })
+        latest = points[0]
+        previous = points[1:]
+        def trend(metric):
+            if len(points) < 2:
+                return "new_baseline", None
+            baseline = sum(point[metric] for point in previous) / len(previous)
+            if baseline == 0:
+                if latest[metric] > 0:
+                    return "up", None
+                return "stable", 0.0
+            change_pct = round((latest[metric] - baseline) / baseline * 100, 1)
+            if change_pct >= 2:
+                return "up", change_pct
+            if change_pct <= -2:
+                return "down", change_pct
+            return "stable", change_pct
+        weight_trend, weight_change = trend("best_weight_kg")
+        volume_trend, volume_change = trend("volume_kg")
+        rpe_points = [point["average_rpe"] for point in points if point["average_rpe"] is not None]
+        if len(rpe_points) < 2:
+            rpe_trend, rpe_change = "new_baseline", None
+        else:
+            latest_rpe = rpe_points[0]
+            baseline_rpe = sum(rpe_points[1:]) / len(rpe_points[1:])
+            rpe_change = round(latest_rpe - baseline_rpe, 2)
+            rpe_trend = "up" if rpe_change >= 0.5 else "down" if rpe_change <= -0.5 else "stable"
+        trends.append({
+            "exercise_key": exercise_key,
+            "exercise_name": sessions[0]["sets"][0].exercise_name,
+            "sessions": len(points),
+            "latest": latest,
+            "weight": {"trend": weight_trend, "change_pct": weight_change},
+            "volume": {"trend": volume_trend, "change_pct": volume_change},
+            "rpe": {"trend": rpe_trend, "change": rpe_change},
+            "history": points,
+        })
+    trends.sort(key=lambda item: item["exercise_name"])
+    return {"limit": limit, "exercises": trends}
+
+
+@router.get("/progress/records")
+def get_training_records(
+    limit: int = 52,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return deterministic personal records from completed execution data."""
+    limit = max(1, min(limit, 52))
+    rows = list(session.exec(
+        select(TrainingSetResultDB, TrainingSessionDB)
+        .join(TrainingSessionDB, TrainingSetResultDB.session_id == TrainingSessionDB.id)
+        .where(TrainingSetResultDB.user_id == user.id)
+        .where(TrainingSetResultDB.completed == True)
+        .where(TrainingSessionDB.user_id == user.id)
+        .where(TrainingSessionDB.status == "completed")
+        .order_by(TrainingSessionDB.session_date.desc(), TrainingSetResultDB.set_number.desc())
+    ).all())
+    grouped = {}
+    for item, training in rows:
+        grouped.setdefault(item.exercise_key, []).append((item, training))
+    records = []
+    for exercise_key, items in grouped.items():
+        session_ids = []
+        seen_sessions = set()
+        for item, training in sorted(items, key=lambda pair: (pair[1].session_date, pair[1].completed_at or datetime.min), reverse=True):
+            if training.id not in seen_sessions:
+                seen_sessions.add(training.id)
+                session_ids.append(training.id)
+            if len(session_ids) >= limit:
+                break
+        allowed_sessions = set(session_ids)
+        items = [(item, training) for item, training in items if training.id in allowed_sessions]
+        best_weight = max((float(item.actual_weight_kg or 0) for item, _ in items), default=0.0)
+        best_weight_rows = [(item, training) for item, training in items if float(item.actual_weight_kg or 0) == best_weight]
+        best_reps = max((int(item.actual_reps or 0) for item, _ in items), default=0)
+        best_rep_rows = [(item, training) for item, training in items if int(item.actual_reps or 0) == best_reps]
+        session_volumes = {}
+        for item, training in items:
+            session_volumes.setdefault(training.id, {"session": training, "volume": 0.0})
+            session_volumes[training.id]["volume"] += float(item.actual_weight_kg or 0) * int(item.actual_reps or 0)
+        best_volume = max((value["volume"] for value in session_volumes.values()), default=0.0)
+        best_volume_row = next((value for value in session_volumes.values() if value["volume"] == best_volume), None)
+        records.append({
+            "exercise_key": exercise_key,
+            "exercise_name": items[0][0].exercise_name,
+            "best_weight": {
+                "value_kg": round(best_weight, 2),
+                "session_id": best_weight_rows[0][1].id if best_weight_rows else None,
+                "session_date": best_weight_rows[0][1].session_date.isoformat() if best_weight_rows else None,
+            },
+            "best_reps": {
+                "value": best_reps,
+                "weight_kg": round(float(best_rep_rows[0][0].actual_weight_kg or 0), 2) if best_rep_rows else 0,
+                "session_id": best_rep_rows[0][1].id if best_rep_rows else None,
+                "session_date": best_rep_rows[0][1].session_date.isoformat() if best_rep_rows else None,
+            },
+            "best_session_volume": {
+                "value_kg": round(best_volume, 2),
+                "session_id": best_volume_row["session"].id if best_volume_row else None,
+                "session_date": best_volume_row["session"].session_date.isoformat() if best_volume_row else None,
+            },
+        })
+    records.sort(key=lambda item: item["exercise_name"])
+    return {"limit": limit, "exercises": records}
+
+
 @router.get("/exercises/{exercise_key}/history")
 def get_exercise_history(
     exercise_key: str,
@@ -252,6 +654,8 @@ def get_exercise_history(
             .where(TrainingSetResultDB.user_id == user.id)
             .where(TrainingSetResultDB.exercise_key == exercise_key)
             .where(TrainingSetResultDB.completed == True)
+            .where(TrainingSessionDB.user_id == user.id)
+            .where(TrainingSessionDB.status == "completed")
             .order_by(TrainingSessionDB.session_date.desc(), TrainingSetResultDB.set_number.desc())
             .limit(limit)
         ).all()
@@ -274,6 +678,99 @@ def get_exercise_history(
     }
 
 
+@router.get("/progress")
+def get_training_progress(
+    limit: int = 12,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return deterministic, user-scoped progress aggregates from completed execution data."""
+    limit = max(1, min(limit, 52))
+    sessions = list(
+        session.exec(
+            select(TrainingSessionDB)
+            .where(TrainingSessionDB.user_id == user.id)
+            .where(TrainingSessionDB.status == "completed")
+            .order_by(TrainingSessionDB.session_date.desc(), TrainingSessionDB.completed_at.desc())
+            .limit(limit)
+        ).all()
+    )
+    session_ids = [row.id for row in sessions]
+    completed_sets: list[TrainingSetResultDB] = []
+    if session_ids:
+        completed_sets = list(
+            session.exec(
+                select(TrainingSetResultDB)
+                .where(TrainingSetResultDB.user_id == user.id)
+                .where(TrainingSetResultDB.session_id.in_(session_ids))
+                .where(TrainingSetResultDB.completed == True)
+                .order_by(TrainingSetResultDB.logged_at.desc())
+            ).all()
+        )
+
+    by_exercise: dict[str, list[TrainingSetResultDB]] = {}
+    for item in completed_sets:
+        by_exercise.setdefault(item.exercise_key, []).append(item)
+
+    exercise_summaries = []
+    for key, items in by_exercise.items():
+        weights = [float(item.actual_weight_kg or 0) for item in items]
+        reps = [int(item.actual_reps or 0) for item in items]
+        volume = sum(weight * rep for weight, rep in zip(weights, reps))
+        best_weight = max(weights) if weights else 0.0
+        best_reps_at_weight = max(
+            (item.actual_reps for item in items if float(item.actual_weight_kg or 0) == best_weight),
+            default=0,
+        )
+        rpes = [float(item.actual_rpe) for item in items if item.actual_rpe is not None]
+        exercise_summaries.append({
+            "exercise_key": key,
+            "exercise_name": items[0].exercise_name,
+            "sets": len(items),
+            "sessions": len({item.session_id for item in items}),
+            "total_volume_kg": round(volume, 2),
+            "best_weight_kg": round(best_weight, 2),
+            "best_reps_at_best_weight": best_reps_at_weight,
+            "average_rpe": round(sum(rpes) / len(rpes), 2) if rpes else None,
+            "latest_date": max(
+                (training.session_date for training in sessions if training.id in {item.session_id for item in items}),
+                default=None,
+            ).isoformat() if items else None,
+        })
+
+    exercise_summaries.sort(key=lambda item: (-item["total_volume_kg"], item["exercise_name"]))
+    total_volume = round(sum(item["total_volume_kg"] for item in exercise_summaries), 2)
+    total_sets = len(completed_sets)
+    training_days = len({row.session_date for row in sessions})
+    completion_rates = []
+    for row in sessions:
+        planned = row.planned_snapshot()
+        planned_sets = sum(max(0, int(item.get("sets") or 0)) for item in planned.get("exercises", []) if isinstance(item, dict))
+        actual = sum(1 for item in completed_sets if item.session_id == row.id)
+        if planned_sets:
+            completion_rates.append(actual / planned_sets * 100)
+
+    return {
+        "limit": limit,
+        "period_sessions": len(sessions),
+        "training_days": training_days,
+        "total_completed_sets": total_sets,
+        "total_volume_kg": total_volume,
+        "average_session_completion_pct": round(sum(completion_rates) / len(completion_rates), 1) if completion_rates else 0,
+        "latest_session_date": sessions[0].session_date.isoformat() if sessions else None,
+        "exercises": exercise_summaries,
+        "sessions": [
+            {
+                "session_id": row.id,
+                "date": row.session_date.isoformat(),
+                "final_rpe": row.final_rpe,
+                "completed_sets": sum(1 for item in completed_sets if item.session_id == row.id),
+            }
+            for row in sessions
+        ],
+    }
+
+
 @router.get("/today")
 def get_training_today(
     user: UserDB = Depends(get_current_user),
@@ -281,6 +778,8 @@ def get_training_today(
 ):
     """Return the authenticated user's effective training plan for today."""
     target = date.today()
+    base_plan = _load_base_plan(user)
+    plan_stale = _base_plan_is_stale(user, session, base_plan)
     plan, meta = _effective_plan(user, session)
     raw = _extract_workout(plan, target)
     exercises = [
@@ -316,6 +815,8 @@ def get_training_today(
         "date": target.isoformat(),
         "day_label": _DAY_LABELS[target.weekday()],
         "has_workout": bool(exercises),
+        "plan_stale": plan_stale,
+        "can_start": (bool(exercises) and not plan_stale) or bool(active),
         "plan": meta,
         "exercises": exercises,
         "session": {
@@ -329,7 +830,9 @@ def get_training_today(
             ),
         },
         "message": (
-            "Dzisiejszy trening pochodzi z zastosowanej adaptacji planu."
+            "Plan jest nieaktualny względem profilu lub assessmentu. Wygeneruj aktualny plan przed rozpoczęciem nowego treningu."
+            if plan_stale and not active
+            else "Dzisiejszy trening pochodzi z zastosowanej adaptacji planu."
             if meta["source"] == "adaptive"
             else "Dzisiejszy trening pochodzi z bazowego planu tygodniowego."
         ),
@@ -358,6 +861,10 @@ def start_training_session(
             ).all()
         )
         return {"status": "resumed", "session": _serialize_session(active, sets)}
+
+    base_plan = _load_base_plan(user)
+    if _base_plan_is_stale(user, session, base_plan):
+        raise HTTPException(status_code=409, detail="Plan jest nieaktualny względem profilu lub assessmentu — wygeneruj go ponownie.")
 
     plan, plan_meta = _effective_plan(user, session)
 
@@ -444,6 +951,7 @@ def log_training_set(
     existing = session.exec(
         select(TrainingSetResultDB)
         .where(TrainingSetResultDB.session_id == row.id)
+        .where(TrainingSetResultDB.user_id == user.id)
         .where(TrainingSetResultDB.exercise_key == payload.exercise_key)
         .where(TrainingSetResultDB.set_number == payload.set_number)
     ).first()
@@ -476,6 +984,30 @@ def log_training_set(
     try:
         session.commit()
         session.refresh(result)
+    except IntegrityError:
+        session.rollback()
+        existing = session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == row.id)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.exercise_key == payload.exercise_key)
+            .where(TrainingSetResultDB.set_number == payload.set_number)
+        ).first()
+        if existing is None:
+            raise HTTPException(status_code=409, detail="Konflikt zapisu serii")
+        existing.actual_reps = payload.actual_reps
+        existing.actual_weight_kg = payload.actual_weight_kg
+        existing.actual_rpe = payload.actual_rpe
+        existing.completed = payload.completed
+        existing.note = payload.note
+        session.add(existing)
+        try:
+            session.commit()
+            session.refresh(existing)
+        except SQLAlchemyError as exc:
+            session.rollback()
+            raise HTTPException(status_code=500, detail="Nie udało się zapisać serii") from exc
+        result = existing
     except SQLAlchemyError as exc:
         session.rollback()
         raise HTTPException(status_code=500, detail="Nie udało się zapisać serii") from exc
@@ -946,7 +1478,7 @@ def _build_adaptive_plan(user_id: str, session: Session) -> tuple[dict, list[str
                     if not isinstance(item, dict):
                         updated.append(item)
                         continue
-                    key = str(item.get("id") or item.get("item_id") or "")
+                    key = _plan_item_key(item)
                     replacement = by_key.get(key)
                     updated.append({**item, **({"sets": replacement["sets"], "reps": replacement["reps"], "weight_kg": replacement["weight_kg"]} if replacement else {})})
                     if replacement:
@@ -1022,6 +1554,20 @@ def apply_adaptive_plan(
     try:
         session.commit()
         session.refresh(revision)
+    except IntegrityError:
+        session.rollback()
+        latest = _latest_adaptive_revision(user.id, session)
+        if latest and latest.version >= version:
+            latest_plan = json.loads(latest.applied_plan_json or "{}")
+            if json.dumps(latest_plan, sort_keys=True) == json.dumps(proposed, sort_keys=True):
+                return {
+                    "status": "unchanged",
+                    "version": latest.version,
+                    "plan": latest_plan,
+                    "source_session_ids": latest.source_session_ids(),
+                    "message": "Równoległa adaptacja utworzyła już tę samą wersję planu.",
+                }
+        raise HTTPException(status_code=409, detail="Konflikt zapisu adaptacji planu")
     except SQLAlchemyError as exc:
         session.rollback()
         raise HTTPException(status_code=500, detail="Nie udało się zapisać adaptacji planu") from exc
@@ -1147,62 +1693,124 @@ def training_today_ui():
 
 @router.get("/session-ui", response_class=HTMLResponse)
 def training_session_ui():
-    """Browser UI for the deterministic PLAN -> START -> LOG -> COMPLETE loop."""
+    """Responsive execution UI for START -> EXECUTE -> SAVE SET -> COMPLETE."""
     return HTMLResponse("""<!doctype html>
 <html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>EVOLVE · Trening</title>
 <style>
-:root{color-scheme:dark;--bg:#090b12;--panel:#121722;--line:#242b3a;--text:#f4f6fb;--muted:#9aa4b5;--accent:#8b5cf6;--good:#34d399}
+:root{color-scheme:dark;--bg:#090b12;--panel:#121722;--panel2:#171d29;--line:#293142;--text:#f4f6fb;--muted:#9aa4b5;--accent:#8b5cf6;--good:#34d399;--warn:#fbbf24;--danger:#fb7185}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0%,#1b1530 0,#090b12 48%);font:15px Inter,system-ui,sans-serif;color:var(--text)}
-.wrap{max-width:900px;margin:auto;padding:30px 18px 60px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center}.top h1{margin:0;font-size:30px}.back{color:#fff;text-decoration:none;border:1px solid var(--line);padding:9px 12px;border-radius:10px}
-.notice{color:var(--muted);margin:12px 0 18px}.card{background:rgba(18,23,34,.94);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:14px}.exercise{border-top:1px solid var(--line);padding:16px 0}.exercise:first-child{border-top:0}.title{font-size:18px;font-weight:750}.target{color:var(--muted);margin:5px 0 12px}.sets{display:grid;gap:8px}.set{display:grid;grid-template-columns:55px 1fr 1fr 1fr auto;gap:8px;align-items:center}.set input{width:100%;padding:9px;background:#0d111a;border:1px solid var(--line);color:#fff;border-radius:8px}.set button,.primary{border:0;background:var(--accent);color:#fff;padding:9px 12px;border-radius:9px;font-weight:700;cursor:pointer}.set button.done{background:#173d30}.primary{margin-top:16px}.hidden{display:none}.success{color:var(--good)}@media(max-width:650px){.set{grid-template-columns:1fr 1fr 1fr}.set button{grid-column:1/-1}.set b{grid-column:1/-1}}
+.wrap{max-width:980px;margin:auto;padding:24px 16px 70px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center}.top h1{margin:0;font-size:28px}.back,.btn{color:#fff;text-decoration:none;border:1px solid var(--line);background:var(--panel2);padding:9px 12px;border-radius:10px;font-weight:700;cursor:pointer}
+.status{color:var(--muted);margin:10px 0 16px}.error{color:var(--danger)}.success{color:var(--good)}
+.progress-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}.progress-row{display:flex;justify-content:space-between;gap:12px;font-weight:700}.bar{height:8px;background:#252c3a;border-radius:99px;overflow:hidden;margin-top:10px}.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+.exercise{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin:12px 0}.exercise.active{border-color:#6545a8}.head{display:flex;justify-content:space-between;gap:12px;align-items:start}.title{font-size:19px;font-weight:800}.target{color:var(--muted);margin-top:5px}.tag{font-size:12px;padding:6px 9px;border-radius:99px;background:#222a38;color:var(--muted);white-space:nowrap}.sets{display:grid;gap:9px;margin-top:16px}.set{display:grid;grid-template-columns:58px 1fr 1fr 100px 82px;gap:8px;align-items:center;background:#0e131d;border:1px solid var(--line);border-radius:12px;padding:9px}.set.saved{border-color:#245c49}.set b{font-size:12px;color:var(--muted)}.set input,.set textarea{width:100%;padding:9px;background:#090d15;border:1px solid var(--line);color:var(--text);border-radius:8px}.set textarea{resize:vertical;min-height:38px}.save{border:0;background:var(--accent);color:#fff;padding:9px 10px;border-radius:8px;font-weight:800;cursor:pointer}.save.done{background:#173d30}.save:disabled{opacity:.55;cursor:wait}.complete{width:100%;margin-top:16px;background:var(--good);color:#07130e;border:0;padding:13px;border-radius:11px;font-weight:900;cursor:pointer}.complete:disabled{opacity:.5}.hidden{display:none}.empty{text-align:center;padding:28px;color:var(--muted)}.meta{font-size:12px;color:var(--muted);margin-top:7px}
+@media(max-width:700px){.wrap{padding:18px 11px 55px}.top{align-items:flex-start}.top h1{font-size:23px}.set{grid-template-columns:48px 1fr 1fr}.set input:nth-of-type(3),.set textarea{grid-column:1/-1}.set .save{grid-column:1/-1}.head{align-items:flex-start}}
 </style></head><body><main class="wrap">
-<div class="top"><h1>Dzisiejszy trening</h1><a class="back" href="/">← EVOLVE</a></div>
-<div id="status" class="notice">Ładowanie…</div>
+<div class="top"><h1>Trening</h1><a class="back" href="/app#my-day">← Mój dzień</a></div>
+<div id="status" class="status">Ładowanie sesji…</div>
+<div id="progress" class="progress-card"></div>
 <div id="workout"></div>
-<button id="complete" class="primary hidden">Zakończ trening</button>
+<button id="complete" class="complete" disabled>Zakończ trening</button>
 </main>
 <script>
-const token=localStorage.getItem('fitai_token'), headers=token?{'Authorization':'Bearer '+token,'Content-Type':'application/json'}:{};
-let current=null;
+const token=localStorage.getItem('fitai_token');
+const headers=token?{'Authorization':'Bearer '+token,'Content-Type':'application/json'}:{};
+const statusEl=document.getElementById('status'),progressEl=document.getElementById('progress'),workoutEl=document.getElementById('workout'),completeEl=document.getElementById('complete');
+let current=null, saving=false, restTimer=null, restSeconds=0, activeExerciseIndex=0;
+function stopRest(){if(restTimer){clearInterval(restTimer);restTimer=null}document.getElementById('rest')?.remove()}
+function startRest(seconds=90){
+ stopRest(); const el=document.createElement('div');el.id='rest';el.className='progress-card';
+ el.innerHTML='<div class="progress-row"><span>Odpoczynek</span><strong id="restValue"></strong></div><button id="skipRest" class="btn">Pomiń</button>';
+ progressEl.after(el);restSeconds=seconds;
+ const tick=()=>{const m=String(Math.floor(restSeconds/60)).padStart(2,'0'),s=String(restSeconds%60).padStart(2,'0');document.getElementById('restValue').textContent=m+':'+s;if(restSeconds<=0){stopRest();setStatus('Odpoczynek zakończony.','success')}restSeconds--};
+ document.getElementById('skipRest').onclick=()=>{stopRest();setStatus('Odpoczynek pominięty.','success')};tick();restTimer=setInterval(tick,1000)
+}
+function focusNext(){
+ const exs=current?.planned?.exercises||[];
+ activeExerciseIndex=exs.findIndex(ex=>(current.sets||[]).filter(s=>s.exercise_key===ex.exercise_key&&s.completed).length<Number(ex.sets||0));
+ document.querySelectorAll('.exercise').forEach((el,i)=>el.classList.toggle('active',i===activeExerciseIndex));
+ if(activeExerciseIndex>=0)document.querySelectorAll('.exercise')[activeExerciseIndex]?.scrollIntoView({behavior:'smooth',block:'start'});
+}
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-function setStatus(t,ok=false){status.textContent=t;status.className=ok?'notice success':'notice'}
-async function api(url,opts={}){return fetch(url,{...opts,headers:{...headers,...(opts.headers||{})}})}
-async function start(){
- if(!token){setStatus('Zaloguj się w EVOLVE, aby rozpocząć trening.');return}
- try{
-  const r=await api('/app/training/sessions/start',{method:'POST'}), d=await r.json();
-  if(!r.ok){setStatus(d.detail||'Nie udało się rozpocząć treningu.');return}
-  current=d.session; render();
- }catch(e){setStatus('Nie udało się połączyć z serwerem.')}
+function setStatus(t,type=''){statusEl.textContent=t;statusEl.className='status '+type}
+async function api(url,opts={}){return fetch(url,{...opts,headers:{...headers,...(opts.headers||{})},cache:'no-store'})}
+function completedCount(){return (current?.sets||[]).filter(x=>x.completed).length}
+function plannedCount(){return (current?.planned?.exercises||[]).reduce((n,x)=>n+Math.max(0,Number(x.sets||0)),0)}
+function renderProgress(){
+ const done=completedCount(), total=plannedCount(), pct=total?Math.round(done/total*100):0;
+ progressEl.innerHTML='<div class="progress-row"><span>Wykonanie</span><span>'+done+' / '+total+' serii · '+pct+'%</span></div><div class="bar"><i style="width:'+pct+'%"></i></div><div class="meta">'+(current?.status==='active'?'Sesja jest zapisana na serwerze. Możesz odświeżyć stronę i wznowić.':'Sesja ukończona.')+'</div>';
+ completeEl.disabled=current?.status!=='active'||done===0||saving;
 }
 function render(){
- setStatus(current.status==='completed'?'Trening ukończony.':'Trening aktywny — zapisuj każdą serię po wykonaniu.',current.status==='completed');
- workout.innerHTML='<div class="card">'+(current.planned.exercises||[]).map(ex=>{
+ if(!current)return;
+ setStatus(current.status==='completed'?'Trening ukończony.':'Aktywna sesja · zapisuj serię po jej wykonaniu.',current.status==='completed'?'success':'');
+ const exercises=current.planned?.exercises||[];
+ workoutEl.innerHTML=exercises.length?exercises.map((ex,ei)=>{
   const logged=(current.sets||[]).filter(s=>s.exercise_key===ex.exercise_key);
-  return '<div class="exercise"><div class="title">'+esc(ex.exercise_name)+'</div><div class="target">Plan: '+ex.sets+' × '+ex.reps+(ex.weight_kg?' · '+ex.weight_kg+' kg':'')+'</div><div class="sets">'+Array.from({length:ex.sets||1},(_,i)=>{
-   const n=i+1, old=logged.find(s=>s.set_number===n);
-   return '<div class="set"><b>Seria '+n+'</b><input id="r-'+ex.exercise_key+'-'+n+'" type="number" min="0" placeholder="powt." value="'+(old?.actual_reps??ex.reps)+'"><input id="w-'+ex.exercise_key+'-'+n+'" type="number" min="0" step="0.5" placeholder="kg" value="'+(old?.actual_weight_kg??ex.weight_kg)+'"><input id="p-'+ex.exercise_key+'-'+n+'" type="number" min="1" max="10" placeholder="RPE" value="'+(old?.actual_rpe??'')+'"><button '+(old?.completed?'class="done"':'')+' onclick="logSet(\''+esc(ex.exercise_key)+'\','+n+')">'+(old?.completed?'Zapisano':'Zapisz')+'</button></div>'
-  }).join('')+'</div></div>'
- }).join('')+'</div>';
- complete.classList.toggle('hidden',current.status!=='active');
+  const done=logged.filter(s=>s.completed).length;
+  return '<section class="exercise '+(done<Number(ex.sets||0)?'active':'')+'"><div class="head"><div><div class="title">'+(ei+1)+'. '+esc(ex.exercise_name)+'</div><div class="target">Cel: '+ex.sets+' × '+esc(ex.reps_label||ex.reps)+(ex.weight_kg?' · '+ex.weight_kg+' kg':'')+(ex.rpe?' · RPE '+ex.rpe:'')+'</div></div><span class="tag">'+done+'/'+ex.sets+' serie</span></div><div class="sets">'+Array.from({length:Math.max(0,Number(ex.sets||0))},(_,i)=>{
+   const n=i+1,old=logged.find(s=>s.set_number===n),safe=encodeURIComponent(ex.exercise_key);
+   return '<div class="set '+(old?.completed?'saved':'')+'"><b>Seria '+n+'</b>'+
+    '<input id="r-'+safe+'-'+n+'" type="number" min="0" max="1000" value="'+(old?.actual_reps??ex.reps)+'" aria-label="Powtórzenia">'+
+    '<input id="w-'+safe+'-'+n+'" type="number" min="0" max="10000" step="0.5" value="'+(old?.actual_weight_kg??ex.weight_kg??0)+'" aria-label="Ciężar kg">'+
+    '<input id="p-'+safe+'-'+n+'" type="number" min="1" max="10" value="'+(old?.actual_rpe??'')+'" placeholder="RPE" aria-label="RPE">'+
+    '<button class="save '+(old?.completed?'done':'')+'" onclick="logSet(\''+encodeURIComponent(ex.exercise_key)+'\','+n+',this)">'+(old?.completed?'Edytuj / zapisz':'Zapisz serię')+'</button>'+
+    '<textarea id="n-'+safe+'-'+n+'" maxlength="1000" placeholder="Notatka">'+esc(old?.note||'')+'</textarea></div>';
+  }).join('')+'</div></section>'
+ }).join(''):'<div class="progress-card empty">Brak ćwiczeń w snapshotcie tej sesji.</div>';
+ renderProgress();
+ if(current.status==='active')focusNext(); else renderSummary();
 }
-async function logSet(key,n){
- const ex=current.planned.exercises.find(x=>x.exercise_key===key);
- const reps=Number(document.getElementById('r-'+key+'-'+n).value||0), weight=Number(document.getElementById('w-'+key+'-'+n).value||0);
- const rpeRaw=document.getElementById('p-'+key+'-'+n).value; const rpe=rpeRaw?Number(rpeRaw):null;
- const r=await api('/app/training/sessions/'+current.id+'/sets',{method:'POST',body:JSON.stringify({exercise_key:key,set_number:n,actual_reps:reps,actual_weight_kg:weight,actual_rpe:rpe,completed:true})});
- const d=await r.json(); if(!r.ok){setStatus(d.detail||'Nie udało się zapisać serii.');return}
- const existing=current.sets.findIndex(x=>x.exercise_key===key&&x.set_number===n); if(existing>=0) current.sets[existing]=d.set; else current.sets.push(d.set); render();
+function renderSummary(){
+ const sets=(current.sets||[]).filter(s=>s.completed);
+ const volume=sets.reduce((n,s)=>n+Number(s.actual_weight_kg||0)*Number(s.actual_reps||0),0);
+ const rpes=sets.filter(s=>s.actual_rpe!=null);
+ const avg=rpes.length?(rpes.reduce((n,s)=>n+Number(s.actual_rpe),0)/rpes.length).toFixed(1):'—';
+ workoutEl.innerHTML='<div class="progress-card"><h2>Podsumowanie treningu</h2><p><b>'+sets.length+'</b> wykonanych serii z '+plannedCount()+' · <b>'+Math.round(sets.length/Math.max(plannedCount(),1)*100)+'%</b> planu</p><p>Wolumen: <b>'+Math.round(volume*10)/10+' kg</b> · Śr. RPE serii: <b>'+avg+'</b></p><p class="meta">Końcowe RPE: '+(current.final_rpe??'—')+' · '+(current.session_date||'')+'</p><a class="btn" href="/app#progress">Przejdź do Postępów →</a></div>';
+ completeEl.classList.add('hidden');stopRest();focusNext();
 }
-complete.onclick=async()=>{
- const rpe=Number(prompt('Końcowe RPE treningu (1–10):')||0); if(!rpe)return;
- const r=await api('/app/training/sessions/'+current.id+'/complete',{method:'POST',body:JSON.stringify({final_rpe:rpe})});
- const d=await r.json(); if(!r.ok){setStatus(d.detail||'Nie udało się zakończyć treningu.');return}
- current=d.session; render(); complete.outerHTML='<a class="primary" href="/app/training/dashboard" style="display:inline-block;text-decoration:none">Zobacz analizę i progres →</a>';
-};
-start();
+async function logSet(encodedKey,n,button){
+ if(!current||current.status!=='active'||saving)return;
+ const key=decodeURIComponent(encodedKey), safe=encodeURIComponent(key);
+ const reps=Number(document.getElementById('r-'+safe+'-'+n).value||0);
+ const weight=Number(document.getElementById('w-'+safe+'-'+n).value||0);
+ const raw=document.getElementById('p-'+safe+'-'+n).value;
+ const rpe=raw?Number(raw):null, note=document.getElementById('n-'+safe+'-'+n).value||'';
+ saving=true;button.disabled=true;setStatus('Zapisywanie serii…');
+ try{
+  const r=await api('/app/training/sessions/'+encodeURIComponent(current.id)+'/sets',{method:'POST',body:JSON.stringify({exercise_key:key,set_number:n,actual_reps:reps,actual_weight_kg:weight,actual_rpe:rpe,completed:true,note})});
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.detail||'Nie udało się zapisać serii.');
+  const idx=current.sets.findIndex(x=>x.exercise_key===key&&x.set_number===n);
+  if(idx>=0)current.sets[idx]=d.set;else current.sets.push(d.set);
+  setStatus('Seria '+n+' zapisana.','success');render();startRest(90);focusNext();
+ }catch(e){setStatus(e.message,'error')}finally{saving=false;renderProgress()}
+}
+completeEl.onclick=async()=>{
+ if(!current||current.status!=='active'||completedCount()===0)return;
+ const raw=prompt('Końcowe RPE treningu (1–10):');
+ if(raw===null)return;
+ const finalRpe=Number(raw);
+ if(!Number.isInteger(finalRpe)||finalRpe<1||finalRpe>10){setStatus('Końcowe RPE musi być liczbą 1–10.','error');return}
+ saving=true;renderProgress();setStatus('Kończenie treningu…');
+ try{
+  const r=await api('/app/training/sessions/'+encodeURIComponent(current.id)+'/complete',{method:'POST',body:JSON.stringify({final_rpe:finalRpe})});
+  const d=await r.json();if(!r.ok)throw new Error(d.detail||'Nie udało się zakończyć treningu.');
+  current=d.session;render();setStatus('Trening zapisany. Dane są już dostępne w Postępach.','success');
+  completeEl.textContent='Przejdź do Postępów →';completeEl.onclick=()=>location.href='/app#progress';completeEl.disabled=false;
+ }catch(e){setStatus(e.message,'error');saving=false;renderProgress()}
+}
+async function startOrResume(){
+ if(!token){setStatus('Zaloguj się w EVOLVE, aby rozpocząć trening.','error');workoutEl.innerHTML='<div class="progress-card empty">Brak aktywnej sesji użytkownika.</div>';return}
+ try{
+  const r=await api('/app/training/sessions/start',{method:'POST'}),d=await r.json();
+  if(!r.ok)throw new Error(d.detail||'Nie udało się rozpocząć treningu.');
+  current=d.session;setStatus(d.status==='resumed'?'Wznowiono aktywną sesję.':'Rozpoczęto nową sesję.','success');render();
+ }catch(e){setStatus(e.message,'error');workoutEl.innerHTML='<div class="progress-card empty">Nie udało się załadować treningu. Wróć do Mój dzień i spróbuj ponownie.</div>'}
+}
+startOrResume();
 </script></body></html>""")
+
 
 @router.get("/dashboard", response_class=HTMLResponse)
 def training_dashboard():
@@ -1238,22 +1846,23 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&
 const decisionLabel=d=>({progress:'progres',maintain:'utrzymaj',reduce:'zmniejsz',insufficient_data:'brak danych'}[d]||d);
 const trendLabel=d=>({up:'↗ trend wzrostowy',down:'↘ trend spadkowy',stable:'→ stabilnie',new_baseline:'nowa baza',insufficient_data:'za mało danych'}[d]||d);
 async function load(){
- if(!token){status.textContent='Zaloguj się w głównym EVOLVE, aby zobaczyć swoje dane.';return}
+ if(!token){statusEl.textContent='Zaloguj się w głównym EVOLVE, aby zobaczyć swoje dane.';return}
  try{
-  const [a,h]=await Promise.all([
+  const [p,a,h]=await Promise.all([
+   fetch('/app/training/progress?limit=12',{headers}),
    fetch('/app/training/adaptive/preview',{headers}),
    fetch('/app/training/sessions/history?limit=8',{headers})
   ]);
-  if([a,h].some(r=>r.status===401||r.status===403)){status.textContent='Sesja logowania wygasła. Wróć do EVOLVE i zaloguj się ponownie.';return}
-  const d=await a.json(), hist=await h.json();
-  if(!d.has_data){status.textContent='Brak ukończonych treningów. Ukończ pierwszy trening, aby uruchomić analizę.';return}
-  status.textContent=d.message;
+  if([p,a,h].some(r=>r.status===401||r.status===403)){statusEl.textContent='Sesja logowania wygasła. Wróć do EVOLVE i zaloguj się ponownie.';return}
+  const prog=await p.json(), d=await a.json(), hist=await h.json();
+  if(!prog.period_sessions){statusEl.textContent='Brak ukończonych treningów. Ukończ pierwszy trening, aby uruchomić historię i analizę.';return}
+  statusEl.textContent=d.message+' Dane podsumowania pochodzą z ukończonych serii.';
   const progress=d.exercises.filter(e=>e.decision==='progress').length;
   const reduce=d.exercises.filter(e=>e.decision==='reduce').length;
-  summary.innerHTML='<div class="card"><div class="label">Sesje analizowane</div><div class="value">'+d.sessions_analyzed+'</div></div>'+
-   '<div class="card"><div class="label">Ćwiczenia</div><div class="value">'+d.exercises.length+'</div></div>'+
-   '<div class="card"><div class="label">Progres</div><div class="value">'+progress+'</div></div>'+
-   '<div class="card"><div class="label">Redukcja</div><div class="value">'+reduce+'</div></div>';
+  summary.innerHTML='<div class="card"><div class="label">Sesje</div><div class="value">'+prog.period_sessions+'</div></div>'+
+   '<div class="card"><div class="label">Serie</div><div class="value">'+prog.total_completed_sets+'</div></div>'+
+   '<div class="card"><div class="label">Wolumen</div><div class="value">'+prog.total_volume_kg+' kg</div></div>'+
+   '<div class="card"><div class="label">Śr. wykonania</div><div class="value">'+prog.average_session_completion_pct+'%</div></div>';
   recommendations.innerHTML=d.exercises.map(e=>{
    const p=e.proposed||{},c=e.current||{},s=e.recent_sessions||[];
    const completion=s.length?Math.min(100,s[0].completed_sets*20):0;
@@ -1265,7 +1874,7 @@ async function load(){
   history.innerHTML='<table class="history"><thead><tr><th>Data</th><th>RPE</th><th>Serie</th><th>Ukończenie</th><th>Ćwiczenia</th></tr></thead><tbody>'+
    (hist.sessions||[]).map(x=>'<tr><td>'+esc(x.session_date)+'</td><td>'+(x.final_rpe??'—')+'</td><td>'+x.completed_sets+'/'+x.planned_sets+'</td><td>'+x.completion_pct+'%</td><td>'+esc((x.exercises||[]).join(', '))+'</td></tr>').join('')+
    '</tbody></table>';
- }catch(e){status.textContent='Nie udało się pobrać danych treningowych.'}
+ }catch(e){statusEl.textContent='Nie udało się pobrać danych treningowych.'}
 }
 document.getElementById('apply').onclick=async()=>{
  if(!token){applyStatus.textContent='Zaloguj się ponownie.';return}
@@ -1290,11 +1899,48 @@ def complete_training_session(
 ):
     row = _owned_session(session, user, session_id)
     if row.status == "completed":
-        sets = list(session.exec(select(TrainingSetResultDB).where(TrainingSetResultDB.session_id == row.id)).all())
+        sets = list(
+            session.exec(
+                select(TrainingSetResultDB)
+                .where(TrainingSetResultDB.session_id == row.id)
+                .where(TrainingSetResultDB.user_id == user.id)
+                .order_by(TrainingSetResultDB.exercise_key, TrainingSetResultDB.set_number)
+            ).all()
+        )
         return {"status": "already_completed", "session": _serialize_session(row, sets)}
     if row.status != "active":
         raise HTTPException(status_code=409, detail="Sesja nie jest aktywna")
 
+    completed_at = datetime.now()
+    claimed = session.exec(
+        update(TrainingSessionDB)
+        .where(TrainingSessionDB.id == row.id)
+        .where(TrainingSessionDB.user_id == user.id)
+        .where(TrainingSessionDB.status == "active")
+        .values(
+            status="completed",
+            completed_at=completed_at,
+            final_rpe=payload.final_rpe,
+            notes=payload.notes,
+            updated_at=completed_at,
+        )
+    ).rowcount
+    if claimed != 1:
+        session.rollback()
+        authoritative = _owned_session(session, user, session_id)
+        if authoritative.status == "completed":
+            sets = list(
+                session.exec(
+                    select(TrainingSetResultDB)
+                    .where(TrainingSetResultDB.session_id == authoritative.id)
+                    .where(TrainingSetResultDB.user_id == user.id)
+                    .order_by(TrainingSetResultDB.exercise_key, TrainingSetResultDB.set_number)
+                ).all()
+            )
+            return {"status": "already_completed", "session": _serialize_session(authoritative, sets)}
+        raise HTTPException(status_code=409, detail="Sesja nie jest już aktywna")
+
+    row = _owned_session(session, user, session_id)
     sets = list(
         session.exec(
             select(TrainingSetResultDB)
@@ -1304,47 +1950,45 @@ def complete_training_session(
         ).all()
     )
     if not sets:
+        session.rollback()
         raise HTTPException(status_code=422, detail="Nie można zakończyć pustej sesji")
-
-    row.status = "completed"
-    row.completed_at = datetime.now()
-    row.final_rpe = payload.final_rpe
-    row.notes = payload.notes
-    row.updated_at = datetime.now()
-    session.add(row)
 
     by_exercise: dict[str, list[TrainingSetResultDB]] = {}
     for item in sets:
         by_exercise.setdefault(item.exercise_key, []).append(item)
 
-    existing_results = list(
-        session.exec(
-            select(ExerciseResultDB).where(ExerciseResultDB.user_id == user.id)
-        ).all()
-    )
-    existing_keys = {
-        (
-            item.exercise_name,
-            item.session_date,
-            item.sets,
-            item.reps,
-            round(float(item.weight_kg or 0), 3),
-        )
-        for item in existing_results
+    planned_items = {
+        str(item.get("exercise_key")): item
+        for item in row.planned_snapshot().get("exercises", [])
+        if isinstance(item, dict)
     }
 
-    for exercise_sets in by_exercise.values():
+    for exercise_key, exercise_sets in by_exercise.items():
+        planned = planned_items.get(exercise_key)
+        if planned is None:
+            session.rollback()
+            raise HTTPException(status_code=422, detail="Wynik zawiera ćwiczenie spoza snapshotu sesji")
+
         reps = round(sum(item.actual_reps for item in exercise_sets) / len(exercise_sets))
         weight = round(sum(float(item.actual_weight_kg or 0) for item in exercise_sets) / len(exercise_sets), 3)
         rpes = [item.actual_rpe for item in exercise_sets if item.actual_rpe is not None]
         rpe = round(sum(rpes) / len(rpes)) if rpes else (payload.final_rpe or 1)
-        name = exercise_sets[0].exercise_name
-        key = (name, row.session_date, len(exercise_sets), reps, weight)
-        if key in existing_keys:
+        name = str(planned.get("exercise_name") or exercise_sets[0].exercise_name)
+
+        existing_result = session.exec(
+            select(ExerciseResultDB)
+            .where(ExerciseResultDB.user_id == user.id)
+            .where(ExerciseResultDB.source_session_id == row.id)
+            .where(ExerciseResultDB.source_exercise_key == exercise_key)
+        ).first()
+        if existing_result:
             continue
+
         session.add(
             ExerciseResultDB(
                 user_id=user.id,
+                source_session_id=row.id,
+                source_exercise_key=exercise_key,
                 exercise_name=name,
                 session_date=row.session_date,
                 sets=len(exercise_sets),
@@ -1366,7 +2010,9 @@ def complete_training_session(
         session.exec(
             select(TrainingSetResultDB)
             .where(TrainingSetResultDB.session_id == row.id)
+            .where(TrainingSetResultDB.user_id == user.id)
             .order_by(TrainingSetResultDB.exercise_key, TrainingSetResultDB.set_number)
         ).all()
     )
     return {"status": "completed", "session": _serialize_session(row, final_sets)}
+

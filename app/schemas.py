@@ -394,3 +394,30 @@ class TrainingSetResultRequest(BaseModel):
 class TrainingCompleteRequest(BaseModel):
     final_rpe: Optional[int] = Field(default=None, ge=1, le=10)
     notes: str = Field(default="", max_length=2000)
+
+
+class GoalCreateRequest(BaseModel):
+    goal_type: str
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=3000)
+    start_date: Optional[str] = None
+    target_date: Optional[str] = None
+    priority: int = Field(default=0, ge=0, le=100)
+    metric_key: Optional[str] = None
+    baseline_value: Optional[float] = None
+    target_value: Optional[float] = None
+    metadata: dict[str, Any] = {}
+
+
+class GoalUpdateRequest(BaseModel):
+    goal_type: Optional[str] = None
+    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=3000)
+    start_date: Optional[str] = None
+    target_date: Optional[str] = None
+    priority: Optional[int] = Field(default=None, ge=0, le=100)
+    status: Optional[str] = None
+    metric_key: Optional[str] = None
+    baseline_value: Optional[float] = None
+    target_value: Optional[float] = None
+    metadata: Optional[dict[str, Any]] = None
