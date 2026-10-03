@@ -116,6 +116,7 @@ def test_migration_chain_has_single_head_through_stage_5():
             revisions[revision] = down_revision
 
     assert "evolve19nutrition_adaptations" in revisions
+    assert revisions.get("evolve20migration_merge") == ("evolve19nutrition_adaptations", "72efb594294f")
     assert revisions.get("7a6d4c3e9b12") == "c8b1f3d9a77d"
     assert revisions.get("evolve20migration_merge") == ("evolve19nutrition_adaptations", "72efb594294f")
     expected = {
