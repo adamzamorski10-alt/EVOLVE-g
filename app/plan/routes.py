@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 
 from app.auth.dependencies import get_current_user
 from app.database import get_session
-from app.legacy_routes import _enrich_exercises_with_progression, _is_profile_ready_for_plan
+from app.legacy_routes import _is_profile_ready_for_plan
 from app.plan.deterministic import build_deterministic_plan
 from app.models import AssessmentDB, UserDB
 from app.schemas import PlanGenerateRequest, PlanSwapRequest, WeeklyPlanSaveRequest
@@ -166,10 +166,6 @@ def app_generate_plan(
             "assessment_inputs": assessment_inputs,
             "assessment_fingerprint": _fingerprint(assessment_inputs),
         }
-        for day in plan.get("days", []):
-            exercises = day.get("workout", {}).get("exercises", [])
-            if exercises:
-                day["workout"]["exercises"] = _enrich_exercises_with_progression(exercises, user, session)
         user.set_dict("weekly_plan_json", plan)
         user.updated_at = datetime.now()
         try:
