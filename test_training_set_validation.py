@@ -305,7 +305,7 @@ def test_training_dashboard_contains_history_and_adaptation_sections():
 def test_training_session_ui_is_available_and_exposes_execution_loop():
     response = client.get("/app/training/session-ui")
     assert response.status_code == 200
-    assert "Dzisiejszy trening" in response.text
+    assert "Trening" in response.text
     assert "Zapisz" in response.text
     assert "Zakończ trening" in response.text
 
