@@ -104,6 +104,6 @@ def test_today_ui_exposes_effective_plan_and_start_action():
     assert "Mój dzień" in response.text
     assert "/app/training/today" in response.text
     assert "/app/training/session-ui" in response.text
-    assert 'href="/app"' in response.text
+    assert 'href="/app#my-day"' in response.text
     assert "← Panel" in response.text
     assert "dostosowany na podstawie ostatnich treningów" in response.text
