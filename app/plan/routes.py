@@ -331,10 +331,17 @@ def app_swap_plan_item(
         else:
             raise HTTPException(status_code=400, detail="section musi być meal albo exercise")
 
-        user.set_dict("weekly_plan_json", plan)
-        user.updated_at = datetime.now()
+        # get_current_user() returns a detached principal loaded in its own session.
+        # Always re-load the canonical row in the request session before mutating it.
+        db_user = session.get(UserDB, user.id)
+        if not db_user:
+            raise HTTPException(status_code=404, detail="Użytkownik nie znaleziony")
+        db_user.set_dict("weekly_plan_json", plan)
+        db_user.updated_at = datetime.now()
+        session.add(db_user)
         session.commit()
-        return {"status": "ok", "plan": plan}
+        session.refresh(db_user)
+        return {"status": "ok", "plan": db_user.get_dict("weekly_plan_json")}
     except HTTPException:
         raise
     except SQLAlchemyError as exc:
