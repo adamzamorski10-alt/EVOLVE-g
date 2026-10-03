@@ -327,7 +327,7 @@ Implementation may continue to subsequent stages while these checks remain pendi
 
 
 
-## EV-018 — Full Stage 0–5 second-user isolation / release E2E
+### EV-018 — Full Stage 0–5 second-user isolation / release E2E
 
 - Status: PENDING
 - Owner: Antygravity + local test runner
@@ -354,7 +354,7 @@ Implementation may continue to subsequent stages while these checks remain pendi
 - Do not mark PASS from static inspection alone.
 
 
-## EV-019 — Stage 0–5 full integration / release gate
+### EV-019 — Stage 0–5 full integration / release gate
 
 - Status: PENDING
 - Owner: Antygravity + local test runner
