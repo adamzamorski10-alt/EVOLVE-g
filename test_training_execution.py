@@ -186,3 +186,42 @@ def test_session_is_user_scoped():
         headers=_headers(second["token"]),
     )
     assert response.status_code == 404
+
+
+
+def test_effective_plan_rejects_adaptation_derived_from_stale_base():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    original_plan = started.json()["session"]["planned"]
+
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        base = json.loads(user.weekly_plan_json)
+        adapted = json.loads(json.dumps(base))
+        adapted["_evolve_adaptation"] = {
+            "base_plan_fingerprint": "stale-fingerprint",
+            "source_session_ids": [started.json()["session"]["id"]],
+            "algorithm": "deterministic-v1",
+        }
+        from app.models import AdaptivePlanRevisionDB
+        db.add(
+            AdaptivePlanRevisionDB(
+                user_id=user.id,
+                source_session_ids_json=json.dumps([started.json()["session"]["id"]]),
+                previous_plan_json=json.dumps(base),
+                applied_plan_json=json.dumps(adapted),
+                decision_summary_json=json.dumps({"progress": 1}),
+                version=1,
+            )
+        )
+        base["days"][0]["workout"]["exercises"][0]["weight_kg"] = 999
+        user.weekly_plan_json = json.dumps(base, ensure_ascii=False)
+        db.add(user)
+        db.commit()
+
+    today = client.get("/app/training/today", headers=_headers(ctx["token"]))
+    assert today.status_code == 200
+    assert today.json()["plan"]["source"] == "base"
+    assert today.json()["exercises"][0]["weight_kg"] == 999
+    assert original_plan["exercises"][0]["weight_kg"] == 100
