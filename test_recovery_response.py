@@ -131,3 +131,20 @@ def test_recovery_caution_reduces_today_training_without_mutating_stored_plan():
     with Session(engine) as session:
         user = session.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
         assert user.weekly_plan_json == original_plan
+
+
+def test_recovery_ignores_invalid_out_of_range_signals():
+    invalid = _log(sleep_hours=-4, sleep_quality=99, energy_level=99, stress_level=-10)
+    result = evaluate_recovery(invalid)
+    assert result["signal_count"] == 0
+    assert result["status"] == "insufficient_data"
+    assert result["constraint"] == "none"
+
+
+def test_recovery_boundary_scores_are_stable():
+    ready = evaluate_recovery(_log(energy_level=10, stress_level=1))
+    caution = evaluate_recovery(_log(energy_level=6, stress_level=6))
+    low = evaluate_recovery(_log(energy_level=1, stress_level=10))
+    assert ready["readiness_score"] == 95.0
+    assert caution["readiness_score"] == 55.0
+    assert low["readiness_score"] == 5.0
