@@ -140,7 +140,6 @@ document.getElementById("f").addEventListener("submit",async e=>{e.preventDefaul
  const r=await fetch("/app/assessment",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify(p)}); const d=await r.json(); statusEl.textContent=r.ok?"Assessment zapisany — wersja "+d.assessment.version+".":"Błąd: "+(d.detail||"nie udało się zapisać"); if(r.ok) load();
 });
 load();
-<script>
 async function loadAssessmentHistory(){
  if(!token || !history){return}
  const r=await fetch("/app/assessment/history",{headers:{Authorization:"Bearer "+token}});
@@ -149,7 +148,7 @@ async function loadAssessmentHistory(){
  history.textContent=d.count?d.assessments.map(a=>"v"+a.version+" · "+a.assessment_date+" · "+(a.status||"completed")).join("\n"):"Brak zapisanych wersji.";
 }
 loadAssessmentHistory();
-</script></script></main></body></html>""")
+</script></main></body></html>""")
 
 
 @router.get("/history")
