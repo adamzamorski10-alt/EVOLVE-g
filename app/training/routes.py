@@ -11,7 +11,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlmodel import Session, select
 
 from app.auth.dependencies import get_current_user
@@ -444,6 +444,7 @@ def log_training_set(
     existing = session.exec(
         select(TrainingSetResultDB)
         .where(TrainingSetResultDB.session_id == row.id)
+        .where(TrainingSetResultDB.user_id == user.id)
         .where(TrainingSetResultDB.exercise_key == payload.exercise_key)
         .where(TrainingSetResultDB.set_number == payload.set_number)
     ).first()
@@ -476,6 +477,30 @@ def log_training_set(
     try:
         session.commit()
         session.refresh(result)
+    except IntegrityError:
+        session.rollback()
+        existing = session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == row.id)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.exercise_key == payload.exercise_key)
+            .where(TrainingSetResultDB.set_number == payload.set_number)
+        ).first()
+        if existing is None:
+            raise HTTPException(status_code=409, detail="Konflikt zapisu serii")
+        existing.actual_reps = payload.actual_reps
+        existing.actual_weight_kg = payload.actual_weight_kg
+        existing.actual_rpe = payload.actual_rpe
+        existing.completed = payload.completed
+        existing.note = payload.note
+        session.add(existing)
+        try:
+            session.commit()
+            session.refresh(existing)
+        except SQLAlchemyError as exc:
+            session.rollback()
+            raise HTTPException(status_code=500, detail="Nie udało się zapisać serii") from exc
+        result = existing
     except SQLAlchemyError as exc:
         session.rollback()
         raise HTTPException(status_code=500, detail="Nie udało się zapisać serii") from exc
@@ -1317,34 +1342,25 @@ def complete_training_session(
     for item in sets:
         by_exercise.setdefault(item.exercise_key, []).append(item)
 
-    existing_results = list(
-        session.exec(
-            select(ExerciseResultDB).where(ExerciseResultDB.user_id == user.id)
-        ).all()
-    )
-    existing_keys = {
-        (
-            item.exercise_name,
-            item.session_date,
-            item.sets,
-            item.reps,
-            round(float(item.weight_kg or 0), 3),
-        )
-        for item in existing_results
-    }
-
-    for exercise_sets in by_exercise.values():
+    for exercise_key, exercise_sets in by_exercise.items():
         reps = round(sum(item.actual_reps for item in exercise_sets) / len(exercise_sets))
         weight = round(sum(float(item.actual_weight_kg or 0) for item in exercise_sets) / len(exercise_sets), 3)
         rpes = [item.actual_rpe for item in exercise_sets if item.actual_rpe is not None]
         rpe = round(sum(rpes) / len(rpes)) if rpes else (payload.final_rpe or 1)
         name = exercise_sets[0].exercise_name
-        key = (name, row.session_date, len(exercise_sets), reps, weight)
-        if key in existing_keys:
+        existing_result = session.exec(
+            select(ExerciseResultDB)
+            .where(ExerciseResultDB.user_id == user.id)
+            .where(ExerciseResultDB.source_session_id == row.id)
+            .where(ExerciseResultDB.source_exercise_key == exercise_key)
+        ).first()
+        if existing_result:
             continue
         session.add(
             ExerciseResultDB(
                 user_id=user.id,
+                source_session_id=row.id,
+                source_exercise_key=exercise_key,
                 exercise_name=name,
                 session_date=row.session_date,
                 sets=len(exercise_sets),
