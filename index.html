@@ -1871,7 +1871,7 @@
       <nav class="space-y-1 flex-1" aria-label="Główna nawigacja">
         <p class="px-3 py-1 text-xs font-bold text-gray-600 uppercase tracking-wider">Menu</p>
         <a href="#" onclick="showTab('home');return false;" data-tab="home" class="nav-item active flex items-center gap-3 p-3 text-sm font-medium text-cyan-400"><span>🏠</span><span>Home</span></a>
-        <a href="/app/training/today-ui" data-tab="my-day" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Dzisiejszy plan, wykonanie i zadania"><span>🎯</span><span>Mój dzień</span></a>
+        <a href="#my-day" onclick="showTab('my-day'); return false;" data-tab="my-day" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Dzisiejszy plan, wykonanie i zadania"><span>🎯</span><span>Mój dzień</span></a>
         <a href="#" onclick="showTab('plan'); switchPlanCategory('trening'); return false;" data-tab="training" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🏋️</span><span>Trening</span></a>
         <a href="#" onclick="showTab('plan'); switchPlanCategory('sport'); return false;" data-tab="basketball" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🏀</span><span>Koszykówka</span></a>
         <a href="#" onclick="showTab('plan'); switchPlanCategory('dieta'); return false;" data-tab="diet" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🥗</span><span>Dieta</span></a>
@@ -4683,6 +4683,14 @@
       </section>
 
       <!-- ====== TAB: POSTĘPY ====== -->
+      <section id="tab-my-day" class="hidden space-y-6" data-domain="daily">
+        <div class="glass rounded-3xl p-6 md:p-8 hero-bg"><div class="flex items-start justify-between gap-5 flex-wrap"><div><p class="text-xs font-bold uppercase tracking-[0.18em] mb-2" style="color:var(--cyan);">Daily execution hub</p><h2 class="text-3xl md:text-4xl font-extrabold text-white" style="font-family:'Syne',sans-serif;">Mój dzień 🎯</h2><p id="myDayDate" class="text-sm text-gray-400 mt-2">Dzisiejszy stan EVOLVE</p></div><button type="button" onclick="loadEvolveMyDay()" class="btn-ghost px-4 py-2 rounded-xl text-sm font-bold">Odśwież</button></div></div>
+        <div id="myDayStatus" class="glass rounded-2xl p-5 text-sm text-gray-400">Ładowanie dzisiejszego planu…</div>
+        <div id="myDayWorkout" class="hidden glass rounded-2xl p-5"><div class="flex items-center justify-between gap-3 flex-wrap"><div><p class="text-xs uppercase tracking-wider text-gray-500">Trening dzisiaj</p><h3 id="myDayWorkoutTitle" class="text-xl font-bold text-white mt-1">—</h3></div><a href="/app/training/session-ui" class="btn-neon px-5 py-3 rounded-xl text-sm font-bold no-underline">▶ Rozpocznij trening</a></div><div id="myDayExercises" class="grid md:grid-cols-2 gap-3 mt-5"></div></div>
+        <div id="myDayEmpty" class="hidden glass rounded-2xl p-6"><p class="text-xl font-bold text-white">Dziś nie ma zaplanowanego treningu.</p><p class="text-sm text-gray-400 mt-2">Mój dzień pokazuje wynik aktualnego planu na dzisiaj.</p></div>
+        <div class="grid md:grid-cols-3 gap-4"><div class="glass rounded-2xl p-5"><p class="text-xs text-gray-500 uppercase tracking-wider">Plan</p><p id="myDayPlanSource" class="text-sm font-bold text-white mt-2">—</p><p class="text-xs text-gray-500 mt-1">Źródło aktualnego planu.</p></div><div class="glass rounded-2xl p-5"><p class="text-xs text-gray-500 uppercase tracking-wider">Wykonanie</p><p class="text-sm font-bold text-white mt-2">Trening → zapis serii → ukończenie</p><p class="text-xs text-gray-500 mt-1">Istniejący Training Core.</p></div><div class="glass rounded-2xl p-5"><p class="text-xs text-gray-500 uppercase tracking-wider">Następny krok</p><p class="text-sm font-bold text-white mt-2">Wynik → analiza → adaptacja</p><p class="text-xs text-gray-500 mt-1">Kolejne domeny dołączymy później.</p></div></div>
+      </section>
+
       <section id="tab-postepy" class="hidden space-y-6">
 
         <!-- ── XP Level Bar ── -->
@@ -8108,6 +8116,37 @@
     // NAWIGACJA ZAKŁADEK
     // ═══════════════════════════════════════════════════════════════════
 
+    async function loadEvolveMyDay() {
+      const status = document.getElementById('myDayStatus');
+      const workout = document.getElementById('myDayWorkout');
+      const empty = document.getElementById('myDayEmpty');
+      const exercises = document.getElementById('myDayExercises');
+      const date = document.getElementById('myDayDate');
+      const source = document.getElementById('myDayPlanSource');
+      if (!status) return;
+      workout.classList.add('hidden'); empty.classList.add('hidden'); exercises.innerHTML = '';
+      const token = localStorage.getItem('fitai_token');
+      if (!token) { status.innerHTML = '<b class="text-white">Zaloguj się w EVOLVE.</b><p class="mt-1">Po zalogowaniu Mój dzień pokaże aktualny plan i dzisiejsze zadania.</p>'; return; }
+      status.textContent = 'Ładowanie dzisiejszego planu…';
+      try {
+        const response = await fetch((window.API_BASE || '') + '/app/training/today', { headers: { Authorization: 'Bearer ' + token } });
+        const data = await response.json();
+        if (!response.ok) { status.textContent = data.detail || 'Nie udało się pobrać dzisiejszego planu.'; return; }
+        if (date) date.textContent = (data.day_label || 'Dzisiaj') + ' · ' + (data.date || '');
+        const plan = data.plan || {};
+        if (source) source.textContent = plan.source === 'adaptive' ? 'Wersja adaptacyjna v' + (plan.version ?? '—') : 'Bazowy plan tygodniowy';
+        if (!data.has_workout) { status.textContent = 'Plan sprawdzony. Dzisiaj nie ma treningu siłowego.'; empty.classList.remove('hidden'); return; }
+        status.textContent = 'Plan sprawdzony. Dzisiejszy trening jest gotowy do wykonania.';
+        workout.classList.remove('hidden');
+        document.getElementById('myDayWorkoutTitle').textContent = data.day_label || 'Dzisiejszy trening';
+        const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+        exercises.innerHTML = (data.exercises || []).map(ex => {
+          const target = [ex.sets + ' × ' + ex.reps, ex.weight_kg ? ex.weight_kg + ' kg' : '', ex.rpe ? 'RPE ' + ex.rpe : ''].filter(Boolean).join(' · ');
+          return '<div class="rounded-xl border border-white/10 bg-black/20 p-4"><div class="font-bold text-white">' + esc(ex.exercise_name) + '</div><div class="text-sm text-gray-400 mt-1">' + esc(target) + '</div></div>';
+        }).join('');
+      } catch (error) { status.textContent = 'Nie udało się połączyć z serwerem.'; }
+    }
+
     function showTab(tabId) {
       document.querySelectorAll('section[id^="tab-"]').forEach(s => {
         s.classList.add('hidden');
@@ -8132,6 +8171,9 @@
       }
       if (tabId === 'postepy') {
         showSubTab('overview');
+      }
+      if (tabId === 'my-day') {
+        loadEvolveMyDay();
       }
     }
 
