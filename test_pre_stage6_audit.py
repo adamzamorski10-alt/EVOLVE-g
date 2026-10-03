@@ -61,7 +61,7 @@ def test_main_shell_exposes_native_stage_0_5_domains():
         'data-tab="recovery"',
         'data-tab="progress"',
         'data-tab="goals"',
-        'id="nav-profile"',
+        'document.getElementById("nav-profile")',
         'id="tab-my-day"',
         'id="tab-progress"',
         'id="tab-goals"',
