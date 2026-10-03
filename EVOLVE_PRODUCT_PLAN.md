@@ -569,3 +569,34 @@ Nutrition loop is now:
 
 ### NEXT
 Stage 5E will connect nutrition evidence with training/recovery context and define bounded adaptation eligibility. Target changes remain disabled until that evidence gate is implemented and tested.
+
+
+## Stage 5E — Nutrition Adaptation Checkpoint — 2026-10-03
+
+### DONE
+- Added a separate `NutritionAdaptationDB` audit trail.
+- Added Alembic `evolve19nutrition_adaptations`.
+- Added deterministic adaptation preview requiring:
+  - at least 7 logged nutrition days,
+  - at least 2 completed training sessions in the same 14–28 day evidence window.
+- Adaptation is bounded to a maximum ±100 kcal per application and a safe absolute range of 1200–5000 kcal.
+- Protein target is not automatically changed by this stage.
+- Added optimistic concurrency protection: the target is updated only if its stored base value still matches the preview base.
+- Added explicit user-triggered apply endpoint.
+- Added native Dieta presentation and explicit “Zastosuj zmianę” action.
+- Added audit record for every applied adaptation.
+
+### SAFETY INVARIANTS
+- No adaptation from a single day.
+- No adaptation without training context.
+- No silent mutation from a GET/preview.
+- No unbounded calorie jump.
+- No automatic protein-target mutation.
+- Concurrent target changes produce a conflict instead of overwriting newer data.
+
+### CURRENT
+Stage 5 nutrition loop is complete:
+`PROFILE → TARGETS → ACTUAL INTAKE → ADHERENCE → RESPONSE → EVIDENCE → BOUNDED ADAPTATION → AUDIT → DIETA UX`.
+
+### NEXT
+Stage 6 — Recovery Response.
