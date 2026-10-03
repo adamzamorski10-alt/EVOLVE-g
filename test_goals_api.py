@@ -69,7 +69,7 @@ def test_goal_progress_uses_only_completed_owned_execution():
     _completed_session(email, today - timedelta(days=2), 100, 5)
     _completed_session(email, today - timedelta(days=1), 110, 5)
     _completed_session(other_email, today, 999, 1)
-    created = client.post("/app/goals", headers=_headers(token), json={"goal_type": "strength", "title": "Przysiad 120 kg", "metric_key": "best_weight_kg", "baseline_value": 100, "target_value": 120, "metadata": {"exercise_key": "squat"}})
+    created = client.post("/app/goals", headers=_headers(token), json={"goal_type": "strength", "title": "Przysiad 120 kg", "metric_key": "best_weight_kg", "baseline_value": 100, "target_value": 120, "metadata": {"exercise_key": "squat"}, "start_date": (today - timedelta(days=3)).isoformat()})
     goal_id = created.json()["id"]
     progress = client.get(f"/app/goals/{goal_id}/progress", headers=_headers(token))
     assert progress.status_code == 200, progress.text
@@ -84,7 +84,7 @@ def test_goal_progress_supports_session_metric_and_reaches_target():
     token, email = _user_context()
     for offset in (3, 2, 1):
         _completed_session(email, date.today() - timedelta(days=offset), 100, 5)
-    created = client.post("/app/goals", headers=_headers(token), json={"goal_type": "habit", "title": "3 treningi", "metric_key": "sessions", "baseline_value": 0, "target_value": 3})
+    created = client.post("/app/goals", headers=_headers(token), json={"goal_type": "habit", "title": "3 treningi", "metric_key": "sessions", "baseline_value": 0, "target_value": 3, "start_date": (date.today() - timedelta(days=3)).isoformat()})
     goal_id = created.json()["id"]
     progress = client.get(f"/app/goals/{goal_id}/progress", headers=_headers(token))
     assert progress.status_code == 200
@@ -129,6 +129,7 @@ def test_goal_progress_matches_training_progress_records_and_ignores_invalid_exe
     created = client.post("/app/goals", headers=_headers(token), json={
         "goal_type": "strength", "title": "Squat volume", "metric_key": "total_volume_kg",
         "baseline_value": 0, "target_value": 1650, "metadata": {"exercise_key": "squat"},
+        "start_date": (today - timedelta(days=3)).isoformat(),
     })
     assert created.status_code == 200, created.text
     goal_id = created.json()["id"]
@@ -151,6 +152,7 @@ def test_goal_best_metrics_are_cumulative_not_last_session_only():
     created = client.post("/app/goals", headers=_headers(token), json={
         "goal_type": "strength", "title": "Squat record", "metric_key": "best_weight_kg",
         "baseline_value": 100, "target_value": 130, "metadata": {"exercise_key": "squat"},
+        "start_date": (today - timedelta(days=2)).isoformat(),
     })
     goal_id = created.json()["id"]
     progress = client.get(f"/app/goals/{goal_id}/progress", headers=_headers(token))
