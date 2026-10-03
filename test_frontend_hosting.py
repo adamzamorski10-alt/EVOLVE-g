@@ -15,7 +15,13 @@ def test_dashboard_first_targets_actual_legacy_shell_ids():
     assert "#appContainer { display: flex !important; }" in APP_INIT
     assert "document.documentElement.classList.add('evolve-dashboard-first')" in APP_INIT
     assert 'id="evolve-dashboard-first-boot"' in APP_INIT
-    assert "if (typeof enterApp === 'function') enterApp();" in APP_INIT
+    assert "var landing = document.getElementById('landing');" in APP_INIT
+    assert "var dashboard = document.getElementById('appContainer');" in APP_INIT
+    assert "landing.style.display = 'none';" in APP_INIT
+    assert "landing.setAttribute('aria-hidden', 'true');" in APP_INIT
+    assert "dashboard.style.display = 'flex';" in APP_INIT
+    assert "if (typeof initApp === 'function') initApp();" in APP_INIT
+    assert "dashboard visibility must not depend on it" in APP_INIT
 
 
 def test_shared_shell_contains_native_my_day_injection():
