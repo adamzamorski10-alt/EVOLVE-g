@@ -236,6 +236,96 @@ def get_training_history(
     return {"limit": limit, "count": len(result), "sessions": result}
 
 
+@router.get("/progress/consistency")
+def get_training_consistency(
+    limit: int = 52,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return deterministic consistency metrics from completed training."""
+    limit = max(1, min(limit, 52))
+    rows = list(session.exec(
+        select(TrainingSessionDB)
+        .where(TrainingSessionDB.user_id == user.id)
+        .where(TrainingSessionDB.status == "completed")
+        .order_by(TrainingSessionDB.session_date.desc(), TrainingSessionDB.completed_at.desc())
+        .limit(limit)
+    ).all())
+    if not rows:
+        return {
+            "limit": limit, "sessions": 0, "training_days": 0,
+            "average_completion_pct": 0, "average_sessions_per_week": 0,
+            "current_streak_days": 0, "longest_streak_days": 0, "history": [],
+        }
+
+    history = []
+    days = []
+    for row in rows:
+        sets = list(session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == row.id)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.completed == True)
+        ).all())
+        planned = row.planned_snapshot()
+        planned_sets = sum(max(0, int(item.get("sets") or 0)) for item in planned.get("exercises", []) if isinstance(item, dict))
+        completion_pct = round((len(sets) / planned_sets) * 100, 1) if planned_sets else 0
+        history.append({
+            "session_id": row.id, "session_date": row.session_date.isoformat(),
+            "completed_sets": len(sets), "planned_sets": planned_sets,
+            "completion_pct": completion_pct,
+        })
+        days.append(row.session_date)
+    unique_days = sorted(set(days), reverse=True)
+    streaks = []
+    for day in unique_days:
+        if not streaks or (streaks[-1][-1] - day).days != 1:
+            streaks.append([day])
+        else:
+            streaks[-1].append(day)
+    longest = max((len(group) for group in streaks), default=0)
+    current = len(streaks[0]) if streaks and streaks[0][0] == date.today() else 0
+    if len(unique_days) >= 2:
+        span_days = max(1, (unique_days[0] - unique_days[-1]).days + 1)
+        weeks = max(1 / 7, span_days / 7)
+        sessions_per_week = round(len(rows) / weeks, 2)
+    else:
+        sessions_per_week = float(len(rows))
+    return {
+        "limit": limit,
+        "sessions": len(rows),
+        "training_days": len(unique_days),
+        "average_completion_pct": round(sum(item["completion_pct"] for item in history) / len(history), 1),
+        "average_sessions_per_week": sessions_per_week,
+        "current_streak_days": current,
+        "longest_streak_days": longest,
+        "history": history,
+    }
+
+
+@router.get("/sessions/history/{session_id}")
+def get_training_history_detail(
+    session_id: str,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return one completed training session with owned execution details."""
+    row = session.exec(
+        select(TrainingSessionDB)
+        .where(TrainingSessionDB.id == session_id)
+        .where(TrainingSessionDB.user_id == user.id)
+    ).first()
+    if not row or row.status != "completed":
+        raise HTTPException(status_code=404, detail="Ukończona sesja treningowa nie istnieje")
+    sets = list(session.exec(
+        select(TrainingSetResultDB)
+        .where(TrainingSetResultDB.session_id == row.id)
+        .where(TrainingSetResultDB.user_id == user.id)
+        .order_by(TrainingSetResultDB.exercise_key, TrainingSetResultDB.set_number)
+    ).all())
+    return _serialize_session(row, sets)
+
+
 @router.get("/progress/exercises/{exercise_key}")
 def get_exercise_progress(
     exercise_key: str,
