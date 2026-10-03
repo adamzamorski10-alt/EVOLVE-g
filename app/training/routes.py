@@ -310,6 +310,8 @@ def get_exercise_history(
             .where(TrainingSetResultDB.user_id == user.id)
             .where(TrainingSetResultDB.exercise_key == exercise_key)
             .where(TrainingSetResultDB.completed == True)
+            .where(TrainingSessionDB.user_id == user.id)
+            .where(TrainingSessionDB.status == "completed")
             .order_by(TrainingSessionDB.session_date.desc(), TrainingSetResultDB.set_number.desc())
             .limit(limit)
         ).all()
