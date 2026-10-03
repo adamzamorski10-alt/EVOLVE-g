@@ -121,7 +121,7 @@ def test_migration_chain_has_single_head_through_stage_5():
 
 def test_external_verification_queue_keeps_stage_0_5_checks_pending():
     queue = (ROOT / "docs" / "EXTERNAL_VERIFICATION.md").read_text(encoding="utf-8")
-    for item in ("EV-001", "EV-008", "EV-009", "EV-013", "EV-017"):
+    for item in ("EV-001", "EV-008", "EV-009", "EV-013", "EV-017", "EV-018"):
         start = queue.find(f"### {item}")
         assert start >= 0, f"Missing verification item {item}"
         block = queue[start:queue.find("\n### ", start + 5) if queue.find("\n### ", start + 5) >= 0 else None]
