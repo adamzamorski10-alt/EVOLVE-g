@@ -527,3 +527,23 @@ Stage 5A establishes a real structured source for **ACTUAL INTAKE**. No adaptati
 - Connect actual intake with training/load and recovery signals.
 - Build bounded deterministic nutrition response/adaptation rules.
 - Native Dieta UX should consume the structured API rather than legacy JSON.
+
+
+## Stage 5B — Nutrition Adherence Checkpoint — 2026-10-03
+
+### DONE
+- Added deterministic `GET /app/nutrition/adherence?days=1..28`.
+- Aggregates only days with actual structured intake.
+- Reports calorie adherence using a bounded 90–110% target window.
+- Reports protein adherence at >=90% of target.
+- Exposes daily ratios and rolling averages.
+- Missing intake days are not silently classified as failures.
+
+### CURRENT
+Nutrition now has the first analytical layer:
+**PROFILE TARGETS → ACTUAL INTAKE → ADHERENCE**.
+
+### NEXT
+- Add response/adaptation rules using sufficient evidence.
+- Keep adaptation bounded and explainable.
+- Integrate training/recovery context before changing nutrition targets.
