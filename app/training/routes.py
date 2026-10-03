@@ -236,6 +236,64 @@ def get_training_history(
     return {"limit": limit, "count": len(result), "sessions": result}
 
 
+@router.get("/progress/exercises/{exercise_key}")
+def get_exercise_progress(
+    exercise_key: str,
+    limit: int = 12,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Detailed progress for one exercise, sourced only from completed execution."""
+    limit = max(1, min(limit, 52))
+    rows = list(session.exec(
+        select(TrainingSetResultDB, TrainingSessionDB)
+        .join(TrainingSessionDB, TrainingSetResultDB.session_id == TrainingSessionDB.id)
+        .where(TrainingSetResultDB.user_id == user.id)
+        .where(TrainingSetResultDB.exercise_key == exercise_key)
+        .where(TrainingSetResultDB.completed == True)
+        .where(TrainingSessionDB.user_id == user.id)
+        .where(TrainingSessionDB.status == "completed")
+        .order_by(TrainingSessionDB.session_date.desc(), TrainingSetResultDB.set_number.desc())
+    ).all())
+    session_order = []
+    seen = set()
+    for item, training in rows:
+        if training.id not in seen:
+            seen.add(training.id)
+            session_order.append(training)
+        if len(session_order) >= limit:
+            break
+    allowed = {training.id for training in session_order}
+    rows = [(item, training) for item, training in rows if training.id in allowed]
+    weights = [float(item.actual_weight_kg or 0) for item, _ in rows]
+    rpes = [float(item.actual_rpe) for item, _ in rows if item.actual_rpe is not None]
+    best_weight = max(weights, default=0.0)
+    history = []
+    for training in session_order:
+        items = [item for item, row in rows if row.id == training.id]
+        if not items:
+            continue
+        volume = round(sum(float(item.actual_weight_kg or 0) * int(item.actual_reps or 0) for item in items), 2)
+        history.append({
+            "session_id": training.id,
+            "session_date": training.session_date.isoformat(),
+            "sets": len(items),
+            "total_volume_kg": volume,
+            "best_weight_kg": round(max(float(item.actual_weight_kg or 0) for item in items), 2),
+            "average_rpe": round(sum(float(item.actual_rpe) for item in items if item.actual_rpe is not None) / len([item for item in items if item.actual_rpe is not None]), 2) if any(item.actual_rpe is not None for item in items) else None,
+        })
+    return {
+        "exercise_key": exercise_key,
+        "exercise_name": rows[0][0].exercise_name if rows else None,
+        "limit": limit,
+        "sessions": len(history),
+        "best_weight_kg": round(best_weight, 2),
+        "total_volume_kg": round(sum(weights[i] * int(rows[i][0].actual_reps or 0) for i in range(len(rows))), 2),
+        "average_rpe": round(sum(rpes) / len(rpes), 2) if rpes else None,
+        "history": history,
+    }
+
+
 @router.get("/exercises/{exercise_key}/history")
 def get_exercise_history(
     exercise_key: str,
