@@ -406,3 +406,20 @@ Implementation may continue to subsequent stages while these checks remain pendi
 - Scope: Register/login → Profile → Assessment → Plan → Mój dzień → Training → Results → Progress → Goals → Nutrition → Adherence → Response → Adaptation. Verify refresh/resume, repeated actions, incomplete/cancelled exclusion, deterministic summaries and no duplicate downstream results.
 - Evidence required: screenshots or equivalent browser evidence, exact automated test command/exit code, migration output, discovered defects and disposition.
 - Gate rule: EV-019 remains PENDING until the complete flow is executed externally.
+
+
+## EV-020 — Stage 6A Recovery Response browser verification
+- Status: PENDING
+- Owner: Antygravity / local test runner
+- Scope:
+  - create a daily recovery check-in with at least two signals;
+  - verify /app/recovery/today reflects the entered signals and deterministic readiness state;
+  - verify ready state leaves today's planned volume unchanged;
+  - verify caution state visibly communicates reduced volume and the training session snapshot uses the reduced set count;
+  - verify low-readiness state applies the stronger bounded volume reduction;
+  - verify insufficient-data state never silently changes the plan;
+  - refresh/reopen Mój dzień and Training and verify the same deterministic state;
+  - verify another user cannot read or influence the first user's recovery state;
+  - verify no stored base/adaptive plan is mutated by the transient recovery constraint.
+- Evidence required: browser/runtime screenshots or concise PASS/FAIL notes, exact test data and automated command/exit code.
+- Do not mark PASS from static inspection alone.
