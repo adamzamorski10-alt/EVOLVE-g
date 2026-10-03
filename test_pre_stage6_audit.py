@@ -93,6 +93,8 @@ def test_migration_chain_has_single_head_through_stage_5():
             revisions[revision] = down_revision
 
     assert "evolve19nutrition_adaptations" in revisions
+    assert revisions.get("7a6d4c3e9b12") == "c8b1f3d9a77d"
+    assert revisions.get("evolve20migration_merge") == ("evolve19nutrition_adaptations", "72efb594294f")
     expected = {
         "evolve16goals": "evolve15adaptiveunique",
         "evolve17goalmetrics": "evolve16goals",
@@ -104,7 +106,7 @@ def test_migration_chain_has_single_head_through_stage_5():
 
     children = {parent for parent in revisions.values() if parent}
     heads = sorted(revision for revision in revisions if revision not in children)
-    assert heads == ["evolve19nutrition_adaptations"], heads
+    assert heads == ["evolve20migration_merge"], heads
 
 
 def test_external_verification_queue_keeps_stage_0_5_checks_pending():
