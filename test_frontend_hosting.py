@@ -29,7 +29,7 @@ def test_main_navigation_matches_evolve_domain_model():
 
     assert "<span>Plan</span>" not in html
     assert 'id="tab-recovery"' in html
-    assert "data-tab="recovery"" in html
+    assert 'data-tab="recovery"' in html
 
 
 def test_frontend_supports_hash_deep_link_to_my_day():
