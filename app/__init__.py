@@ -295,7 +295,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
   };
 
   function injectProgressShell() {
-    if (document.getElementById("tab-progress")) return;
+    if (document.getElementById("tab-progress-native")) return;
     var content = document.querySelector(".content");
     if (!content) return;
     var legacyPanel = document.getElementById("tab-progress");
@@ -304,7 +304,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       legacyPanel.style.display = "none";
     }
     var section =
-      '<div class="tab-panel" id="tab-progress">' +
+      '<div class="tab-panel" id="tab-progress-native">' +
         '<div class="sec-head"><div><div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:700;">Postępy 📈</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">Wyniki, trendy, rekordy i regularność oparte wyłącznie na ukończonych treningach.</div></div><div id="progressUpdatedAt" style="font-size:12px;color:var(--muted);">—</div></div>' +
         '<div id="progressStatus" class="alert alert-hidden" style="margin-bottom:16px;"></div>' +
         '<div id="progressSummary" class="grid-2" style="margin-bottom:16px;"></div>' +
