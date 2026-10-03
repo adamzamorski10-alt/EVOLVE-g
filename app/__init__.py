@@ -608,6 +608,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       '<div id="recoveryStatus" class="alert alert-hidden" style="margin-bottom:16px;"></div>' +
       '<div id="recoverySummary" class="grid-2" style="margin-bottom:16px;"></div>' +
       '<div class="card" style="padding:20px;margin-bottom:16px;"><div style="font-weight:700;">Sygnały recovery</div><div id="recoverySignals" style="margin-top:12px;"></div></div>' +
+      '<div class="card" style="padding:20px;"><div style="font-weight:700;">Historia 14 dni</div><div id="recoveryTrend" style="margin-top:12px;"></div><div id="recoveryHistory" style="margin-top:12px;"></div></div>' +
       '<div class="card" style="padding:20px;"><div style="font-weight:700;">Wpływ na trening</div><div id="recoveryEffect" style="margin-top:8px;color:var(--muted);">—</div><div id="recoveryMessage" style="margin-top:8px;"></div></div>' +
       '</div>');
   }
@@ -620,12 +621,18 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       return;
     }
     var requestId = ++recoveryLoadSequence;
-    ["recoverySummary","recoverySignals"].forEach(function(id){ var el=document.getElementById(id); if(el) el.innerHTML='<div class="spinner"></div>'; });
+    ["recoverySummary","recoverySignals","recoveryHistory","recoveryTrend"].forEach(function(id){ var el=document.getElementById(id); if(el) el.innerHTML='<div class="spinner"></div>'; });
     try {
-      var response = await fetch("/app/recovery/today", {headers:{Authorization:"Bearer " + token}, cache:"no-store"});
+      var responses = await Promise.all([
+        fetch("/app/recovery/today", {headers:{Authorization:"Bearer " + token}, cache:"no-store"}),
+        fetch("/app/recovery/history?days=14", {headers:{Authorization:"Bearer " + token}, cache:"no-store"})
+      ]);
+      var response = responses[0], historyResponse = responses[1];
       var data = await response.json();
+      var historyData = await historyResponse.json();
       if (requestId !== recoveryLoadSequence) return;
       if (!response.ok) throw new Error(data.detail || "Nie udało się pobrać Recovery.");
+      if (!historyResponse.ok) throw new Error(historyData.detail || "Nie udało się pobrać historii Recovery.");
       document.getElementById("recoveryDate").textContent = data.date || "—";
       var score = data.readiness_score == null ? "—" : data.readiness_score + "/100";
       var label = data.status === "ready" ? "Gotowy" : data.status === "caution" ? "Uwaga" : data.status === "recovery" ? "Recovery" : "Za mało danych";
@@ -636,6 +643,17 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       document.getElementById("recoverySignals").innerHTML = Object.keys(signals).map(function(key){
         return '<div class="item-card" style="cursor:default;margin-bottom:8px;"><div class="item-card-head"><div class="item-card-title">'+esc(labels[key]||key)+'</div><div class="tag">'+esc(signals[key])+'/100</div></div></div>';
       }).join("") || '<div style="color:var(--muted);">Brak wystarczających danych. Uzupełnij dzisiejszy check-in.</div>';
+      var trend = historyData.summary || {};
+      document.getElementById("recoveryTrend").innerHTML =
+        '<div class="grid-2">' +
+        '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;">Średnia gotowość</div><div style="font-size:22px;font-weight:700;margin-top:4px;">'+esc(trend.average_readiness == null ? "—" : trend.average_readiness + "/100")+'</div></div>' +
+        '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;">Dni z redukcją</div><div style="font-size:22px;font-weight:700;margin-top:4px;">'+esc(trend.constrained_days || 0)+'</div></div>' +
+        '</div>';
+      document.getElementById("recoveryHistory").innerHTML = (historyData.history || []).map(function(item){
+        var score = item.readiness_score == null ? "—" : item.readiness_score + "/100";
+        var effect = item.constraint === "reduce_volume_50" ? "−50%" : item.constraint === "reduce_volume_25" ? "−25%" : item.status === "ready" ? "pełna objętość" : "brak danych";
+        return '<div class="item-card" style="cursor:default;margin-bottom:8px;"><div class="item-card-head"><div class="item-card-title">'+esc(item.date)+'</div><div class="tag">'+esc(score)+'</div></div><div class="item-card-meta">'+esc(effect)+'</div></div>';
+      }).join("");
       document.getElementById("recoveryEffect").textContent = data.plan_effect || "Brak automatycznej zmiany planu.";
       document.getElementById("recoveryMessage").textContent = data.message || "";
       if (status) { status.className = "alert alert-hidden"; status.textContent = ""; }
