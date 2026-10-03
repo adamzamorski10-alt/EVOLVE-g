@@ -564,6 +564,8 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
         window.loadEvolveProgress();
       } else if (tab === "goals") {
         window.loadEvolveGoals();
+      } else if (tab === "recovery") {
+        window.loadEvolveRecovery();
       }
       return result;
     };
@@ -588,6 +590,62 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 })();
 </script>"""
 
+    recovery_shell_integration = """<script id="evolve-recovery-shell-integration">
+(function () {
+  function esc(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char];
+    });
+  }
+  var recoveryLoadSequence = 0;
+  function injectRecoveryShell() {
+    if (document.getElementById("recoverySummary")) return;
+    var content = document.querySelector(".content");
+    if (!content) return;
+    content.insertAdjacentHTML("afterbegin",
+      '<div class="tab-panel" id="tab-recovery">' +
+      '<div class="sec-head"><div><div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:700;">Recovery 😴</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">Dzisiejsza gotowość i wpływ recovery na trening.</div></div><div id="recoveryDate" style="font-size:12px;color:var(--muted);">—</div></div>' +
+      '<div id="recoveryStatus" class="alert alert-hidden" style="margin-bottom:16px;"></div>' +
+      '<div id="recoverySummary" class="grid-2" style="margin-bottom:16px;"></div>' +
+      '<div class="card" style="padding:20px;margin-bottom:16px;"><div style="font-weight:700;">Sygnały recovery</div><div id="recoverySignals" style="margin-top:12px;"></div></div>' +
+      '<div class="card" style="padding:20px;"><div style="font-weight:700;">Wpływ na trening</div><div id="recoveryEffect" style="margin-top:8px;color:var(--muted);">—</div><div id="recoveryMessage" style="margin-top:8px;"></div></div>' +
+      '</div>');
+  }
+  window.loadEvolveRecovery = async function () {
+    injectRecoveryShell();
+    var token = localStorage.getItem("fitai_token");
+    var status = document.getElementById("recoveryStatus");
+    if (!token) {
+      if (status) { status.className = "alert alert-warn"; status.textContent = "Zaloguj się, aby zobaczyć Recovery."; }
+      return;
+    }
+    var requestId = ++recoveryLoadSequence;
+    ["recoverySummary","recoverySignals"].forEach(function(id){ var el=document.getElementById(id); if(el) el.innerHTML='<div class="spinner"></div>'; });
+    try {
+      var response = await fetch("/app/recovery/today", {headers:{Authorization:"Bearer " + token}, cache:"no-store"});
+      var data = await response.json();
+      if (requestId !== recoveryLoadSequence) return;
+      if (!response.ok) throw new Error(data.detail || "Nie udało się pobrać Recovery.");
+      document.getElementById("recoveryDate").textContent = data.date || "—";
+      var score = data.readiness_score == null ? "—" : data.readiness_score + "/100";
+      var label = data.status === "ready" ? "Gotowy" : data.status === "caution" ? "Uwaga" : data.status === "recovery" ? "Recovery" : "Za mało danych";
+      document.getElementById("recoverySummary").innerHTML =
+        '<div class="card" style="padding:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);">GOTOWOŚĆ</div><div style="font-size:30px;font-weight:700;margin-top:8px;">'+esc(score)+'</div><div style="font-size:12px;color:var(--muted);margin-top:4px;">'+esc(label)+'</div></div>' +
+        '<div class="card" style="padding:20px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);">SYGNAŁY</div><div style="font-size:30px;font-weight:700;margin-top:8px;">'+esc(data.signal_count || 0)+'</div><div style="font-size:12px;color:var(--muted);margin-top:4px;">uwzględnionych dziś</div></div>';
+      var labels=data.signal_labels||{}, signals=data.signals||{};
+      document.getElementById("recoverySignals").innerHTML = Object.keys(signals).map(function(key){
+        return '<div class="item-card" style="cursor:default;margin-bottom:8px;"><div class="item-card-head"><div class="item-card-title">'+esc(labels[key]||key)+'</div><div class="tag">'+esc(signals[key])+'/100</div></div></div>';
+      }).join("") || '<div style="color:var(--muted);">Brak wystarczających danych. Uzupełnij dzisiejszy check-in.</div>';
+      document.getElementById("recoveryEffect").textContent = data.plan_effect || "Brak automatycznej zmiany planu.";
+      document.getElementById("recoveryMessage").textContent = data.message || "";
+      if (status) { status.className = "alert alert-hidden"; status.textContent = ""; }
+    } catch (error) {
+      if (requestId !== recoveryLoadSequence) return;
+      if (status) { status.className = "alert alert-warn"; status.textContent = "⚠️ " + error.message; }
+    }
+  };
+})();
+</script>"""
     nutrition_shell_integration = """<script id="evolve-nutrition-shell-integration">
 
 (function () {
