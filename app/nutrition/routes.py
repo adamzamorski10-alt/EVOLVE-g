@@ -152,3 +152,79 @@ def delete_nutrition_entry(entry_id: str, current_user=Depends(get_current_user)
         session.delete(entry)
         session.commit()
         return {"deleted": True, "id": entry_id}
+
+
+@router.get("/adherence")
+def nutrition_adherence(
+    days: int = Query(default=7, ge=1, le=28),
+    current_user=Depends(get_current_user),
+):
+    """Return deterministic adherence over logged nutrition days.
+
+    Missing days are excluded from adherence denominators; the endpoint never
+    treats a day with no intake record as a failed nutrition day.
+    """
+    end_day = date.today()
+    start_day = end_day - timedelta(days=days - 1)
+    start_dt, _ = _date_bounds(start_day)
+    _, end_dt = _date_bounds(end_day)
+
+    with Session(engine) as session:
+        user = _owned_user(session, current_user)
+        entries = session.exec(
+            select(NutritionEntryDB)
+            .where(NutritionEntryDB.user_id == user.id)
+            .where(NutritionEntryDB.consumed_at >= start_dt)
+            .where(NutritionEntryDB.consumed_at < end_dt)
+            .order_by(NutritionEntryDB.consumed_at.asc(), NutritionEntryDB.id.asc())
+        ).all()
+
+        calorie_target = float(user.calories_target or calc_calories(user))
+        protein_target = float(user.protein_target or calc_protein(user))
+        by_day: dict[date, list[NutritionEntryDB]] = {}
+        for entry in entries:
+            entry_day = entry.consumed_at.date()
+            by_day.setdefault(entry_day, []).append(entry)
+
+        daily = []
+        for entry_day in sorted(by_day):
+            day_entries = by_day[entry_day]
+            kcal = round(sum(e.calories_kcal for e in day_entries), 1)
+            protein = round(sum(e.protein_g for e in day_entries), 1)
+            kcal_ratio = kcal / calorie_target if calorie_target else 0
+            protein_ratio = protein / protein_target if protein_target else 0
+            daily.append({
+                "date": entry_day.isoformat(),
+                "calories_kcal": kcal,
+                "protein_g": protein,
+                "calorie_ratio": round(kcal_ratio, 3),
+                "protein_ratio": round(protein_ratio, 3),
+                "calorie_target_met": 0.9 <= kcal_ratio <= 1.1 if calorie_target else False,
+                "protein_target_met": protein_ratio >= 0.9 if protein_target else False,
+            })
+
+        logged_days = len(daily)
+        calorie_met_days = sum(1 for item in daily if item["calorie_target_met"])
+        protein_met_days = sum(1 for item in daily if item["protein_target_met"])
+        avg_kcal = round(sum(item["calories_kcal"] for item in daily) / logged_days, 1) if logged_days else 0
+        avg_protein = round(sum(item["protein_g"] for item in daily) / logged_days, 1) if logged_days else 0
+
+        return {
+            "start_date": start_day.isoformat(),
+            "end_date": end_day.isoformat(),
+            "window_days": days,
+            "logged_days": logged_days,
+            "targets": {
+                "calories_kcal": calorie_target,
+                "protein_g": protein_target,
+            },
+            "adherence": {
+                "calorie_pct": round((calorie_met_days / logged_days) * 100, 1) if logged_days else 0,
+                "protein_pct": round((protein_met_days / logged_days) * 100, 1) if logged_days else 0,
+            },
+            "averages": {
+                "calories_kcal": avg_kcal,
+                "protein_g": avg_protein,
+            },
+            "daily": daily,
+        }
