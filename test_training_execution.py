@@ -473,3 +473,15 @@ def test_consistency_endpoint_returns_only_completed_owned_sessions():
     assert response.status_code == 200
     assert response.json()["sessions"] == 1
     assert response.json()["training_days"] == 1
+
+
+def test_completed_session_history_detail_is_owned():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+    assert _log_set(ctx["token"], sid, 1, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(f"/app/training/sessions/{sid}/complete", json={"final_rpe": 7}, headers=_headers(ctx["token"])).status_code == 200
+    response = client.get(f"/app/training/sessions/history/{sid}", headers=_headers(ctx["token"]))
+    assert response.status_code == 200
+    assert response.json()["id"] == sid
+    assert len(response.json()["sets"]) == 1
