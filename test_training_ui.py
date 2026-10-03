@@ -138,3 +138,26 @@ def test_goals_ux_has_empty_error_and_lifecycle_states():
     ]
     for marker in required:
         assert marker in APP_INIT, f"Missing Goals UX state marker: {marker}"
+
+
+def test_training_4abc_execution_ui_contract():
+    required = [
+        '@router.get("/session-ui"',
+        'START -> EXECUTE -> SAVE SET -> COMPLETE',
+        'Aktywna sesja',
+        'Wykonanie',
+        'Zapisz serię',
+        'Edytuj / zapisz',
+        'actual_reps',
+        'actual_weight_kg',
+        'actual_rpe',
+        'note',
+        '/app/training/sessions/start',
+        '/app/training/sessions/',
+        '/sets',
+        '/complete',
+        'Wznowiono aktywną sesję.',
+        'Możesz odświeżyć stronę i wznowić.',
+    ]
+    for marker in required:
+        assert marker in TRAINING_ROUTES, f"Missing Training UX 4A/4B/4C marker: {marker}"
