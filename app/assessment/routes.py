@@ -7,6 +7,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.auth.dependencies import get_current_user
@@ -92,9 +93,9 @@ def create_assessment(
     try:
         session.commit()
         session.refresh(row)
-    except Exception as exc:
+    except IntegrityError as exc:
         session.rollback()
-        raise HTTPException(status_code=409, detail="Konflikt zapisu assessmentu — spróbuj ponownie.") from exc
+        raise HTTPException(status_code=409, detail="Konflikt wersji assessmentu — spróbuj ponownie.") from exc
     return {"status": "created", "assessment": _serialize(row)}
 
 
