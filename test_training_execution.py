@@ -9,7 +9,7 @@ from datetime import date
 from app.auth import routes as auth_routes
 
 from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+from sqlmodel import Session, select, delete
 
 from app.database import engine
 from app.models import ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
@@ -22,9 +22,9 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def _isolate_training_data():
     with Session(engine) as db:
-        db.query(TrainingSetResultDB).delete()
-        db.query(ExerciseResultDB).delete()
-        db.query(TrainingSessionDB).delete()
+        db.exec(delete(TrainingSetResultDB))
+        db.exec(delete(ExerciseResultDB))
+        db.exec(delete(TrainingSessionDB))
         db.commit()
     yield
 
