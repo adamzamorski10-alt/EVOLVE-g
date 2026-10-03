@@ -40,4 +40,4 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python -m alembic heads
       - run: python -m alembic upgrade head
-      - run: python -m alembic current
+      - run: python -m alembic current --check-heads
