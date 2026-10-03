@@ -126,7 +126,7 @@ button{border:0;border-radius:11px;padding:12px 16px;background:#8b5cf6;color:#f
 </div>
 <label>Notatki</label><textarea name="notes" rows="4" maxlength="3000"></textarea>
 <div style="margin-top:18px"><button>Zapisz assessment</button></div><div id="status"></div></form></div>
-<div class="card"><strong>Ostatni assessment</strong><pre id="latest" style="white-space:pre-wrap;color:#aeb7c8"></pre>
+<div class="card"><strong>Ostatni assessment</strong><pre id="latest" style="white-space:pre-wrap;color:#aeb7c8"></pre><pre id="history" style="white-space:pre-wrap;color:#7f8aa0"></pre>
 <div class="links"><a href="/app/plan/ui">Planowanie</a><a href="/app/training/today-ui">Mój dzień</a><a href="/">Aplikacja</a></div></div>
 <script>
 const token=localStorage.getItem("fitai_token"), statusEl=document.getElementById("status"), latest=document.getElementById("latest");
@@ -140,7 +140,16 @@ document.getElementById("f").addEventListener("submit",async e=>{e.preventDefaul
  const r=await fetch("/app/assessment",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify(p)}); const d=await r.json(); statusEl.textContent=r.ok?"Assessment zapisany — wersja "+d.assessment.version+".":"Błąd: "+(d.detail||"nie udało się zapisać"); if(r.ok) load();
 });
 load();
-</script></main></body></html>""")
+<script>
+async function loadAssessmentHistory(){
+ if(!token || !history){return}
+ const r=await fetch("/app/assessment/history",{headers:{Authorization:"Bearer "+token}});
+ if(!r.ok){return}
+ const d=await r.json();
+ history.textContent=d.count?d.assessments.map(a=>"v"+a.version+" · "+a.assessment_date+" · "+(a.status||"completed")).join("\n"):"Brak zapisanych wersji.";
+}
+loadAssessmentHistory();
+</script></script></main></body></html>""")
 
 
 @router.get("/history")
