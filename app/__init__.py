@@ -361,7 +361,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 
       document.getElementById("progressTrends").innerHTML = (trends.exercises || []).map(function(item) {
         var wc=item.weight.change_pct == null ? "—" : (item.weight.change_pct > 0 ? "+" : "") + item.weight.change_pct + "%";
-        return '<button class="item-card" style="width:100%;text-align:left;" onclick="loadEvolveProgressExercise(\'' + encodeURIComponent(item.exercise_key) + '\')"><div class="item-card-head"><div class="item-card-title">' + escapeHtml(item.exercise_name) + '</div><div class="tag">' + item.sessions + ' sesji</div></div><div class="item-card-meta">Ciężar ' + progressTrendLabel(item.weight.trend) + ' (' + wc + ') · Wolumen ' + progressTrendLabel(item.volume.trend) + ' · RPE ' + progressTrendLabel(item.rpe.trend) + '</div></button>';
+        return '<button class="item-card" style="width:100%;text-align:left;" onclick="loadEvolveProgressExercise(\'' + encodeURIComponent(item.exercise_key) + '\')"><div class="item-card-head"><div class="item-card-title">' + escapeHtml(item.exercise_name) + '</div><div class="tag">' + item.sessions + ' sesji</div></div><div class="item-card-meta">Ciężar ' + progressTrendLabel(item.weight.trend) + ' (' + wc + ') · Wolumen ' + progressTrendLabel(item.volume.trend) + ' · RPE ' + progressTrendLabel(item.rpe.trend) + '</div>' + progressSparkline(item.history) + '</button>';
       }).join("") || '<div style="color:var(--muted);">Brak danych do wyznaczenia trendów.</div>';
 
       document.getElementById("progressRecords").innerHTML = (records.exercises || []).map(function(item) {
