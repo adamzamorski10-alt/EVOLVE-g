@@ -38,7 +38,7 @@ def _serialize(goal: GoalDB) -> dict:
         "archived_at": goal.archived_at.isoformat() if goal.archived_at else None,
         "priority": goal.priority, "metric_key": goal.metric_key,
         "baseline_value": goal.baseline_value, "target_value": goal.target_value,
-        "metadata": goal.metadata(),
+        "metadata": goal.metadata_dict(),
         "created_at": goal.created_at.isoformat(), "updated_at": goal.updated_at.isoformat(),
     }
 
