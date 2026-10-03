@@ -225,3 +225,77 @@ def test_effective_plan_rejects_adaptation_derived_from_stale_base():
     assert today.json()["plan"]["source"] == "base"
     assert today.json()["exercises"][0]["weight_kg"] == 999
     assert original_plan["exercises"][0]["weight_kg"] == 100
+
+
+
+def test_uncompleted_sets_do_not_materialize_into_exercise_result():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+
+    response = client.post(
+        f"/app/training/sessions/{sid}/sets",
+        json={
+            "exercise_key": "squat-1",
+            "set_number": 1,
+            "actual_reps": 5,
+            "actual_weight_kg": 105,
+            "actual_rpe": 8,
+            "completed": False,
+        },
+        headers=_headers(ctx["token"]),
+    )
+    assert response.status_code == 200
+
+    completed = client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 8},
+        headers=_headers(ctx["token"]),
+    )
+    assert completed.status_code == 422
+
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        results = db.exec(
+            select(ExerciseResultDB)
+            .where(ExerciseResultDB.user_id == user.id)
+            .where(ExerciseResultDB.session_date == date.today())
+        ).all()
+        assert results == []
+
+
+def test_partial_completion_materializes_only_completed_sets():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+
+    assert client.post(
+        f"/app/training/sessions/{sid}/sets",
+        json={"exercise_key":"squat-1","set_number":1,"actual_reps":5,"actual_weight_kg":105,"actual_rpe":8,"completed":True},
+        headers=_headers(ctx["token"]),
+    ).status_code == 200
+    assert client.post(
+        f"/app/training/sessions/{sid}/sets",
+        json={"exercise_key":"squat-1","set_number":2,"actual_reps":2,"actual_weight_kg":80,"actual_rpe":9,"completed":False},
+        headers=_headers(ctx["token"]),
+    ).status_code == 200
+
+    completed = client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe":8},
+        headers=_headers(ctx["token"]),
+    )
+    assert completed.status_code == 200
+
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        results = db.exec(
+            select(ExerciseResultDB)
+            .where(ExerciseResultDB.user_id == user.id)
+            .where(ExerciseResultDB.source_session_id == sid)
+        ).all()
+        assert len(results) == 1
+        assert results[0].sets == 1
+        assert results[0].reps == 5
+        assert results[0].weight_kg == 105
