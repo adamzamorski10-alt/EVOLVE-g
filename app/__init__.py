@@ -275,6 +275,20 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     }
   };
 
+  function installMyDayRoutingHook() {
+    if (window.__evolveMyDayRoutingHookInstalled) return;
+    if (typeof window.showTab !== "function") return;
+    var originalShowTab = window.showTab;
+    window.showTab = function (tab) {
+      var result = originalShowTab.apply(this, arguments);
+      if (tab === "my-day") {
+        window.loadEvolveMyDay();
+      }
+      return result;
+    };
+    window.__evolveMyDayRoutingHookInstalled = true;
+  }
+
   function installHashRouting() {
     var raw = window.location.hash.replace("#", "");
     if (raw === "my-day" || raw === "training" || raw === "basketball" || raw === "diet" || raw === "recovery" || raw === "progress" || raw === "profile" || raw === "home") {
@@ -284,6 +298,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 
   document.addEventListener("DOMContentLoaded", function () {
     injectMyDayShell();
+    installMyDayRoutingHook();
     installHashRouting();
   });
   window.addEventListener("hashchange", installHashRouting);
