@@ -343,6 +343,25 @@ class NutritionEntryDB(SQLModel, table=True):
             "notes": self.notes,
         }
 
+
+
+class NutritionAdaptationDB(SQLModel, table=True):
+    """Audit trail for bounded nutrition target adaptations."""
+    __tablename__ = "nutrition_adaptations"
+
+    id: Optional[str] = Field(default_factory=lambda: str(_uuid_mod.uuid4()), primary_key=True)
+    user_id: str = Field(foreign_key="users.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.now, index=True)
+    evidence_days: int
+    training_sessions: int
+    base_calories_kcal: int
+    proposed_calories_kcal: int
+    base_protein_g: int
+    proposed_protein_g: int
+    direction: str
+    reason: str
+    status: str = "applied"
+
 class TrainingSessionDB(SQLModel, table=True):
     __tablename__ = "training_sessions"
 
