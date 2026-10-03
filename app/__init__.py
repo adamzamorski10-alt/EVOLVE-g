@@ -138,8 +138,8 @@ def _frontend_index_response(index_path: Path):
             html = fallback_path.read_text(encoding="utf-8")
 
     dashboard_first_bootstrap = """<style id="evolve-dashboard-first-style">
-html.evolve-dashboard-first #landingPage { display: none !important; }
-html.evolve-dashboard-first #dashboardPage.hidden { display: flex !important; }
+html.evolve-dashboard-first #landing { display: none !important; }
+html.evolve-dashboard-first #appContainer { display: flex !important; }
 </style><script>document.documentElement.classList.add('evolve-dashboard-first');</script>"""
 
     evolve_shell_integration = """<script id="evolve-my-day-shell-integration">
