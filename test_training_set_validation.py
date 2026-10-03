@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 
 from app.auth import routes as auth_routes
 from test_training_execution import _context, _headers, client
@@ -373,3 +374,12 @@ def test_training_set_identity_is_database_unique_and_owner_scoped():
     assert "ON training_set_results(session_id, exercise_key, set_number)" in migration
     assert ".where(TrainingSetResultDB.user_id == user.id)" in routes
     assert "except IntegrityError:" in routes
+
+
+def test_completion_is_atomic_and_claims_only_active_owned_session():
+    routes = Path(__file__).parent / "app" / "training" / "routes.py"
+    source = routes.read_text(encoding="utf-8")
+    assert "update(TrainingSessionDB)" in source
+    assert ".where(TrainingSessionDB.user_id == user.id)" in source
+    assert ".where(TrainingSessionDB.status == "active")" in source
+    assert "if claimed != 1:" in source
