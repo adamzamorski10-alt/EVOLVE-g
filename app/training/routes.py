@@ -152,6 +152,35 @@ def _load_base_plan(user: UserDB) -> dict:
         return {}
 
 
+def _base_plan_is_stale(user: UserDB, session: Session, base: dict) -> bool:
+    """Return True when a provenance-aware plan no longer matches current inputs."""
+    provenance = base.get("_evolve_core") if isinstance(base, dict) else None
+    if not isinstance(provenance, dict):
+        return False
+
+    latest_assessment = session.exec(
+        select(AssessmentDB)
+        .where(AssessmentDB.user_id == user.id)
+        .order_by(AssessmentDB.assessment_version.desc(), AssessmentDB.created_at.desc())
+    ).first()
+    current_assessment = _assessment_inputs(latest_assessment)
+
+    if provenance.get("assessment_id") != (latest_assessment.id if latest_assessment else None):
+        return True
+    if provenance.get("assessment_version") != (latest_assessment.assessment_version if latest_assessment else None):
+        return True
+
+    expected_assessment_fp = provenance.get("assessment_fingerprint")
+    if expected_assessment_fp and expected_assessment_fp != _fingerprint(current_assessment):
+        return True
+
+    expected_profile_fp = provenance.get("profile_fingerprint")
+    if expected_profile_fp and expected_profile_fp != _fingerprint(_profile_inputs(user)):
+        return True
+
+    return False
+
+
 def _latest_adaptive_revision(user_id: str, session: Session) -> AdaptivePlanRevisionDB | None:
     return session.exec(
         select(AdaptivePlanRevisionDB)
@@ -779,6 +808,10 @@ def start_training_session(
             ).all()
         )
         return {"status": "resumed", "session": _serialize_session(active, sets)}
+
+    base_plan = _load_base_plan(user)
+    if _base_plan_is_stale(user, session, base_plan):
+        raise HTTPException(status_code=409, detail="Plan jest nieaktualny względem profilu lub assessmentu — wygeneruj go ponownie.")
 
     plan, plan_meta = _effective_plan(user, session)
 
