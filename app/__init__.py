@@ -35,6 +35,7 @@ from app.legacy_routes import router as legacy_router
 from app.meta.routes import router as meta_router
 from app.notifications.discord_bot import bot as discord_bot
 from app.notifications.routes import router as notifications_router
+from app.nutrition.routes import router as nutrition_router
 from app.plan.routes import router as plan_router
 from app.training.routes import router as training_router
 
@@ -78,6 +79,7 @@ app.include_router(fitness_router)
 app.include_router(ai_router)
 app.include_router(meta_router)
 app.include_router(notifications_router)
+app.include_router(nutrition_router)
 app.include_router(plan_router)
 app.include_router(training_router)
 app.include_router(legacy_router)
