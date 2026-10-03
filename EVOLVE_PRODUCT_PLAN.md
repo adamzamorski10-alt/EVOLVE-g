@@ -639,3 +639,14 @@ Recovery now has a usable loop:
 - Run CI after the 6B/6C changes.
 - Perform the Stage 6 safety/hostile audit.
 - Then verify the full browser flow and close EV-020 when external evidence exists.
+
+## Stage 6 — Recovery Response — FINALIZED / HOLD
+
+### FINAL STATUS
+- 6A Recovery Response Foundation: implemented.
+- 6B Native Recovery shell: implemented.
+- 6C Recovery history and trends: implemented.
+- 6D Safety hardening: implemented, including rejection of out-of-range recovery signals.
+- Automated regression contracts: extended for Recovery API, history aggregation, user isolation, transient training constraints, and safety boundaries.
+- External browser/runtime verification remains PENDING and is intentionally the next activity.
+- Stage 7 is intentionally ON HOLD until the outstanding external verification passes and the Stage 0–6 release gate is reviewed.
