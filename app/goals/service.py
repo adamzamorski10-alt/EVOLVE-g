@@ -106,3 +106,38 @@ def transition_goal(session: Session, user: UserDB, goal_id: str, new_status: st
     session.commit()
     session.refresh(row)
     return row
+
+
+SUPPORTED_METRICS = {
+    "best_weight_kg": {"unit": "kg", "direction": "increase"},
+    "best_reps_at_best_weight": {"unit": "reps", "direction": "increase"},
+    "total_volume_kg": {"unit": "kg", "direction": "increase"},
+    "sessions": {"unit": "sessions", "direction": "increase"},
+    "training_days": {"unit": "days", "direction": "increase"},
+    "average_rpe": {"unit": "RPE", "direction": "decrease"},
+}
+
+def validate_metric_key(metric_key: str | None) -> str | None:
+    if metric_key is None:
+        return None
+    value = str(metric_key).strip().lower()
+    if value not in SUPPORTED_METRICS:
+        raise ValueError("Unsupported goal metric")
+    return value
+
+def calculate_progress(current: float | None, baseline: float | None, target: float | None, direction: str) -> dict:
+    if current is None or target is None:
+        return {"percent": None, "remaining": None, "on_track": None}
+    current = float(current)
+    target = float(target)
+    if direction == "decrease":
+        remaining = max(0.0, current - target)
+        denominator = (baseline - target) if baseline is not None else None
+        pct = ((float(baseline) - current) / denominator * 100) if denominator not in (None, 0) else (100.0 if current <= target else 0.0)
+    else:
+        remaining = max(0.0, target - current)
+        denominator = (target - baseline) if baseline is not None else None
+        pct = ((current - float(baseline)) / denominator * 100) if denominator not in (None, 0) else (100.0 if current >= target else 0.0)
+    pct = max(0.0, min(100.0, pct))
+    reached = current <= target if direction == "decrease" else current >= target
+    return {"percent": round(pct, 1), "remaining": round(remaining, 2), "on_track": reached}
