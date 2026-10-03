@@ -6806,6 +6806,7 @@
         return;
       }
       try {
+        const escapeMyDayHtml = value => String(value ?? '').replace(/[&<>\"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[char]));
         const response = await fetch('/app/training/today', {headers:{Authorization:'Bearer '+token}});
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Nie udało się pobrać planu.');
@@ -6815,7 +6816,7 @@
         metaEl.textContent = data.plan?.source === 'adaptive' ? 'Plan v' + data.plan.version + ' · zastosowana adaptacja' : 'Bazowy plan tygodniowy';
         exercisesEl.innerHTML = (data.exercises || []).map(ex =>
           '<div class="rounded-2xl p-4" style="background:rgba(255,255,255,.025);border:1px solid var(--border);"><p class="font-bold text-white">' +
-          escapeHtml(ex.exercise_name) + '</p><p class="text-sm text-gray-500 mt-1">' + ex.sets + ' × ' + ex.reps +
+          escapeMyDayHtml(ex.exercise_name) + '</p><p class="text-sm text-gray-500 mt-1">' + ex.sets + ' × ' + ex.reps +
           (ex.weight_kg ? ' · ' + ex.weight_kg + ' kg' : '') + (ex.rpe ? ' · RPE ' + ex.rpe : '') + '</p></div>'
         ).join('') || '<p class="text-sm text-gray-500">Na dziś nie ma ćwiczeń w aktywnym planie.</p>';
         reasonEl.textContent = data.plan?.source === 'adaptive' ? 'Plan pochodzi z zastosowanej wersji adaptacyjnej.' : 'Plan pochodzi z bazowego planu tygodniowego.';
