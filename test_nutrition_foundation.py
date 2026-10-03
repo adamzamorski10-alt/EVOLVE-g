@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from app.database import engine
-from app.models import NutritionEntryDB, UserDB
+from app.models import NutritionAdaptationDB, NutritionEntryDB, TrainingSessionDB, UserDB
 from main import app
 
 client = TestClient(app)
@@ -244,7 +244,7 @@ def test_nutrition_adaptation_requires_evidence_and_is_bounded_and_audited():
         assert len(audit) == 1
 
 
-def test_nutrition_adaptation_rejects_concurrent_target_change():
+def test_nutrition_adaptation_rejects_insufficient_evidence():
     token = _register()
     response = client.post(
         "/app/nutrition/adaptation/apply?days=14",
