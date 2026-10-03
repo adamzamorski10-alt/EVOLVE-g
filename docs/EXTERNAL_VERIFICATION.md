@@ -390,3 +390,19 @@ Implementation may continue to subsequent stages while these checks remain pendi
   - browser screenshots or equivalent evidence for each native domain
   - final list of discovered defects and their disposition
 - Gate rule: EV-019 remains PENDING until the complete flow has been executed externally. Static inspection and repository tests alone are insufficient.
+
+
+## EV-018 — Stage 0–5 second-user isolation
+- Status: PENDING
+- Verifier: Antygravity + local runner
+- Type: real runtime security verification
+- Scope: create independent User A and User B; create profile/assessment/plan/training/results/goals/nutrition data for A; attempt direct-ID reads, edits, deletes and mutations from B; verify every cross-user action is rejected or returns not-found without leaking data.
+- Evidence required: exact account scenarios, endpoints/screens tested, PASS/FAIL and any leakage found.
+
+## EV-019 — Stage 0–5 full integration release gate
+- Status: PENDING
+- Verifier: Antygravity + local runner
+- Type: full browser/runtime E2E
+- Scope: Register/login → Profile → Assessment → Plan → Mój dzień → Training → Results → Progress → Goals → Nutrition → Adherence → Response → Adaptation. Verify refresh/resume, repeated actions, incomplete/cancelled exclusion, deterministic summaries and no duplicate downstream results.
+- Evidence required: screenshots or equivalent browser evidence, exact automated test command/exit code, migration output, discovered defects and disposition.
+- Gate rule: EV-019 remains PENDING until the complete flow is executed externally.
