@@ -128,32 +128,183 @@ if public_dir.exists():
 
 
 def _frontend_index_response(index_path: Path):
-    """Serve the legacy SPA with a small entry point to the new training dashboard."""
+    """Serve the dashboard shell and inject the native EVOLVE Mój dzień integration."""
     from fastapi.responses import HTMLResponse
-    html = index_path.read_text(encoding="utf-8")
 
-    # The app is currently dashboard-first. Keep the legacy landing markup in the
-    # reference HTML for now, but hide it before the browser paints the document.
-    # This prevents the visible landing-page flash on refresh/direct navigation.
+    html = index_path.read_text(encoding="utf-8")
+    if not html.strip():
+        fallback_path = STATIC_DIR / "fitai_dashboard.html"
+        if fallback_path.exists():
+            html = fallback_path.read_text(encoding="utf-8")
+
     dashboard_first_bootstrap = """<style id="evolve-dashboard-first-style">
 html.evolve-dashboard-first #landingPage { display: none !important; }
 html.evolve-dashboard-first #dashboardPage.hidden { display: flex !important; }
 </style><script>document.documentElement.classList.add('evolve-dashboard-first');</script>"""
+
+    evolve_shell_integration = """<script id="evolve-my-day-shell-integration">
+(function () {
+  function escapeHtml(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char];
+    });
+  }
+
+  function injectMyDayShell() {
+    if (document.getElementById("tab-my-day")) return;
+
+    var sidebar = document.querySelector(".sidebar");
+    var profile = document.getElementById("nav-profile");
+    if (sidebar && profile) {
+      var legacyMyDay = document.getElementById("nav-myday");
+      var legacyPlan = document.getElementById("nav-plan");
+      if (legacyMyDay) legacyMyDay.remove();
+      if (legacyPlan) legacyPlan.remove();
+
+      profile.insertAdjacentHTML("beforebegin",
+        '<button class="nav-btn" id="nav-my-day" data-tab="my-day" onclick="showTab(\'my-day\')">🎯<span class="nav-tooltip">Mój dzień</span></button>' +
+        '<button class="nav-btn" id="nav-training" data-tab="training" onclick="showTab(\'training\')">🏋️<span class="nav-tooltip">Trening</span></button>' +
+        '<button class="nav-btn" id="nav-basketball" data-tab="basketball" onclick="showTab(\'basketball\')">🏀<span class="nav-tooltip">Koszykówka</span></button>' +
+        '<button class="nav-btn" id="nav-diet" data-tab="diet" onclick="showTab(\'diet\')">🥗<span class="nav-tooltip">Dieta</span></button>' +
+        '<button class="nav-btn" id="nav-recovery" data-tab="recovery" onclick="showTab(\'recovery\')">😴<span class="nav-tooltip">Recovery</span></button>' +
+        '<button class="nav-btn" id="nav-progress" data-tab="progress" onclick="showTab(\'progress\')">📈<span class="nav-tooltip">Postępy</span></button>'
+      );
+    }
+
+    var content = document.querySelector(".content");
+    var legacyPanel = document.getElementById("tab-myday");
+    if (!content) return;
+
+    var section =
+      '<div class="tab-panel" id="tab-my-day">' +
+        '<div class="sec-head">' +
+          '<div><div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:700;">Mój dzień 🎯</div>' +
+          '<div style="font-size:13px;color:var(--muted);margin-top:4px;">Dzisiejszy plan, wykonanie i stan sesji w jednym miejscu.</div></div>' +
+          '<div style="font-size:12px;color:var(--muted);" id="myDayDate">—</div>' +
+        '</div>' +
+        '<div id="myDayStatus" class="alert alert-hidden" style="margin-bottom:16px;"></div>' +
+        '<div class="grid-2" style="margin-bottom:16px;">' +
+          '<div class="card" style="padding:20px;">' +
+            '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">DZISIAJ</div>' +
+            '<div id="myDayWorkout" style="font-size:22px;font-weight:700;margin-top:8px;">Ładowanie…</div>' +
+            '<div id="myDayPlanMeta" style="font-size:12px;color:var(--muted);margin-top:6px;">—</div>' +
+            '<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">' +
+              '<a id="myDayStartLink" class="btn btn-primary btn-sm" href="/app/training/session-ui">Rozpocznij trening</a>' +
+              '<a class="btn btn-outline btn-sm" href="/app/training/dashboard">Analiza treningu</a>' +
+            '</div>' +
+          '</div>' +
+          '<div class="card" style="padding:20px;">' +
+            '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">WYKONANIE</div>' +
+            '<div id="myDaySessionProgress" style="font-size:28px;font-weight:700;color:var(--cyan);margin-top:8px;">0%</div>' +
+            '<div id="myDaySessionMeta" style="font-size:12px;color:var(--muted);margin-top:4px;">Brak aktywnej sesji</div>' +
+            '<div class="prog-bar"><div class="prog-fill" id="myDaySessionBar" style="width:0%"></div></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="card" style="padding:20px;">' +
+          '<div class="sec-head" style="margin-bottom:12px;"><div style="font-weight:700;font-size:16px;">🏋️ Dzisiejszy trening</div><div id="myDayExerciseCount" style="font-size:12px;color:var(--muted);">—</div></div>' +
+          '<div id="myDayExercises"><div class="spinner"></div></div>' +
+        '</div>' +
+      '</div>';
+
+    content.insertAdjacentHTML("afterbegin", section);
+
+    if (legacyPanel) legacyPanel.style.display = "none";
+  }
+
+  window.loadEvolveMyDay = async function () {
+    var exercisesEl = document.getElementById("myDayExercises");
+    if (!exercisesEl) return;
+
+    var token = localStorage.getItem("fitai_token");
+    if (!token) {
+      document.getElementById("myDayWorkout").textContent = "Zaloguj się, aby zobaczyć dzisiejszy plan";
+      document.getElementById("myDayPlanMeta").textContent = "Dane treningowe są chronione przez uwierzytelnienie.";
+      exercisesEl.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center;">Brak aktywnej sesji użytkownika.</div>';
+      return;
+    }
+
+    exercisesEl.innerHTML = '<div class="spinner"></div>';
+    try {
+      var response = await fetch("/app/training/today", {
+        headers: {Authorization: "Bearer " + token},
+        cache: "no-store"
+      });
+      var data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Nie udało się pobrać danych Mój dzień");
+
+      document.getElementById("myDayDate").textContent = data.day_label ? data.day_label + ", " + data.date : (data.date || "—");
+      document.getElementById("myDayWorkout").textContent = data.has_workout ? "Trening zaplanowany" : "Dzień bez treningu";
+      document.getElementById("myDayPlanMeta").textContent = data.plan
+        ? ((data.plan.source === "adaptive" ? "Plan adaptacyjny" : "Plan bazowy") + (data.plan.version ? " · wersja " + data.plan.version : ""))
+        : (data.message || "Brak metadanych planu");
+
+      var session = data.session || {};
+      var pct = Math.max(0, Math.min(100, Number(session.completion_pct || 0)));
+      document.getElementById("myDaySessionProgress").textContent = Math.round(pct) + "%";
+      document.getElementById("myDaySessionMeta").textContent = session.id
+        ? (session.completed_sets || 0) + " / " + (session.planned_sets || 0) + " serii"
+        : "Brak aktywnej sesji";
+      document.getElementById("myDaySessionBar").style.width = pct + "%";
+
+      var startLink = document.getElementById("myDayStartLink");
+      startLink.textContent = session.id ? "Wznów trening" : (data.has_workout ? "Rozpocznij trening" : "Brak treningu");
+      startLink.href = "/app/training/session-ui";
+
+      document.getElementById("myDayExerciseCount").textContent = (data.exercises || []).length + " ćwiczeń";
+      if (!data.has_workout) {
+        exercisesEl.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center;">Brak zaplanowanego treningu na dziś.</div>';
+        return;
+      }
+
+      exercisesEl.innerHTML = (data.exercises || []).map(function (exercise, index) {
+        var sets = Number(exercise.sets || 0);
+        var reps = escapeHtml(exercise.reps || "—");
+        var name = escapeHtml(exercise.exercise_name || exercise.name || ("Ćwiczenie " + (index + 1)));
+        var weight = exercise.weight_kg != null ? escapeHtml(exercise.weight_kg + " kg") : "";
+        return '<div class="item-card" style="cursor:default;">' +
+          '<div class="item-card-head"><div class="item-card-title">' + (index + 1) + ". " + name + '</div><div class="tag">' + sets + " serie</div></div>' +
+          '<div class="item-card-meta">' + reps + " powtórzeń" + (weight ? " · " + weight : "") + "</div></div>";
+      }).join("");
+    } catch (error) {
+      var statusEl = document.getElementById("myDayStatus");
+      statusEl.className = "alert alert-warn";
+      statusEl.textContent = "⚠️ " + error.message;
+      document.getElementById("myDayWorkout").textContent = "Nie udało się pobrać planu";
+      document.getElementById("myDayPlanMeta").textContent = "Spróbuj ponownie po chwili.";
+      exercisesEl.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center;">Błąd ładowania danych.</div>';
+    }
+  };
+
+  function installHashRouting() {
+    var raw = window.location.hash.replace("#", "");
+    if (raw === "my-day" || raw === "training" || raw === "basketball" || raw === "diet" || raw === "recovery" || raw === "progress" || raw === "profile" || raw === "home") {
+      if (typeof showTab === "function") showTab(raw);
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    injectMyDayShell();
+    installHashRouting();
+  });
+  window.addEventListener("hashchange", installHashRouting);
+})();
+</script>"""
+
+    if 'id="evolve-my-day-shell-integration"' not in html:
+        html = html.replace("</body>", evolve_shell_integration + "</body>", 1)
+
     if 'id="evolve-dashboard-first-style"' not in html:
         html = html.replace("</head>", dashboard_first_bootstrap + "</head>", 1)
 
-    # Run the normal dashboard initializer after all legacy scripts/functions exist.
-    # The CSS above handles the first-paint flash; this call handles application state.
     dashboard_boot = """<script id="evolve-dashboard-first-boot">
 document.addEventListener('DOMContentLoaded', function () {
-  if (typeof enterDashboard === 'function') enterDashboard();
+  if (typeof enterApp === 'function') enterApp();
 });
 </script>"""
     if 'id="evolve-dashboard-first-boot"' not in html:
         html = html.replace("</body>", dashboard_boot + "</body>", 1)
 
     return HTMLResponse(html, media_type="text/html")
-
 
 # Root route — serve index.html for SPA
 @app.get("/")
