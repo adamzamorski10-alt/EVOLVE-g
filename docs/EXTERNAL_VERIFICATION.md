@@ -423,3 +423,20 @@ Implementation may continue to subsequent stages while these checks remain pendi
   - verify no stored base/adaptive plan is mutated by the transient recovery constraint.
 - Evidence required: browser/runtime screenshots or concise PASS/FAIL notes, exact test data and automated command/exit code.
 - Do not mark PASS from static inspection alone.
+
+
+## EV-021 — Stage 6 final Recovery full-flow verification
+- Status: PENDING
+- Owner: Antygravity / local test runner
+- Scope:
+  - verify Recovery navigation and native shell rendering;
+  - verify today readiness, signals, bounded training effect and explanatory messaging;
+  - verify 14-day history and trend summary;
+  - verify missing days are represented without inventing readiness;
+  - verify malformed/extreme check-in values cannot create unsafe reductions;
+  - verify cross-user Recovery isolation;
+  - verify active training sessions remain resumable;
+  - verify base/adaptive plans remain unchanged after transient Recovery constraints;
+  - verify Stage 0–5 regression remains green after Recovery integration.
+- Evidence required: exact browser/runtime scenarios, screenshots or equivalent evidence, exact automated command + exit code, and PASS/FAIL for each check.
+- Do not mark PASS from static inspection alone.
