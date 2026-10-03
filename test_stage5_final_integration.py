@@ -239,7 +239,7 @@ def test_assessment_change_invalidates_plan_before_training_and_regeneration_res
 
     second = client.post(
         "/app/assessment",
-        json=_assessment_payload(sessions_per_week=3, shooting_pct=61),
+        json=_assessment_payload(sessions_per_week=6, shooting_pct=61),
         headers=_headers(ctx["token"]),
     )
     assert second.status_code == 200, second.text
