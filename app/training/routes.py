@@ -16,7 +16,8 @@ from sqlmodel import Session, select, update
 
 from app.auth.dependencies import get_current_user
 from app.database import get_session
-from app.models import AdaptivePlanRevisionDB, ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
+from app.models import AdaptivePlanRevisionDB, AssessmentDB, ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
+from app.plan.routes import _assessment_inputs, _fingerprint, _profile_inputs
 from app.schemas import TrainingCompleteRequest, TrainingSetResultRequest
 
 router = APIRouter(prefix="/app/training", tags=["training-execution"])
