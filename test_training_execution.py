@@ -84,6 +84,21 @@ def _headers(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+def _log_set(token, session_id, set_number, reps=5, weight=100, rpe=7):
+    return client.post(
+        f"/app/training/sessions/{session_id}/sets",
+        json={
+            "exercise_key": "squat-1",
+            "set_number": set_number,
+            "actual_reps": reps,
+            "actual_weight_kg": weight,
+            "actual_rpe": rpe,
+            "completed": True,
+        },
+        headers=_headers(token),
+    )
+
+
 def test_start_session_snapshots_plan_and_resumes():
     ctx = _context()
     first = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
