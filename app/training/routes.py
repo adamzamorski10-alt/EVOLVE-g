@@ -696,6 +696,8 @@ def get_training_today(
 ):
     """Return the authenticated user's effective training plan for today."""
     target = date.today()
+    base_plan = _load_base_plan(user)
+    plan_stale = _base_plan_is_stale(user, session, base_plan)
     plan, meta = _effective_plan(user, session)
     raw = _extract_workout(plan, target)
     exercises = [
