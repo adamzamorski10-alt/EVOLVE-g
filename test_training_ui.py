@@ -99,3 +99,42 @@ def test_progress_2def_native_shell_contract():
     ]
     for marker in required:
         assert marker in APP_INIT or marker in TRAINING_ROUTES, f"Missing Progress 2D/2E/2F marker: {marker}"
+
+
+
+def test_goals_ux_native_shell_contract():
+    required = [
+        'id="nav-goals"',
+        'id="tab-goals"',
+        'id="goalsSummary"',
+        'id="goalsList"',
+        'id="goalForm"',
+        'id="goalDetail"',
+        'loadEvolveGoals',
+        'openEvolveGoalForm',
+        'saveEvolveGoal',
+        'editEvolveGoal',
+        'loadEvolveGoalDetail',
+        'updateEvolveGoalStatus',
+        'archiveEvolveGoal',
+        '/app/goals',
+        '/app/goals/"',
+        '/progress',
+        'else if (tab === "goals")',
+        'injectGoalsShell();',
+    ]
+    for marker in required:
+        assert marker in APP_INIT, f"Missing Goals UX marker: {marker}"
+
+
+def test_goals_ux_has_empty_error_and_lifecycle_states():
+    required = [
+        'Brak celów. Utwórz pierwszy cel, aby rozpocząć.',
+        'Nie udało się załadować celów.',
+        'Zarchiwizować ten cel?',
+        'Ukończ',
+        'Archiwizuj',
+        'ARCHIWUM',
+    ]
+    for marker in required:
+        assert marker in APP_INIT, f"Missing Goals UX state marker: {marker}"
