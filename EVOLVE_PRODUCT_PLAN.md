@@ -621,3 +621,21 @@ Recovery has its first deterministic product link:
 - Add native Recovery UX to the shared shell.
 - Verify recovery constraint behavior through the full Today → Training browser flow.
 - Add history/trend presentation and safety/edge-case tests before expanding the model.
+
+## Stage 6C — Recovery History & Trends — 2026-10-03
+
+### DONE
+- Added deterministic 14-day recovery history summary.
+- Added average readiness, missing-data days, constrained days, caution days and stronger recovery days.
+- Added native Recovery history view in the shared shell.
+- Kept history read-only; it does not mutate training plans or recovery inputs.
+- Added regression coverage for deterministic history aggregation.
+
+### CURRENT
+Recovery now has a usable loop:
+`CHECK-IN → READINESS → TRANSIENT TRAINING CONSTRAINT → TODAY/TRAINING → 14-DAY HISTORY`.
+
+### NEXT
+- Run CI after the 6B/6C changes.
+- Perform the Stage 6 safety/hostile audit.
+- Then verify the full browser flow and close EV-020 when external evidence exists.
