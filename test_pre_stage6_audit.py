@@ -158,3 +158,32 @@ def test_no_duplicate_http_method_and_path_routes_are_registered():
                 duplicates.append(key)
             seen.add(key)
     assert not duplicates, f"Duplicate FastAPI routes registered: {duplicates}"
+
+
+def test_stage_0_5_api_routes_are_authenticated():
+    public_ui = {
+        "/app",
+        "/app/assessment/ui",
+        "/app/plan/ui",
+        "/app/training/today-ui",
+        "/app/training/session-ui",
+        "/app/training/dashboard",
+    }
+
+    def dependency_names(dependant):
+        names = set()
+        for dependency in getattr(dependant, "dependencies", []):
+            call = getattr(dependency, "call", None)
+            if call is not None:
+                names.add(getattr(call, "__name__", ""))
+            names.update(dependency_names(dependency))
+        return names
+
+    missing_auth = []
+    for route in app.routes:
+        path = getattr(route, "path", "")
+        if not path.startswith("/app/") or path in public_ui:
+            continue
+        if "get_current_user" not in dependency_names(getattr(route, "dependant", None)):
+            missing_auth.append(path)
+    assert not missing_auth, f"App API routes without get_current_user dependency: {sorted(set(missing_auth))}"
