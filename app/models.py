@@ -403,6 +403,9 @@ class GoalDB(SQLModel, table=True):
     archived_at: Optional[datetime] = None
     priority: int = Field(default=0, ge=0, le=100)
     metadata_json: str = "{}"
+    metric_key: Optional[str] = Field(default=None, index=True)
+    baseline_value: Optional[float] = None
+    target_value: Optional[float] = None
     created_at: datetime = Field(default_factory=datetime.now, index=True)
     updated_at: datetime = Field(default_factory=datetime.now, index=True)
 
