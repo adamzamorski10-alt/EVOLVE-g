@@ -298,6 +298,20 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     }
   };
 
+  (function () {
+  var originalShowTab = window.showTab;
+  if (typeof originalShowTab !== "function" || originalShowTab.__evolveNutritionWrapped) return;
+  function wrappedShowTab(tab) {
+    var result = originalShowTab.apply(this, arguments);
+    if (tab === "diet" && typeof window.loadEvolveNutrition === "function") {
+      window.loadEvolveNutrition();
+    }
+    return result;
+  }
+  wrappedShowTab.__evolveNutritionWrapped = true;
+  window.showTab = wrappedShowTab;
+})();
+
   function injectGoalsShell() {
     if (document.getElementById("goalsSummary")) return;
     var content = document.querySelector(".content");
