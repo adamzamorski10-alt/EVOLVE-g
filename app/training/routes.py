@@ -1371,20 +1371,21 @@ const trendLabel=d=>({up:'↗ trend wzrostowy',down:'↘ trend spadkowy',stable:
 async function load(){
  if(!token){status.textContent='Zaloguj się w głównym EVOLVE, aby zobaczyć swoje dane.';return}
  try{
-  const [a,h]=await Promise.all([
+  const [p,a,h]=await Promise.all([
+   fetch('/app/training/progress?limit=12',{headers}),
    fetch('/app/training/adaptive/preview',{headers}),
    fetch('/app/training/sessions/history?limit=8',{headers})
   ]);
-  if([a,h].some(r=>r.status===401||r.status===403)){status.textContent='Sesja logowania wygasła. Wróć do EVOLVE i zaloguj się ponownie.';return}
-  const d=await a.json(), hist=await h.json();
-  if(!d.has_data){status.textContent='Brak ukończonych treningów. Ukończ pierwszy trening, aby uruchomić analizę.';return}
-  status.textContent=d.message;
+  if([p,a,h].some(r=>r.status===401||r.status===403)){status.textContent='Sesja logowania wygasła. Wróć do EVOLVE i zaloguj się ponownie.';return}
+  const prog=await p.json(), d=await a.json(), hist=await h.json();
+  if(!prog.period_sessions){status.textContent='Brak ukończonych treningów. Ukończ pierwszy trening, aby uruchomić historię i analizę.';return}
+  status.textContent=d.message+' Dane podsumowania pochodzą z ukończonych serii.';
   const progress=d.exercises.filter(e=>e.decision==='progress').length;
   const reduce=d.exercises.filter(e=>e.decision==='reduce').length;
-  summary.innerHTML='<div class="card"><div class="label">Sesje analizowane</div><div class="value">'+d.sessions_analyzed+'</div></div>'+
-   '<div class="card"><div class="label">Ćwiczenia</div><div class="value">'+d.exercises.length+'</div></div>'+
-   '<div class="card"><div class="label">Progres</div><div class="value">'+progress+'</div></div>'+
-   '<div class="card"><div class="label">Redukcja</div><div class="value">'+reduce+'</div></div>';
+  summary.innerHTML='<div class="card"><div class="label">Sesje</div><div class="value">'+prog.period_sessions+'</div></div>'+
+   '<div class="card"><div class="label">Serie</div><div class="value">'+prog.total_completed_sets+'</div></div>'+
+   '<div class="card"><div class="label">Wolumen</div><div class="value">'+prog.total_volume_kg+' kg</div></div>'+
+   '<div class="card"><div class="label">Śr. wykonania</div><div class="value">'+prog.average_session_completion_pct+'%</div></div>';
   recommendations.innerHTML=d.exercises.map(e=>{
    const p=e.proposed||{},c=e.current||{},s=e.recent_sessions||[];
    const completion=s.length?Math.min(100,s[0].completed_sets*20):0;
