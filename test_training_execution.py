@@ -485,3 +485,40 @@ def test_completed_session_history_detail_is_owned():
     assert response.status_code == 200
     assert response.json()["id"] == sid
     assert len(response.json()["sets"]) == 1
+
+
+def test_completion_rejects_empty_and_is_idempotent_and_user_scoped():
+    first = _context()
+    second = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(first["token"]))
+    sid = started.json()["session"]["id"]
+
+    foreign = client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7},
+        headers=_headers(second["token"]),
+    )
+    assert foreign.status_code in (403, 404)
+
+    empty = client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7},
+        headers=_headers(first["token"]),
+    )
+    assert empty.status_code == 422
+
+    assert _log_set(first["token"], sid, 1, reps=5, weight=100, rpe=7).status_code == 200
+    done = client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7},
+        headers=_headers(first["token"]),
+    )
+    assert done.status_code == 200
+    repeat = client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 9},
+        headers=_headers(first["token"]),
+    )
+    assert repeat.status_code == 200
+    assert repeat.json()["status"] == "already_completed"
+    assert repeat.json()["session"]["final_rpe"] == 7
