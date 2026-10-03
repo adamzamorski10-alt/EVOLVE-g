@@ -1,7 +1,9 @@
 from pathlib import Path
 
 
-INDEX = Path(__file__).with_name("index.html")
+ROOT = Path(__file__).parent
+INDEX = ROOT / "fitai_dashboard.html"
+APP_INIT = (ROOT / "app" / "__init__.py").read_text(encoding="utf-8")
 
 
 def test_training_execution_ui_is_wired_to_stage2_api():
@@ -10,8 +12,8 @@ def test_training_execution_ui_is_wired_to_stage2_api():
         "evolveStartTrainingBtn",
         "window.evolveStartTraining",
         "/app/training/sessions/start",
-        "/app/training/sessions/" + "' + encodeURIComponent(session.id) + '" + "/sets",
-        "/app/training/sessions/" + "' + encodeURIComponent(session.id) + '" + "/complete",
+        "/app/training/sessions/" + "' + encodeURIComponent(session.id) + " + "/sets",
+        "/app/training/sessions/" + "' + encodeURIComponent(session.id) + " + "/complete",
         "data-save-ex",
         "✓ Zakończ trening",
     ]
@@ -27,24 +29,20 @@ def test_training_execution_ui_keeps_existing_today_container():
 
 
 def test_my_day_is_integrated_into_shared_dashboard_shell():
-    html = INDEX.read_text(encoding="utf-8")
     required = [
         'id="tab-my-day"',
         'data-tab="my-day"',
-        "showTab('my-day')",
-        "loadEvolveMyDay",
-        "/app/training/today",
+        "showTab(\\'my-day\\')",
+        "window.loadEvolveMyDay",
+        'fetch("/app/training/today"',
         'id="myDayWorkout"',
         'id="myDayExercises"',
         'href="/app/training/session-ui"',
     ]
     for marker in required:
-        assert marker in html, f"Missing Mój dzień shell marker: {marker}"
+        assert marker in APP_INIT, f"Missing Mój dzień shell marker: {marker}"
 
 
 def test_my_day_no_longer_navigates_to_standalone_today_ui():
-    html = INDEX.read_text(encoding="utf-8")
-    nav_marker = 'data-tab="my-day"'
-    start = html.index(nav_marker)
-    nav = html[start:html.index("</a>", start)]
-    assert "/app/training/today-ui" not in nav
+    assert 'id="nav-my-day"' in APP_INIT
+    assert "/app/training/today-ui" not in APP_INIT
