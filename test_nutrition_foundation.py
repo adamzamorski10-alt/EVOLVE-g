@@ -141,7 +141,10 @@ def test_nutrition_payload_rejects_negative_macros():
 def test_nutrition_adherence_excludes_unlogged_days_and_uses_bounded_rules():
     token = _register()
     today = datetime.now()
-    for day_offset, kcal, protein in [(2, 2000, 180), (1, 500, 20)]:
+    today_payload = client.get("/app/nutrition/today", headers=_headers(token)).json()
+    target_kcal = float(today_payload["targets"]["calories_kcal"])
+    target_protein = float(today_payload["targets"]["protein_g"])
+    for day_offset, kcal, protein in [(2, target_kcal, target_protein), (1, target_kcal * 0.25, target_protein * 0.25)]:
         response = client.post(
             "/app/nutrition/entries",
             headers=_headers(token),
