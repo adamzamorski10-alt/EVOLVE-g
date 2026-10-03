@@ -91,6 +91,7 @@ def test_progress_2def_native_shell_contract():
         'loadEvolveProgress',
         'loadEvolveProgressExercise',
         'loadEvolveSessionDetail',
+        'progressSparkline',
         '/app/training/progress/consistency?limit=52',
         '/app/training/sessions/history?limit=12',
         '/app/training/sessions/history/"',
