@@ -46,3 +46,11 @@ def test_recovery_constraint_reduces_planned_sets_without_mutating_input():
     assert constraint == "reduce_volume_50"
     assert constrained["days"][0]["workout"]["exercises"][0]["sets"] == 2
     assert plan["days"][0]["workout"]["exercises"][0]["sets"] == 4
+
+
+def test_recovery_history_summary_is_deterministic():
+    from app.recovery.routes import evaluate_recovery
+    ready = evaluate_recovery(_log(sleep_hours=8, energy_level=9))
+    caution = evaluate_recovery(_log(sleep_hours=6, energy_level=6))
+    assert ready["constraint"] == "none"
+    assert caution["constraint"] == "reduce_volume_25"
