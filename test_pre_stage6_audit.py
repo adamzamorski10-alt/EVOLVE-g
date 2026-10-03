@@ -188,3 +188,8 @@ def test_stage_0_5_api_routes_are_authenticated():
         if "get_current_user" not in dependency_names(getattr(route, "dependant", None)):
             missing_auth.append(path)
     assert not missing_auth, f"App API routes without get_current_user dependency: {sorted(set(missing_auth))}"
+
+
+def test_audit_file_is_syntactically_valid():
+    import ast
+    ast.parse(Path(__file__).read_text(encoding="utf-8"))
