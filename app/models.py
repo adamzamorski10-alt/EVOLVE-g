@@ -478,7 +478,7 @@ class GoalDB(SQLModel, table=True):
         )
     )
 
-    def metadata(self) -> dict:
+    def metadata_dict(self) -> dict:
         try:
             value = json.loads(self.metadata_json or "{}")
             return value if isinstance(value, dict) else {}
