@@ -41,6 +41,13 @@ def test_my_day_removes_standalone_today_dependency_from_navigation():
     assert "/app/training/today-ui" not in APP_INIT
 
 
+def test_my_day_empty_state_disables_training_start_cta():
+    assert "var canStartTraining = Boolean(data.has_workout);" in APP_INIT
+    assert 'startLink.removeAttribute("href");' in APP_INIT
+    assert 'startLink.setAttribute("aria-disabled", "true");' in APP_INIT
+    assert 'startLink.classList.add("btn-ghost");' in APP_INIT
+
+
 def test_frontend_has_fallback_when_generated_index_is_empty():
     assert 'if not html.strip():' in APP_INIT
     assert 'STATIC_DIR / "fitai_dashboard.html"' in APP_INIT
