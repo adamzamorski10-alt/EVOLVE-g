@@ -355,6 +355,10 @@ def start_training_session(
         session.refresh(new_session)
     except SQLAlchemyError as exc:
         session.rollback()
+        active = session.exec(select(TrainingSessionDB).where(TrainingSessionDB.user_id == user.id).where(TrainingSessionDB.session_date == target_date).where(TrainingSessionDB.status == "active")).first()
+        if active:
+            sets = list(session.exec(select(TrainingSetResultDB).where(TrainingSetResultDB.session_id == active.id).order_by(TrainingSetResultDB.exercise_key, TrainingSetResultDB.set_number)).all())
+            return {"status": "resumed", "session": _serialize_session(active, sets)}
         raise HTTPException(status_code=500, detail="Nie udało się rozpocząć sesji") from exc
 
     return {"status": "started", "session": _serialize_session(new_session, [])}
