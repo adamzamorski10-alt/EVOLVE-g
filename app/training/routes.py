@@ -274,6 +274,98 @@ def get_exercise_history(
     }
 
 
+@router.get("/progress")
+def get_training_progress(
+    limit: int = 12,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return deterministic, user-scoped progress aggregates from completed execution data."""
+    limit = max(1, min(limit, 52))
+    sessions = list(
+        session.exec(
+            select(TrainingSessionDB)
+            .where(TrainingSessionDB.user_id == user.id)
+            .where(TrainingSessionDB.status == "completed")
+            .order_by(TrainingSessionDB.session_date.desc(), TrainingSessionDB.completed_at.desc())
+            .limit(limit)
+        ).all()
+    )
+    session_ids = [row.id for row in sessions]
+    completed_sets: list[TrainingSetResultDB] = []
+    if session_ids:
+        completed_sets = list(
+            session.exec(
+                select(TrainingSetResultDB)
+                .where(TrainingSetResultDB.user_id == user.id)
+                .where(TrainingSetResultDB.session_id.in_(session_ids))
+                .where(TrainingSetResultDB.completed == True)
+                .order_by(TrainingSetResultDB.logged_at.desc())
+            ).all()
+        )
+
+    by_exercise: dict[str, list[TrainingSetResultDB]] = {}
+    for item in completed_sets:
+        by_exercise.setdefault(item.exercise_key, []).append(item)
+
+    exercise_summaries = []
+    for key, items in by_exercise.items():
+        weights = [float(item.actual_weight_kg or 0) for item in items]
+        reps = [int(item.actual_reps or 0) for item in items]
+        volume = sum(weight * rep for weight, rep in zip(weights, reps))
+        best_weight = max(weights) if weights else 0.0
+        best_reps_at_weight = max(
+            (item.actual_reps for item in items if float(item.actual_weight_kg or 0) == best_weight),
+            default=0,
+        )
+        rpes = [float(item.actual_rpe) for item in items if item.actual_rpe is not None]
+        exercise_summaries.append({
+            "exercise_key": key,
+            "exercise_name": items[0].exercise_name,
+            "sets": len(items),
+            "sessions": len({item.session_id for item in items}),
+            "total_volume_kg": round(volume, 2),
+            "best_weight_kg": round(best_weight, 2),
+            "best_reps_at_best_weight": best_reps_at_weight,
+            "average_rpe": round(sum(rpes) / len(rpes), 2) if rpes else None,
+            "latest_date": max(
+                (training.session_date for training in sessions if training.id in {item.session_id for item in items}),
+                default=None,
+            ).isoformat() if items else None,
+        })
+
+    exercise_summaries.sort(key=lambda item: (-item["total_volume_kg"], item["exercise_name"]))
+    total_volume = round(sum(item["total_volume_kg"] for item in exercise_summaries), 2)
+    total_sets = len(completed_sets)
+    training_days = len({row.session_date for row in sessions})
+    completion_rates = []
+    for row in sessions:
+        planned = row.planned_snapshot()
+        planned_sets = sum(max(0, int(item.get("sets") or 0)) for item in planned.get("exercises", []) if isinstance(item, dict))
+        actual = sum(1 for item in completed_sets if item.session_id == row.id)
+        if planned_sets:
+            completion_rates.append(actual / planned_sets * 100)
+
+    return {
+        "period_sessions": len(sessions),
+        "training_days": training_days,
+        "total_completed_sets": total_sets,
+        "total_volume_kg": total_volume,
+        "average_session_completion_pct": round(sum(completion_rates) / len(completion_rates), 1) if completion_rates else 0,
+        "latest_session_date": sessions[0].session_date.isoformat() if sessions else None,
+        "exercises": exercise_summaries,
+        "sessions": [
+            {
+                "session_id": row.id,
+                "date": row.session_date.isoformat(),
+                "final_rpe": row.final_rpe,
+                "completed_sets": sum(1 for item in completed_sets if item.session_id == row.id),
+            }
+            for row in sessions
+        ],
+    }
+
+
 @router.get("/today")
 def get_training_today(
     user: UserDB = Depends(get_current_user),
