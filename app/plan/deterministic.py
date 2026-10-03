@@ -192,12 +192,12 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
 
             exercise_limit = 4
             if _assessment_value(assessment, "training_level") == "początkujący":
+                exercise_limit = 3
             recovery = _assessment_value(assessment, "recovery_score")
             if recovery is not None and int(recovery) <= 4:
                 exercise_limit = min(exercise_limit, 2)
             elif recovery is not None and int(recovery) <= 6:
                 exercise_limit = min(exercise_limit, 3)
-                exercise_limit = 3
             hours = _assessment_value(assessment, "availability_hours_per_week")
             if hours is not None and target_days and float(hours) / target_days < 0.75:
                 exercise_limit = min(exercise_limit, 3)
