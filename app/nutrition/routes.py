@@ -278,6 +278,7 @@ def nutrition_response(
                 "signal": "collect_more_data",
                 "message": "Potrzeba co najmniej 3 zalogowanych dni, aby wyznaczyć reakcję żywieniową.",
                 "target_change": None,
+                "adaptation_allowed": False,
             }
 
         avg_kcal = sum(row[1] for row in daily) / logged_days
