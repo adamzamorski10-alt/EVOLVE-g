@@ -346,3 +346,43 @@ def test_progress_endpoint_ignores_incomplete_sets():
     assert progress.status_code == 200
     assert progress.json()["total_completed_sets"] == 1
     assert progress.json()["total_volume_kg"] == 500
+
+
+def test_progress_excludes_active_and_cancelled_sessions():
+    ctx = _context()
+
+    active = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert active.status_code == 200
+    active_id = active.json()["session"]["id"]
+    assert _log_set(ctx["token"], active_id, 1, reps=5, weight=100, rpe=7).status_code == 200
+
+    cancelled = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert cancelled.status_code == 200
+    cancelled_id = cancelled.json()["session"]["id"]
+    assert cancelled_id != active_id
+
+    with Session(engine) as db:
+        cancelled_row = db.exec(
+            select(TrainingSessionDB).where(TrainingSessionDB.id == cancelled_id)
+        ).first()
+        assert cancelled_row is not None
+        cancelled_row.status = "cancelled"
+        db.add(cancelled_row)
+        db.commit()
+
+    progress = client.get("/app/training/progress?limit=52", headers=_headers(ctx["token"]))
+    assert progress.status_code == 200
+    assert progress.json()["period_sessions"] == 0
+    assert progress.json()["total_completed_sets"] == 0
+    assert progress.json()["exercises"] == []
+
+
+def test_progress_limit_is_bounded():
+    ctx = _context()
+    response = client.get("/app/training/progress?limit=9999", headers=_headers(ctx["token"]))
+    assert response.status_code == 200
+    assert len(response.json()["sessions"]) <= 52
+
+    response = client.get("/app/training/progress?limit=0", headers=_headers(ctx["token"]))
+    assert response.status_code == 200
+    assert len(response.json()["sessions"]) <= 1
