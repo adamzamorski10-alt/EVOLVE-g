@@ -8154,7 +8154,14 @@
     function showTabFromHash() {
       const tabId = decodeURIComponent(window.location.hash.replace(/^#/, ''));
       if (!tabId || !document.getElementById('tab-' + tabId)) return;
-      showTab(tabId);
+      // Deep links such as /app#my-day must enter the authenticated dashboard,
+      // not leave the user on the public landing page.
+      if (typeof enterDashboard === 'function') {
+        enterDashboard();
+        showTab(tabId);
+      } else {
+        showTab(tabId);
+      }
     }
 
     window.addEventListener('DOMContentLoaded', showTabFromHash);

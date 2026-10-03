@@ -16,3 +16,11 @@ def test_frontend_supports_hash_deep_link_to_my_day():
     assert "showTabFromHash" in html
     assert "window.location.hash.replace" in html
     assert "hashchange" in html
+
+
+def test_frontend_deep_link_enters_dashboard_before_selecting_tab():
+    html = (Path(__file__).parent / "index.html").read_text(encoding="utf-8")
+
+    assert "typeof enterDashboard === 'function'" in html
+    assert "enterDashboard();" in html
+    assert "showTab(tabId);" in html
