@@ -444,6 +444,7 @@ def log_training_set(
     existing = session.exec(
         select(TrainingSetResultDB)
         .where(TrainingSetResultDB.session_id == row.id)
+        .where(TrainingSetResultDB.user_id == user.id)
         .where(TrainingSetResultDB.exercise_key == payload.exercise_key)
         .where(TrainingSetResultDB.set_number == payload.set_number)
     ).first()
