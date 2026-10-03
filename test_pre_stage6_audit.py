@@ -163,6 +163,7 @@ def test_no_duplicate_http_method_and_path_routes_are_registered():
 def test_stage_0_5_api_routes_are_authenticated():
     public_ui = {
         "/app",
+        "/app/version",
         "/app/assessment/ui",
         "/app/plan/ui",
         "/app/training/today-ui",
