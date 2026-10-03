@@ -1651,6 +1651,15 @@ function render(){
   }).join('')+'</div></section>'
  }).join(''):'<div class="progress-card empty">Brak ćwiczeń w snapshotcie tej sesji.</div>';
  renderProgress();
+ if(current.status==='active')focusNext(); else renderSummary();
+}
+function renderSummary(){
+ const sets=(current.sets||[]).filter(s=>s.completed);
+ const volume=sets.reduce((n,s)=>n+Number(s.actual_weight_kg||0)*Number(s.actual_reps||0),0);
+ const rpes=sets.filter(s=>s.actual_rpe!=null);
+ const avg=rpes.length?(rpes.reduce((n,s)=>n+Number(s.actual_rpe),0)/rpes.length).toFixed(1):'—';
+ workoutEl.innerHTML='<div class="progress-card"><h2>Podsumowanie treningu</h2><p><b>'+sets.length+'</b> wykonanych serii z '+plannedCount()+' · <b>'+Math.round(sets.length/Math.max(plannedCount(),1)*100)+'%</b> planu</p><p>Wolumen: <b>'+Math.round(volume*10)/10+' kg</b> · Śr. RPE serii: <b>'+avg+'</b></p><p class="meta">Końcowe RPE: '+(current.final_rpe??'—')+' · '+(current.session_date||'')+'</p><a class="btn" href="/app#progress">Przejdź do Postępów →</a></div>';
+ completeEl.classList.add('hidden');stopRest();focusNext();
 }
 async function logSet(encodedKey,n,button){
  if(!current||current.status!=='active'||saving)return;
