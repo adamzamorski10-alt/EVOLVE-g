@@ -299,3 +299,50 @@ def test_partial_completion_materializes_only_completed_sets():
         assert results[0].sets == 1
         assert results[0].reps == 5
         assert results[0].weight_kg == 105
+
+
+def test_progress_aggregates_only_completed_owned_execution_data():
+    first = _context()
+    second = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(first["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+    for number in (1, 2, 3):
+        assert _log_set(first["token"], sid, number, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7},
+        headers=_headers(first["token"]),
+    ).status_code == 200
+
+    own = client.get("/app/training/progress", headers=_headers(first["token"]))
+    foreign = client.get("/app/training/progress", headers=_headers(second["token"]))
+    assert own.status_code == 200
+    assert own.json()["period_sessions"] == 1
+    assert own.json()["total_completed_sets"] == 3
+    assert own.json()["total_volume_kg"] == 1500
+    assert own.json()["exercises"][0]["best_weight_kg"] == 100
+    assert foreign.status_code == 200
+    assert foreign.json()["period_sessions"] == 0
+    assert foreign.json()["total_completed_sets"] == 0
+
+
+def test_progress_endpoint_ignores_incomplete_sets():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+    assert _log_set(ctx["token"], sid, 1, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(
+        f"/app/training/sessions/{sid}/sets",
+        json={"exercise_key":"squat-1","set_number":2,"actual_reps":20,"actual_weight_kg":200,"actual_rpe":10,"completed":False},
+        headers=_headers(ctx["token"]),
+    ).status_code == 200
+    assert client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7},
+        headers=_headers(ctx["token"]),
+    ).status_code == 200
+    progress = client.get("/app/training/progress", headers=_headers(ctx["token"]))
+    assert progress.status_code == 200
+    assert progress.json()["total_completed_sets"] == 1
+    assert progress.json()["total_volume_kg"] == 500
