@@ -53,3 +53,13 @@ def test_my_day_shell_ignores_stale_daily_responses():
     assert "var myDayLoadSequence = 0;" in APP_INIT
     assert "var requestId = ++myDayLoadSequence;" in APP_INIT
     assert "if (requestId !== myDayLoadSequence) return;" in APP_INIT
+
+
+def test_training_progress_endpoint_and_dashboard_contract():
+    assert '@router.get("/progress")' in TRAINING_ROUTES
+    assert "total_volume_kg" in TRAINING_ROUTES
+    assert "total_completed_sets" in TRAINING_ROUTES
+    assert "fetch('/app/training/progress?limit=12'" in TRAINING_ROUTES
+    response = client.get("/app/training/dashboard")
+    assert response.status_code == 200
+    assert "Postępy treningowe" in response.text
