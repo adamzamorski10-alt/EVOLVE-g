@@ -39,8 +39,9 @@ from app.nutrition.routes import router as nutrition_router
 from app.plan.routes import router as plan_router
 from app.training.routes import router as training_router
 
-# Eager bootstrap so older SQLite workspaces get missing columns before the first request.
-create_db_and_tables()
+# Eager bootstrap for normal application runtime; Alembic imports the models without mutating the target DB.
+if os.getenv("EVOLVE_ALEMBIC_CONTEXT") != "1":
+    create_db_and_tables()
 
 # Initialize FastAPI app
 app = FastAPI(
