@@ -66,6 +66,9 @@ def test_shared_shell_contains_integrated_my_day():
     assert '<span>🎯</span><span>Mój dzień</span>' in html
     assert "fetch('/app/training/today'" in html
     assert "function loadMyDay()" in html
+    assert 'id="myDaySessionProgress"' in html
+    assert "data.session" in html
+    assert "Wznów trening" in html
     assert 'href="/app/training/today-ui"' not in html
 
 
