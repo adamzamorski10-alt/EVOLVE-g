@@ -4,7 +4,9 @@ import ast
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+import jwt
 
+from app.config import JWT_ALGORITHM, JWT_SECRET_KEY
 from main import app
 
 
@@ -196,3 +198,13 @@ def test_all_app_and_migration_python_files_parse():
             except SyntaxError as exc:
                 failures.append(f"{path}: {exc}")
     assert not failures, "\n".join(failures)
+
+
+def test_signed_jwt_without_subject_is_rejected_as_unauthorized():
+    token = jwt.encode(
+        {"type": "access", "email": "attacker@example.com"},
+        JWT_SECRET_KEY,
+        algorithm=JWT_ALGORITHM,
+    )
+    response = client.get("/app/plan/current", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 401, response.text
