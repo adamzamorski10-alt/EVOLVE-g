@@ -250,3 +250,21 @@ Implementation may continue to subsequent stages while these checks remain pendi
 - Status: PENDING
 - Scope: rest timer/skip, next exercise focus, partial execution, completion summary, Progress/History consistency, refresh/resume, repeated actions, mobile layout, security/ownership, focused tests, full regression and migration integrity.
 - Evidence required: exact commands and exit codes plus browser/device evidence. Do not mark PASS from static inspection alone.
+
+
+## EV-014 — Stage 5A Nutrition Foundation
+- Status: PENDING
+- Owner: Antygravity / local test runner
+- Scope:
+  - authenticated nutrition entry creation
+  - structured calories/protein/carbs/fat/fiber/water persistence
+  - today aggregation and target/remaining calculations
+  - date-range history and 31-day bound
+  - malformed/negative payload rejection
+  - cross-user entry isolation and delete protection
+  - repeated delete behavior
+  - migration chain integrity (`evolve17goalmetrics -> evolve18nutrition`)
+  - native shell/API integration once Dieta UX is introduced
+- Evidence required: exact automated commands and exit codes, API/browser evidence where applicable, migration check output and discrepancies.
+- Do not mark PASS from static inspection alone.
+
