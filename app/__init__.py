@@ -727,8 +727,6 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     window.loadEvolveNutrition();
   };
 })();
-</script>
-
 </script>"""
     if 'id="evolve-nutrition-shell-integration"' not in html:
         html = html.replace("</body>", nutrition_shell_integration + "</body>", 1)
