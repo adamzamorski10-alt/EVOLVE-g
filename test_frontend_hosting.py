@@ -57,3 +57,20 @@ def test_server_serves_dashboard_first_without_landing_flash():
     assert "document.documentElement.classList.add('evolve-dashboard-first')" in app_init
     assert 'id="evolve-dashboard-first-boot"' in app_init
     assert "if (typeof enterDashboard === 'function') enterDashboard();" in app_init
+
+
+def test_shared_shell_contains_integrated_my_day():
+    html = (Path(__file__).parent / "app" / "index.html").read_text(encoding="utf-8")
+
+    assert 'id="tab-my-day"' in html
+    assert '<span>🎯</span><span>Mój dzień</span>' in html
+    assert "fetch('/app/training/today'" in html
+    assert "function loadMyDay()" in html
+    assert 'href="/app/training/today-ui"' not in html
+
+
+def test_transitional_training_floating_entry_is_removed():
+    app_init = (Path(__file__).parent / "app" / "__init__.py").read_text(encoding="utf-8")
+
+    assert 'id="evolve-training-dashboard-entry"' not in app_init
+    assert 'id="evolve-training-entry"' not in app_init
