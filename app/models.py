@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
+from sqlalchemy import UniqueConstraint
 
 if TYPE_CHECKING:
     from app.fitness.calculations import _xp_to_level  # avoid circular import
@@ -460,6 +461,7 @@ class AssessmentDB(SQLModel, table=True):
     """Versioned baseline assessment owned by one authenticated user."""
 
     __tablename__ = "assessments"
+    __table_args__ = (UniqueConstraint("user_id", "assessment_version", name="uq_assessments_user_version"),)
 
     id: Optional[str] = Field(default_factory=lambda: str(_uuid_mod.uuid4()), primary_key=True)
     user_id: str = Field(foreign_key="users.id", index=True)
