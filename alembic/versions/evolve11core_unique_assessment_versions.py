@@ -13,16 +13,16 @@ depends_on = None
 
 
 def upgrade():
-    op.create_unique_constraint(
-        "uq_assessments_user_version",
-        "assessments",
-        ["user_id", "assessment_version"],
-    )
+    with op.batch_alter_table("assessments") as batch:
+        batch.create_unique_constraint(
+            "uq_assessments_user_version",
+            ["user_id", "assessment_version"],
+        )
 
 
 def downgrade():
-    op.drop_constraint(
-        "uq_assessments_user_version",
-        "assessments",
-        type_="unique",
-    )
+    with op.batch_alter_table("assessments") as batch:
+        batch.drop_constraint(
+            "uq_assessments_user_version",
+            type_="unique",
+        )
