@@ -127,6 +127,14 @@ def test_migration_chain_has_single_head_through_stage_5():
     for revision, parent in expected.items():
         assert revisions.get(revision) == parent
 
+    expected_legacy = {
+        "9d8e7f6a5b43": "c8b1f3d9a77d",
+        "a1b2c3d4e5f6": "9d8e7f6a5b43",
+        "72efb594294f": "a1b2c3d4e5f6",
+    }
+    for revision, parent in expected_legacy.items():
+        assert revisions.get(revision) == parent
+
     children = set()
     for parent in revisions.values():
         if isinstance(parent, tuple):
