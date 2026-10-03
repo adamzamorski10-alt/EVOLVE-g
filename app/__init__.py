@@ -378,10 +378,10 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     if(!list)return; if(status){status.className="alert alert-hidden";status.textContent="";} list.innerHTML='<div class="spinner"></div>';
     try{
       var data=await goalFetch("/app/goals"); if(id!==goalsLoadSequence)return;
-      var goals=data.goals||[], active=goals.filter(function(g){return g.status==="active";}), done=goals.filter(function(g){return g.status==="completed";});
-      summary.innerHTML=progressMetricCard("AKTYWNE",active.length,"cele") + progressMetricCard("UKOŃCZONE",done.length,"cele") + progressMetricCard("Z TERMINEM",active.filter(function(g){return g.target_date;}).length,"aktywne") + progressMetricCard("MIERZALNE",active.filter(function(g){return g.metric_key;}).length,"aktywne");
+      var goals=data.goals||[], active=goals.filter(function(g){return g.status==="active";}), done=goals.filter(function(g){return g.status==="completed";}), archived=goals.filter(function(g){return g.status==="archived";}), cancelled=goals.filter(function(g){return g.status==="cancelled";});
+      summary.innerHTML=progressMetricCard("AKTYWNE",active.length,"cele") + progressMetricCard("UKOŃCZONE",done.length,"cele") + progressMetricCard("ARCHIWUM",archived.length,"cele") + progressMetricCard("Z TERMINEM",active.filter(function(g){return g.target_date;}).length,"aktywne") + progressMetricCard("MIERZALNE",active.filter(function(g){return g.metric_key;}).length,"aktywne");
       var progress=await Promise.all(active.map(function(g){return goalFetch("/app/goals/"+encodeURIComponent(g.id)+"/progress").catch(function(){return null;});}));
-      list.innerHTML=(active.concat(done)).map(function(g){var p=progress[active.indexOf(g)];return goalCard(g,p);}).join("") || '<div class="card" style="padding:28px;text-align:center;color:var(--muted);">Brak celów. Utwórz pierwszy cel, aby rozpocząć.</div>';
+      list.innerHTML=(active.concat(done).concat(cancelled).concat(archived)).map(function(g){var p=progress[active.indexOf(g)];return goalCard(g,p);}).join("") || '<div class="card" style="padding:28px;text-align:center;color:var(--muted);">Brak celów. Utwórz pierwszy cel, aby rozpocząć.</div>';
     }catch(e){showEvolveGoalError(e.message);list.innerHTML='<div class="card" style="padding:28px;text-align:center;color:var(--muted);">Nie udało się załadować celów.</div>';}
   };
   window.editEvolveGoal = async function(id){ try { var g=await goalFetch("/app/goals/"+encodeURIComponent(id)); openEvolveGoalForm(g); document.getElementById("goalForm").scrollIntoView({behavior:"smooth",block:"nearest"}); } catch(e) { showEvolveGoalError(e.message); } };
