@@ -60,3 +60,19 @@ def test_training_progress_endpoint_and_dashboard_contract():
     assert "total_volume_kg" in TRAINING_ROUTES
     assert "total_completed_sets" in TRAINING_ROUTES
     assert "fetch('/app/training/progress?limit=12'" in TRAINING_ROUTES
+
+
+def test_training_progress_2abc_contracts_are_present():
+    required = [
+        '@router.get("/progress/exercises/{exercise_key}")',
+        '@router.get("/progress/trends")',
+        '@router.get("/progress/records")',
+        '"best_weight"',
+        '"best_reps"',
+        '"best_session_volume"',
+        '"weight": {"trend"',
+        '"volume": {"trend"',
+        '"rpe": {"trend"',
+    ]
+    for marker in required:
+        assert marker in TRAINING_ROUTES, f"Missing Progress 2A/2B/2C marker: {marker}"
