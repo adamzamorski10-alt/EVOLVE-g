@@ -180,3 +180,10 @@ For every future implementation stage:
 | EV-006 | 2 | Trends/records/consistency/history | PENDING |
 | EV-007 | 2 | Main-shell Progress navigation | PENDING |
 | EV-008 | 2+ | Local automated regression | PENDING |
+
+
+## Deferred verification note — 2026-10-03
+
+The user is currently unable to run external verification prompts. Do not block implementation on this. EV-001 through EV-008 remain **PENDING** and must be executed later when the user has access to Antygravity/Copilot/Kilo. Generate the copy-paste prompts from the scopes above at that time. Do not mark these checks PASS based on static review alone.
+
+Implementation may continue to subsequent stages while these checks remain pending, provided each new stage records its own required external verification items here.
