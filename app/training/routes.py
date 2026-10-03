@@ -347,6 +347,7 @@ def get_training_progress(
             completion_rates.append(actual / planned_sets * 100)
 
     return {
+        "limit": limit,
         "period_sessions": len(sessions),
         "training_days": training_days,
         "total_completed_sets": total_sets,
