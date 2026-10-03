@@ -202,3 +202,16 @@ def test_stage_0_5_api_routes_are_authenticated():
 def test_audit_file_is_syntactically_valid():
     import ast
     ast.parse(Path(__file__).read_text(encoding="utf-8"))
+
+
+def test_all_app_and_migration_python_files_parse():
+    import ast
+    roots = [ROOT / "app", ROOT / "alembic"]
+    failures = []
+    for base in roots:
+        for path in base.rglob("*.py"):
+            try:
+                ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            except SyntaxError as exc:
+                failures.append(f"{path}: {exc}")
+    assert not failures, "\n".join(failures)
