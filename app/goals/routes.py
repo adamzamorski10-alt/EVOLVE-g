@@ -43,6 +43,20 @@ def _serialize(goal: GoalDB) -> dict:
     }
 
 
+
+
+def _validate_metric_values(metric: str | None, baseline: float | None, target: float | None) -> None:
+    if metric is None:
+        if baseline is not None or target is not None:
+            raise ValueError("metric_key is required for metric values")
+        return
+    if target is None:
+        raise ValueError("target_value is required when metric_key is set")
+    if metric in {"best_weight_kg", "total_volume_kg", "sessions", "training_days", "best_reps_at_best_weight"} and target < 0:
+        raise ValueError("target_value cannot be negative for this metric")
+    if metric == "average_rpe" and not 1 <= target <= 10:
+        raise ValueError("average_rpe target must be between 1 and 10")
+
 def _owned_or_404(db: Session, user: UserDB, goal_id: str) -> GoalDB:
     row = get_goal_for_user(db, user, goal_id)
     if row is None:
@@ -65,10 +79,10 @@ def create_goal_api(
         start = _parse_date(payload.start_date, "start_date") or date.today()
         target_date = _parse_date(payload.target_date, "target_date")
         metric = validate_metric_key(payload.metric_key)
-        if metric is not None and payload.target_value is None:
-            raise ValueError("target_value is required when metric_key is set")
-        if metric is None and (payload.target_value is not None or payload.baseline_value is not None):
-            raise ValueError("metric_key is required for metric values")
+        _validate_metric_values(metric, payload.baseline_value, payload.target_value)
+        duplicate = db.exec(select(GoalDB).where(GoalDB.user_id == user.id).where(GoalDB.goal_type == payload.goal_type.strip().lower()).where(GoalDB.title == payload.title.strip()).where(GoalDB.status == "active")).first()
+        if duplicate:
+            raise HTTPException(status_code=409, detail="Aktywny cel o tej nazwie i typie już istnieje")
         goal = create_goal(db, user, goal_type=payload.goal_type, title=payload.title,
                            description=payload.description, start_date=start,
                            target_date=target_date, priority=payload.priority,
@@ -119,7 +133,7 @@ def update_goal_api(
         if "metric_key" in data: goal.metric_key = validate_metric_key(data["metric_key"])
         if "baseline_value" in data: goal.baseline_value = data["baseline_value"]
         if "target_value" in data: goal.target_value = data["target_value"]
-        if goal.metric_key and goal.target_value is None: raise ValueError("target_value is required when metric_key is set")
+        _validate_metric_values(goal.metric_key, goal.baseline_value, goal.target_value)
         if "metadata" in data: 
             import json
             goal.metadata_json = json.dumps(data["metadata"] or {}, ensure_ascii=False, sort_keys=True)
@@ -196,6 +210,12 @@ def get_goal_progress(goal_id: str, user: UserDB = Depends(get_current_user), db
     current = history[-1]["value"] if history else None
     definition = SUPPORTED_METRICS[metric]
     calc = calculate_progress(current, goal.baseline_value, goal.target_value, definition["direction"])
+    on_track = calc["on_track"]
+    if on_track is not True and goal.target_date and goal.baseline_value is not None and goal.target_value is not None and goal.target_date > goal.start_date:
+        total_days = (goal.target_date - goal.start_date).days
+        elapsed_days = max(0, min(total_days, (date.today() - goal.start_date).days))
+        expected_pct = (elapsed_days / total_days) * 100
+        on_track = calc["percent"] is not None and calc["percent"] >= round(expected_pct, 1)
     trend = None
     if len(history) >= 2:
         delta = history[-1]["value"] - history[-2]["value"]
@@ -204,7 +224,7 @@ def get_goal_progress(goal_id: str, user: UserDB = Depends(get_current_user), db
         "goal": _serialize(goal), "metric": {"key": metric, **definition},
         "current_value": current, "target_value": goal.target_value,
         "remaining": calc["remaining"], "progress_pct": calc["percent"],
-        "trend": trend, "on_track": calc["on_track"],
+        "trend": trend, "on_track": on_track,
         "last_updated": history[-1]["date"] if history else None,
         "deadline": goal.target_date.isoformat() if goal.target_date else None,
         "history": history,
