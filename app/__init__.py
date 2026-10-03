@@ -247,8 +247,19 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       document.getElementById("myDaySessionBar").style.width = pct + "%";
 
       var startLink = document.getElementById("myDayStartLink");
-      startLink.textContent = session.id ? "Wznów trening" : (data.has_workout ? "Rozpocznij trening" : "Brak treningu");
-      startLink.href = "/app/training/session-ui";
+      var canStartTraining = Boolean(data.has_workout);
+      startLink.textContent = session.id ? "Wznów trening" : (canStartTraining ? "Rozpocznij trening" : "Brak treningu");
+      if (canStartTraining) {
+        startLink.href = "/app/training/session-ui";
+        startLink.removeAttribute("aria-disabled");
+        startLink.classList.remove("btn-ghost");
+        startLink.classList.add("btn-primary");
+      } else {
+        startLink.removeAttribute("href");
+        startLink.setAttribute("aria-disabled", "true");
+        startLink.classList.remove("btn-primary");
+        startLink.classList.add("btn-ghost");
+      }
 
       document.getElementById("myDayExerciseCount").textContent = (data.exercises || []).length + " ćwiczeń";
       if (!data.has_workout) {
