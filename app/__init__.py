@@ -334,7 +334,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       '<div style="height:7px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:10px;"><div style="height:100%;width:'+pct+'%;background:var(--cyan);border-radius:99px;"></div></div>';
     return '<div class="card" style="padding:20px;margin-bottom:12px;">' +
       '<div class="item-card-head"><div><div class="item-card-title">'+goalEscape(goal.title)+'</div><div class="item-card-meta">'+goalEscape(goal.goal_type)+' · '+goalStatusLabel(goal.status)+'</div></div>' +
-      '<div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" onclick="loadEvolveGoalDetail(\''+goal.id+'\')">Szczegóły</button>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" onclick="loadEvolveGoalDetail(\''+goal.id+'\')">Szczegóły</button><button class="btn btn-ghost btn-sm" onclick="editEvolveGoal(\''+goal.id+'\')">Edytuj</button>' +
       (goal.status === "active" ? '<button class="btn btn-outline btn-sm" onclick="updateEvolveGoalStatus(\''+goal.id+'\',\'completed\')">Ukończ</button>' : '') +
       (goal.status !== "archived" ? '<button class="btn btn-ghost btn-sm" onclick="archiveEvolveGoal(\''+goal.id+'\')">Archiwizuj</button>' : '')+'</div></div>' +
       '<div style="margin-top:14px;display:flex;justify-content:space-between;gap:12px;font-size:13px;"><span>'+goalEscape(current)+' '+goalEscape(metric)+'</span><span>cel: '+goalEscape(target)+' '+goalEscape(metric)+'</span></div>'+bar+
@@ -384,6 +384,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       list.innerHTML=(active.concat(done)).map(function(g){var p=progress[active.indexOf(g)];return goalCard(g,p);}).join("") || '<div class="card" style="padding:28px;text-align:center;color:var(--muted);">Brak celów. Utwórz pierwszy cel, aby rozpocząć.</div>';
     }catch(e){showEvolveGoalError(e.message);list.innerHTML='<div class="card" style="padding:28px;text-align:center;color:var(--muted);">Nie udało się załadować celów.</div>';}
   };
+  window.editEvolveGoal = async function(id){ try { var g=await goalFetch("/app/goals/"+encodeURIComponent(id)); openEvolveGoalForm(g); document.getElementById("goalForm").scrollIntoView({behavior:"smooth",block:"nearest"}); } catch(e) { showEvolveGoalError(e.message); } };
   window.loadEvolveGoalDetail = async function(id){
     var detail=document.getElementById("goalDetail");if(!detail)return;detail.innerHTML='<div class="spinner"></div>';
     try{var g=await goalFetch("/app/goals/"+encodeURIComponent(id)),p=await goalFetch("/app/goals/"+encodeURIComponent(id)+"/progress");
