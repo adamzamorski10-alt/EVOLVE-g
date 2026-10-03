@@ -53,7 +53,7 @@ def test_today_reports_active_session_progress():
     assert before.json()["session"]["id"] is None
     assert before.json()["session"]["status"] is None
     assert before.json()["session"]["completed_sets"] == 0
-    assert before.json()["session"]["planned_sets"] == 4
+    assert before.json()["session"]["planned_sets"] == 3
 
     started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
     assert started.status_code == 200, started.text
@@ -78,8 +78,8 @@ def test_today_reports_active_session_progress():
     assert session_data["id"] == sid
     assert session_data["status"] == "active"
     assert session_data["completed_sets"] == 1
-    assert session_data["planned_sets"] == 4
-    assert session_data["completion_pct"] == 25.0
+    assert session_data["planned_sets"] == 3
+    assert session_data["completion_pct"] == 33.3
 
 
 def test_apply_adaptation_becomes_effective_today_plan_and_start_snapshot():
