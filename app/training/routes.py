@@ -1666,7 +1666,7 @@ async function logSet(encodedKey,n,button){
   if(!r.ok)throw new Error(d.detail||'Nie udało się zapisać serii.');
   const idx=current.sets.findIndex(x=>x.exercise_key===key&&x.set_number===n);
   if(idx>=0)current.sets[idx]=d.set;else current.sets.push(d.set);
-  setStatus('Seria '+n+' zapisana.','success');render();
+  setStatus('Seria '+n+' zapisana.','success');render();startRest(90);focusNext();
  }catch(e){setStatus(e.message,'error')}finally{saving=false;renderProgress()}
 }
 completeEl.onclick=async()=>{
