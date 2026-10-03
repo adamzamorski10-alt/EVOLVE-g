@@ -76,3 +76,25 @@ def test_training_progress_2abc_contracts_are_present():
     ]
     for marker in required:
         assert marker in TRAINING_ROUTES, f"Missing Progress 2A/2B/2C marker: {marker}"
+
+
+def test_progress_2def_native_shell_contract():
+    required = [
+        'id="nav-progress"',
+        'id="tab-progress"',
+        'id="progressSummary"',
+        'id="progressTrends"',
+        'id="progressRecords"',
+        'id="progressExercises"',
+        'id="progressConsistency"',
+        'id="progressHistory"',
+        'loadEvolveProgress',
+        'loadEvolveProgressExercise',
+        'loadEvolveSessionDetail',
+        '/app/training/progress/consistency?limit=52',
+        '/app/training/sessions/history?limit=12',
+        '/app/training/sessions/history/"',
+        'else if (tab === "progress")',
+    ]
+    for marker in required:
+        assert marker in APP_INIT or marker in TRAINING_ROUTES, f"Missing Progress 2D/2E/2F marker: {marker}"
