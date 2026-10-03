@@ -157,3 +157,37 @@ def test_nutrition_adherence_days_are_bounded():
     token = _register()
     response = client.get("/app/nutrition/adherence?days=29", headers=_headers(token))
     assert response.status_code == 422
+
+
+def test_nutrition_response_requires_evidence_and_never_mutates_target():
+    token = _register()
+    response = client.post(
+        "/app/nutrition/entries",
+        headers=_headers(token),
+        json={"name": "Evidence day", "calories_kcal": 1000, "protein_g": 50},
+    )
+    assert response.status_code == 201
+
+    insufficient = client.get("/app/nutrition/response?days=7", headers=_headers(token))
+    assert insufficient.status_code == 200
+    assert insufficient.json()["status"] == "insufficient_data"
+    assert insufficient.json()["adaptation_allowed"] is False
+
+    before = client.get("/app/nutrition/today", headers=_headers(token)).json()["targets"]
+    assert before["calories_kcal"] > 0
+    assert before["protein_g"] > 0
+    after = client.get("/app/nutrition/today", headers=_headers(token)).json()["targets"]
+    assert after == before
+
+
+def test_nutrition_ui_contract_is_native_and_user_scoped():
+    source = (ROOT / "app" / "__init__.py").read_text(encoding="utf-8")
+    assert 'id="tab-diet"' in source
+    assert 'id="nutritionSummary"' in source
+    assert 'loadEvolveNutrition' in source
+    assert '/app/nutrition/today' in source
+    assert '/app/nutrition/response?days=7' in source
+    assert '/app/nutrition/entries' in source
+    assert 'Authorization: "Bearer " + token' in source
+    assert 'adaptation_allowed' in source
+    assert 'window.showTab = wrappedShowTab' in source
