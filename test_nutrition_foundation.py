@@ -191,3 +191,63 @@ def test_nutrition_ui_contract_is_native_and_user_scoped():
     assert 'Authorization: "Bearer " + token' in source
     assert 'adaptation_allowed' in source
     assert 'window.showTab = wrappedShowTab' in source
+
+
+def test_nutrition_adaptation_requires_evidence_and_is_bounded_and_audited():
+    token = _register()
+    today = datetime.now()
+    with Session(engine) as session:
+        user = session.exec(select(UserDB).where(UserDB.email.like("nutrition-%@example.com")).order_by(UserDB.created_at.desc())).first()
+        assert user is not None
+        base = user.calories_target or 2000
+        for offset in range(7):
+            session.add(NutritionEntryDB(
+                user_id=user.id,
+                consumed_at=today - timedelta(days=offset),
+                meal_type="meal",
+                name=f"Evidence {offset}",
+                calories_kcal=base * 0.75,
+                protein_g=(user.protein_target or 150),
+            ))
+        for offset in (2, 5):
+            session.add(TrainingSessionDB(
+                user_id=user.id,
+                session_date=(today - timedelta(days=offset)).date(),
+                status="completed",
+                planned_snapshot_json="{}",
+                completed_at=today - timedelta(days=offset),
+            ))
+        session.commit()
+
+    preview = client.get("/app/nutrition/adaptation?days=14", headers=_headers(token))
+    assert preview.status_code == 200
+    data = preview.json()
+    assert data["status"] == "ready"
+    assert data["adaptation_allowed"] is True
+    assert data["change_kcal"] == 100
+    assert data["max_change_kcal"] == 100
+    assert data["proposed_protein_g"] == data["base_protein_g"]
+
+    applied = client.post("/app/nutrition/adaptation/apply?days=14", headers=_headers(token))
+    assert applied.status_code == 200
+    result = applied.json()
+    assert result["status"] == "applied"
+    assert result["change_kcal"] == 100
+
+    with Session(engine) as session:
+        user = session.exec(select(UserDB).where(UserDB.email.like("nutrition-%@example.com")).order_by(UserDB.created_at.desc())).first()
+        assert user.calories_target == data["proposed_calories_kcal"]
+        audit = session.exec(
+            select(NutritionAdaptationDB)
+            .where(NutritionAdaptationDB.user_id == user.id)
+        ).all()
+        assert len(audit) == 1
+
+
+def test_nutrition_adaptation_rejects_concurrent_target_change():
+    token = _register()
+    response = client.post(
+        "/app/nutrition/adaptation/apply?days=14",
+        headers=_headers(token),
+    )
+    assert response.status_code == 422
