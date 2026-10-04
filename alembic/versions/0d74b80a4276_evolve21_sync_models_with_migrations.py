@@ -178,7 +178,7 @@ def downgrade() -> None:
                    type_=sa.TEXT(),
                    existing_nullable=False)
 
-    op.drop_constraint(None, 'exercise_results', type_='foreignkey')
+    op.drop_constraint('fk_exercise_results_source_session_id', 'exercise_results', type_='foreignkey')
     op.create_index(op.f('uq_exercise_result_session_exercise'), 'exercise_results', ['source_session_id', 'source_exercise_key'], unique=1)
     op.create_index(op.f('ix_exercise_results_user_name'), 'exercise_results', ['user_id', 'exercise_name'], unique=False)
     op.create_index(op.f('ix_exercise_results_user_date'), 'exercise_results', ['user_id', 'session_date'], unique=False)
