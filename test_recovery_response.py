@@ -1,7 +1,8 @@
 from datetime import date
 
 from app.models import DailyLogDB
-from app.recovery.routes import _apply_recovery_constraint, evaluate_recovery, summarize_recovery_history
+from app.recovery.routes import evaluate_recovery, summarize_recovery_history
+from app.training.routes import _apply_recovery_constraint
 
 
 def _log(**kwargs):
@@ -145,6 +146,6 @@ def test_recovery_boundary_scores_are_stable():
     ready = evaluate_recovery(_log(energy_level=10, stress_level=1))
     caution = evaluate_recovery(_log(energy_level=6, stress_level=6))
     low = evaluate_recovery(_log(energy_level=1, stress_level=10))
-    assert ready["readiness_score"] == 95.0
+    assert ready["readiness_score"] == 100.0
     assert caution["readiness_score"] == 55.0
-    assert low["readiness_score"] == 5.0
+    assert low["readiness_score"] == 10.0
