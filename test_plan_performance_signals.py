@@ -193,3 +193,84 @@ def test_planner_missing_metrics_keeps_base_specialization_plan():
 
     assert names == ["Figure-8 Dribbling", "Stationary Crossover"]
     assert plan["_planner"]["performance_signals"]["priorities"] == []
+
+
+class _ConstraintPlannerUser(_PlannerUser):
+    meals_per_day = 4
+    allergies = "mleko;orzechy"
+
+    def __init__(self):
+        super().__init__()
+        self._lists["avoid_foods_json"] = ["ryż"]
+
+
+def test_planner_respects_configured_meal_count():
+    user = _ConstraintPlannerUser()
+    plan = build_deterministic_plan(
+        user,
+        assessment(
+            shooting_pct=80,
+            free_throw_pct=80,
+            sprint_30m_seconds=4.5,
+            vertical_jump_cm=50,
+            sessions_per_week=1,
+        ),
+    )
+
+    assert len(plan["days"][0]["meals"]) == 4
+    assert [meal["slot"] for meal in plan["days"][0]["meals"]] == [
+        "Śniadanie", "Przekąska 1", "Obiad", "Kolacja"
+    ]
+
+
+def test_planner_never_reintroduces_forbidden_foods_as_fallback():
+    user = _ConstraintPlannerUser()
+    user._lists["avoid_foods_json"] = ["jaj"]
+    user.allergies = ""
+    plan = build_deterministic_plan(
+        user,
+        assessment(sessions_per_week=1),
+    )
+
+    names = [
+        meal["name"].lower()
+        for day in plan["days"]
+        for meal in day["meals"]
+        if not meal.get("constraint_blocked")
+    ]
+    assert all("jaj" not in name for name in names)
+
+
+def test_planner_filters_catalog_items_matching_allergy_terms():
+    user = _ConstraintPlannerUser()
+    user._lists["avoid_foods_json"] = []
+    user.allergies = "mleko"
+    plan = build_deterministic_plan(
+        user,
+        assessment(sessions_per_week=1),
+    )
+
+    names = [
+        meal["name"].lower()
+        for day in plan["days"]
+        for meal in day["meals"]
+        if not meal.get("constraint_blocked")
+    ]
+    assert all("mleko" not in name for name in names)
+
+
+def test_planner_does_not_bypass_restrictive_exercise_constraints():
+    user = _PlannerUser()
+    user._lists["available_equipment_json"] = ["kettlebell"]
+    user._lists["avoid_exercises_json"] = ["Pompki"]
+    plan = build_deterministic_plan(
+        user,
+        assessment(sessions_per_week=1),
+    )
+
+    regular_days = [day for day in plan["days"] if day["workout"]["focus"] != "odpoczynek"]
+    assert regular_days
+    assert all(
+        "Pompki" not in [exercise["name"] for exercise in day["workout"]["exercises"]]
+        for day in regular_days
+    )
