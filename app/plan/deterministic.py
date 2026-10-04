@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.exercise_descriptions import get_how_to
+from app.plan.performance_signals import build_performance_signals, prioritize_sport_drills
 from app.legacy_routes import (
     SPORT_DRILLS_DB,
     _MUSCLE_MAP,
@@ -87,6 +88,28 @@ def _assessment_value(assessment: Any, field: str, default: Any = None) -> Any:
     return getattr(assessment, field, default) if assessment is not None else default
 
 
+def _normalized_constraints(items: list[str]) -> list[str]:
+    return [
+        item.strip().lower()
+        for item in items
+        if isinstance(item, str) and item.strip()
+    ]
+
+
+def _meal_allowed(name: str, forbidden_terms: list[str]) -> bool:
+    lowered = name.lower()
+    return not any(term in lowered for term in forbidden_terms)
+
+
+def _meal_slots(meals_per_day: int) -> list[str]:
+    slots = ["Śniadanie", "Obiad", "Kolacja"]
+    if meals_per_day >= 4:
+        slots.insert(1, "Przekąska 1")
+    if meals_per_day >= 5:
+        slots.insert(3, "Przekąska 2")
+    return slots
+
+
 def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
     """Generate a reproducible weekly plan from explicit inputs only."""
     meal_catalog = _default_meal_catalog(user.diet or "")
@@ -105,9 +128,24 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
     }
 
     sport_drills: list[dict] = []
+    performance_signals = build_performance_signals(
+        assessment,
+        sport_focus=sport_focus,
+    )
     if sport_focus in SPORT_DRILLS_DB:
         spec_map = SPORT_DRILLS_DB[sport_focus]
         sport_drills = list(spec_map.get(sport_specialization) or next(iter(spec_map.values()), []))
+        secondary_drills = [
+            drill
+            for drills in spec_map.values()
+            for drill in drills
+            if drill not in sport_drills
+        ]
+        sport_drills = prioritize_sport_drills(
+            sport_drills,
+            performance_signals,
+            secondary_drills=secondary_drills,
+        )
 
     candidate_days = [name for name, is_rest in _DAY_SCHEDULE if not is_rest]
     selected_days: list[str] = [
@@ -129,9 +167,14 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
     focus_iter = iter(focus_sequence)
 
     equipment = _equipment_aliases(user.get_list("available_equipment_json"))
-    avoid_exercises = user.get_list("avoid_exercises_json")
-    preferred_foods = [x.lower() for x in user.get_list("preferred_foods_json")]
-    avoid_foods = [x.lower() for x in user.get_list("avoid_foods_json")]
+    avoid_exercises = _normalized_constraints(user.get_list("avoid_exercises_json"))
+    preferred_foods = _normalized_constraints(user.get_list("preferred_foods_json"))
+    avoid_foods = _normalized_constraints(user.get_list("avoid_foods_json"))
+    allergies_raw = getattr(user, "allergies", "") or ""
+    allergies = _normalized_constraints(allergies_raw.replace(",", ";").split(";"))
+    forbidden_foods = avoid_foods + [item for item in allergies if item not in avoid_foods]
+    meals_per_day = getattr(user, "meals_per_day", 3) or 3
+    meal_slots = _meal_slots(max(3, min(5, int(meals_per_day))))
 
     base_calories = user.calories_target
     if not base_calories:
@@ -140,8 +183,6 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
         base_calories = calc_calories(user)
 
     days: list[dict] = []
-    meal_slots = ["Śniadanie", "Przekąska 1", "Obiad", "Przekąska 2", "Kolacja"]
-
     for day_index, (day_name, is_sunday_rest) in enumerate(_DAY_SCHEDULE):
         is_selected = day_name in selected_days
         is_sport_day = is_selected and bool(sport_drills) and day_name in configured_sport_days
@@ -182,13 +223,8 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
                 if _exercise_allowed(ex["name"], equipment, avoid_exercises)
             ]
             if not available:
-                # If a user selected a restrictive equipment list, keep only
-                # explicitly compatible exercises rather than silently violating it.
-                available = [
-                    {"name": "Pompki", "sets": "3", "reps": "8-15",
-                     "notes": "Wariant bez dodatkowego sprzętu.",
-                     "how_to": "Utrzymuj stabilny tułów i kontrolowany zakres ruchu."}
-                ]
+                # Never silently bypass equipment or exercise restrictions.
+                available = []
 
             exercise_limit = 4
             if _assessment_value(assessment, "training_level") == "początkujący":
@@ -221,7 +257,11 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
 
         meals = []
         for slot in meal_slots:
-            candidates = list(meal_catalog.get(slot, []))
+            catalog_candidates = list(meal_catalog.get(slot, []))
+            candidates = [
+                item for item in catalog_candidates
+                if _meal_allowed(str(item[0]), forbidden_foods)
+            ]
             if preferred_foods:
                 preferred_candidates = [
                     item for item in candidates
@@ -229,14 +269,15 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
                 ]
                 if preferred_candidates:
                     candidates = preferred_candidates
-            if avoid_foods:
-                filtered = [
-                    item for item in candidates
-                    if not any(term in item[0].lower() for term in avoid_foods)
-                ]
-                if filtered:
-                    candidates = filtered
-            candidates = candidates or meal_catalog.get(slot, [("Posiłek", 500)])
+            if not candidates:
+                meals.append({
+                    "slot": slot,
+                    "name": "Brak bezpiecznej propozycji w katalogu",
+                    "kcal": 0,
+                    "alternatives": [],
+                    "constraint_blocked": True,
+                })
+                continue
             main = candidates[day_index % len(candidates)]
             meals.append({
                 "slot": slot,
@@ -246,6 +287,7 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
                     {"name": item[0], "kcal": item[1]}
                     for item in candidates if item[0] != main[0]
                 ][:3],
+                "constraint_blocked": False,
             })
 
         days.append({
@@ -272,5 +314,6 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
             "version": "deterministic-v2",
             "target_training_days": target_days,
             "assessment_used": assessment is not None,
+            "performance_signals": performance_signals,
         },
     }

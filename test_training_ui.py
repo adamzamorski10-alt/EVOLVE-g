@@ -23,7 +23,7 @@ def test_my_day_is_integrated_into_shared_dashboard_shell():
     required = [
         'id="tab-my-day"',
         'data-tab="my-day"',
-        "showTab(\\'my-day\\')",
+        "showTab(\\\\'my-day\\\\')",
         "window.loadEvolveMyDay",
         'fetch("/app/training/today"',
         'id="myDayWorkout"',
@@ -39,3 +39,136 @@ def test_my_day_is_integrated_into_shared_dashboard_shell():
 def test_my_day_no_longer_navigates_to_standalone_today_ui():
     assert 'id="nav-my-day"' in APP_INIT
     assert "/app/training/today-ui" not in APP_INIT
+
+
+def test_my_day_routing_loads_daily_data_when_native_tab_opens():
+    assert "function installMyDayRoutingHook()" in APP_INIT
+    assert "var originalShowTab = window.showTab;" in APP_INIT
+    assert 'if (tab === "my-day") {' in APP_INIT
+    assert "window.loadEvolveMyDay();" in APP_INIT
+    assert "installMyDayRoutingHook();" in APP_INIT
+
+
+def test_my_day_shell_ignores_stale_daily_responses():
+    assert "var myDayLoadSequence = 0;" in APP_INIT
+    assert "var requestId = ++myDayLoadSequence;" in APP_INIT
+    assert "if (requestId !== myDayLoadSequence) return;" in APP_INIT
+
+
+def test_training_progress_endpoint_and_dashboard_contract():
+    assert '@router.get("/progress")' in TRAINING_ROUTES
+    assert "total_volume_kg" in TRAINING_ROUTES
+    assert "total_completed_sets" in TRAINING_ROUTES
+    assert "fetch('/app/training/progress?limit=12'" in TRAINING_ROUTES
+
+
+def test_training_progress_2abc_contracts_are_present():
+    required = [
+        '@router.get("/progress/exercises/{exercise_key}")',
+        '@router.get("/progress/trends")',
+        '@router.get("/progress/records")',
+        '"best_weight"',
+        '"best_reps"',
+        '"best_session_volume"',
+        '"weight": {"trend"',
+        '"volume": {"trend"',
+        '"rpe": {"trend"',
+    ]
+    for marker in required:
+        assert marker in TRAINING_ROUTES, f"Missing Progress 2A/2B/2C marker: {marker}"
+
+
+def test_progress_2def_native_shell_contract():
+    required = [
+        'id="nav-progress"',
+        'id="tab-progress"',
+        'id="progressSummary"',
+        'id="progressTrends"',
+        'id="progressRecords"',
+        'id="progressExercises"',
+        'id="progressConsistency"',
+        'id="progressHistory"',
+        'loadEvolveProgress',
+        'loadEvolveProgressExercise',
+        'loadEvolveSessionDetail',
+        'progressSparkline',
+        '/app/training/progress/consistency?limit=52',
+        '/app/training/sessions/history?limit=12',
+        '/app/training/sessions/history/"',
+        'else if (tab === "progress")',
+    ]
+    for marker in required:
+        assert marker in APP_INIT or marker in TRAINING_ROUTES, f"Missing Progress 2D/2E/2F marker: {marker}"
+
+
+
+def test_goals_ux_native_shell_contract():
+    required = [
+        'id="nav-goals"',
+        'id="tab-goals"',
+        'id="goalsSummary"',
+        'id="goalsList"',
+        'id="goalForm"',
+        'id="goalDetail"',
+        'loadEvolveGoals',
+        'openEvolveGoalForm',
+        'saveEvolveGoal',
+        'editEvolveGoal',
+        'loadEvolveGoalDetail',
+        'updateEvolveGoalStatus',
+        'archiveEvolveGoal',
+        '/app/goals',
+        '/app/goals/"',
+        '/progress',
+        'else if (tab === "goals")',
+        'injectGoalsShell();',
+    ]
+    for marker in required:
+        assert marker in APP_INIT, f"Missing Goals UX marker: {marker}"
+
+
+def test_goals_ux_has_empty_error_and_lifecycle_states():
+    required = [
+        'Brak celów. Utwórz pierwszy cel, aby rozpocząć.',
+        'Nie udało się załadować celów.',
+        'Zarchiwizować ten cel?',
+        'Ukończ',
+        'Archiwizuj',
+        'ARCHIWUM',
+    ]
+    for marker in required:
+        assert marker in APP_INIT, f"Missing Goals UX state marker: {marker}"
+
+
+def test_training_4abc_execution_ui_contract():
+    required = [
+        '@router.get("/session-ui"',
+        'START -> EXECUTE -> SAVE SET -> COMPLETE',
+        'Aktywna sesja',
+        'Wykonanie',
+        'Zapisz serię',
+        'Edytuj / zapisz',
+        'actual_reps',
+        'actual_weight_kg',
+        'actual_rpe',
+        'note',
+        '/app/training/sessions/start',
+        '/app/training/sessions/',
+        '/sets',
+        '/complete',
+        'Wznowiono aktywną sesję.',
+        'Możesz odświeżyć stronę i wznowić.',
+    ]
+    for marker in required:
+        assert marker in TRAINING_ROUTES, f"Missing Training UX 4A/4B/4C marker: {marker}"
+
+
+def test_training_4def_rest_flow_and_completion_summary_contract():
+    source = (Path(__file__).parent / "app" / "training" / "routes.py").read_text(encoding="utf-8")
+    assert "startRest(90)" in source
+    assert "skipRest" in source
+    assert "focusNext()" in source
+    assert "renderSummary()" in source
+    assert "Końcowe RPE" in source
+    assert "Przejdź do Postępów" in source
+    assert "current.status==='completed'" in source
