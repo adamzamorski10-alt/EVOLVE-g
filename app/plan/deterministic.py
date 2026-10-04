@@ -113,7 +113,17 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
     if sport_focus in SPORT_DRILLS_DB:
         spec_map = SPORT_DRILLS_DB[sport_focus]
         sport_drills = list(spec_map.get(sport_specialization) or next(iter(spec_map.values()), []))
-        sport_drills = prioritize_sport_drills(sport_drills, performance_signals)
+        secondary_drills = [
+            drill
+            for drills in spec_map.values()
+            for drill in drills
+            if drill not in sport_drills
+        ]
+        sport_drills = prioritize_sport_drills(
+            sport_drills,
+            performance_signals,
+            secondary_drills=secondary_drills,
+        )
 
     candidate_days = [name for name, is_rest in _DAY_SCHEDULE if not is_rest]
     selected_days: list[str] = [
