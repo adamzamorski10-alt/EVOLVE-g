@@ -88,7 +88,6 @@ def test_core_loop_profile_assessment_plan_training_progress_goal():
     assert plan["_evolve_core"]["assessment_id"] == assessment["id"]
     assert plan["_evolve_core"]["assessment_version"] == assessment["version"]
 
-    today_name = _FrozenDate.today().strftime("%A")
     # Planner day labels are Polish; use the same deterministic weekday mapping.
     today_name = ["Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota", "Niedziela"][_FrozenDate.today().weekday()]
     today = next(day for day in plan["days"] if day["day"] == today_name)
