@@ -1,11 +1,73 @@
 from __future__ import annotations
 
-from test_training_execution import _context, _headers
-from main import app
+import json
+import uuid
+from datetime import date
+
 from fastapi.testclient import TestClient
+from sqlmodel import Session, select
+
+from app.database import engine
+from app.models import UserDB
+from main import app
 
 
 client = TestClient(app)
+
+
+def _context():
+    email = f"evaluation-{uuid.uuid4().hex[:10]}@example.com"
+    nickname = f"evaluation_{uuid.uuid4().hex[:10]}"
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": "SecurePassword123",
+            "nickname": nickname,
+            "name": "Evaluation Test",
+            "age": 25,
+            "height": 180,
+            "weight": 80,
+            "target_weight": 80,
+            "gender": "mężczyzna",
+            "goal": "muscle_gain",
+            "frequency": "3-4 razy w tygodniu",
+            "diet": "Balanced",
+        },
+    )
+    assert response.status_code == 200
+    token = response.json()["access_token"]
+
+    today = {0: "Pon", 1: "Wt", 2: "Śr", 3: "Czw", 4: "Pt", 5: "Sob", 6: "Niedz"}[date.today().weekday()]
+    plan = {
+        "days": [{
+            "day": today,
+            "workout": {
+                "title": "Strength",
+                "exercises": [{
+                    "id": "squat-1",
+                    "name": "Przysiad",
+                    "sets": 3,
+                    "reps": 5,
+                    "weight_kg": 100,
+                    "rpe": 7,
+                }],
+            },
+        }]
+    }
+
+    with Session(engine) as session:
+        user = session.exec(select(UserDB).where(UserDB.email == email)).first()
+        assert user is not None
+        user.weekly_plan_json = json.dumps(plan, ensure_ascii=False)
+        session.add(user)
+        session.commit()
+
+    return {"token": token}
+
+
+def _headers(token):
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _start_and_log(ctx, *, reps=5, rpe=7, count=3):
