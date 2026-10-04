@@ -12,6 +12,8 @@ from typing import Any
 ADAPTATION_ALGORITHM = "deterministic-v2"
 LOAD_STEP_PCT = 0.025
 MAX_LOAD_CHANGE_PCT = 0.05
+MIN_PROGRESS_WEIGHT_KG = 2.5
+MIN_REDUCE_WEIGHT_KG = 2.5
 LOAD_ROUNDING_KG = 2.5
 
 
@@ -36,20 +38,21 @@ def adapt_exercise(
     if decision == "progress":
         action = "progress_load" if current_weight > 0 else "progress_reps"
         if current_weight > 0:
-            next_weight = min(
-                current_weight * (1 + MAX_LOAD_CHANGE_PCT),
-                current_weight * (1 + LOAD_STEP_PCT),
-            )
-            next_weight = _round_load(next_weight)
+            bounded_target = current_weight * (1 + LOAD_STEP_PCT)
+            maximum_allowed = current_weight * (1 + MAX_LOAD_CHANGE_PCT)
+            next_weight = min(bounded_target, maximum_allowed)
+            next_weight = max(current_weight, _round_load(next_weight))
+            if next_weight == current_weight:
+                next_weight = current_weight + MIN_PROGRESS_WEIGHT_KG
         else:
             next_reps = current_reps + 1
     elif decision == "reduce":
         action = "reduce_load" if current_weight > 0 else "reduce_reps"
         if current_weight > 0:
-            next_weight = max(
-                0.0,
-                _round_load(current_weight * (1 - LOAD_STEP_PCT)),
-            )
+            bounded_target = current_weight * (1 - LOAD_STEP_PCT)
+            next_weight = max(0.0, _round_load(bounded_target))
+            if next_weight == current_weight:
+                next_weight = max(0.0, current_weight - MIN_REDUCE_WEIGHT_KG)
         elif current_reps > 1:
             next_reps = current_reps - 1
 
