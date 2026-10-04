@@ -89,18 +89,29 @@ def _drill_bucket(name: str) -> str | None:
     return None
 
 
-def prioritize_sport_drills(drills: list[dict], signals: dict) -> list[dict]:
-    """Move drills matching weak performance areas to the front.
+def prioritize_sport_drills(
+    drills: list[dict],
+    signals: dict,
+    *,
+    secondary_drills: list[dict] | None = None,
+    max_secondary: int = 2,
+) -> list[dict]:
+    """Prioritize the selected specialization and add bounded secondary drills.
 
-    This is a stable sort, so the base drill catalog remains deterministic and
-    only explicitly signalled priorities can change its order.
+    Explicit sport specialization remains first-class: its drills stay first
+    and are only reordered by matching priorities. If an explicit assessment
+    priority has no matching drill in that specialization, at most
+    `max_secondary` deterministic drills are appended from the wider sport
+    catalog. This makes assessment signals materially affect the generated plan
+    without replacing the user's specialization.
     """
     priorities = signals.get("priorities", []) if isinstance(signals, dict) else []
     rank = {key: index for index, key in enumerate(priorities)}
+    base = list(drills)
     if not rank:
-        return list(drills)
+        return base
 
-    indexed = list(enumerate(drills))
+    indexed = list(enumerate(base))
     indexed.sort(
         key=lambda pair: (
             0 if _drill_bucket(str(pair[1].get("name", ""))) in rank else 1,
@@ -108,4 +119,29 @@ def prioritize_sport_drills(drills: list[dict], signals: dict) -> list[dict]:
             pair[0],
         )
     )
-    return [drill for _, drill in indexed]
+    ordered = [drill for _, drill in indexed]
+
+    if not secondary_drills or max_secondary <= 0:
+        return ordered
+
+    existing_buckets = {
+        bucket
+        for drill in ordered
+        if (bucket := _drill_bucket(str(drill.get("name", "")))) is not None
+    }
+    seen_names = {str(drill.get("name", "")) for drill in ordered}
+    additions: list[dict] = []
+
+    for priority in priorities:
+        if len(additions) >= max_secondary or priority in existing_buckets:
+            continue
+        for candidate in secondary_drills:
+            name = str(candidate.get("name", ""))
+            if name in seen_names or _drill_bucket(name) != priority:
+                continue
+            additions.append(candidate)
+            seen_names.add(name)
+            existing_buckets.add(priority)
+            break
+
+    return ordered + additions
