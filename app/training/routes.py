@@ -20,6 +20,8 @@ from app.models import AdaptivePlanRevisionDB, AssessmentDB, DailyLogDB, Exercis
 from app.plan.routes import _assessment_inputs, _fingerprint, _profile_inputs
 from app.recovery.routes import evaluate_recovery
 from app.schemas import TrainingCompleteRequest, TrainingSetResultRequest
+from app.training.adaptation import adapt_exercise
+from app.training.evaluation import evaluate_exercise
 
 router = APIRouter(prefix="/app/training", tags=["training-execution"])
 
@@ -1102,49 +1104,8 @@ _PROGRESSION_LOW_COMPLETION_PCT = 80
 
 
 def _progression_decision(planned: dict[str, Any], completed_sets: list[TrainingSetResultDB]) -> dict[str, Any]:
-    planned_sets = max(0, int(planned.get("sets") or 0))
-    target_reps = max(0, int(planned.get("reps") or 0))
-    target_weight = max(0.0, float(planned.get("weight_kg") or 0))
-    completed_count = len(completed_sets)
-    completion_pct = round((completed_count / planned_sets) * 100, 1) if planned_sets else 0.0
-    rpes = [item.actual_rpe for item in completed_sets if item.actual_rpe is not None]
-    avg_rpe = round(sum(rpes) / len(rpes), 2) if rpes else None
-    reps = [item.actual_reps for item in completed_sets]
-    avg_reps = round(sum(reps) / len(reps), 2) if reps else None
-    weights = [float(item.actual_weight_kg or 0) for item in completed_sets]
-    avg_weight = round(sum(weights) / len(weights), 2) if weights else None
-
-    if completed_count == 0:
-        decision = "insufficient_data"
-        reason_codes = ["NO_COMPLETED_SETS"]
-    elif planned_sets == 0:
-        decision = "insufficient_data"
-        reason_codes = ["NO_PLANNED_SETS"]
-    elif completion_pct < _PROGRESSION_LOW_COMPLETION_PCT:
-        decision = "reduce"
-        reason_codes = ["LOW_SET_COMPLETION"]
-    elif avg_rpe is not None and avg_rpe > _PROGRESSION_HIGH_RPE:
-        decision = "maintain"
-        reason_codes = ["HIGH_RPE"]
-    elif target_reps > 0 and avg_reps is not None and avg_reps < target_reps:
-        decision = "maintain"
-        reason_codes = ["REPS_BELOW_TARGET"]
-    else:
-        decision = "progress"
-        reason_codes = ["TARGET_COMPLETED"]
-
-    return {
-        "decision": decision,
-        "reason_codes": reason_codes,
-        "planned_sets": planned_sets,
-        "completed_sets": completed_count,
-        "completion_pct": completion_pct,
-        "planned_reps": target_reps,
-        "average_actual_reps": avg_reps,
-        "planned_weight_kg": target_weight,
-        "average_actual_weight_kg": avg_weight,
-        "average_rpe": avg_rpe,
-    }
+    """Compatibility wrapper around the canonical Stage 8B evaluator."""
+    return evaluate_exercise(planned, completed_sets)
 
 
 @router.get("/sessions/{session_id}/progression")
@@ -1204,42 +1165,8 @@ def _round_load(value: float) -> float:
 
 
 def _next_plan_exercise(planned: dict[str, Any], decision: dict[str, Any]) -> dict[str, Any]:
-    current_reps = max(0, int(planned.get("reps") or 0))
-    current_weight = max(0.0, float(planned.get("weight_kg") or 0))
-    next_reps = current_reps
-    next_weight = current_weight
-    action = "unchanged"
-
-    if decision["decision"] == "progress":
-        action = "progress_load" if current_weight > 0 else "progress_reps"
-        if current_weight > 0:
-            next_weight = _round_load(current_weight * 1.025)
-        else:
-            next_reps = current_reps + 1
-    elif decision["decision"] == "reduce":
-        action = "reduce_load" if current_weight > 0 else "reduce_reps"
-        if current_weight > 0:
-            next_weight = max(0.0, _round_load(current_weight * 0.95))
-        elif current_reps > 1:
-            next_reps = current_reps - 1
-
-    return {
-        "exercise_key": str(planned.get("exercise_key") or ""),
-        "exercise_name": str(planned.get("exercise_name") or "Ćwiczenie"),
-        "decision": decision["decision"],
-        "action": action,
-        "current": {
-            "sets": max(0, int(planned.get("sets") or 0)),
-            "reps": current_reps,
-            "weight_kg": current_weight,
-        },
-        "proposed": {
-            "sets": max(0, int(planned.get("sets") or 0)),
-            "reps": next_reps,
-            "weight_kg": next_weight,
-        },
-        "reason_codes": decision["reason_codes"],
-    }
+    """Compatibility wrapper around the canonical Stage 8C adaptation policy."""
+    return adapt_exercise(planned, decision)
 
 
 @router.get("/sessions/{session_id}/next-plan-preview")
