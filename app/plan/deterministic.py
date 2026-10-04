@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.exercise_descriptions import get_how_to
+from app.plan.performance_signals import build_performance_signals, prioritize_sport_drills
 from app.legacy_routes import (
     SPORT_DRILLS_DB,
     _MUSCLE_MAP,
@@ -105,9 +106,14 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
     }
 
     sport_drills: list[dict] = []
+    performance_signals = build_performance_signals(
+        assessment,
+        sport_focus=sport_focus,
+    )
     if sport_focus in SPORT_DRILLS_DB:
         spec_map = SPORT_DRILLS_DB[sport_focus]
         sport_drills = list(spec_map.get(sport_specialization) or next(iter(spec_map.values()), []))
+        sport_drills = prioritize_sport_drills(sport_drills, performance_signals)
 
     candidate_days = [name for name, is_rest in _DAY_SCHEDULE if not is_rest]
     selected_days: list[str] = [
@@ -272,5 +278,6 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
             "version": "deterministic-v2",
             "target_training_days": target_days,
             "assessment_used": assessment is not None,
+            "performance_signals": performance_signals,
         },
     }
