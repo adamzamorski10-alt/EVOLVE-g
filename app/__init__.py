@@ -806,11 +806,33 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
   };
 })();
 </script>"""
+    if 'id="evolve-my-day-shell-integration"' not in html:
+        pos = html.rfind("</body>")
+        if pos != -1:
+            html = html[:pos] + evolve_shell_integration + html[pos:]
+        else:
+            html = html + evolve_shell_integration
+
+    if 'id="evolve-recovery-shell-integration"' not in html:
+        pos = html.rfind("</body>")
+        if pos != -1:
+            html = html[:pos] + recovery_shell_integration + html[pos:]
+        else:
+            html = html + recovery_shell_integration
+
     if 'id="evolve-nutrition-shell-integration"' not in html:
-        html = html.replace("</body>", nutrition_shell_integration + "</body>", 1)
+        pos = html.rfind("</body>")
+        if pos != -1:
+            html = html[:pos] + nutrition_shell_integration + html[pos:]
+        else:
+            html = html + nutrition_shell_integration
 
     if 'id="evolve-dashboard-first-style"' not in html:
-        html = html.replace("</head>", dashboard_first_bootstrap + "</head>", 1)
+        pos = html.find("</head>")
+        if pos != -1:
+            html = html[:pos] + dashboard_first_bootstrap + html[pos:]
+        else:
+            html = dashboard_first_bootstrap + html
 
     dashboard_boot = """<script id="evolve-dashboard-first-boot">
 document.addEventListener('DOMContentLoaded', function () {
@@ -830,7 +852,11 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>"""
     if 'id="evolve-dashboard-first-boot"' not in html:
-        html = html.replace("</body>", dashboard_boot + "</body>", 1)
+        pos = html.rfind("</body>")
+        if pos != -1:
+            html = html[:pos] + dashboard_boot + html[pos:]
+        else:
+            html = html + dashboard_boot
 
     return HTMLResponse(html, media_type="text/html")
 

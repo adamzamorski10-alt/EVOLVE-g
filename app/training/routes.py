@@ -1841,6 +1841,7 @@ h1{margin:0;font-size:32px}.sub{color:var(--muted);margin-top:7px}.back{color:#f
 </main>
 <script>
 const token=localStorage.getItem('fitai_token');
+const statusEl=document.getElementById('status');
 const headers=token?{Authorization:'Bearer '+token}:{};
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const decisionLabel=d=>({progress:'progres',maintain:'utrzymaj',reduce:'zmniejsz',insufficient_data:'brak danych'}[d]||d);
