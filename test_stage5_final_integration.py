@@ -25,7 +25,9 @@ def freeze_core_loop_clock(monkeypatch):
     import app.nutrition.routes as nutrition_routes
     import app.training.routes as training_routes
 
-    monkeypatch.setattr(__name__, "date", _FrozenDate)
+    import sys
+
+    monkeypatch.setattr(sys.modules[__name__], "date", _FrozenDate)
     monkeypatch.setattr(training_routes, "date", _FrozenDate)
     monkeypatch.setattr(nutrition_routes, "date", _FrozenDate)
 
