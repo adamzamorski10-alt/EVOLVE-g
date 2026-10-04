@@ -20,7 +20,7 @@ from app.models import AdaptivePlanRevisionDB, AssessmentDB, DailyLogDB, Exercis
 from app.plan.routes import _assessment_inputs, _fingerprint, _profile_inputs
 from app.recovery.routes import evaluate_recovery
 from app.schemas import TrainingCompleteRequest, TrainingSetResultRequest
-from app.training.adaptation import adapt_exercise
+from app.training.adaptation import ADAPTATION_ALGORITHM, adapt_exercise
 from app.training.evaluation import evaluate_exercise
 
 router = APIRouter(prefix="/app/training", tags=["training-execution"])
@@ -1420,7 +1420,7 @@ def _build_adaptive_plan(user_id: str, session: Session) -> tuple[dict, list[str
         "source_session_ids": source_ids,
         "source_day": target_day.isoformat(),
         "summary": summary,
-        "algorithm": "deterministic-v1",
+        "algorithm": ADAPTATION_ALGORITHM,
     }
     return adapted, source_ids, summary
 
