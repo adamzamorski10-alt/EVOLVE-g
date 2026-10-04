@@ -173,7 +173,8 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
     allergies_raw = getattr(user, "allergies", "") or ""
     allergies = _normalized_constraints(allergies_raw.replace(",", ";").split(";"))
     forbidden_foods = avoid_foods + [item for item in allergies if item not in avoid_foods]
-    meal_slots = _meal_slots(max(3, min(5, int(user.meals_per_day or 3))))
+    meals_per_day = getattr(user, "meals_per_day", 3) or 3
+    meal_slots = _meal_slots(max(3, min(5, int(meals_per_day))))
 
     base_calories = user.calories_target
     if not base_calories:
