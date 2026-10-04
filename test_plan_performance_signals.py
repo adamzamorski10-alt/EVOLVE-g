@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+from app.plan.deterministic import build_deterministic_plan
 from app.plan.performance_signals import build_performance_signals, prioritize_sport_drills
 
 
@@ -90,3 +91,105 @@ def test_no_priority_preserves_catalog_order():
     ]
 
     assert prioritize_sport_drills(drills, {"priorities": []}) == drills
+
+
+class _PlannerUser:
+    diet = ""
+    goal = "forma"
+    frequency = "1"
+    sport_focus = "koszykówka"
+    sport_specialization = "drybling"
+    calories_target = 2400
+
+    def __init__(self):
+        self._lists = {
+            "sport_training_days_json": ["Poniedziałek"],
+            "training_focus_json": ["nogi"],
+            "improvement_areas_json": [],
+            "available_equipment_json": [],
+            "avoid_exercises_json": [],
+            "preferred_foods_json": [],
+            "avoid_foods_json": [],
+        }
+
+    def get_list(self, field):
+        return self._lists.get(field, [])
+
+
+def _sport_day(plan):
+    return next(day for day in plan["days"] if day["is_sport_session"])
+
+
+def test_planner_adds_missing_shooting_priority_without_replacing_specialization():
+    plan = build_deterministic_plan(
+        _PlannerUser(),
+        assessment(
+            shooting_pct=50,
+            free_throw_pct=80,
+            sprint_30m_seconds=4.5,
+            vertical_jump_cm=50,
+            sessions_per_week=1,
+        ),
+    )
+
+    day = _sport_day(plan)
+    names = [item["name"] for item in day["workout"]["exercises"]]
+
+    assert day["workout"]["specialization"] == "drybling"
+    assert names[:2] == ["Figure-8 Dribbling", "Stationary Crossover"]
+    assert "Rzuty osobiste" in names
+    assert plan["_planner"]["performance_signals"]["priorities"] == ["shooting"]
+
+
+def test_planner_applies_speed_and_explosiveness_when_specialization_has_no_match():
+    plan = build_deterministic_plan(
+        _PlannerUser(),
+        assessment(
+            shooting_pct=80,
+            free_throw_pct=80,
+            sprint_30m_seconds=5.6,
+            vertical_jump_cm=40,
+            sessions_per_week=1,
+        ),
+    )
+
+    names = [item["name"] for item in _sport_day(plan)["workout"]["exercises"]]
+
+    assert names[:2] == ["Figure-8 Dribbling", "Stationary Crossover"]
+    assert names[2:] == ["Sprint 30 m", "Wyskok dosiężny"]
+
+
+def test_planner_does_not_add_secondary_performance_drills_when_metrics_are_good():
+    plan = build_deterministic_plan(
+        _PlannerUser(),
+        assessment(
+            shooting_pct=80,
+            free_throw_pct=80,
+            sprint_30m_seconds=4.5,
+            vertical_jump_cm=50,
+            sessions_per_week=1,
+        ),
+    )
+
+    names = [item["name"] for item in _sport_day(plan)["workout"]["exercises"]]
+
+    assert names == ["Figure-8 Dribbling", "Stationary Crossover"]
+    assert plan["_planner"]["performance_signals"]["priorities"] == []
+
+
+def test_planner_missing_metrics_keeps_base_specialization_plan():
+    plan = build_deterministic_plan(
+        _PlannerUser(),
+        assessment(
+            shooting_pct=None,
+            free_throw_pct=None,
+            sprint_30m_seconds=None,
+            vertical_jump_cm=None,
+            sessions_per_week=1,
+        ),
+    )
+
+    names = [item["name"] for item in _sport_day(plan)["workout"]["exercises"]]
+
+    assert names == ["Figure-8 Dribbling", "Stationary Crossover"]
+    assert plan["_planner"]["performance_signals"]["priorities"] == []
