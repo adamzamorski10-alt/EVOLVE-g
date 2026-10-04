@@ -59,3 +59,7 @@ jobs:
       - run: python -m alembic upgrade head
       - run: python -m alembic current
       - run: python -c "from alembic.config import Config; from alembic.script import ScriptDirectory; s=ScriptDirectory.from_config(Config('alembic.ini')); assert len(s.get_heads()) == 1, s.get_heads()"
+      - run: python -m alembic downgrade evolve20migration_merge
+      - run: python -m alembic upgrade head
+      - run: python -m alembic current --check-heads
+      - run: python -m alembic check
