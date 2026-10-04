@@ -3,11 +3,31 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timedelta
 
+import pytest
+
 from sqlmodel import Session, select
 
 from app.database import engine
 from app.models import UserDB
 from test_training_execution import _context, _headers, client
+
+
+class _FrozenDate(date):
+    @classmethod
+    def today(cls):
+        # Monday keeps the production planner's deterministic Sunday rest day
+        # out of the integration path while preserving real endpoint behavior.
+        return cls(2026, 10, 5)
+
+
+@pytest.fixture(autouse=True)
+def freeze_core_loop_clock(monkeypatch):
+    import app.nutrition.routes as nutrition_routes
+    import app.training.routes as training_routes
+
+    monkeypatch.setattr(__name__, "date", _FrozenDate)
+    monkeypatch.setattr(training_routes, "date", _FrozenDate)
+    monkeypatch.setattr(nutrition_routes, "date", _FrozenDate)
 
 
 def _assessment_payload(**overrides):
@@ -68,7 +88,9 @@ def test_core_loop_profile_assessment_plan_training_progress_goal():
     assert plan["_evolve_core"]["assessment_id"] == assessment["id"]
     assert plan["_evolve_core"]["assessment_version"] == assessment["version"]
 
-    today_name = ["Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota", "Niedziela"][date.today().weekday()]
+    today_name = _FrozenDate.today().strftime("%A")
+    # Planner day labels are Polish; use the same deterministic weekday mapping.
+    today_name = ["Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota", "Niedziela"][_FrozenDate.today().weekday()]
     today = next(day for day in plan["days"] if day["day"] == today_name)
     assert today["day_type"] != "rest"
     assert today["workout"]["exercises"]
