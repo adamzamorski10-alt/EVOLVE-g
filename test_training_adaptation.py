@@ -42,3 +42,13 @@ def test_bodyweight_progress_adds_one_rep_without_changing_sets():
     result = adapt_exercise(_planned(weight=0, reps=8), {"decision": "progress", "reason_codes": ["TARGET_COMPLETED"]})
     assert result["proposed"]["reps"] == 9
     assert result["proposed"]["sets"] == 3
+
+
+def test_small_load_progression_still_moves_forward():
+    result = adapt_exercise(_planned(weight=10), {"decision": "progress", "reason_codes": ["TARGET_COMPLETED"]})
+    assert result["proposed"]["weight_kg"] == 12.5
+
+
+def test_small_load_reduction_still_moves_down():
+    result = adapt_exercise(_planned(weight=10), {"decision": "reduce", "reason_codes": ["LOW_SET_COMPLETION"]})
+    assert result["proposed"]["weight_kg"] == 7.5
