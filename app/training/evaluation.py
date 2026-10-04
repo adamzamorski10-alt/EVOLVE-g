@@ -113,6 +113,9 @@ def evaluate_session(
     elif "maintain" in decisions:
         overall = "maintain"
         overall_reason_codes = ["EXERCISE_REQUIRES_MAINTENANCE"]
+    elif "insufficient_data" in decisions:
+        overall = "maintain"
+        overall_reason_codes = ["INSUFFICIENT_EXERCISE_DATA"]
     else:
         overall = "progress"
         overall_reason_codes = ["ALL_EXERCISES_READY_TO_PROGRESS"]
