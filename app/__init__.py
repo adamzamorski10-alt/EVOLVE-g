@@ -153,7 +153,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 (function () {
   function escapeHtml(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
-      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char];
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}[char];
     });
   }
 
@@ -169,12 +169,12 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       if (legacyPlan) legacyPlan.remove();
 
       profile.insertAdjacentHTML("beforebegin",
-        '<button class="nav-btn" id="nav-my-day" data-tab="my-day" onclick="showTab(\'my-day\')">🎯<span class="nav-tooltip">Mój dzień</span></button>' +
-        '<button class="nav-btn" id="nav-training" data-tab="training" onclick="showTab(\'training\')">🏋️<span class="nav-tooltip">Trening</span></button>' +
-        '<button class="nav-btn" id="nav-basketball" data-tab="basketball" onclick="showTab(\'basketball\')">🏀<span class="nav-tooltip">Koszykówka</span></button>' +
-        '<button class="nav-btn" id="nav-diet" data-tab="diet" onclick="showTab(\'diet\')">🥗<span class="nav-tooltip">Dieta</span></button>' +
-        '<button class="nav-btn" id="nav-recovery" data-tab="recovery" onclick="showTab(\'recovery\')">😴<span class="nav-tooltip">Recovery</span></button>' +
-        '<button class="nav-btn" id="nav-progress" data-tab="progress" onclick="showTab(\'progress\')">📈<span class="nav-tooltip">Postępy</span></button>'
+        '<button class="nav-btn" id="nav-my-day" data-tab="my-day" onclick="showTab(\\'my-day\\')">🎯<span class="nav-tooltip">Mój dzień</span></button>' +
+        '<button class="nav-btn" id="nav-training" data-tab="training" onclick="showTab(\\'training\\')">🏋️<span class="nav-tooltip">Trening</span></button>' +
+        '<button class="nav-btn" id="nav-basketball" data-tab="basketball" onclick="showTab(\\'basketball\\')">🏀<span class="nav-tooltip">Koszykówka</span></button>' +
+        '<button class="nav-btn" id="nav-diet" data-tab="diet" onclick="showTab(\\'diet\\')">🥗<span class="nav-tooltip">Dieta</span></button>' +
+        '<button class="nav-btn" id="nav-recovery" data-tab="recovery" onclick="showTab(\\'recovery\\')">😴<span class="nav-tooltip">Recovery</span></button>' +
+        '<button class="nav-btn" id="nav-progress" data-tab="progress" onclick="showTab(\\'progress\\')">📈<span class="nav-tooltip">Postępy</span></button>'
       );
     }
 
@@ -185,7 +185,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     var section =
       '<div class="tab-panel" id="tab-my-day">' +
         '<div class="sec-head">' +
-          '<div><div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:700;">Mój dzień 🎯</div>' +
+          '<div><div style="font-family:\\'Syne\\',sans-serif;font-size:26px;font-weight:700;">Mój dzień 🎯</div>' +
           '<div style="font-size:13px;color:var(--muted);margin-top:4px;">Dzisiejszy plan, wykonanie i stan sesji w jednym miejscu.</div></div>' +
           '<div style="font-size:12px;color:var(--muted);" id="myDayDate">—</div>' +
         '</div>' +
@@ -287,7 +287,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
         var name = escapeHtml(exercise.exercise_name || exercise.name || ("Ćwiczenie " + (index + 1)));
         var weight = exercise.weight_kg != null ? escapeHtml(exercise.weight_kg + " kg") : "";
         return '<div class="item-card" style="cursor:default;">' +
-          '<div class="item-card-head"><div class="item-card-title">' + (index + 1) + ". " + name + '</div><div class="tag">' + sets + " serie</div></div>' +
+          '<div class="item-card-head"><div class="item-card-title">' + (index + 1) + ". " + name + '</div><div class="tag">' + sets + " serie</div></div>" +
           '<div class="item-card-meta">' + reps + " powtórzeń" + (weight ? " · " + weight : "") + "</div></div>";
       }).join("");
     } catch (error) {
@@ -322,13 +322,13 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     if (!content) return;
     if (profile && !document.getElementById("nav-goals")) {
       profile.insertAdjacentHTML("beforebegin",
-        '<button class="nav-btn" id="nav-goals" data-tab="goals" onclick="showTab(\'goals\')">🎯<span class="nav-tooltip">Cele</span></button>');
+        '<button class="nav-btn" id="nav-goals" data-tab="goals" onclick="showTab(\\'goals\\')">🎯<span class="nav-tooltip">Cele</span></button>');
     }
     var legacy = document.getElementById("tab-goals");
     if (legacy) { legacy.id = "tab-goals-legacy"; legacy.style.display = "none"; }
     var section =
       '<div class="tab-panel" id="tab-goals">' +
-        '<div class="sec-head"><div><div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:700;">Cele 🎯</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">Twoje cele, mierzalny postęp i terminy w jednym miejscu.</div></div><button class="btn btn-primary btn-sm" onclick="openEvolveGoalForm()">+ Nowy cel</button></div>' +
+        '<div class="sec-head"><div><div style="font-family:\\'Syne\\',sans-serif;font-size:26px;font-weight:700;">Cele 🎯</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">Twoje cele, mierzalny postęp i terminy w jednym miejscu.</div></div><button class="btn btn-primary btn-sm" onclick="openEvolveGoalForm()">+ Nowy cel</button></div>' +
         '<div id="goalsStatus" class="alert alert-hidden" style="margin-bottom:16px;"></div>' +
         '<div id="goalsSummary" class="grid-2" style="margin-bottom:16px;"></div>' +
         '<div id="goalForm" class="card" style="padding:20px;margin-bottom:16px;display:none;"></div>' +
@@ -353,9 +353,9 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       '<div style="height:7px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:10px;"><div style="height:100%;width:'+pct+'%;background:var(--cyan);border-radius:99px;"></div></div>';
     return '<div class="card" style="padding:20px;margin-bottom:12px;">' +
       '<div class="item-card-head"><div><div class="item-card-title">'+goalEscape(goal.title)+'</div><div class="item-card-meta">'+goalEscape(goal.goal_type)+' · '+goalStatusLabel(goal.status)+'</div></div>' +
-      '<div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" onclick="loadEvolveGoalDetail(\''+goal.id+'\')">Szczegóły</button><button class="btn btn-ghost btn-sm" onclick="editEvolveGoal(\''+goal.id+'\')">Edytuj</button>' +
-      (goal.status === "active" ? '<button class="btn btn-outline btn-sm" onclick="updateEvolveGoalStatus(\''+goal.id+'\',\'completed\')">Ukończ</button>' : '') +
-      (goal.status !== "archived" ? '<button class="btn btn-ghost btn-sm" onclick="archiveEvolveGoal(\''+goal.id+'\')">Archiwizuj</button>' : '')+'</div></div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" onclick="loadEvolveGoalDetail(\\''+goal.id+'\\')">Szczegóły</button><button class="btn btn-ghost btn-sm" onclick="editEvolveGoal(\\''+goal.id+'\\')">Edytuj</button>' +
+      (goal.status === "active" ? '<button class="btn btn-outline btn-sm" onclick="updateEvolveGoalStatus(\\''+goal.id+'\\',\\'completed\\')">Ukończ</button>' : '') +
+      (goal.status !== "archived" ? '<button class="btn btn-ghost btn-sm" onclick="archiveEvolveGoal(\\''+goal.id+'\\')">Archiwizuj</button>' : '')+'</div></div>' +
       '<div style="margin-top:14px;display:flex;justify-content:space-between;gap:12px;font-size:13px;"><span>'+goalEscape(current)+' '+goalEscape(metric)+'</span><span>cel: '+goalEscape(target)+' '+goalEscape(metric)+'</span></div>'+bar+
       '<div style="margin-top:9px;font-size:12px;color:var(--muted);">'+(pct == null ? "Postęp oczekuje na dane." : "Postęp: "+pct+"%")+' · termin: '+goalEscape(goal.target_date || "bez terminu")+'</div></div>';
   }
@@ -407,7 +407,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
   window.loadEvolveGoalDetail = async function(id){
     var detail=document.getElementById("goalDetail");if(!detail)return;detail.innerHTML='<div class="spinner"></div>';
     try{var g=await goalFetch("/app/goals/"+encodeURIComponent(id)),p=await goalFetch("/app/goals/"+encodeURIComponent(id)+"/progress");
-      detail.innerHTML='<div class="card" style="padding:20px;"><div class="sec-head"><div><div style="font-weight:700;font-size:18px;">'+goalEscape(g.title)+'</div><div style="font-size:12px;color:var(--muted);">'+goalStatusLabel(g.status)+' · '+goalEscape(g.description||"")+'</div></div><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'goalDetail\').innerHTML=\'\'">Zamknij</button></div><div style="margin-top:14px;">Aktualnie: <b>'+goalEscape(p.current_value==null?"—":p.current_value)+'</b> · Cel: <b>'+goalEscape(p.target_value==null?"—":p.target_value)+'</b> · Postęp: <b>'+goalEscape(p.progress_pct==null?"—":p.progress_pct+"%")+'</b></div><div style="margin-top:8px;color:var(--muted);">Trend: '+goalEscape(p.trend||"—")+' · Ostatnia aktualizacja: '+goalEscape(p.last_updated||"—")+' · Termin: '+goalEscape(p.deadline||"—")+'</div></div>';
+      detail.innerHTML='<div class="card" style="padding:20px;"><div class="sec-head"><div><div style="font-weight:700;font-size:18px;">'+goalEscape(g.title)+'</div><div style="font-size:12px;color:var(--muted);">'+goalStatusLabel(g.status)+' · '+goalEscape(g.description||"")+'</div></div><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\\'goalDetail\\').innerHTML=\\'\\'">Zamknij</button></div><div style="margin-top:14px;">Aktualnie: <b>'+goalEscape(p.current_value==null?"—":p.current_value)+'</b> · Cel: <b>'+goalEscape(p.target_value==null?"—":p.target_value)+'</b> · Postęp: <b>'+goalEscape(p.progress_pct==null?"—":p.progress_pct+"%")+'</b></div><div style="margin-top:8px;color:var(--muted);">Trend: '+goalEscape(p.trend||"—")+' · Ostatnia aktualizacja: '+goalEscape(p.last_updated||"—")+' · Termin: '+goalEscape(p.deadline||"—")+'</div></div>';
       detail.scrollIntoView({behavior:"smooth",block:"nearest"});
     }catch(e){detail.innerHTML='<div class="alert alert-warn">'+goalEscape(e.message)+'</div>';}
   };
@@ -425,7 +425,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     }
     var section =
       '<div class="tab-panel" id="tab-progress">' +
-        '<div class="sec-head"><div><div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:700;">Postępy 📈</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">Wyniki, trendy, rekordy i regularność oparte wyłącznie na ukończonych treningach.</div></div><div id="progressUpdatedAt" style="font-size:12px;color:var(--muted);">—</div></div>' +
+        '<div class="sec-head"><div><div style="font-family:\\'Syne\\',sans-serif;font-size:26px;font-weight:700;">Postępy 📈</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">Wyniki, trendy, rekordy i regularność oparte wyłącznie na ukończonych treningach.</div></div><div id="progressUpdatedAt" style="font-size:12px;color:var(--muted);">—</div></div>' +
         '<div id="progressStatus" class="alert alert-hidden" style="margin-bottom:16px;"></div>' +
         '<div id="progressSummary" class="grid-2" style="margin-bottom:16px;"></div>' +
         '<div class="grid-2" style="margin-bottom:16px;"><div class="card" style="padding:20px;"><div class="sec-head" style="margin-bottom:12px;"><div style="font-weight:700;">📈 Trendy</div><div style="font-size:12px;color:var(--muted);">ostatnia sesja vs baza</div></div><div id="progressTrends"></div></div><div class="card" style="padding:20px;"><div class="sec-head" style="margin-bottom:12px;"><div style="font-weight:700;">🏆 Rekordy</div></div><div id="progressRecords"></div></div></div>' +
@@ -494,7 +494,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 
       document.getElementById("progressTrends").innerHTML = (trends.exercises || []).map(function(item) {
         var wc=item.weight.change_pct == null ? "—" : (item.weight.change_pct > 0 ? "+" : "") + item.weight.change_pct + "%";
-        return '<button class="item-card" style="width:100%;text-align:left;" onclick="loadEvolveProgressExercise(\'' + encodeURIComponent(item.exercise_key) + '\')"><div class="item-card-head"><div class="item-card-title">' + escapeHtml(item.exercise_name) + '</div><div class="tag">' + item.sessions + ' sesji</div></div><div class="item-card-meta">Ciężar ' + progressTrendLabel(item.weight.trend) + ' (' + wc + ') · Wolumen ' + progressTrendLabel(item.volume.trend) + ' · RPE ' + progressTrendLabel(item.rpe.trend) + '</div>' + progressSparkline(item.history) + '</button>';
+        return '<button class="item-card" style="width:100%;text-align:left;" onclick="loadEvolveProgressExercise(\\'' + encodeURIComponent(item.exercise_key) + '\\')"><div class="item-card-head"><div class="item-card-title">' + escapeHtml(item.exercise_name) + '</div><div class="tag">' + item.sessions + ' sesji</div></div><div class="item-card-meta">Ciężar ' + progressTrendLabel(item.weight.trend) + ' (' + wc + ') · Wolumen ' + progressTrendLabel(item.volume.trend) + ' · RPE ' + progressTrendLabel(item.rpe.trend) + '</div>' + progressSparkline(item.history) + '</button>';
       }).join("") || '<div style="color:var(--muted);">Brak danych do wyznaczenia trendów.</div>';
 
       document.getElementById("progressRecords").innerHTML = (records.exercises || []).map(function(item) {
@@ -502,7 +502,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       }).join("") || '<div style="color:var(--muted);">Brak rekordów.</div>';
 
       document.getElementById("progressExercises").innerHTML = (progress.exercises || []).map(function(item) {
-        return '<button class="item-card" style="width:100%;text-align:left;" onclick="loadEvolveProgressExercise(\'' + encodeURIComponent(item.exercise_key) + '\')"><div class="item-card-head"><div class="item-card-title">' + escapeHtml(item.exercise_name) + '</div><div class="tag">' + item.sessions + ' sesji</div></div><div class="item-card-meta">' + item.total_volume_kg + ' kg wolumenu · rekord ' + item.best_weight_kg + ' kg · śr. RPE ' + (item.average_rpe == null ? '—' : item.average_rpe) + '</div></button>';
+        return '<button class="item-card" style="width:100%;text-align:left;" onclick="loadEvolveProgressExercise(\\'' + encodeURIComponent(item.exercise_key) + '\\')"><div class="item-card-head"><div class="item-card-title">' + escapeHtml(item.exercise_name) + '</div><div class="tag">' + item.sessions + ' sesji</div></div><div class="item-card-meta">' + item.total_volume_kg + ' kg wolumenu · rekord ' + item.best_weight_kg + ' kg · śr. RPE ' + (item.average_rpe == null ? '—' : item.average_rpe) + '</div></button>';
       }).join("") || '<div style="padding:12px;color:var(--muted);">Brak ukończonych danych treningowych.</div>';
 
       document.getElementById("progressConsistency").innerHTML =
@@ -512,7 +512,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
         progressMetricCard("NAJDŁUŻSZA SERIA", consistency.longest_streak_days + " dni", "kolejne dni treningowe");
 
       document.getElementById("progressHistory").innerHTML = (history.sessions || []).map(function(item) {
-        return '<button class="item-card" style="width:100%;text-align:left;" onclick="loadEvolveSessionDetail(\'' + item.session_id + '\')"><div class="item-card-head"><div class="item-card-title">' + escapeHtml(item.session_date) + '</div><div class="tag">' + item.completion_pct + '%</div></div><div class="item-card-meta">' + item.completed_sets + '/' + item.planned_sets + ' serii · ' + item.exercise_count + ' ćwiczeń' + (item.final_rpe != null ? ' · RPE ' + item.final_rpe : '') + '</div></button>';
+        return '<button class="item-card" style="width:100%;text-align:left;" onclick="loadEvolveSessionDetail(\\'' + item.session_id + '\\')"><div class="item-card-head"><div class="item-card-title">' + escapeHtml(item.session_date) + '</div><div class="tag">' + item.completion_pct + '%</div></div><div class="item-card-meta">' + item.completed_sets + '/' + item.planned_sets + ' serii · ' + item.exercise_count + ' ćwiczeń' + (item.final_rpe != null ? ' · RPE ' + item.final_rpe : '') + '</div></button>';
       }).join("") || '<div style="color:var(--muted);">Brak ukończonych sesji.</div>';
       if (status) { status.className = "alert alert-hidden"; status.textContent = ""; }
     } catch (error) {
@@ -531,7 +531,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       var data=await response.json();
       if(!response.ok) throw new Error(data.detail || "Nie udało się pobrać progresu ćwiczenia");
       var rows=(data.history||[]).map(function(row){return '<div class="item-card" style="cursor:default;"><div class="item-card-head"><div class="item-card-title">'+escapeHtml(row.session_date)+'</div><div class="tag">'+row.sets+' serii</div></div><div class="item-card-meta">'+row.best_weight_kg+' kg · '+row.best_reps_at_best_weight+' powt. · '+row.total_volume_kg+' kg wolumenu'+(row.average_rpe!=null?' · RPE '+row.average_rpe:'')+'</div></div>';}).join("");
-      detail.innerHTML='<div class="card" style="padding:18px;border:1px solid var(--border);"><div class="sec-head"><div><div style="font-weight:700;">'+escapeHtml(data.exercise_name||data.exercise_key)+'</div><div style="font-size:12px;color:var(--muted);">'+data.sessions+' sesji · rekord '+data.best_weight_kg+' kg · wolumen '+data.total_volume_kg+' kg</div></div><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'progressExerciseDetail\').innerHTML=\'\'">Zamknij</button></div>'+(rows||'<div style="color:var(--muted);">Brak historii.</div>')+'</div>';
+      detail.innerHTML='<div class="card" style="padding:18px;border:1px solid var(--border);"><div class="sec-head"><div><div style="font-weight:700;">'+escapeHtml(data.exercise_name||data.exercise_key)+'</div><div style="font-size:12px;color:var(--muted);">'+data.sessions+' sesji · rekord '+data.best_weight_kg+' kg · wolumen '+data.total_volume_kg+' kg</div></div><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\\'progressExerciseDetail\\').innerHTML=\\'\\'">Zamknij</button></div>'+(rows||'<div style="color:var(--muted);">Brak historii.</div>')+'</div>';
     } catch(error) { detail.innerHTML='<div class="alert alert-warn">'+escapeHtml(error.message)+'</div>'; }
   };
 
@@ -547,7 +547,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       var grouped={};
       (data.sets||[]).forEach(function(item){(grouped[item.exercise_name] ||= []).push(item);});
       var body=Object.keys(grouped).map(function(name){return '<div style="margin-bottom:14px;"><div style="font-weight:700;margin-bottom:6px;">'+escapeHtml(name)+'</div>'+grouped[name].map(function(item){return '<div style="font-size:13px;color:var(--muted);padding:4px 0;">Seria '+item.set_number+': '+item.actual_reps+' × '+item.actual_weight_kg+' kg'+(item.actual_rpe!=null?' · RPE '+item.actual_rpe:'')+'</div>';}).join("")+'</div>';}).join("");
-      detail.innerHTML='<div class="card" style="padding:20px;margin-bottom:16px;"><div class="sec-head"><div><div style="font-weight:700;">Sesja '+escapeHtml(data.session_date)+'</div><div style="font-size:12px;color:var(--muted);">Ukończono: '+escapeHtml(data.completed_at||"—")+'</div></div><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'progressSessionDetail\').innerHTML=\'\'">Zamknij</button></div>'+body+'</div>';
+      detail.innerHTML='<div class="card" style="padding:20px;margin-bottom:16px;"><div class="sec-head"><div><div style="font-weight:700;">Sesja '+escapeHtml(data.session_date)+'</div><div style="font-size:12px;color:var(--muted);">Ukończono: '+escapeHtml(data.completed_at||"—")+'</div></div><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\\'progressSessionDetail\\').innerHTML=\\'\\'">Zamknij</button></div>'+body+'</div>';
       detail.scrollIntoView({behavior:"smooth",block:"nearest"});
     } catch(error) { detail.innerHTML='<div class="alert alert-warn">'+escapeHtml(error.message)+'</div>'; }
   };
@@ -594,7 +594,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 (function () {
   function esc(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
-      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char];
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}[char];
     });
   }
   var recoveryLoadSequence = 0;
@@ -604,7 +604,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     if (!content) return;
     content.insertAdjacentHTML("afterbegin",
       '<div class="tab-panel" id="tab-recovery">' +
-      '<div class="sec-head"><div><div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:700;">Recovery 😴</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">Dzisiejsza gotowość i wpływ recovery na trening.</div></div><div id="recoveryDate" style="font-size:12px;color:var(--muted);">—</div></div>' +
+      '<div class="sec-head"><div><div style="font-family:\\'Syne\\',sans-serif;font-size:26px;font-weight:700;">Recovery 😴</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">Dzisiejsza gotowość i wpływ recovery na trening.</div></div><div id="recoveryDate" style="font-size:12px;color:var(--muted);">—</div></div>' +
       '<div id="recoveryStatus" class="alert alert-hidden" style="margin-bottom:16px;"></div>' +
       '<div id="recoverySummary" class="grid-2" style="margin-bottom:16px;"></div>' +
       '<div class="card" style="padding:20px;margin-bottom:16px;"><div style="font-weight:700;">Sygnały recovery</div><div id="recoverySignals" style="margin-top:12px;"></div></div>' +
@@ -669,7 +669,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 (function () {
   function nutritionEscape(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
-      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char];
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}[char];
     });
   }
   var nutritionLoadSequence = 0;
@@ -680,7 +680,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     if (!content) return;
     var section =
       '<div class="tab-panel" id="tab-diet">' +
-        '<div class="sec-head"><div><div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:700;">Dieta 🥗</div>' +
+        '<div class="sec-head"><div><div style="font-family:\\'Syne\\',sans-serif;font-size:26px;font-weight:700;">Dieta 🥗</div>' +
         '<div style="font-size:13px;color:var(--muted);margin-top:4px;">Dzisiejsze spożycie, cele i reakcja systemu.</div></div>' +
         '<button class="btn btn-primary btn-sm" id="nutritionAddBtn" type="button">+ Dodaj posiłek</button></div>' +
         '<div id="nutritionStatus" class="alert alert-hidden" style="margin-bottom:16px;"></div>' +

@@ -23,7 +23,7 @@ def test_my_day_is_integrated_into_shared_dashboard_shell():
     required = [
         'id="tab-my-day"',
         'data-tab="my-day"',
-        "showTab(\\'my-day\\')",
+        "showTab(\\\\'my-day\\\\')",
         "window.loadEvolveMyDay",
         'fetch("/app/training/today"',
         'id="myDayWorkout"',

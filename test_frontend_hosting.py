@@ -29,7 +29,7 @@ def test_shared_shell_contains_native_my_day_injection():
         'id="evolve-my-day-shell-integration"',
         'id="tab-my-day"',
         'data-tab="my-day"',
-        "showTab(\\'my-day\\')",
+        "showTab(\\\\'my-day\\\\')",
         "fetch(\"/app/training/today\"",
         "function injectMyDayShell",
         "window.loadEvolveMyDay",
