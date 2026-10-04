@@ -145,8 +145,8 @@ def _frontend_index_response(index_path: Path):
             html = fallback_path.read_text(encoding="utf-8")
 
     dashboard_first_bootstrap = """<style id="evolve-dashboard-first-style">
-html.evolve-dashboard-first #landing { display: none !important; }
-html.evolve-dashboard-first #appContainer { display: flex !important; }
+html.evolve-dashboard-first #landingPage { display: none !important; }
+html.evolve-dashboard-first #dashboardPage { display: flex !important; }
 </style><script>document.documentElement.classList.add('evolve-dashboard-first');</script>"""
 
     evolve_shell_integration = """<script id="evolve-my-day-shell-integration">
@@ -837,8 +837,8 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     dashboard_boot = """<script id="evolve-dashboard-first-boot">
 document.addEventListener('DOMContentLoaded', function () {
   // The landing page is legacy-only markup. The hosted EVOLVE experience is dashboard-first.
-  var landing = document.getElementById('landing');
-  var dashboard = document.getElementById('appContainer');
+  var landing = document.getElementById('landingPage');
+  var dashboard = document.getElementById('dashboardPage');
   if (landing) {
     landing.style.display = 'none';
     landing.setAttribute('aria-hidden', 'true');
