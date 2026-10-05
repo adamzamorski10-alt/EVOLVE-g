@@ -1470,6 +1470,39 @@ def preview_next_effective_plan(
     }
 
 
+@router.get("/adaptive/history")
+def get_adaptive_history(
+    limit: int = 20,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return the authenticated user's immutable adaptive revision audit trail."""
+    limit = max(1, min(limit, 100))
+    rows = list(
+        session.exec(
+            select(AdaptivePlanRevisionDB)
+            .where(AdaptivePlanRevisionDB.user_id == user.id)
+            .order_by(AdaptivePlanRevisionDB.version.desc(), AdaptivePlanRevisionDB.created_at.desc())
+            .limit(limit)
+        ).all()
+    )
+    return {
+        "limit": limit,
+        "count": len(rows),
+        "revisions": [
+            {
+                "id": row.id,
+                "version": row.version,
+                "source_session_ids": row.source_session_ids(),
+                "decision_summary": row.decision_summary(),
+                "algorithm": json.loads(row.applied_plan_json or "{}").get("_evolve_adaptation", {}).get("algorithm", ADAPTATION_ALGORITHM),
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in rows
+        ],
+    }
+
+
 @router.get("/adaptive/plan-current")
 def get_adaptive_plan_current(
     user: UserDB = Depends(get_current_user),
