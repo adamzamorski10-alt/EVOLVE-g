@@ -160,3 +160,9 @@ def test_goal_best_metrics_are_cumulative_not_last_session_only():
     data = progress.json()
     assert data["current_value"] == 120
     assert data["history"][-1]["value"] == 120
+    canonical = client.get(f"/app/goals/{goal_id}/training-state", headers=_headers(token)).json()
+    assert data["current_value"] == canonical["current_value"]
+    assert data["progress_pct"] == canonical["progress_pct"]
+    assert data["remaining"] == canonical["remaining"]
+    assert data["trend"] == canonical["trend"]
+    assert data["on_track"] == canonical["on_track"]
