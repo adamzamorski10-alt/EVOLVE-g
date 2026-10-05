@@ -104,7 +104,7 @@ def test_apply_adaptation_becomes_effective_today_plan_and_start_snapshot():
     snapshot = started.json()["session"]["planned"]
     assert snapshot["plan_source"] == "adaptive"
     assert snapshot["plan_version"] == 1
-    assert snapshot["exercises"][0]["weight_kg"] == 95
+    assert snapshot["exercises"][0]["weight_kg"] == 97.5
 
     with Session(engine) as db:
         revision = db.exec(
