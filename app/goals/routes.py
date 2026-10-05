@@ -11,6 +11,7 @@ from app.auth.dependencies import get_current_user
 from app.database import get_session
 from app.models import GoalDB, TrainingSessionDB, TrainingSetResultDB, UserDB
 from app.schemas import GoalCreateRequest, GoalUpdateRequest
+from app.goals.training_state import build_goal_training_state
 from app.goals.service import (
     SUPPORTED_METRICS, calculate_progress, create_goal, get_goal_for_user,
     list_goals_for_user, transition_goal, validate_metric_key, validate_goal_type,
@@ -227,6 +228,17 @@ def _metric_snapshots(db: Session, user: UserDB, goal: GoalDB) -> list[dict[str,
         })
     return snapshots
 
+
+@router.get("/{goal_id}/training-state")
+def get_goal_training_state(
+    goal_id: str,
+    user: UserDB = Depends(get_current_user),
+    db: Session = Depends(get_session),
+):
+    """Return canonical read-only Goal ↔ completed Training state."""
+    goal = _owned_or_404(db, user, goal_id)
+    history = _metric_snapshots(db, user, goal)
+    return build_goal_training_state(goal, history)
 
 @router.get("/{goal_id}/progress")
 def get_goal_progress(goal_id: str, user: UserDB = Depends(get_current_user), db: Session = Depends(get_session)):

@@ -39,6 +39,7 @@ from app.nutrition.routes import router as nutrition_router
 from app.plan.routes import router as plan_router
 from app.recovery.routes import router as recovery_router
 from app.training.routes import router as training_router
+from app.training.evaluation_routes import router as training_evaluation_router
 
 # Eager bootstrap for normal application runtime; Alembic imports the models without mutating the target DB.
 if os.getenv("EVOLVE_ALEMBIC_CONTEXT") != "1":
@@ -85,6 +86,7 @@ app.include_router(nutrition_router)
 app.include_router(plan_router)
 app.include_router(recovery_router)
 app.include_router(training_router)
+app.include_router(training_evaluation_router)
 app.include_router(legacy_router)
 
 
