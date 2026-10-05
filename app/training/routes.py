@@ -20,6 +20,8 @@ from app.models import AdaptivePlanRevisionDB, AssessmentDB, DailyLogDB, Exercis
 from app.plan.routes import _assessment_inputs, _fingerprint, _profile_inputs
 from app.recovery.routes import evaluate_recovery
 from app.schemas import TrainingCompleteRequest, TrainingSetResultRequest
+from app.training.adaptation import ADAPTATION_ALGORITHM, adapt_exercise
+from app.training.evaluation import evaluate_exercise
 
 router = APIRouter(prefix="/app/training", tags=["training-execution"])
 
@@ -1102,49 +1104,8 @@ _PROGRESSION_LOW_COMPLETION_PCT = 80
 
 
 def _progression_decision(planned: dict[str, Any], completed_sets: list[TrainingSetResultDB]) -> dict[str, Any]:
-    planned_sets = max(0, int(planned.get("sets") or 0))
-    target_reps = max(0, int(planned.get("reps") or 0))
-    target_weight = max(0.0, float(planned.get("weight_kg") or 0))
-    completed_count = len(completed_sets)
-    completion_pct = round((completed_count / planned_sets) * 100, 1) if planned_sets else 0.0
-    rpes = [item.actual_rpe for item in completed_sets if item.actual_rpe is not None]
-    avg_rpe = round(sum(rpes) / len(rpes), 2) if rpes else None
-    reps = [item.actual_reps for item in completed_sets]
-    avg_reps = round(sum(reps) / len(reps), 2) if reps else None
-    weights = [float(item.actual_weight_kg or 0) for item in completed_sets]
-    avg_weight = round(sum(weights) / len(weights), 2) if weights else None
-
-    if completed_count == 0:
-        decision = "insufficient_data"
-        reason_codes = ["NO_COMPLETED_SETS"]
-    elif planned_sets == 0:
-        decision = "insufficient_data"
-        reason_codes = ["NO_PLANNED_SETS"]
-    elif completion_pct < _PROGRESSION_LOW_COMPLETION_PCT:
-        decision = "reduce"
-        reason_codes = ["LOW_SET_COMPLETION"]
-    elif avg_rpe is not None and avg_rpe > _PROGRESSION_HIGH_RPE:
-        decision = "maintain"
-        reason_codes = ["HIGH_RPE"]
-    elif target_reps > 0 and avg_reps is not None and avg_reps < target_reps:
-        decision = "maintain"
-        reason_codes = ["REPS_BELOW_TARGET"]
-    else:
-        decision = "progress"
-        reason_codes = ["TARGET_COMPLETED"]
-
-    return {
-        "decision": decision,
-        "reason_codes": reason_codes,
-        "planned_sets": planned_sets,
-        "completed_sets": completed_count,
-        "completion_pct": completion_pct,
-        "planned_reps": target_reps,
-        "average_actual_reps": avg_reps,
-        "planned_weight_kg": target_weight,
-        "average_actual_weight_kg": avg_weight,
-        "average_rpe": avg_rpe,
-    }
+    """Compatibility wrapper around the canonical Stage 8B evaluator."""
+    return evaluate_exercise(planned, completed_sets)
 
 
 @router.get("/sessions/{session_id}/progression")
@@ -1204,42 +1165,8 @@ def _round_load(value: float) -> float:
 
 
 def _next_plan_exercise(planned: dict[str, Any], decision: dict[str, Any]) -> dict[str, Any]:
-    current_reps = max(0, int(planned.get("reps") or 0))
-    current_weight = max(0.0, float(planned.get("weight_kg") or 0))
-    next_reps = current_reps
-    next_weight = current_weight
-    action = "unchanged"
-
-    if decision["decision"] == "progress":
-        action = "progress_load" if current_weight > 0 else "progress_reps"
-        if current_weight > 0:
-            next_weight = _round_load(current_weight * 1.025)
-        else:
-            next_reps = current_reps + 1
-    elif decision["decision"] == "reduce":
-        action = "reduce_load" if current_weight > 0 else "reduce_reps"
-        if current_weight > 0:
-            next_weight = max(0.0, _round_load(current_weight * 0.95))
-        elif current_reps > 1:
-            next_reps = current_reps - 1
-
-    return {
-        "exercise_key": str(planned.get("exercise_key") or ""),
-        "exercise_name": str(planned.get("exercise_name") or "Ćwiczenie"),
-        "decision": decision["decision"],
-        "action": action,
-        "current": {
-            "sets": max(0, int(planned.get("sets") or 0)),
-            "reps": current_reps,
-            "weight_kg": current_weight,
-        },
-        "proposed": {
-            "sets": max(0, int(planned.get("sets") or 0)),
-            "reps": next_reps,
-            "weight_kg": next_weight,
-        },
-        "reason_codes": decision["reason_codes"],
-    }
+    """Compatibility wrapper around the canonical Stage 8C adaptation policy."""
+    return adapt_exercise(planned, decision)
 
 
 @router.get("/sessions/{session_id}/next-plan-preview")
@@ -1291,6 +1218,7 @@ def get_adaptive_training_preview(
     session: Session = Depends(get_session),
 ):
     """Build a trend-aware, conservative read-only adaptation preview."""
+    proposed_plan, source_ids, canonical_summary = _build_adaptive_plan(user.id, session)
     sessions = list(
         session.exec(
             select(TrainingSessionDB)
@@ -1401,6 +1329,9 @@ def get_adaptive_training_preview(
         "has_data": True,
         "sessions_analyzed": len(sessions),
         "source_session_ids": source_ids,
+        "next_effective_plan": proposed_plan,
+        "next_effective_summary": canonical_summary,
+        "next_effective_algorithm": ADAPTATION_ALGORITHM,
         "latest_session": {
             "id": latest.id,
             "date": latest.session_date.isoformat(),
@@ -1414,7 +1345,11 @@ def get_adaptive_training_preview(
 
 
 def _build_adaptive_plan(user_id: str, session: Session) -> tuple[dict, list[str], dict]:
-    """Build a weekly-plan revision, changing only the latest completed day."""
+    """Build the canonical Stage 8D next-effective plan proposal.
+
+    Preview and apply MUST consume this same builder so the user never sees a
+    proposal different from the one that will be persisted.
+    """
     sessions = list(
         session.exec(
             select(TrainingSessionDB)
@@ -1493,9 +1428,79 @@ def _build_adaptive_plan(user_id: str, session: Session) -> tuple[dict, list[str
         "source_session_ids": source_ids,
         "source_day": target_day.isoformat(),
         "summary": summary,
-        "algorithm": "deterministic-v1",
+        "algorithm": ADAPTATION_ALGORITHM,
     }
     return adapted, source_ids, summary
+
+
+@router.get("/adaptive/next-effective-preview")
+def preview_next_effective_plan(
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return the exact deterministic plan proposal that Apply would persist."""
+    proposed, source_ids, summary = _build_adaptive_plan(user.id, session)
+    current = _latest_adaptive_revision(user.id, session)
+    current_version = current.version if current else 0
+    if not proposed:
+        return {
+            "has_data": False,
+            "plan_mutated": False,
+            "current_version": current_version,
+            "proposed_version": current_version,
+            "source_session_ids": [],
+            "summary": summary,
+            "plan": None,
+        }
+    unchanged = bool(
+        current
+        and json.dumps(json.loads(current.applied_plan_json or "{}"), sort_keys=True)
+        == json.dumps(proposed, sort_keys=True)
+    )
+    return {
+        "has_data": True,
+        "plan_mutated": False,
+        "unchanged": unchanged,
+        "current_version": current_version,
+        "proposed_version": current_version if unchanged else current_version + 1,
+        "source_session_ids": source_ids,
+        "summary": summary,
+        "algorithm": ADAPTATION_ALGORITHM,
+        "plan": proposed,
+    }
+
+
+@router.get("/adaptive/history")
+def get_adaptive_history(
+    limit: int = 20,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return the authenticated user's immutable adaptive revision audit trail."""
+    limit = max(1, min(limit, 100))
+    rows = list(
+        session.exec(
+            select(AdaptivePlanRevisionDB)
+            .where(AdaptivePlanRevisionDB.user_id == user.id)
+            .order_by(AdaptivePlanRevisionDB.version.desc(), AdaptivePlanRevisionDB.created_at.desc())
+            .limit(limit)
+        ).all()
+    )
+    return {
+        "limit": limit,
+        "count": len(rows),
+        "revisions": [
+            {
+                "id": row.id,
+                "version": row.version,
+                "source_session_ids": row.source_session_ids(),
+                "decision_summary": row.decision_summary(),
+                "algorithm": json.loads(row.applied_plan_json or "{}").get("_evolve_adaptation", {}).get("algorithm", ADAPTATION_ALGORITHM),
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in rows
+        ],
+    }
 
 
 @router.get("/adaptive/plan-current")
@@ -1580,35 +1585,6 @@ def apply_adaptive_plan(
         "decision_summary": summary,
         "created_at": revision.created_at.isoformat(),
         "message": "Adaptacja została zapisana jako nowa wersja. Poprzednia wersja pozostaje w audycie.",
-    }
-
-
-@router.get("/adaptive/history")
-def get_adaptive_plan_history(
-    limit: int = 20,
-    user: UserDB = Depends(get_current_user),
-    session: Session = Depends(get_session),
-):
-    limit = max(1, min(limit, 100))
-    rows = list(
-        session.exec(
-            select(AdaptivePlanRevisionDB)
-            .where(AdaptivePlanRevisionDB.user_id == user.id)
-            .order_by(AdaptivePlanRevisionDB.version.desc())
-            .limit(limit)
-        ).all()
-    )
-    return {
-        "versions": [
-            {
-                "version": row.version,
-                "created_at": row.created_at.isoformat(),
-                "source_session_ids": row.source_session_ids(),
-                "decision_summary": row.decision_summary(),
-                "plan": json.loads(row.applied_plan_json or "{}"),
-            }
-            for row in rows
-        ]
     }
 
 

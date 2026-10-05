@@ -336,7 +336,7 @@ def test_adaptive_plan_apply_creates_version_and_preserves_previous_plan():
 
     history = client.get("/app/training/adaptive/history", headers=_headers(ctx["token"]))
     assert history.status_code == 200
-    assert len(history.json()["versions"]) == 1
+    assert len(history.json()["revisions"]) == 1
 
 
 def test_adaptive_plan_apply_is_idempotent_and_user_scoped():
@@ -360,7 +360,7 @@ def test_adaptive_plan_apply_is_idempotent_and_user_scoped():
 
     foreign = client.get("/app/training/adaptive/history", headers=_headers(second["token"]))
     assert foreign.status_code == 200
-    assert foreign.json()["versions"] == []
+    assert foreign.json()["revisions"] == []
 
 
 def test_adaptive_dashboard_exposes_apply_control():

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Index, UniqueConstraint
 
 if TYPE_CHECKING:
     from app.fitness.calculations import _xp_to_level  # avoid circular import
@@ -488,6 +488,9 @@ class GoalDB(SQLModel, table=True):
 class AdaptivePlanRevisionDB(SQLModel, table=True):
     """Audit trail for user-owned adaptive plan revisions."""
     __tablename__ = "adaptive_plan_revisions"
+    __table_args__ = (
+        Index("uq_adaptive_plan_revision_user_version", "user_id", "version", unique=True),
+    )
 
     id: Optional[str] = Field(default_factory=lambda: str(_uuid_mod.uuid4()), primary_key=True)
     user_id: str = Field(foreign_key="users.id", index=True)

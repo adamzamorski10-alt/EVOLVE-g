@@ -11,6 +11,7 @@ from app.auth.dependencies import get_current_user
 from app.database import get_session
 from app.models import GoalDB, TrainingSessionDB, TrainingSetResultDB, UserDB
 from app.schemas import GoalCreateRequest, GoalUpdateRequest
+from app.goals.training_state import build_goal_training_state
 from app.goals.service import (
     SUPPORTED_METRICS, calculate_progress, create_goal, get_goal_for_user,
     list_goals_for_user, transition_goal, validate_metric_key, validate_goal_type,
@@ -228,33 +229,33 @@ def _metric_snapshots(db: Session, user: UserDB, goal: GoalDB) -> list[dict[str,
     return snapshots
 
 
+@router.get("/{goal_id}/training-state")
+def get_goal_training_state(
+    goal_id: str,
+    user: UserDB = Depends(get_current_user),
+    db: Session = Depends(get_session),
+):
+    """Return canonical read-only Goal ↔ completed Training state."""
+    goal = _owned_or_404(db, user, goal_id)
+    history = _metric_snapshots(db, user, goal)
+    return build_goal_training_state(goal, history)
+
 @router.get("/{goal_id}/progress")
 def get_goal_progress(goal_id: str, user: UserDB = Depends(get_current_user), db: Session = Depends(get_session)):
+    """Return the legacy progress response backed by canonical Goal ↔ Training state."""
     goal = _owned_or_404(db, user, goal_id)
-    metric = validate_metric_key(goal.metric_key)
-    if not metric:
-        return {"goal": _serialize(goal), "metric": None, "current_value": None, "target_value": goal.target_value,
-                "remaining": None, "progress_pct": None, "trend": None, "on_track": None, "last_updated": None, "history": []}
     history = _metric_snapshots(db, user, goal)
-    current = history[-1]["value"] if history else None
-    definition = SUPPORTED_METRICS[metric]
-    calc = calculate_progress(current, goal.baseline_value, goal.target_value, definition["direction"])
-    on_track = calc["on_track"]
-    if on_track is not True and goal.target_date and goal.baseline_value is not None and goal.target_value is not None and goal.target_date > goal.start_date:
-        total_days = (goal.target_date - goal.start_date).days
-        elapsed_days = max(0, min(total_days, (date.today() - goal.start_date).days))
-        expected_pct = (elapsed_days / total_days) * 100
-        on_track = calc["percent"] is not None and calc["percent"] >= round(expected_pct, 1)
-    trend = None
-    if len(history) >= 2:
-        delta = history[-1]["value"] - history[-2]["value"]
-        trend = "up" if delta > 0 else "down" if delta < 0 else "stable"
+    state = build_goal_training_state(goal, history)
     return {
-        "goal": _serialize(goal), "metric": {"key": metric, **definition},
-        "current_value": current, "target_value": goal.target_value,
-        "remaining": calc["remaining"], "progress_pct": calc["percent"],
-        "trend": trend, "on_track": on_track,
-        "last_updated": history[-1]["date"] if history else None,
-        "deadline": goal.target_date.isoformat() if goal.target_date else None,
+        "goal": _serialize(goal),
+        "metric": state["metric"],
+        "current_value": state["current_value"],
+        "target_value": state["target_value"],
+        "remaining": state["remaining"],
+        "progress_pct": state["progress_pct"],
+        "trend": state["trend"],
+        "on_track": state["on_track"],
+        "last_updated": state["latest_supporting_training_date"],
+        "deadline": state["goal"]["target_date"],
         "history": history,
     }
