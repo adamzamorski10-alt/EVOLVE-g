@@ -488,6 +488,9 @@ class GoalDB(SQLModel, table=True):
 class AdaptivePlanRevisionDB(SQLModel, table=True):
     """Audit trail for user-owned adaptive plan revisions."""
     __tablename__ = "adaptive_plan_revisions"
+    __table_args__ = (
+        UniqueConstraint("user_id", "version", name="uq_adaptive_plan_revision_user_version"),
+    )
 
     id: Optional[str] = Field(default_factory=lambda: str(_uuid_mod.uuid4()), primary_key=True)
     user_id: str = Field(foreign_key="users.id", index=True)
