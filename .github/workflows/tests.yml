@@ -22,7 +22,7 @@ jobs:
           python-version: "3.11"
       - run: pip install -r requirements.txt
       - run: python -m compileall -q app alembic
-      - run: python -m pytest -q test_training_execution.py test_training_ui.py test_training_set_validation.py test_training_today.py test_core_foundation.py test_core_planning_contract.py test_frontend_hosting.py test_goals.py test_goals_api.py test_nutrition_foundation.py test_training_result_provenance.py test_pre_stage6_audit.py test_stage0_5_cross_user_isolation.py test_stage5_final_integration.py test_recovery_response.py test_plan_performance_signals.py test_training_evaluation.py test_training_evaluation_api.py test_training_adaptation.py test_training_next_effective_plan.py test_training_adaptive_audit.py
+      - run: python -m pytest -q test_training_execution.py test_training_ui.py test_training_set_validation.py test_training_today.py test_core_foundation.py test_core_planning_contract.py test_frontend_hosting.py test_goals.py test_goals_api.py test_nutrition_foundation.py test_training_result_provenance.py test_pre_stage6_audit.py test_stage0_5_cross_user_isolation.py test_stage5_final_integration.py test_recovery_response.py test_plan_performance_signals.py test_training_evaluation.py test_training_evaluation_api.py test_training_adaptation.py test_training_next_effective_plan.py test_training_adaptive_audit.py test_goal_training_state.py
 
   legacy-baseline:
     name: Legacy regression (informational)
