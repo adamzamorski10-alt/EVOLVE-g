@@ -2,7 +2,7 @@ name: EVOLVE tests
 
 on:
   push:
-    branches: ["main", "stage-2-training-execution", "audit/pre-stage-6-full-system"]
+    branches: ["main", "stage-2-training-execution", "audit/pre-stage-6-full-system", "stage-8-training-adaptation-loop"]
   pull_request:
     branches: ["main", "audit/pre-stage-6-full-system"]
 
