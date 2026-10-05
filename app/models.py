@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Index, UniqueConstraint
 
 if TYPE_CHECKING:
     from app.fitness.calculations import _xp_to_level  # avoid circular import
