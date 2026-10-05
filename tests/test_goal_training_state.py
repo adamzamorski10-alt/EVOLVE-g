@@ -77,5 +77,5 @@ def test_goal_training_state_does_not_mutate_goal_or_input():
     goal = make_goal()
     evidence = [{"date": "2026-10-05", "value": 105.0, "session_id": "s1"}]
     build_goal_training_state(goal, evidence)
-    assert goal.current_value if hasattr(goal, "current_value") else True
+    assert not hasattr(goal, "current_value")
     assert evidence == [{"date": "2026-10-05", "value": 105.0, "session_id": "s1"}]
