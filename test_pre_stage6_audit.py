@@ -131,7 +131,7 @@ def test_migration_chain_has_single_head_through_stage_5():
         elif parent:
             children.add(parent)
     heads = sorted(revision for revision in revisions if revision not in children)
-    assert heads == ["0d74b80a4276"], heads
+    assert heads == ["evolve22adaptive_audit"], heads
 
 
 def test_external_verification_queue_keeps_stage_0_5_checks_pending():
