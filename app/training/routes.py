@@ -1218,6 +1218,7 @@ def get_adaptive_training_preview(
     session: Session = Depends(get_session),
 ):
     """Build a trend-aware, conservative read-only adaptation preview."""
+    proposed_plan, source_ids, canonical_summary = _build_adaptive_plan(user.id, session)
     sessions = list(
         session.exec(
             select(TrainingSessionDB)
@@ -1328,6 +1329,9 @@ def get_adaptive_training_preview(
         "has_data": True,
         "sessions_analyzed": len(sessions),
         "source_session_ids": source_ids,
+        "next_effective_plan": proposed_plan,
+        "next_effective_summary": canonical_summary,
+        "next_effective_algorithm": ADAPTATION_ALGORITHM,
         "latest_session": {
             "id": latest.id,
             "date": latest.session_date.isoformat(),
@@ -1341,7 +1345,11 @@ def get_adaptive_training_preview(
 
 
 def _build_adaptive_plan(user_id: str, session: Session) -> tuple[dict, list[str], dict]:
-    """Build a weekly-plan revision, changing only the latest completed day."""
+    """Build the canonical Stage 8D next-effective plan proposal.
+
+    Preview and apply MUST consume this same builder so the user never sees a
+    proposal different from the one that will be persisted.
+    """
     sessions = list(
         session.exec(
             select(TrainingSessionDB)
@@ -1423,6 +1431,43 @@ def _build_adaptive_plan(user_id: str, session: Session) -> tuple[dict, list[str
         "algorithm": ADAPTATION_ALGORITHM,
     }
     return adapted, source_ids, summary
+
+
+@router.get("/adaptive/next-effective-preview")
+def preview_next_effective_plan(
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return the exact deterministic plan proposal that Apply would persist."""
+    proposed, source_ids, summary = _build_adaptive_plan(user.id, session)
+    current = _latest_adaptive_revision(user.id, session)
+    current_version = current.version if current else 0
+    if not proposed:
+        return {
+            "has_data": False,
+            "plan_mutated": False,
+            "current_version": current_version,
+            "proposed_version": current_version,
+            "source_session_ids": [],
+            "summary": summary,
+            "plan": None,
+        }
+    unchanged = bool(
+        current
+        and json.dumps(json.loads(current.applied_plan_json or "{}"), sort_keys=True)
+        == json.dumps(proposed, sort_keys=True)
+    )
+    return {
+        "has_data": True,
+        "plan_mutated": False,
+        "unchanged": unchanged,
+        "current_version": current_version,
+        "proposed_version": current_version if unchanged else current_version + 1,
+        "source_session_ids": source_ids,
+        "summary": summary,
+        "algorithm": ADAPTATION_ALGORITHM,
+        "plan": proposed,
+    }
 
 
 @router.get("/adaptive/plan-current")
