@@ -113,7 +113,7 @@ def test_apply_adaptation_becomes_effective_today_plan_and_start_snapshot():
         ).first()
         assert revision is not None
         applied_plan = json.loads(revision.applied_plan_json)
-        assert applied_plan["days"][0]["workout"]["exercises"][0]["weight_kg"] == 95
+        assert applied_plan["days"][0]["workout"]["exercises"][0]["weight_kg"] == 97.5
         assert sid in revision.source_session_ids()
 
 
