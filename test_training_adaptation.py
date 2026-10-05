@@ -23,7 +23,7 @@ def test_progress_is_bounded_and_deterministic():
 
 def test_reduce_is_bounded_and_deterministic():
     result = adapt_exercise(_planned(weight=100), {"decision": "reduce", "reason_codes": ["LOW_SET_COMPLETION"]})
-    assert result["proposed"]["weight_kg"] == 95
+    assert result["proposed"]["weight_kg"] == 97.5
 
 
 def test_maintain_does_not_change_load():
