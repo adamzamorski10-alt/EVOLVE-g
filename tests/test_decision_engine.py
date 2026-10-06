@@ -114,3 +114,65 @@ def test_inputs_are_not_mutated():
     )
 
     assert (repr(goals), repr(recovery), repr(nutrition)) == before
+
+
+from app.decision_engine import build_decision
+
+
+def goal(*, sufficient=True, on_track=True, trend="up"):
+    return {
+        "goal": {"id": "g1"},
+        "sufficient_data": sufficient,
+        "on_track": on_track,
+        "trend": trend,
+        "supporting_session_ids": ["s1"],
+    }
+
+
+def test_training_progress_signal_is_consumed_without_reimplementing_evaluation():
+    result = build_decision(
+        goal_states=[goal()],
+        training={
+            "status": "ready",
+            "overall_decision": "progress",
+            "reason_codes": ["ALL_EXERCISES_READY_TO_PROGRESS"],
+            "session_id": "s1",
+        },
+    )
+    assert result["decision"] == "progress_training"
+    assert "TRAINING_READY_TO_PROGRESS" in result["reason_codes"]
+
+
+def test_training_reduce_signal_precedes_goal_progress():
+    result = build_decision(
+        goal_states=[goal()],
+        training={
+            "status": "ready",
+            "overall_decision": "reduce",
+            "reason_codes": ["EXERCISE_REQUIRES_REDUCTION"],
+            "session_id": "s1",
+        },
+    )
+    assert result["decision"] == "reduce_training"
+    assert "TRAINING_REQUIRES_REDUCTION" in result["reason_codes"]
+
+
+def test_training_insufficient_signal_does_not_create_progress():
+    result = build_decision(
+        goal_states=[goal()],
+        training={
+            "status": "insufficient_data",
+            "overall_decision": "insufficient_data",
+        },
+    )
+    assert result["decision"] != "progress_training"
+    assert "TRAINING_DATA_INSUFFICIENT" in result["reason_codes"]
+
+
+def test_recovery_still_overrides_training_progress():
+    result = build_decision(
+        goal_states=[goal()],
+        training={"status": "ready", "overall_decision": "progress"},
+        recovery={"status": "recovery", "constraint": "reduce_volume_50"},
+    )
+    assert result["decision"] == "recover"
