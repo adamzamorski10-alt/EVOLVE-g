@@ -122,7 +122,17 @@ def build_decision(
         else:
             progress_states = [item for item in usable_states if item.get("on_track") is True and item.get("trend") == "up"]
             maintain_states = [item for item in usable_states if item.get("on_track") is not True]
-            if progress_states:
+            if training.get("status") == "ready" and training.get("overall_decision") == "reduce":
+                decision = "reduce_training"
+                priority = "high"
+                action = "Reduce training based on the completed-session evaluation."
+                reason_codes.append("TRAINING_EVALUATION_REDUCE")
+            elif training.get("status") == "ready" and training.get("overall_decision") == "maintain":
+                decision = "maintain_training"
+                priority = "normal"
+                action = "Maintain training based on the completed-session evaluation."
+                reason_codes.append("TRAINING_EVALUATION_MAINTAIN")
+            elif progress_states:
                 decision = "progress_training"
                 priority = "normal"
                 action = "Use the existing bounded training adaptation for goals showing positive evidence."
