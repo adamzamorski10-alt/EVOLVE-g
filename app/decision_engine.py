@@ -84,6 +84,25 @@ def build_decision(
         action = "Train with reduced volume because recovery is constrained."
         reason_codes.append("RECOVERY_CONSTRAINT")
         constraint_names.append(str(recovery_constraint or "reduce_volume_25"))
+    elif training.get("overall_decision") == "reduce":
+        decision = "reduce_training"
+        priority = "high"
+        action = "Reduce training because completed-session evaluation requires it."
+        reason_codes.append("TRAINING_REQUIRES_REDUCTION")
+        if training.get("session_id"):
+            supporting_sessions.append(str(training["session_id"]))
+    elif training.get("overall_decision") == "progress":
+        decision = "progress_training"
+        priority = "normal"
+        action = "Use the existing bounded training adaptation for the evaluated session."
+        reason_codes.append("TRAINING_READY_TO_PROGRESS")
+        if training.get("session_id"):
+            supporting_sessions.append(str(training["session_id"]))
+    elif training.get("status") == "insufficient_data" or training.get("overall_decision") == "insufficient_data":
+        decision = "insufficient_data"
+        priority = "low"
+        action = "Collect completed training evidence before changing the training direction."
+        reason_codes.append("TRAINING_DATA_INSUFFICIENT")
     elif explicit_constraints:
         decision = "reduce_training"
         priority = "high"
@@ -121,6 +140,8 @@ def build_decision(
         reason_codes.append("NUTRITION_DATA_INSUFFICIENT")
     elif nutrition.get("adaptation_allowed") is False:
         reason_codes.append("NUTRITION_ADAPTATION_DISABLED")
+
+    supporting_sessions = list(dict.fromkeys(supporting_sessions))
 
     return {
         "decision": decision,
