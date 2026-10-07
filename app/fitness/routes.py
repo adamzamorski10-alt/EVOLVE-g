@@ -13,6 +13,8 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlmodel import Session, select
 
 from app.auth.dependencies import get_current_user
+from app.decision_engine import training_execution_allowed
+from app.decision_service import decision_for_user
 from app.config import (
     _XP_CHECKIN,
     _XP_MEAL_LOGGED,
@@ -435,6 +437,19 @@ def toggle_day_item(
         raise HTTPException(status_code=404, detail="Nie znaleziono elementu dnia")
 
     previous_checked = bool(item.get("checked"))
+    if payload.item_type == "workout" and payload.checked and not previous_checked:
+        decision = decision_for_user(user=user, db=session, target_date=target_date)
+        if not training_execution_allowed(decision):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "TRAINING_EXECUTION_BLOCKED",
+                    "decision": decision["decision"],
+                    "priority": decision["priority"],
+                    "action": decision["action"],
+                    "reason_codes": decision["reason_codes"],
+                },
+            )
     item["checked"] = bool(payload.checked)
     item["updated_at"] = datetime.now().isoformat()
 
