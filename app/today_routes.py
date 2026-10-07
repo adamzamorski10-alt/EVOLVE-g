@@ -22,6 +22,8 @@ def get_today(
     """Aggregate today's decision and effective training action without mutating state."""
     decision = decision_today(user=user, db=db)
     training = get_training_today(user=user, session=db)
+    safety_blocked = decision["decision"] == "recover"
+    recommended_can_start = bool(training["can_start"]) and not safety_blocked
 
     return {
         "date": training["date"],
@@ -31,8 +33,9 @@ def get_today(
             "decision": decision["decision"],
             "priority": decision["priority"],
             "action": decision["action"],
-            "can_start": training["can_start"],
+            "can_start": recommended_can_start,
             "has_workout": training["has_workout"],
+            "safety_blocked": safety_blocked,
         },
         "read_only": True,
     }
