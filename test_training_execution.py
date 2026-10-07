@@ -712,3 +712,92 @@ def test_completion_path_materializes_owned_result_when_execution_is_allowed():
     completed = client.post(f"/app/training/sessions/{sid}/complete", json={"final_rpe": 8}, headers=_headers(ctx["token"]))
     assert completed.status_code == 200
     assert completed.json()["status"] == "completed"
+
+
+def test_cross_user_session_read_analysis_progression_and_completion_are_blocked():
+    owner = _context()
+    attacker = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(owner["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+
+    for path in (
+        f"/app/training/sessions/{sid}",
+        f"/app/training/sessions/history/{sid}",
+        f"/app/training/sessions/{sid}/analysis",
+        f"/app/training/sessions/{sid}/progression",
+    ):
+        response = client.get(path, headers=_headers(attacker["token"]))
+        assert response.status_code == 404, path
+
+    set_response = client.post(
+        f"/app/training/sessions/{sid}/sets",
+        json={"exercise_key": "squat-1", "set_number": 1, "actual_reps": 5, "actual_weight_kg": 100},
+        headers=_headers(attacker["token"]),
+    )
+    assert set_response.status_code == 404
+
+    complete_response = client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 8},
+        headers=_headers(attacker["token"]),
+    )
+    assert complete_response.status_code == 404
+
+    with Session(engine) as db:
+        owner_user = db.exec(select(UserDB).where(UserDB.email == owner["email"])).first()
+        row = db.exec(
+            select(TrainingSessionDB)
+            .where(TrainingSessionDB.id == sid)
+            .where(TrainingSessionDB.user_id == owner_user.id)
+        ).first()
+        assert row is not None
+        assert row.status == "active"
+        assert db.exec(select(TrainingSetResultDB).where(TrainingSetResultDB.session_id == sid)).all() == []
+
+
+def test_recovery_and_decision_are_user_scoped():
+    first = _context()
+    second = _context()
+
+    with Session(engine) as db:
+        first_user = db.exec(select(UserDB).where(UserDB.email == first["email"])).first()
+        second_user = db.exec(select(UserDB).where(UserDB.email == second["email"])).first()
+        db.add(DailyLogDB(
+            user_id=first_user.id,
+            log_date=date.today(),
+            sleep_hours=4,
+            sleep_quality=3,
+            energy_level=3,
+            stress_level=9,
+        ))
+        db.commit()
+
+        from app.decision_service import decision_for_user
+        from app.recovery.routes import recovery_for_date
+
+        first_recovery = recovery_for_date(db, first_user.id, date.today())
+        second_recovery = recovery_for_date(db, second_user.id, date.today())
+        first_decision = decision_for_user(user=first_user, db=db)
+        second_decision = decision_for_user(user=second_user, db=db)
+
+    assert first_recovery["status"] == "recovery"
+    assert second_recovery["status"] == "insufficient_data"
+    assert first_decision["decision"] == "recover"
+    assert second_decision["decision"] != "recover"
+
+
+def test_unauthenticated_execution_and_session_reads_are_rejected():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+
+    assert client.get(f"/app/training/sessions/{sid}").status_code in {401, 403}
+    assert client.post(f"/app/training/sessions/{sid}/sets", json={
+        "exercise_key": "squat-1",
+        "set_number": 1,
+        "actual_reps": 5,
+        "actual_weight_kg": 100,
+    }).status_code in {401, 403}
+    assert client.post(f"/app/training/sessions/{sid}/complete", json={}).status_code in {401, 403}
