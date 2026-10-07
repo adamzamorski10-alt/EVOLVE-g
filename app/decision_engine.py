@@ -19,13 +19,22 @@ DECISIONS = {
 }
 
 
-def training_start_allowed(decision: dict[str, Any]) -> bool:
-    """Return whether a new normal training session may be started.
+def training_execution_allowed(decision: dict[str, Any]) -> bool:
+    """Return whether training execution may mutate an active session.
 
-    Safety/data-quality decisions are authoritative; callers must not
-    reproduce Decision Engine precedence rules.
+    Only the canonical safety decision may block execution. Unknown/malformed
+    decisions fail closed; insufficient_data is not itself a safety
+    contraindication.
     """
-    return str(decision.get("decision") or "insufficient_data") != "recover"
+    value = decision.get("decision")
+    if value is None:
+        value = "insufficient_data"
+    return value in DECISIONS and value != "recover"
+
+
+def training_start_allowed(decision: dict[str, Any]) -> bool:
+    """Return whether a new normal training session may be started."""
+    return training_execution_allowed(decision)
 
 
 def _goal_ids(states: Iterable[dict[str, Any]]) -> list[str]:
