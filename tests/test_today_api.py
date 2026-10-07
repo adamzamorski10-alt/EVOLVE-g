@@ -94,8 +94,10 @@ def test_today_action_contract_blocks_start_on_recovery_override(monkeypatch):
 
     response = client.get("/app/today", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200, response.text
-    assert response.json()["action"]["safety_blocked"] is True
-    assert response.json()["action"]["can_start"] is False
+    payload = response.json()
+    assert payload["status"] == "recover"
+    assert payload["safety"]["blocked"] is True
+    assert payload["primary_action"]["can_start"] is False
 
 
 def test_today_cross_user_isolation(monkeypatch):
