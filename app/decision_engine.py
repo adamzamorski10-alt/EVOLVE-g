@@ -19,6 +19,18 @@ DECISIONS = {
 }
 
 
+def training_start_allowed(decision: dict[str, Any]) -> bool:
+    """Return whether a new normal training session may be started.
+
+    Safety/data-quality decisions are authoritative; callers must not
+    reproduce Decision Engine precedence rules.
+    """
+    return str(decision.get("decision") or "insufficient_data") not in {
+        "recover",
+        "insufficient_data",
+    }
+
+
 def _goal_ids(states: Iterable[dict[str, Any]]) -> list[str]:
     return [str(item["goal"]["id"]) for item in states if item.get("goal", {}).get("id")]
 
