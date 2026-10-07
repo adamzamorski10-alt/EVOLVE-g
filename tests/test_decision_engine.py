@@ -1,6 +1,3 @@
-from datetime import date
-from types import SimpleNamespace
-
 from app.decision_engine import DECISION_ALGORITHM, build_decision
 
 
@@ -135,23 +132,9 @@ def test_inputs_are_not_mutated():
 
     assert (repr(goals), repr(recovery), repr(nutrition)) == before
 
-
-from app.decision_engine import build_decision
-
-
-def goal(*, sufficient=True, on_track=True, trend="up"):
-    return {
-        "goal": {"id": "g1"},
-        "sufficient_data": sufficient,
-        "on_track": on_track,
-        "trend": trend,
-        "supporting_session_ids": ["s1"],
-    }
-
-
 def test_training_progress_signal_is_consumed_without_reimplementing_evaluation():
     result = build_decision(
-        goal_states=[goal()],
+        goal_states=[_goal()],
         training={
             "status": "ready",
             "overall_decision": "progress",
