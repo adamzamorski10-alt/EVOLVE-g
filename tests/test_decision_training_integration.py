@@ -19,7 +19,7 @@ def test_training_signal_is_evidence_not_a_second_evaluation_engine():
         training={"status": "ready", "overall_decision": "reduce", "session_id": "s9"},
     )
     assert result["decision"] == "reduce_training"
-    assert result["supporting_session_ids"] == ["s1"]
+    assert result["supporting_session_ids"] == ["s1", "s9"]
     assert result["mutates_plan"] is False
 
 
