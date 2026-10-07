@@ -4,6 +4,10 @@ import uuid
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session
+from datetime import date, datetime
+
+from app.decision_routes import _latest_training_signal
+from app.models import TrainingSessionDB
 
 from app.auth.jwt_utils import create_access_token
 from app.database import engine
@@ -69,3 +73,50 @@ def test_decision_today_returns_read_only_decision_for_authenticated_user():
     assert isinstance(payload["supporting_session_ids"], list)
     assert payload["mutates_plan"] is False
     assert payload["algorithm_version"] == "deterministic-decision-v1"
+
+def test_latest_training_signal_isolated_by_user():
+    first, _ = _seed_user()
+    second, _ = _seed_user()
+    first_session = TrainingSessionDB(
+        user_id=first.id,
+        session_date=date.today(),
+        status="completed",
+        planned_snapshot_json='{"exercises":[]}',
+        completed_at=datetime.now(),
+    )
+    second_session = TrainingSessionDB(
+        user_id=second.id,
+        session_date=date.today(),
+        status="completed",
+        planned_snapshot_json='{"exercises":[]}',
+        completed_at=datetime.now(),
+    )
+    with Session(engine) as session:
+        session.add(first_session)
+        session.add(second_session)
+        session.commit()
+        first_signal = _latest_training_signal(session, first)
+        second_signal = _latest_training_signal(session, second)
+
+    assert first_signal["session_id"] == first_session.id
+    assert second_signal["session_id"] == second_session.id
+    assert first_signal["session_id"] != second_signal["session_id"]
+
+
+def test_latest_training_signal_treats_empty_or_malformed_snapshot_as_insufficient():
+    user, _ = _seed_user()
+    session_row = TrainingSessionDB(
+        user_id=user.id,
+        session_date=date.today(),
+        status="completed",
+        planned_snapshot_json="{not-json",
+        completed_at=datetime.now(),
+    )
+    with Session(engine) as session:
+        session.add(session_row)
+        session.commit()
+        signal = _latest_training_signal(session, user)
+
+    assert signal["session_id"] == session_row.id
+    assert signal["status"] == "insufficient_data"
+    assert signal["overall_decision"] == "insufficient_data"
