@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select, delete
 
 from app.database import engine
-from app.models import ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
+from app.models import DailyLogDB, ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
 from main import app
 
 
@@ -536,3 +536,36 @@ def test_completion_rejects_empty_and_is_idempotent_and_user_scoped():
     assert repeat.status_code == 200
     assert repeat.json()["status"] == "already_completed"
     assert repeat.json()["session"]["final_rpe"] == 7
+
+
+def test_start_session_is_blocked_by_recovery_decision():
+    ctx = _context()
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        assert user is not None
+        db.add(DailyLogDB(
+            user_id=user.id,
+            log_date=date.today(),
+            sleep_hours=4,
+            sleep_quality=3,
+            energy_level=3,
+            stress_level=9,
+        ))
+        db.commit()
+
+    blocked = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert blocked.status_code == 409
+    detail = blocked.json()["detail"]
+    assert detail["code"] == "TRAINING_START_BLOCKED"
+    assert detail["decision"] == "recover"
+
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        assert user is not None
+        active = db.exec(
+            select(TrainingSessionDB)
+            .where(TrainingSessionDB.user_id == user.id)
+            .where(TrainingSessionDB.session_date == date.today())
+            .where(TrainingSessionDB.status == "active")
+        ).first()
+        assert active is None
