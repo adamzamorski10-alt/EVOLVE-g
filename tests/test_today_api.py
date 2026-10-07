@@ -66,3 +66,31 @@ def test_today_aggregates_decision_and_training_without_mutation():
     assert "action" in payload
     assert payload["action"]["decision"] == payload["decision"]["decision"]
     assert payload["action"]["can_start"] == payload["training"]["can_start"]
+
+
+def test_today_action_contract_blocks_start_on_recovery_override(monkeypatch):
+    from app import today_routes
+
+    user, token = _seed_user()
+
+    monkeypatch.setattr(
+        today_routes,
+        "decision_today",
+        lambda user, db: {
+            "decision": "recover",
+            "priority": "critical",
+            "action": "Prioritize recovery and avoid normal training volume.",
+            "reason_codes": ["RECOVERY_OVERRIDE"],
+            "supporting_goal_ids": [],
+            "supporting_session_ids": [],
+            "constraints": ["reduce_volume_50"],
+            "sufficient_data": True,
+            "algorithm_version": "deterministic-decision-v1",
+            "mutates_plan": False,
+        },
+    )
+
+    response = client.get("/app/today", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200, response.text
+    assert response.json()["action"]["safety_blocked"] is True
+    assert response.json()["action"]["can_start"] is False
