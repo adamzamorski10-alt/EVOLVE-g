@@ -569,3 +569,82 @@ def test_start_session_is_blocked_by_recovery_decision():
             .where(TrainingSessionDB.status == "active")
         ).first()
         assert active is None
+
+
+def _add_recovery_for_today(ctx):
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        assert user is not None
+        db.add(DailyLogDB(
+            user_id=user.id,
+            log_date=date.today(),
+            sleep_hours=4,
+            sleep_quality=3,
+            energy_level=3,
+            stress_level=9,
+        ))
+        db.commit()
+
+
+def test_active_session_cannot_be_resumed_when_recovery_blocks_execution():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+
+    _add_recovery_for_today(ctx)
+    blocked = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert blocked.status_code == 409
+    detail = blocked.json()["detail"]
+    assert detail["code"] == "TRAINING_START_BLOCKED"
+    assert detail["decision"] == "recover"
+
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        row = db.exec(select(TrainingSessionDB).where(TrainingSessionDB.id == sid).where(TrainingSessionDB.user_id == user.id)).first()
+        assert row is not None
+        assert row.status == "active"
+
+
+def test_active_session_set_logging_is_blocked_when_recovery_blocks_execution():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+
+    _add_recovery_for_today(ctx)
+    blocked = client.post(
+        f"/app/training/sessions/{sid}/sets",
+        json={"exercise_key": "squat-1", "set_number": 1, "actual_reps": 5, "actual_weight_kg": 100},
+        headers=_headers(ctx["token"]),
+    )
+    assert blocked.status_code == 409
+    detail = blocked.json()["detail"]
+    assert detail["code"] == "TRAINING_EXECUTION_BLOCKED"
+    assert detail["decision"] == "recover"
+
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        rows = db.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.session_id == sid)
+        ).all()
+        assert rows == []
+
+
+def test_training_today_remains_readable_when_recovery_blocks_execution():
+    ctx = _context()
+    _add_recovery_for_today(ctx)
+    response = client.get("/app/training/today", headers=_headers(ctx["token"]))
+    assert response.status_code == 200
+    assert response.json()["can_start"] is False
+
+
+def test_malformed_training_decision_fails_closed():
+    from app.decision_engine import training_execution_allowed
+
+    assert training_execution_allowed({}) is True
+    assert training_execution_allowed({"decision": "unknown"}) is False
+    assert training_execution_allowed({"decision": "recover"}) is False
+    assert training_execution_allowed({"decision": "insufficient_data"}) is True
