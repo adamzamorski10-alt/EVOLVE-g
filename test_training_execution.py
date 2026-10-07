@@ -648,3 +648,30 @@ def test_malformed_training_decision_fails_closed():
     assert training_execution_allowed({"decision": "unknown"}) is False
     assert training_execution_allowed({"decision": "recover"}) is False
     assert training_execution_allowed({"decision": "insufficient_data"}) is True
+
+
+def test_legacy_day_workout_logging_is_blocked_by_recovery():
+    ctx = _context()
+    added = client.post(
+        "/app/fitness/day/item/add",
+        json={
+            "item_type": "workout",
+            "name": "Przysiad",
+            "sets": 3,
+            "reps": 5,
+            "weight_kg": 100,
+        },
+        headers=_headers(ctx["token"]),
+    )
+    assert added.status_code == 200, added.text
+    item = next(item for item in added.json()["log"]["workouts"] if item["name"] == "Przysiad")
+
+    _add_recovery_for_today(ctx)
+    blocked = client.post(
+        "/app/fitness/day/item/toggle",
+        json={"item_id": item["item_id"], "item_type": "workout", "checked": True},
+        headers=_headers(ctx["token"]),
+    )
+    assert blocked.status_code == 409
+    assert blocked.json()["detail"]["code"] == "TRAINING_EXECUTION_BLOCKED"
+    assert blocked.json()["detail"]["decision"] == "recover"
