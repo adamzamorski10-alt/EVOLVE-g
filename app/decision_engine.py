@@ -25,10 +25,7 @@ def training_start_allowed(decision: dict[str, Any]) -> bool:
     Safety/data-quality decisions are authoritative; callers must not
     reproduce Decision Engine precedence rules.
     """
-    return str(decision.get("decision") or "insufficient_data") not in {
-        "recover",
-        "insufficient_data",
-    }
+    return str(decision.get("decision") or "insufficient_data") != "recover"
 
 
 def _goal_ids(states: Iterable[dict[str, Any]]) -> list[str]:
