@@ -23,7 +23,7 @@ def _latest_training_signal(db: Session, user: UserDB) -> dict:
         select(TrainingSessionDB)
         .where(TrainingSessionDB.user_id == user.id)
         .where(TrainingSessionDB.status == "completed")
-        .order_by(TrainingSessionDB.session_date.desc(), TrainingSessionDB.completed_at.desc())
+        .order_by(TrainingSessionDB.session_date.desc(), TrainingSessionDB.completed_at.desc(), TrainingSessionDB.id.desc())
     ).first()
     if not session:
         return {"status": "insufficient_data", "overall_decision": "insufficient_data", "session_id": None}
@@ -43,9 +43,10 @@ def _latest_training_signal(db: Session, user: UserDB) -> dict:
     for result in results:
         grouped.setdefault(result.exercise_key, []).append(result)
     evaluation = evaluate_session(planned, grouped)
+    overall_decision = evaluation.get("overall_decision", "insufficient_data")
     return {
-        "status": "ready",
-        "overall_decision": evaluation.get("overall_decision"),
+        "status": "insufficient_data" if overall_decision == "insufficient_data" else "ready",
+        "overall_decision": overall_decision,
         "session_id": session.id,
         "reason_codes": evaluation.get("overall_reason_codes", []),
     }
