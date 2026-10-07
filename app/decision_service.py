@@ -61,7 +61,7 @@ def _latest_training_signal(db: Session, user: UserDB) -> dict:
 
 def decision_for_user(*, user: UserDB, db: Session, target_date: date | None = None) -> dict:
     target = target_date or date.today()
-    goals = [goal for goal in list_goals_for_user(db, user.id) if goal.status == "active"]
+    goals = [goal for goal in list_goals_for_user(db, user) if goal.status == "active"]
     goal_states = [
         build_goal_training_state(goal, _metric_snapshots(db, user, goal))
         for goal in goals
