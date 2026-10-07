@@ -1147,9 +1147,22 @@ def get_checkin_history(
 def log_exercise_result(
     req: ExerciseResultRequest,
     user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ):
     """Zaloguj wynik ćwiczenia — nazwa, serie, powtórzenia, ciężar, RPE."""
     session_date = req.session_date or date.today()  # ← Use date object
+    decision = decision_for_user(user=user, db=session, target_date=session_date)
+    if not training_execution_allowed(decision):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "TRAINING_EXECUTION_BLOCKED",
+                "decision": decision["decision"],
+                "priority": decision["priority"],
+                "action": decision["action"],
+                "reason_codes": decision["reason_codes"],
+            },
+        )
 
     result = ExerciseResultDB(
         user_id=user.id,
