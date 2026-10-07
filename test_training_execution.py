@@ -811,6 +811,23 @@ def test_unauthenticated_execution_and_session_reads_are_rejected():
     assert client.post(f"/app/training/sessions/{sid}/complete", json={}).status_code in {401, 403}
 
 
+
+
+def test_legacy_exercise_result_is_blocked_by_recovery():
+    owner = _context()
+    _add_recovery_for_today(owner["email"])
+    response = client.post(
+        "/app/exercise-result",
+        json={"exercise_name": "Przysiad", "sets": 3, "reps": 5, "weight_kg": 100},
+        headers=_headers(owner["token"]),
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "TRAINING_EXECUTION_BLOCKED"
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == owner["email"])).first()
+        results = db.exec(select(ExerciseResultDB).where(ExerciseResultDB.user_id == user.id)).all()
+        assert results == []
+
 def test_legacy_day_item_is_user_scoped():
     owner = _context()
     attacker = _context()
