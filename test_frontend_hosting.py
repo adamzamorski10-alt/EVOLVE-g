@@ -48,7 +48,7 @@ def test_my_day_removes_standalone_today_dependency_from_navigation():
 
 
 def test_my_day_empty_state_disables_training_start_cta():
-    assert "var canStartTraining = Boolean(data.can_start || session.id);" in APP_INIT
+    assert "var canStartTraining = Boolean(data.primary_action && data.primary_action.can_start);" in APP_INIT
     assert 'startLink.removeAttribute("href");' in APP_INIT
     assert 'startLink.setAttribute("aria-disabled", "true");' in APP_INIT
     assert 'startLink.classList.add("btn-ghost");' in APP_INIT
