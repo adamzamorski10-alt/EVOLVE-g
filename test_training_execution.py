@@ -543,14 +543,18 @@ def test_start_session_is_blocked_by_recovery_decision():
     with Session(engine) as db:
         user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
         assert user is not None
-        db.add(DailyLogDB(
-            user_id=user.id,
-            log_date=date.today(),
-            sleep_hours=4,
-            sleep_quality=3,
-            energy_level=3,
-            stress_level=9,
-        ))
+        log = db.exec(
+            select(DailyLogDB)
+            .where(DailyLogDB.user_id == user.id)
+            .where(DailyLogDB.log_date == date.today())
+        ).first()
+        if log is None:
+            log = DailyLogDB(user_id=user.id, log_date=date.today())
+        log.sleep_hours = 4
+        log.sleep_quality = 3
+        log.energy_level = 3
+        log.stress_level = 9
+        db.add(log)
         db.commit()
 
     blocked = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
@@ -575,14 +579,18 @@ def _add_recovery_for_today(ctx):
     with Session(engine) as db:
         user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
         assert user is not None
-        db.add(DailyLogDB(
-            user_id=user.id,
-            log_date=date.today(),
-            sleep_hours=4,
-            sleep_quality=3,
-            energy_level=3,
-            stress_level=9,
-        ))
+        log = db.exec(
+            select(DailyLogDB)
+            .where(DailyLogDB.user_id == user.id)
+            .where(DailyLogDB.log_date == date.today())
+        ).first()
+        if log is None:
+            log = DailyLogDB(user_id=user.id, log_date=date.today())
+        log.sleep_hours = 4
+        log.sleep_quality = 3
+        log.energy_level = 3
+        log.stress_level = 9
+        db.add(log)
         db.commit()
 
 
