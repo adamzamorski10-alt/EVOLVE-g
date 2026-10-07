@@ -32,6 +32,7 @@ from app.goals.routes import router as goals_router
 from app.config import CORS_ORIGINS, APP_NAME, APP_VERSION, DEBUG, DISCORD_TOKEN
 from app.database import create_db_and_tables
 from app.decision_routes import router as decision_router
+from app.today_routes import router as today_router
 from app.legacy_routes import router as legacy_router
 from app.meta.routes import router as meta_router
 from app.notifications.discord_bot import bot as discord_bot
@@ -75,6 +76,7 @@ app.include_router(assessment_router)
 app.include_router(health_router)
 app.include_router(goals_router)
 app.include_router(decision_router)
+app.include_router(today_router)
 
 # Import fitness routes
 from app.fitness.routes import router as fitness_router
