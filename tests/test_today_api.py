@@ -69,7 +69,7 @@ def test_today_aggregates_decision_and_training_without_mutation():
         assert payload["action"]["can_start"] is False
     else:
         assert payload["action"]["can_start"] == payload["training"]["can_start"]
-    assert payload["status"] == payload["action"]["decision"] if "decision" in payload["action"] else payload["status"] == payload["action"]["key"]
+    assert payload["status"] == payload["primary_action"]["key"]
 
 
 def test_today_action_contract_blocks_start_on_recovery_override(monkeypatch):
