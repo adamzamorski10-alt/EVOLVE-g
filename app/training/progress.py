@@ -7,7 +7,7 @@ decision layers can consume one stable evidence contract.
 
 from __future__ import annotations
 
-from typing import Any
+from math import isfinite\nfrom typing import Any
 
 
 def build_progress_evidence(history: list[dict[str, Any]], *, exercise_key: str | None = None) -> dict[str, Any]:
@@ -23,7 +23,7 @@ def build_progress_evidence(history: list[dict[str, Any]], *, exercise_key: str 
             weights = [float(item["actual_weight_kg"]) for item in sets if item.get("actual_weight_kg") is not None]
             reps = [int(item["actual_reps"]) for item in sets if item.get("actual_reps") is not None]
             rpes = [float(item["actual_rpe"]) for item in sets if item.get("actual_rpe") is not None]
-            observations.append({
+            if not valid_sets:\n                continue\n            paired_volume = [weight * reps_value for weight, reps_value, _ in valid_sets if weight is not None and reps_value is not None]\n            observations.append({
                 "session_id": session.get("session_id"),
                 "session_date": session.get("session_date"),
                 "exercise_key": exercise.get("exercise_key"),
@@ -32,7 +32,7 @@ def build_progress_evidence(history: list[dict[str, Any]], *, exercise_key: str 
                 "average_weight_kg": round(sum(weights) / len(weights), 2) if weights else None,
                 "average_reps": round(sum(reps) / len(reps), 2) if reps else None,
                 "average_rpe": round(sum(rpes) / len(rpes), 2) if rpes else None,
-                "volume_kg": round(sum(w * r for w, r in zip(weights, reps)), 2) if len(weights) == len(reps) and weights else None,
+                "volume_kg": round(sum(paired_volume), 2) if paired_volume else None,
             })
     observations.sort(key=lambda x: (x.get("session_date") or "", x.get("session_id") or "", x.get("exercise_key") or ""), reverse=True)
     if len(observations) < 2:
