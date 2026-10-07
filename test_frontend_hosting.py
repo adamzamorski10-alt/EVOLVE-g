@@ -30,7 +30,7 @@ def test_shared_shell_contains_native_my_day_injection():
         'id="tab-my-day"',
         'data-tab="my-day"',
         "showTab(\\\\'my-day\\\\')",
-        "fetch(\"/app/training/today\"",
+        "fetch(\"/app/today\"",
         "function injectMyDayShell",
         "window.loadEvolveMyDay",
         'id="myDayWorkout"',
