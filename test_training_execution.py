@@ -818,7 +818,7 @@ def test_legacy_exercise_result_is_blocked_by_recovery():
     _add_recovery_for_today(owner)
     response = client.post(
         "/app/exercise-result",
-        json={"exercise_name": "Przysiad", "sets": 3, "reps": 5, "weight_kg": 100},
+        json={"exercise_name": "Przysiad", "sets": 3, "reps": 5, "weight_kg": 100, "rpe": 7},
         headers=_headers(owner["token"]),
     )
     assert response.status_code == 409
