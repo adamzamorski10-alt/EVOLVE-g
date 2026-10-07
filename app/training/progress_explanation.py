@@ -6,6 +6,7 @@ mutates a training plan.
 
 from __future__ import annotations
 
+from math import isfinite
 from typing import Any
 
 
@@ -31,7 +32,7 @@ def explain_progress(evidence: dict[str, Any]) -> dict[str, Any]:
     }
     for key, (metric, label) in labels.items():
         value = changes.get(key)
-        if value is None or value == 0:
+        if value is None or not isinstance(value, (int, float)) or not isfinite(float(value)) or value == 0:
             continue
         direction = "up" if value > 0 else "down"
         items.append({
