@@ -18,7 +18,7 @@ def test_training_signal_is_evidence_not_a_second_evaluation_engine():
         goal_states=[_goal()],
         training={"status": "ready", "overall_decision": "reduce", "session_id": "s9"},
     )
-    assert result["decision"] == "progress_training"
+    assert result["decision"] == "reduce_training"
     assert result["supporting_session_ids"] == ["s1"]
     assert result["mutates_plan"] is False
 
