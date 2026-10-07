@@ -815,7 +815,7 @@ def test_unauthenticated_execution_and_session_reads_are_rejected():
 
 def test_legacy_exercise_result_is_blocked_by_recovery():
     owner = _context()
-    _add_recovery_for_today(owner["email"])
+    _add_recovery_for_today(owner)
     response = client.post(
         "/app/exercise-result",
         json={"exercise_name": "Przysiad", "sets": 3, "reps": 5, "weight_kg": 100},
