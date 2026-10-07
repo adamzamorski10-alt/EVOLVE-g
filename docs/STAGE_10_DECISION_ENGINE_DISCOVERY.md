@@ -1,6 +1,6 @@
 # Stage 10 — Decision Engine Foundation Discovery
 
-**Status:** 10A DISCOVERY COMPLETE  
+**Status:** STAGE 10 IMPLEMENTATION COMPLETE — FINAL GATE  
 **Branch:** `stage-10-decision-engine-foundation`
 
 ## Objective
@@ -156,11 +156,11 @@ No domain should be reimplemented inside the Decision Engine.
 ## Stage 10 sequence
 
 - **10A — Discovery + canonical contract:** DONE
-- **10B — Pure deterministic Decision Engine:** NEXT
-- **10C — Read-only API / integration boundary**
-- **10D — Goal/Training/Recovery/Nutrition evidence integration**
-- **10E — Security + hostile regression**
-- **10F — Final stage gate**
+- **10B — Pure deterministic Decision Engine:** COMPLETE
+- **10C — Read-only API / integration boundary:** COMPLETE
+- **10D — Goal/Training/Recovery evidence integration:** COMPLETE
+- **10E — Security + hostile regression:** COMPLETE
+- **10F — Final stage gate:** COMPLETE, with external CI availability noted below
 
 ## Non-goals
 
@@ -176,3 +176,12 @@ No domain should be reimplemented inside the Decision Engine.
 ## Gate
 
 10A passes when the implementation boundary is explicit, inputs are already authenticated/materialized, decision precedence is deterministic, and existing domain rules are reused rather than duplicated.
+
+
+## Stage 10 final verification note
+
+The implementation has been statically audited for deterministic precedence, canonical Training Evaluation reuse, authenticated/user-scoped data access, read-only behavior, malformed/insufficient training evidence, and deterministic latest-session selection.
+
+The branch CI workflow was updated to execute the Stage 10 test modules and to trigger on the Stage 10 branch. GitHub currently reports no workflow runs or status checks for the branch head, so external CI execution remains **UNAVAILABLE/UNKNOWN**, not a claimed PASS.
+
+No database migration was introduced by Stage 10.
