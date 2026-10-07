@@ -47,7 +47,7 @@ def _latest_training_signal(db: Session, user: UserDB) -> dict:
         "status": "ready",
         "overall_decision": evaluation.get("overall_decision"),
         "session_id": session.id,
-        "reason_codes": evaluation.get("reason_codes", []),
+        "reason_codes": evaluation.get("overall_reason_codes", []),
     }
 
 
