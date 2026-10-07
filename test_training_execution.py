@@ -653,7 +653,7 @@ def test_malformed_training_decision_fails_closed():
 def test_legacy_day_workout_logging_is_blocked_by_recovery():
     ctx = _context()
     added = client.post(
-        "/app/fitness/day/item/add",
+        "/app/day/item/add",
         json={
             "item_type": "workout",
             "name": "Przysiad",
@@ -668,7 +668,7 @@ def test_legacy_day_workout_logging_is_blocked_by_recovery():
 
     _add_recovery_for_today(ctx)
     blocked = client.post(
-        "/app/fitness/day/item/toggle",
+        "/app/day/item/toggle",
         json={"item_id": item["item_id"], "item_type": "workout", "checked": True},
         headers=_headers(ctx["token"]),
     )
