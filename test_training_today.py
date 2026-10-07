@@ -148,7 +148,8 @@ def test_today_ui_exposes_effective_plan_and_start_action():
 def test_recovery_constraint_cannot_be_bypassed_by_adaptive_plan():
     from datetime import date
     from app.models import DailyLogDB, UserDB
-    ctx = _complete_one(ctx := _context())
+    ctx = _context()
+    _complete_one(ctx)
     applied = client.post('/app/training/adaptive/apply', headers=_headers(ctx['token']))
     assert applied.status_code == 200
     with Session(engine) as db:
