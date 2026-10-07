@@ -79,6 +79,16 @@ def test_explicit_constraint_precedes_performance_optimization():
     assert result["priority"] == "high"
     assert result["constraints"] == ["schedule_conflict"]
 
+def test_explicit_constraint_precedes_training_progress_signal():
+    result = build_decision(
+        goal_states=[_goal()],
+        training={"status": "ready", "overall_decision": "progress", "session_id": "s1"},
+        constraints=[{"key": "schedule_conflict"}],
+    )
+    assert result["decision"] == "reduce_training"
+    assert result["priority"] == "high"
+    assert result["constraints"] == ["schedule_conflict"]
+
 
 def test_nutrition_is_supporting_evidence_and_never_mutates_plan():
     result = build_decision(
