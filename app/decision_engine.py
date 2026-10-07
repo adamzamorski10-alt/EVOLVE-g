@@ -57,7 +57,7 @@ def build_decision(
     action = "Continue with the current effective training plan."
     constraint_names: list[str] = []
 
-    critical_missing = not states and not recovery and not training
+    critical_missing = not states and not recovery and not training and not explicit_constraints
     recovery_status = recovery.get("status")
     recovery_constraint = recovery.get("constraint", "none")
 
