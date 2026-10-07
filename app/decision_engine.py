@@ -93,14 +93,14 @@ def build_decision(
             str(item.get("key") or item.get("constraint") or "unknown")
             for item in explicit_constraints
         )
-    elif training.get("overall_decision") == "reduce":
+    elif training.get("status") != "insufficient_data" and training.get("overall_decision") == "reduce":
         decision = "reduce_training"
         priority = "high"
         action = "Reduce training because completed-session evaluation requires it."
         reason_codes.append("TRAINING_REQUIRES_REDUCTION")
         if training.get("session_id"):
             supporting_sessions.append(str(training["session_id"]))
-    elif training.get("overall_decision") == "progress":
+    elif training.get("status") != "insufficient_data" and training.get("overall_decision") == "progress":
         decision = "progress_training"
         priority = "normal"
         action = "Use the existing bounded training adaptation for the evaluated session."
