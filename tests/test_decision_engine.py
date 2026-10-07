@@ -79,6 +79,16 @@ def test_explicit_constraint_precedes_performance_optimization():
     assert result["priority"] == "high"
     assert result["constraints"] == ["schedule_conflict"]
 
+def test_explicit_constraint_precedes_missing_core_context():
+    result = build_decision(
+        goal_states=[],
+        constraints=[{"key": "schedule_conflict"}],
+    )
+    assert result["decision"] == "reduce_training"
+    assert result["priority"] == "high"
+    assert result["constraints"] == ["schedule_conflict"]
+
+
 def test_explicit_constraint_precedes_training_progress_signal():
     result = build_decision(
         goal_states=[_goal()],
