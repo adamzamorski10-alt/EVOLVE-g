@@ -25,10 +25,10 @@ def explain_progress(evidence: dict[str, Any]) -> dict[str, Any]:
     items: list[dict[str, Any]] = []
     labels = {
         "average_weight_kg_delta": ("load", "Średni ciężar"),
+        "average_rpe_delta": ("rpe", "Średnie RPE"),
+        "volume_kg_delta": ("volume", "Objętość"),
         "average_reps_delta": ("reps", "Średnia liczba powtórzeń"),
         "completed_sets_delta": ("sets", "Ukończone serie"),
-        "volume_kg_delta": ("volume", "Objętość"),
-        "average_rpe_delta": ("rpe", "Średnie RPE"),
     }
     for key, (metric, label) in labels.items():
         value = changes.get(key)
