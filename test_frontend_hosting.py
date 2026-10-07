@@ -6,7 +6,7 @@ APP_INIT = (ROOT / "app" / "__init__.py").read_text(encoding="utf-8")
 
 
 def test_hosted_frontend_uses_same_origin_backend_on_render():
-    assert 'fetch("/app/training/today"' in APP_INIT
+    assert 'fetch("/app/today"' in APP_INIT
 
 
 def test_dashboard_first_targets_actual_legacy_shell_ids():
@@ -48,7 +48,7 @@ def test_my_day_removes_standalone_today_dependency_from_navigation():
 
 
 def test_my_day_empty_state_disables_training_start_cta():
-    assert "data.primary_action.can_start" in APP_INIT
+    assert "var canStartTraining = Boolean((data.primary_action || {}).can_start || session.id);" in APP_INIT
     assert 'startLink.removeAttribute("href");' in APP_INIT
     assert 'startLink.setAttribute("aria-disabled", "true");' in APP_INIT
     assert 'startLink.classList.add("btn-ghost");' in APP_INIT
