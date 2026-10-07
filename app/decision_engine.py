@@ -84,6 +84,15 @@ def build_decision(
         action = "Train with reduced volume because recovery is constrained."
         reason_codes.append("RECOVERY_CONSTRAINT")
         constraint_names.append(str(recovery_constraint or "reduce_volume_25"))
+    elif explicit_constraints:
+        decision = "reduce_training"
+        priority = "high"
+        action = "Respect the active training constraints before optimizing progression."
+        reason_codes.append("ACTIVE_TRAINING_CONSTRAINT")
+        constraint_names.extend(
+            str(item.get("key") or item.get("constraint") or "unknown")
+            for item in explicit_constraints
+        )
     elif training.get("overall_decision") == "reduce":
         decision = "reduce_training"
         priority = "high"
@@ -103,15 +112,6 @@ def build_decision(
         priority = "low"
         action = "Collect completed training evidence before changing the training direction."
         reason_codes.append("TRAINING_DATA_INSUFFICIENT")
-    elif explicit_constraints:
-        decision = "reduce_training"
-        priority = "high"
-        action = "Respect the active training constraints before optimizing progression."
-        reason_codes.append("ACTIVE_TRAINING_CONSTRAINT")
-        constraint_names.extend(
-            str(item.get("key") or item.get("constraint") or "unknown")
-            for item in explicit_constraints
-        )
     else:
         usable_states = [item for item in states if item.get("sufficient_data")]
         if not usable_states:
