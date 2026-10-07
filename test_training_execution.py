@@ -815,7 +815,7 @@ def test_legacy_day_item_is_user_scoped():
     owner = _context()
     attacker = _context()
     added = client.post(
-        "/app/fitness/day/item/add",
+        "/app/day/item/add",
         json={"item_type": "workout", "name": "Przysiad", "sets": 3, "reps": 5, "weight_kg": 100},
         headers=_headers(owner["token"]),
     )
