@@ -54,22 +54,20 @@ def test_today_aggregates_decision_and_training_without_mutation():
 
     payload = response.json()
     assert payload["read_only"] is True
-    assert payload["decision"]["decision"] in {
+    assert payload["status"] in {
         "train_as_planned",
         "reduce_training",
         "recover",
         "progress_training",
         "maintain_training",
         "insufficient_data",
+        "rest",
     }
-    assert "training" in payload
-    assert "action" in payload
-    assert payload["action"]["decision"] == payload["decision"]["decision"]
-    if payload["action"]["safety_blocked"]:
-        assert payload["action"]["can_start"] is False
-    else:
-        assert payload["action"]["can_start"] == payload["training"]["can_start"]
-    assert payload["status"] == payload["primary_action"]["key"]
+    assert payload["primary_action"]["key"] == payload["status"]
+    assert payload["workout"]["has_workout"] is False
+    assert payload["workout"]["can_start"] is False
+    assert payload["primary_action"]["can_start"] is False
+    assert payload["data_quality"]["status"] in {"sufficient", "insufficient"}
 
 
 def test_today_action_contract_blocks_start_on_recovery_override(monkeypatch):
