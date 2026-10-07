@@ -675,3 +675,40 @@ def test_legacy_day_workout_logging_is_blocked_by_recovery():
     assert blocked.status_code == 409
     assert blocked.json()["detail"]["code"] == "TRAINING_EXECUTION_BLOCKED"
     assert blocked.json()["detail"]["decision"] == "recover"
+
+
+def test_active_session_completion_is_blocked_when_recovery_blocks_execution():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+    assert _log_set(ctx["token"], sid, 1).status_code == 200
+
+    _add_recovery_for_today(ctx)
+    blocked = client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 8},
+        headers=_headers(ctx["token"]),
+    )
+    assert blocked.status_code == 409
+    assert blocked.json()["detail"]["code"] == "TRAINING_EXECUTION_BLOCKED"
+    assert blocked.json()["detail"]["decision"] == "recover"
+
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        row = db.exec(select(TrainingSessionDB).where(TrainingSessionDB.id == sid).where(TrainingSessionDB.user_id == user.id)).first()
+        assert row is not None
+        assert row.status == "active"
+        results = db.exec(select(ExerciseResultDB).where(ExerciseResultDB.user_id == user.id).where(ExerciseResultDB.source_session_id == sid)).all()
+        assert results == []
+
+
+def test_completion_path_materializes_owned_result_when_execution_is_allowed():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+    assert _log_set(ctx["token"], sid, 1, reps=5, weight=105, rpe=8).status_code == 200
+    completed = client.post(f"/app/training/sessions/{sid}/complete", json={"final_rpe": 8}, headers=_headers(ctx["token"]))
+    assert completed.status_code == 200
+    assert completed.json()["status"] == "completed"
