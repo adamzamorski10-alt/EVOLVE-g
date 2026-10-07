@@ -782,19 +782,6 @@ def get_training_today(
 ):
     """Return the authenticated user's effective training plan for today."""
     target = date.today()
-    decision = decision_for_user(user=user, db=session)
-    if not training_start_allowed(decision):
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "TRAINING_START_BLOCKED",
-                "decision": decision["decision"],
-                "priority": decision["priority"],
-                "action": decision["action"],
-                "reason_codes": decision["reason_codes"],
-            },
-        )
-
     base_plan = _load_base_plan(user)
     plan_stale = _base_plan_is_stale(user, session, base_plan)
     plan, meta = _effective_plan(user, session)
@@ -862,6 +849,19 @@ def start_training_session(
     session: Session = Depends(get_session),
 ):
     target_date = date.today()
+
+    decision = decision_for_user(user=user, db=session)
+    if not training_start_allowed(decision):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "TRAINING_START_BLOCKED",
+                "decision": decision["decision"],
+                "priority": decision["priority"],
+                "action": decision["action"],
+                "reason_codes": decision["reason_codes"],
+            },
+        )
 
     active = session.exec(
         select(TrainingSessionDB)
@@ -950,6 +950,19 @@ def log_training_set(
     row = _owned_session(session, user, session_id)
     if row.status != "active":
         raise HTTPException(status_code=409, detail="Zakończona sesja nie może być edytowana")
+
+    decision = decision_for_user(user=user, db=session)
+    if not training_start_allowed(decision):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "TRAINING_EXECUTION_BLOCKED",
+                "decision": decision["decision"],
+                "priority": decision["priority"],
+                "action": decision["action"],
+                "reason_codes": decision["reason_codes"],
+            },
+        )
 
     planned = next(
         (
