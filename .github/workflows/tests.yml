@@ -2,9 +2,9 @@ name: EVOLVE tests
 
 on:
   push:
-    branches: ["main", "stage-2-training-execution", "audit/pre-stage-6-full-system", "stage-8-training-adaptation-loop", "stage-9-goals-training-state", "stage-10-decision-engine-foundation", "stage-11-daily-action-today"]
+    branches: ["main", "stage-2-training-execution", "audit/pre-stage-6-full-system", "stage-8-training-adaptation-loop", "stage-9-goals-training-state", "stage-10-decision-engine-foundation", "stage-11-daily-action-today", "stage-12-training-execution-safety"]
   pull_request:
-    branches: ["main", "audit/pre-stage-6-full-system"]
+    branches: ["main", "audit/pre-stage-6-full-system", "stage-11-daily-action-today"]
 
 jobs:
   current-regression:
