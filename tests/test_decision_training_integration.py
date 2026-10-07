@@ -39,3 +39,25 @@ def test_training_insufficient_data_does_not_create_progression():
         training={"status": "insufficient_data", "overall_decision": "insufficient_data"},
     )
     assert result["decision"] == "insufficient_data"
+
+
+def test_training_insufficient_status_overrides_conflicting_progress_signal():
+    result = build_decision(
+        goal_states=[_goal()],
+        training={"status": "insufficient_data", "overall_decision": "progress", "session_id": "s9"},
+    )
+    assert result["decision"] == "insufficient_data"
+    assert result["priority"] == "low"
+    assert "TRAINING_DATA_INSUFFICIENT" in result["reason_codes"]
+    assert result["supporting_session_ids"] == ["s1"]
+
+
+def test_training_insufficient_status_overrides_conflicting_reduce_signal():
+    result = build_decision(
+        goal_states=[_goal()],
+        training={"status": "insufficient_data", "overall_decision": "reduce", "session_id": "s9"},
+    )
+    assert result["decision"] == "insufficient_data"
+    assert result["priority"] == "low"
+    assert "TRAINING_DATA_INSUFFICIENT" in result["reason_codes"]
+    assert result["supporting_session_ids"] == ["s1"]
