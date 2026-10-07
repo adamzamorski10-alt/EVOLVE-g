@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 from datetime import date, datetime
 
-from app.decision_routes import _latest_training_signal
+from app.decision_service import _latest_training_signal
 from app.models import TrainingSessionDB
 
 from app.auth.jwt_utils import create_access_token
