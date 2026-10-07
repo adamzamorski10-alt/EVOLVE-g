@@ -137,6 +137,7 @@ def test_core_loop_profile_assessment_plan_training_progress_goal():
             "metric_key": "best_weight_kg",
             "baseline_value": 80,
             "target_value": 100,
+            "start_date": "2026-10-05",
             "metadata": {"exercise_key": exercise_key},
         },
         headers=_headers(ctx["token"]),
