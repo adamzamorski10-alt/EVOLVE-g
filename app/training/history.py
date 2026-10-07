@@ -16,7 +16,7 @@ from app.models import TrainingSessionDB, TrainingSetResultDB
 
 def list_completed_training_history(
     db: Session,
-    user_id: int,
+    user_id: str,
     *,
     limit: int = 20,
     session_date_from: date | None = None,
@@ -67,7 +67,7 @@ def list_completed_training_history(
         ).all()
     )
 
-    by_session: dict[int, list[TrainingSetResultDB]] = {}
+    by_session: dict[str, list[TrainingSetResultDB]] = {}
     for result in results:
         by_session.setdefault(result.session_id, []).append(result)
 
