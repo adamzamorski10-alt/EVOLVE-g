@@ -16,6 +16,8 @@ from sqlmodel import Session, select, update
 
 from app.auth.dependencies import get_current_user
 from app.database import get_session
+from app.decision_engine import training_start_allowed
+from app.decision_service import decision_for_user
 from app.models import AdaptivePlanRevisionDB, AssessmentDB, DailyLogDB, ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
 from app.plan.routes import _assessment_inputs, _fingerprint, _profile_inputs
 from app.recovery.routes import evaluate_recovery
@@ -813,12 +815,15 @@ def get_training_today(
         for item in exercises
     )
 
+    decision = decision_for_user(user=user, db=session)
+    execution_allowed = training_start_allowed(decision)
+
     return {
         "date": target.isoformat(),
         "day_label": _DAY_LABELS[target.weekday()],
         "has_workout": bool(exercises),
         "plan_stale": plan_stale,
-        "can_start": (bool(exercises) and not plan_stale) or bool(active),
+        "can_start": execution_allowed and ((bool(exercises) and not plan_stale) or bool(active)),
         "plan": meta,
         "exercises": exercises,
         "session": {
@@ -847,6 +852,19 @@ def start_training_session(
     session: Session = Depends(get_session),
 ):
     target_date = date.today()
+
+    decision = decision_for_user(user=user, db=session)
+    if not training_start_allowed(decision):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "TRAINING_START_BLOCKED",
+                "decision": decision["decision"],
+                "priority": decision["priority"],
+                "action": decision["action"],
+                "reason_codes": decision["reason_codes"],
+            },
+        )
 
     active = session.exec(
         select(TrainingSessionDB)
@@ -935,6 +953,19 @@ def log_training_set(
     row = _owned_session(session, user, session_id)
     if row.status != "active":
         raise HTTPException(status_code=409, detail="Zakończona sesja nie może być edytowana")
+
+    decision = decision_for_user(user=user, db=session)
+    if not training_start_allowed(decision):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "TRAINING_EXECUTION_BLOCKED",
+                "decision": decision["decision"],
+                "priority": decision["priority"],
+                "action": decision["action"],
+                "reason_codes": decision["reason_codes"],
+            },
+        )
 
     planned = next(
         (
@@ -1887,6 +1918,19 @@ def complete_training_session(
         return {"status": "already_completed", "session": _serialize_session(row, sets)}
     if row.status != "active":
         raise HTTPException(status_code=409, detail="Sesja nie jest aktywna")
+
+    decision = decision_for_user(user=user, db=session)
+    if not training_start_allowed(decision):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "TRAINING_EXECUTION_BLOCKED",
+                "decision": decision["decision"],
+                "priority": decision["priority"],
+                "action": decision["action"],
+                "reason_codes": decision["reason_codes"],
+            },
+        )
 
     completed_at = datetime.now()
     claimed = session.exec(

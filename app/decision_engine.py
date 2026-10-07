@@ -19,6 +19,24 @@ DECISIONS = {
 }
 
 
+def training_execution_allowed(decision: dict[str, Any]) -> bool:
+    """Return whether training execution may mutate an active session.
+
+    Only the canonical safety decision may block execution. Unknown/malformed
+    decisions fail closed; insufficient_data is not itself a safety
+    contraindication.
+    """
+    value = decision.get("decision")
+    if value is None:
+        value = "insufficient_data"
+    return value in DECISIONS and value != "recover"
+
+
+def training_start_allowed(decision: dict[str, Any]) -> bool:
+    """Return whether a new normal training session may be started."""
+    return training_execution_allowed(decision)
+
+
 def _goal_ids(states: Iterable[dict[str, Any]]) -> list[str]:
     return [str(item["goal"]["id"]) for item in states if item.get("goal", {}).get("id")]
 

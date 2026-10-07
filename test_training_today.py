@@ -144,3 +144,23 @@ def test_today_ui_exposes_effective_plan_and_start_action():
     assert 'href="/app#my-day"' in response.text
     assert "← Panel" in response.text
     assert "dostosowany na podstawie ostatnich treningów" in response.text
+
+def test_recovery_constraint_cannot_be_bypassed_by_adaptive_plan():
+    from datetime import date
+    from app.models import DailyLogDB, UserDB
+    ctx = _context()
+    _complete_one(ctx)
+    applied = client.post('/app/training/adaptive/apply', headers=_headers(ctx['token']))
+    assert applied.status_code == 200
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx['email'])).first()
+        log = DailyLogDB(user_id=user.id, log_date=date.today(), sleep_hours=4, sleep_quality=3, energy_level=3, stress_level=9)
+        db.add(log)
+        db.commit()
+    today = client.get('/app/training/today', headers=_headers(ctx['token']))
+    assert today.status_code == 200
+    assert today.json()['plan']['source'] == 'adaptive'
+    assert today.json()['plan']['recovery_constraint'] == 'reduce_volume_50'
+    assert today.json()['can_start'] is False
+    constrained_sets = today.json()['exercises'][0]['sets']
+    assert 1 <= constrained_sets < 3

@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select, delete
 
 from app.database import engine
-from app.models import ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
+from app.models import DailyLogDB, ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
 from main import app
 
 
@@ -536,3 +536,324 @@ def test_completion_rejects_empty_and_is_idempotent_and_user_scoped():
     assert repeat.status_code == 200
     assert repeat.json()["status"] == "already_completed"
     assert repeat.json()["session"]["final_rpe"] == 7
+
+
+def test_start_session_is_blocked_by_recovery_decision():
+    ctx = _context()
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        assert user is not None
+        log = db.exec(
+            select(DailyLogDB)
+            .where(DailyLogDB.user_id == user.id)
+            .where(DailyLogDB.log_date == date.today())
+        ).first()
+        if log is None:
+            log = DailyLogDB(user_id=user.id, log_date=date.today())
+        log.sleep_hours = 4
+        log.sleep_quality = 3
+        log.energy_level = 3
+        log.stress_level = 9
+        db.add(log)
+        db.commit()
+
+    blocked = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert blocked.status_code == 409
+    detail = blocked.json()["detail"]
+    assert detail["code"] == "TRAINING_START_BLOCKED"
+    assert detail["decision"] == "recover"
+
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        assert user is not None
+        active = db.exec(
+            select(TrainingSessionDB)
+            .where(TrainingSessionDB.user_id == user.id)
+            .where(TrainingSessionDB.session_date == date.today())
+            .where(TrainingSessionDB.status == "active")
+        ).first()
+        assert active is None
+
+
+def _add_recovery_for_today(ctx):
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        assert user is not None
+        log = db.exec(
+            select(DailyLogDB)
+            .where(DailyLogDB.user_id == user.id)
+            .where(DailyLogDB.log_date == date.today())
+        ).first()
+        if log is None:
+            log = DailyLogDB(user_id=user.id, log_date=date.today())
+        log.sleep_hours = 4
+        log.sleep_quality = 3
+        log.energy_level = 3
+        log.stress_level = 9
+        db.add(log)
+        db.commit()
+
+
+def test_active_session_cannot_be_resumed_when_recovery_blocks_execution():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+
+    _add_recovery_for_today(ctx)
+    blocked = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert blocked.status_code == 409
+    detail = blocked.json()["detail"]
+    assert detail["code"] == "TRAINING_START_BLOCKED"
+    assert detail["decision"] == "recover"
+
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        row = db.exec(select(TrainingSessionDB).where(TrainingSessionDB.id == sid).where(TrainingSessionDB.user_id == user.id)).first()
+        assert row is not None
+        assert row.status == "active"
+
+
+def test_active_session_set_logging_is_blocked_when_recovery_blocks_execution():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+
+    _add_recovery_for_today(ctx)
+    blocked = client.post(
+        f"/app/training/sessions/{sid}/sets",
+        json={"exercise_key": "squat-1", "set_number": 1, "actual_reps": 5, "actual_weight_kg": 100},
+        headers=_headers(ctx["token"]),
+    )
+    assert blocked.status_code == 409
+    detail = blocked.json()["detail"]
+    assert detail["code"] == "TRAINING_EXECUTION_BLOCKED"
+    assert detail["decision"] == "recover"
+
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        rows = db.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.session_id == sid)
+        ).all()
+        assert rows == []
+
+
+def test_training_today_remains_readable_when_recovery_blocks_execution():
+    ctx = _context()
+    _add_recovery_for_today(ctx)
+    response = client.get("/app/training/today", headers=_headers(ctx["token"]))
+    assert response.status_code == 200
+    assert response.json()["can_start"] is False
+
+
+def test_malformed_training_decision_fails_closed():
+    from app.decision_engine import training_execution_allowed
+
+    assert training_execution_allowed({}) is True
+    assert training_execution_allowed({"decision": "unknown"}) is False
+    assert training_execution_allowed({"decision": "recover"}) is False
+    assert training_execution_allowed({"decision": "insufficient_data"}) is True
+
+
+def test_legacy_day_workout_logging_is_blocked_by_recovery():
+    ctx = _context()
+    added = client.post(
+        "/app/day/item/add",
+        json={
+            "item_type": "workout",
+            "name": "Przysiad",
+            "sets": 3,
+            "reps": 5,
+            "weight_kg": 100,
+        },
+        headers=_headers(ctx["token"]),
+    )
+    assert added.status_code == 200, added.text
+    item = next(item for item in added.json()["log"]["workouts"] if item["name"] == "Przysiad")
+
+    _add_recovery_for_today(ctx)
+    blocked = client.post(
+        "/app/day/item/toggle",
+        json={"item_id": item["item_id"], "item_type": "workout", "checked": True},
+        headers=_headers(ctx["token"]),
+    )
+    assert blocked.status_code == 409
+    assert blocked.json()["detail"]["code"] == "TRAINING_EXECUTION_BLOCKED"
+    assert blocked.json()["detail"]["decision"] == "recover"
+
+
+def test_active_session_completion_is_blocked_when_recovery_blocks_execution():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+    assert _log_set(ctx["token"], sid, 1).status_code == 200
+
+    _add_recovery_for_today(ctx)
+    blocked = client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 8},
+        headers=_headers(ctx["token"]),
+    )
+    assert blocked.status_code == 409
+    assert blocked.json()["detail"]["code"] == "TRAINING_EXECUTION_BLOCKED"
+    assert blocked.json()["detail"]["decision"] == "recover"
+
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        row = db.exec(select(TrainingSessionDB).where(TrainingSessionDB.id == sid).where(TrainingSessionDB.user_id == user.id)).first()
+        assert row is not None
+        assert row.status == "active"
+        results = db.exec(select(ExerciseResultDB).where(ExerciseResultDB.user_id == user.id).where(ExerciseResultDB.source_session_id == sid)).all()
+        assert results == []
+
+
+def test_completion_path_materializes_owned_result_when_execution_is_allowed():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+    assert _log_set(ctx["token"], sid, 1, reps=5, weight=105, rpe=8).status_code == 200
+    completed = client.post(f"/app/training/sessions/{sid}/complete", json={"final_rpe": 8}, headers=_headers(ctx["token"]))
+    assert completed.status_code == 200
+    assert completed.json()["status"] == "completed"
+
+
+def test_cross_user_session_read_analysis_progression_and_completion_are_blocked():
+    owner = _context()
+    attacker = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(owner["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+
+    for path in (
+        f"/app/training/sessions/{sid}",
+        f"/app/training/sessions/history/{sid}",
+        f"/app/training/sessions/{sid}/analysis",
+        f"/app/training/sessions/{sid}/progression",
+    ):
+        response = client.get(path, headers=_headers(attacker["token"]))
+        assert response.status_code == 404, path
+
+    set_response = client.post(
+        f"/app/training/sessions/{sid}/sets",
+        json={"exercise_key": "squat-1", "set_number": 1, "actual_reps": 5, "actual_weight_kg": 100},
+        headers=_headers(attacker["token"]),
+    )
+    assert set_response.status_code == 404
+
+    complete_response = client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 8},
+        headers=_headers(attacker["token"]),
+    )
+    assert complete_response.status_code == 404
+
+    with Session(engine) as db:
+        owner_user = db.exec(select(UserDB).where(UserDB.email == owner["email"])).first()
+        row = db.exec(
+            select(TrainingSessionDB)
+            .where(TrainingSessionDB.id == sid)
+            .where(TrainingSessionDB.user_id == owner_user.id)
+        ).first()
+        assert row is not None
+        assert row.status == "active"
+        assert db.exec(select(TrainingSetResultDB).where(TrainingSetResultDB.session_id == sid)).all() == []
+
+
+def test_recovery_and_decision_are_user_scoped():
+    first = _context()
+    second = _context()
+
+    with Session(engine) as db:
+        first_user = db.exec(select(UserDB).where(UserDB.email == first["email"])).first()
+        second_user = db.exec(select(UserDB).where(UserDB.email == second["email"])).first()
+        db.add(DailyLogDB(
+            user_id=first_user.id,
+            log_date=date.today(),
+            sleep_hours=4,
+            sleep_quality=3,
+            energy_level=3,
+            stress_level=9,
+        ))
+        db.commit()
+
+        from app.decision_service import decision_for_user
+        from app.recovery.routes import recovery_for_date
+
+        first_recovery = recovery_for_date(db, first_user.id, date.today())
+        second_recovery = recovery_for_date(db, second_user.id, date.today())
+        first_decision = decision_for_user(user=first_user, db=db)
+        second_decision = decision_for_user(user=second_user, db=db)
+
+    assert first_recovery["status"] == "recovery"
+    assert second_recovery["status"] == "insufficient_data"
+    assert first_decision["decision"] == "recover"
+    assert second_decision["decision"] != "recover"
+
+
+def test_unauthenticated_execution_and_session_reads_are_rejected():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+
+    assert client.get(f"/app/training/sessions/{sid}").status_code in {401, 403}
+    assert client.post(f"/app/training/sessions/{sid}/sets", json={
+        "exercise_key": "squat-1",
+        "set_number": 1,
+        "actual_reps": 5,
+        "actual_weight_kg": 100,
+    }).status_code in {401, 403}
+    assert client.post(f"/app/training/sessions/{sid}/complete", json={}).status_code in {401, 403}
+
+
+
+
+def test_legacy_exercise_result_is_blocked_by_recovery():
+    owner = _context()
+    _add_recovery_for_today(owner)
+    response = client.post(
+        "/app/exercise-result",
+        json={"exercise_name": "Przysiad", "sets": 3, "reps": 5, "weight_kg": 100, "rpe": 7},
+        headers=_headers(owner["token"]),
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "TRAINING_EXECUTION_BLOCKED"
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == owner["email"])).first()
+        results = db.exec(select(ExerciseResultDB).where(ExerciseResultDB.user_id == user.id)).all()
+        assert results == []
+
+def test_legacy_day_item_is_user_scoped():
+    owner = _context()
+    attacker = _context()
+    added = client.post(
+        "/app/day/item/add",
+        json={"item_type": "workout", "name": "Przysiad", "sets": 3, "reps": 5, "weight_kg": 100},
+        headers=_headers(owner["token"]),
+    )
+    assert added.status_code == 200
+    item = next(item for item in added.json()["log"]["workouts"] if item["name"] == "Przysiad")
+
+    response = client.post(
+        "/app/day/item/toggle",
+        json={"item_id": item["item_id"], "item_type": "workout", "checked": True},
+        headers=_headers(attacker["token"]),
+    )
+    assert response.status_code == 404
+
+    with Session(engine) as db:
+        attacker_user = db.exec(select(UserDB).where(UserDB.email == attacker["email"])).first()
+        attacker_log = db.exec(
+            select(DailyLogDB)
+            .where(DailyLogDB.user_id == attacker_user.id)
+            .where(DailyLogDB.log_date == date.today())
+        ).first()
+        assert attacker_log is None or item["item_id"] not in {
+            str(value.get("item_id"))
+            for value in attacker_log.get_workouts()
+        }

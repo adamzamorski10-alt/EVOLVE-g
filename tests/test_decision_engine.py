@@ -148,7 +148,7 @@ def test_training_progress_signal_is_consumed_without_reimplementing_evaluation(
 
 def test_training_reduce_signal_precedes_goal_progress():
     result = build_decision(
-        goal_states=[goal()],
+        goal_states=[_goal()],
         training={
             "status": "ready",
             "overall_decision": "reduce",
@@ -162,7 +162,7 @@ def test_training_reduce_signal_precedes_goal_progress():
 
 def test_training_insufficient_signal_does_not_create_progress():
     result = build_decision(
-        goal_states=[goal()],
+        goal_states=[_goal()],
         training={
             "status": "insufficient_data",
             "overall_decision": "insufficient_data",
@@ -174,7 +174,7 @@ def test_training_insufficient_signal_does_not_create_progress():
 
 def test_recovery_still_overrides_training_progress():
     result = build_decision(
-        goal_states=[goal()],
+        goal_states=[_goal()],
         training={"status": "ready", "overall_decision": "progress"},
         recovery={"status": "recovery", "constraint": "reduce_volume_50"},
     )
@@ -183,7 +183,7 @@ def test_recovery_still_overrides_training_progress():
 
 def test_caution_recovery_overrides_training_progress():
     result = build_decision(
-        goal_states=[goal()],
+        goal_states=[_goal()],
         training={"status": "ready", "overall_decision": "progress"},
         recovery={"status": "caution", "constraint": "reduce_volume_25"},
     )
@@ -193,7 +193,7 @@ def test_caution_recovery_overrides_training_progress():
 
 def test_explicit_constraint_overrides_training_progress():
     result = build_decision(
-        goal_states=[goal()],
+        goal_states=[_goal()],
         training={"status": "ready", "overall_decision": "progress"},
         constraints=[{"key": "schedule_conflict"}],
     )
@@ -210,7 +210,7 @@ def test_no_context_is_insufficient_data():
 
 def test_insufficient_training_overrides_positive_goal_evidence():
     result = build_decision(
-        goal_states=[goal()],
+        goal_states=[_goal()],
         training={"status": "insufficient_data", "overall_decision": "insufficient_data"},
     )
     assert result["decision"] == "insufficient_data"
@@ -220,7 +220,7 @@ def test_insufficient_training_overrides_positive_goal_evidence():
 def test_conflicting_goal_trends_are_deterministic():
     kwargs = {
         "goal_states": [
-            goal(),
+            _goal(),
             {
                 "goal": {"id": "g2"},
                 "sufficient_data": True,
@@ -237,7 +237,7 @@ def test_conflicting_goal_trends_are_deterministic():
 
 
 def test_decision_does_not_mutate_nested_inputs():
-    goals = [goal()]
+    goals = [_goal()]
     training = {
         "status": "ready",
         "overall_decision": "progress",

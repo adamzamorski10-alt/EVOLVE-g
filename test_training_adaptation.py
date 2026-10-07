@@ -52,3 +52,18 @@ def test_small_load_progression_still_moves_forward():
 def test_small_load_reduction_still_moves_down():
     result = adapt_exercise(_planned(weight=10), {"decision": "reduce", "reason_codes": ["LOW_SET_COMPLETION"]})
     assert result["proposed"]["weight_kg"] == 7.5
+
+def test_progression_never_exceeds_five_percent_even_at_large_load():
+    result = adapt_exercise(_planned(weight=1000), {'decision': 'progress', 'reason_codes': ['TARGET_COMPLETED']})
+    assert result['proposed']['weight_kg'] == 1025
+    assert result['proposed']['weight_kg'] <= 1050
+
+def test_reduce_never_exceeds_five_percent_even_at_large_load():
+    result = adapt_exercise(_planned(weight=1000), {'decision': 'reduce', 'reason_codes': ['LOW_SET_COMPLETION']})
+    assert result['proposed']['weight_kg'] == 975
+    assert result['proposed']['weight_kg'] >= 950
+
+def test_unknown_decision_is_fail_safe_and_does_not_change_plan():
+    result = adapt_exercise(_planned(weight=100), {'decision': 'unexpected', 'reason_codes': ['MALFORMED']})
+    assert result['action'] == 'unchanged'
+    assert result['proposed'] == result['current']
