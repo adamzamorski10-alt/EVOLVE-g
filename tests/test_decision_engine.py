@@ -196,3 +196,78 @@ def test_recovery_still_overrides_training_progress():
         recovery={"status": "recovery", "constraint": "reduce_volume_50"},
     )
     assert result["decision"] == "recover"
+
+
+def test_caution_recovery_overrides_training_progress():
+    result = build_decision(
+        goal_states=[goal()],
+        training={"status": "ready", "overall_decision": "progress"},
+        recovery={"status": "caution", "constraint": "reduce_volume_25"},
+    )
+    assert result["decision"] == "reduce_training"
+    assert result["priority"] == "high"
+
+
+def test_explicit_constraint_overrides_training_progress():
+    result = build_decision(
+        goal_states=[goal()],
+        training={"status": "ready", "overall_decision": "progress"},
+        constraints=[{"key": "schedule_conflict"}],
+    )
+    assert result["decision"] == "reduce_training"
+    assert result["priority"] == "high"
+
+
+def test_no_context_is_insufficient_data():
+    result = build_decision(goal_states=[])
+    assert result["decision"] == "insufficient_data"
+    assert result["sufficient_data"] is False
+    assert "INSUFFICIENT_CORE_CONTEXT" in result["reason_codes"]
+
+
+def test_insufficient_training_overrides_positive_goal_evidence():
+    result = build_decision(
+        goal_states=[goal()],
+        training={"status": "insufficient_data", "overall_decision": "insufficient_data"},
+    )
+    assert result["decision"] == "insufficient_data"
+    assert result["sufficient_data"] is False
+
+
+def test_conflicting_goal_trends_are_deterministic():
+    kwargs = {
+        "goal_states": [
+            goal(),
+            {
+                "goal": {"id": "g2"},
+                "sufficient_data": True,
+                "on_track": False,
+                "trend": "down",
+                "supporting_session_ids": ["s2"],
+            },
+        ]
+    }
+    first = build_decision(**kwargs)
+    second = build_decision(**kwargs)
+    assert first == second
+    assert first["decision"] == "progress_training"
+
+
+def test_decision_does_not_mutate_nested_inputs():
+    goals = [goal()]
+    training = {
+        "status": "ready",
+        "overall_decision": "progress",
+        "reason_codes": ["ALL_EXERCISES_READY_TO_PROGRESS"],
+        "session_id": "s1",
+    }
+    recovery = {"status": "ready", "constraint": "none"}
+    before = (repr(goals), repr(training), repr(recovery))
+
+    build_decision(
+        goal_states=goals,
+        training=training,
+        recovery=recovery,
+    )
+
+    assert (repr(goals), repr(training), repr(recovery)) == before
