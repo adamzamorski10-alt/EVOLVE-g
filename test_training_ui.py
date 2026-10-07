@@ -25,7 +25,7 @@ def test_my_day_is_integrated_into_shared_dashboard_shell():
         'data-tab="my-day"',
         "showTab(\\\\'my-day\\\\')",
         "window.loadEvolveMyDay",
-        'fetch("/app/training/today"',
+        'fetch("/app/today"',
         'id="myDayWorkout"',
         'id="myDayExercises"',
         'id="myDaySessionProgress"',
@@ -172,3 +172,12 @@ def test_training_4def_rest_flow_and_completion_summary_contract():
     assert "Końcowe RPE" in source
     assert "Przejdź do Postępów" in source
     assert "current.status==='completed'" in source
+
+
+def test_today_ui_uses_semantic_action_contract():
+    assert 'fetch("/app/today"' in APP_INIT
+    assert 'id="myDayActionTitle"' in APP_INIT
+    assert 'id="myDayActionText"' in APP_INIT
+    assert 'id="myDayActionWhy"' in APP_INIT
+    assert 'data.primary_action' in APP_INIT
+    assert 'data.workout' in APP_INIT
