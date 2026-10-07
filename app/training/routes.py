@@ -16,6 +16,8 @@ from sqlmodel import Session, select, update
 
 from app.auth.dependencies import get_current_user
 from app.database import get_session
+from app.decision_engine import training_start_allowed
+from app.decision_service import decision_for_user
 from app.models import AdaptivePlanRevisionDB, AssessmentDB, DailyLogDB, ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
 from app.plan.routes import _assessment_inputs, _fingerprint, _profile_inputs
 from app.recovery.routes import evaluate_recovery
@@ -780,6 +782,19 @@ def get_training_today(
 ):
     """Return the authenticated user's effective training plan for today."""
     target = date.today()
+    decision = decision_for_user(user=user, db=session)
+    if not training_start_allowed(decision):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "TRAINING_START_BLOCKED",
+                "decision": decision["decision"],
+                "priority": decision["priority"],
+                "action": decision["action"],
+                "reason_codes": decision["reason_codes"],
+            },
+        )
+
     base_plan = _load_base_plan(user)
     plan_stale = _base_plan_is_stale(user, session, base_plan)
     plan, meta = _effective_plan(user, session)
