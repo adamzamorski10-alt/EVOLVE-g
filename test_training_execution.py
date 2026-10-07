@@ -801,3 +801,34 @@ def test_unauthenticated_execution_and_session_reads_are_rejected():
         "actual_weight_kg": 100,
     }).status_code in {401, 403}
     assert client.post(f"/app/training/sessions/{sid}/complete", json={}).status_code in {401, 403}
+
+
+def test_legacy_day_item_is_user_scoped():
+    owner = _context()
+    attacker = _context()
+    added = client.post(
+        "/app/fitness/day/item/add",
+        json={"item_type": "workout", "name": "Przysiad", "sets": 3, "reps": 5, "weight_kg": 100},
+        headers=_headers(owner["token"]),
+    )
+    assert added.status_code == 200
+    item = next(item for item in added.json()["log"]["workouts"] if item["name"] == "Przysiad")
+
+    response = client.post(
+        "/app/fitness/day/item/toggle",
+        json={"item_id": item["item_id"], "item_type": "workout", "checked": True},
+        headers=_headers(attacker["token"]),
+    )
+    assert response.status_code == 404
+
+    with Session(engine) as db:
+        attacker_user = db.exec(select(UserDB).where(UserDB.email == attacker["email"])).first()
+        attacker_log = db.exec(
+            select(DailyLogDB)
+            .where(DailyLogDB.user_id == attacker_user.id)
+            .where(DailyLogDB.log_date == date.today())
+        ).first()
+        assert attacker_log is None or item["item_id"] not in {
+            str(value.get("item_id"))
+            for value in attacker_log.get_workouts()
+        }
