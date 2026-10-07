@@ -271,3 +271,32 @@ def test_decision_does_not_mutate_nested_inputs():
     )
 
     assert (repr(goals), repr(training), repr(recovery)) == before
+
+def test_conflicting_training_status_and_decision_never_progresses():
+    result = build_decision(
+        goal_states=[_goal()],
+        training={"status": "insufficient_data", "overall_decision": "progress", "session_id": "s9"},
+    )
+    assert result["decision"] == "insufficient_data"
+    assert result["priority"] == "low"
+    assert "TRAINING_DATA_INSUFFICIENT" in result["reason_codes"]
+
+
+def test_conflicting_training_status_and_reduce_never_reduces():
+    result = build_decision(
+        goal_states=[_goal()],
+        training={"status": "insufficient_data", "overall_decision": "reduce", "session_id": "s9"},
+    )
+    assert result["decision"] == "insufficient_data"
+    assert result["priority"] == "low"
+    assert "TRAINING_DATA_INSUFFICIENT" in result["reason_codes"]
+
+
+def test_recovery_insufficient_data_does_not_create_optimization_without_context():
+    result = build_decision(
+        goal_states=[],
+        recovery={"status": "insufficient_data", "constraint": "none"},
+    )
+    assert result["decision"] == "insufficient_data"
+    assert result["priority"] == "low"
+    assert "INSUFFICIENT_RECOVERY_DATA" in result["reason_codes"]
