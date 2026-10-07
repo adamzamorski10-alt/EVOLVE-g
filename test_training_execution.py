@@ -823,7 +823,7 @@ def test_legacy_day_item_is_user_scoped():
     item = next(item for item in added.json()["log"]["workouts"] if item["name"] == "Przysiad")
 
     response = client.post(
-        "/app/fitness/day/item/toggle",
+        "/app/day/item/toggle",
         json={"item_id": item["item_id"], "item_type": "workout", "checked": True},
         headers=_headers(attacker["token"]),
     )
