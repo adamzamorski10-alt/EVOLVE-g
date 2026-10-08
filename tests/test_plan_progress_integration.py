@@ -1,3 +1,4 @@
+from datetime import date
 from types import SimpleNamespace
 
 import app.plan.deterministic as deterministic
@@ -139,3 +140,22 @@ def test_progress_cannot_inject_adaptation_or_recovery_decisions(monkeypatch):
     assert "decision" not in plan["_planner"]
     assert "can_start" not in plan["_planner"]
     assert plan["_planner"]["progress_evidence_used"] is True
+
+
+def test_progress_fingerprint_excludes_temporal_snapshot_objects():
+    from app.plan.routes import _planning_progress_fingerprint
+
+    evidence = [{
+        "status": "sufficient",
+        "sufficient_data": True,
+        "exercise_key": "bench",
+        "reason_codes": ["MATERIAL_CHANGE"],
+        "material_change": True,
+        "changes": {"volume_kg_delta": 20},
+        "latest": {"session_date": date(2026, 10, 8)},
+        "previous": {"session_date": date(2026, 10, 1)},
+    }]
+
+    first = _planning_progress_fingerprint(evidence)
+    evidence[0]["latest"]["session_date"] = date(2026, 10, 9)
+    assert first == _planning_progress_fingerprint(evidence)
