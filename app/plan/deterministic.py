@@ -199,8 +199,6 @@ def build_deterministic_plan(
     ]
 
     def _progress_priority(exercise: dict[str, Any]) -> int:
-        import re
-
         def _match_key(value: Any) -> str:
             normalized = "".join(
                 char if char.isalnum() else "-"
