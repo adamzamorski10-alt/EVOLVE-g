@@ -72,7 +72,7 @@ def test_contract_exports_expected_bounds():
 
 
 def test_completed_history_is_removed_from_upcoming_and_kept_in_completed():
-    completed = [{"session_id": "s1", "session_date": "Poniedziałek", "status": "completed"}]
+    completed = [{"session_id": "s1", "session_date": "2026-10-12", "status": "completed"}]
     result = build_rolling_horizon(
         _plan(),
         horizon_start=date(2026, 10, 12),
@@ -84,7 +84,7 @@ def test_completed_history_is_removed_from_upcoming_and_kept_in_completed():
 
 
 def test_foreign_or_unrelated_history_does_not_remove_planned_day():
-    completed = [{"session_id": "s1", "session_date": "Niedziela", "status": "completed"}]
+    completed = [{"session_id": "s1", "session_date": "2026-10-18", "status": "completed"}]
     result = build_rolling_horizon(
         _plan(),
         horizon_start=date(2026, 10, 12),
@@ -92,3 +92,14 @@ def test_foreign_or_unrelated_history_does_not_remove_planned_day():
     )
     assert [item["day"] for item in result["upcoming_sessions"]] == ["Poniedziałek", "Wtorek"]
     assert result["completed_sessions"] == []
+
+
+def test_completed_history_only_consumes_sessions_inside_horizon():
+    completed = [{"session_id": "s1", "session_date": "2026-10-26", "status": "completed"}]
+    result = build_rolling_horizon(
+        _plan(),
+        horizon_start=date(2026, 10, 12),
+        completed_sessions=completed,
+    )
+    assert result["completed_sessions"] == []
+    assert len(result["upcoming_sessions"]) == 2
