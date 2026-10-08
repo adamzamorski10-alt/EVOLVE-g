@@ -189,7 +189,7 @@ def app_generate_plan(
     current = user.get_dict("weekly_plan_json") if user.weekly_plan_json else {}
     current_provenance = current.get("_evolve_core", {}) if isinstance(current, dict) else {}
     planning_progress = _planning_progress_evidence(session, user.id)
-    progress_fingerprint = _fingerprint(planning_progress)
+    progress_fingerprint = _planning_progress_fingerprint(planning_progress)
     stale = (
         current_provenance.get("profile_fingerprint") != _fingerprint(profile_inputs)
         or current_provenance.get("assessment_fingerprint") != _fingerprint(assessment_inputs)
