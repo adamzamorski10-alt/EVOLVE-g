@@ -174,3 +174,32 @@ def test_progress_evidence_contract_is_read_only_and_finite():
     assert result["changes"] == {"reps_delta": 2.0}
     assert result["mutates_plan"] is False
     assert result["source"] == "canonical_progress"
+
+
+def test_progress_aware_planner_is_deterministic_for_identical_inputs(monkeypatch):
+    user = _user()
+    user.get_list = lambda key: _get_list(user, key)
+    monkeypatch.setattr(
+        deterministic,
+        "_exercise_pool",
+        lambda: {"klatka": [
+            {"name": "First", "sets": 3, "reps": 8},
+            {"name": "Bench", "sets": 3, "reps": 8},
+        ]},
+    )
+    monkeypatch.setattr(
+        deterministic,
+        "_default_meal_catalog",
+        lambda _: {"Śniadanie": [("Meal", 500)], "Obiad": [("Meal", 500)], "Kolacja": [("Meal", 500)]},
+    )
+    evidence = [{
+        "status": "sufficient",
+        "sufficient_data": True,
+        "exercise_key": "bench",
+        "material_change": True,
+        "changes": {"volume_kg_delta": 20},
+    }]
+    first = deterministic.build_deterministic_plan(user, None, evidence)
+    second = deterministic.build_deterministic_plan(user, None, evidence)
+    assert first["days"] == second["days"]
+    assert first["_planner"] == second["_planner"]
