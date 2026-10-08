@@ -58,7 +58,7 @@ def build_rolling_plan_contract(
             completed.append({**item, "session_date": session_date.isoformat()})
     day_dates = _day_date_map(horizon_start, safe_days)
     completed_by_date = {
-        item["session_date"]: item
+        date.fromisoformat(item["session_date"]): item
         for item in completed
     }
 
@@ -83,7 +83,7 @@ def build_rolling_plan_contract(
             continue
         day = item.get("day")
         scheduled_date = day_dates.get(_day_key(day))
-        matched = completed_by_date.get(scheduled_date.isoformat()) if scheduled_date else None
+        matched = completed_by_date.get(scheduled_date) if scheduled_date else None
         if matched is not None:
             completed_in_horizon.append(matched)
             continue
