@@ -199,11 +199,22 @@ def build_deterministic_plan(
     ]
 
     def _progress_priority(exercise: dict[str, Any]) -> int:
-        name = str(exercise.get("name") or "").strip().lower()
-        key = str(exercise.get("exercise_key") or "").strip().lower()
+        import re
+
+        def _match_key(value: Any) -> str:
+            normalized = "".join(
+                char if char.isalnum() else "-"
+                for char in str(value or "").strip().lower()
+            )
+            return "-".join(part for part in normalized.split("-") if part)
+
+        exercise_keys = {
+            _match_key(exercise.get("name")),
+            _match_key(exercise.get("exercise_key")),
+        }
         for evidence in normalized_progress:
-            evidence_key = str(evidence.get("exercise_key") or "").strip().lower()
-            if evidence_key and evidence_key in {name, key}:
+            evidence_key = _match_key(evidence.get("exercise_key"))
+            if evidence_key and evidence_key in exercise_keys:
                 return 0 if evidence.get("material_change") else 1
         return 2
 
