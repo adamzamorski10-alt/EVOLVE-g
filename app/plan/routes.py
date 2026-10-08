@@ -99,9 +99,12 @@ def planning_readiness(
     assessment_inputs = _assessment_inputs(assessment)
     current_plan = user.get_dict("weekly_plan_json") if user.weekly_plan_json else {}
     provenance = current_plan.get("_evolve_core", {}) if isinstance(current_plan, dict) else {}
+    planning_progress = _planning_progress_evidence(session, user.id)
+    progress_fingerprint = _fingerprint(planning_progress)
     profile_stale = bool(provenance.get("profile_fingerprint")) and provenance.get("profile_fingerprint") != _fingerprint(profile_inputs)
     assessment_stale = bool(provenance.get("assessment_fingerprint")) and provenance.get("assessment_fingerprint") != _fingerprint(assessment_inputs)
-    plan_stale = bool(user.weekly_plan_json) and (profile_stale or assessment_stale)
+    progress_stale = bool(provenance.get("progress_fingerprint")) and provenance.get("progress_fingerprint") != progress_fingerprint
+    plan_stale = bool(user.weekly_plan_json) and (profile_stale or assessment_stale or progress_stale)
     assessment_ready = assessment is not None
     return {
         "ready": not missing_profile and assessment_ready,
@@ -114,6 +117,7 @@ def planning_readiness(
         "plan_stale": plan_stale,
         "profile_stale": profile_stale,
         "assessment_stale": assessment_stale,
+        "progress_stale": progress_stale,
         "personalization_level": "assessed" if assessment else "profile_only",
         "next": "complete_profile" if missing_profile else ("complete_assessment" if not assessment else ("regenerate_plan" if plan_stale else "generate_plan")),
     }
