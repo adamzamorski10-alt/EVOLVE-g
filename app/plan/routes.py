@@ -16,6 +16,7 @@ from app.plan.deterministic import build_deterministic_plan
 from app.plan.progress_evidence import build_planning_progress_evidence
 from app.training.history import list_completed_training_history
 from app.training.progress import build_progress_evidence
+from app.plan.rolling import build_rolling_horizon
 from app.models import AssessmentDB, UserDB
 from app.schemas import PlanGenerateRequest, PlanSwapRequest, WeeklyPlanSaveRequest
 
