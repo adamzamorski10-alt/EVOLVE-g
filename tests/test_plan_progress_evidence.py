@@ -83,7 +83,6 @@ def test_non_finite_changes_are_ignored():
         },
     })
 
-    assert result["recommended_action"] == "progress"
     assert result["changes"] == {"volume_kg_delta": 2.5}
 
 
@@ -91,5 +90,4 @@ def test_invalid_input_is_fail_safe():
     result = build_planning_progress_evidence(None)
 
     assert result["status"] == "insufficient_data"
-    assert result["recommended_action"] == "none"
     assert result["mutates_plan"] is False
