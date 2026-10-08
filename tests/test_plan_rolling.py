@@ -103,3 +103,20 @@ def test_completed_history_only_consumes_sessions_inside_horizon():
     )
     assert result["completed_sessions"] == []
     assert len(result["upcoming_sessions"]) == 2
+
+
+def test_malicious_history_payload_does_not_create_execution_decision():
+    result = build_rolling_horizon(
+        _plan(),
+        horizon_start=date(2026, 10, 12),
+        completed_sessions=[{
+            "session_id": "x",
+            "session_date": "2026-10-12",
+            "status": "active",
+            "decision": "recover",
+            "can_start": True,
+            "mutates_plan": True,
+        }],
+    )
+    assert result["completed_sessions"] == []
+    assert len(result["upcoming_sessions"]) == 2
