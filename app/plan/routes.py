@@ -61,6 +61,23 @@ def _fingerprint(value: object) -> str:
     canonical = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
+def _planning_progress_fingerprint(progress_evidence: list[dict]) -> str:
+    """Hash only stable evidence fields; exclude non-JSON temporal snapshots."""
+    stable = [
+        {
+            "status": item.get("status"),
+            "sufficient_data": item.get("sufficient_data"),
+            "exercise_key": item.get("exercise_key"),
+            "reason_codes": item.get("reason_codes") or [],
+            "material_change": bool(item.get("material_change")),
+            "changes": item.get("changes") or {},
+        }
+        for item in progress_evidence
+        if isinstance(item, dict)
+    ]
+    return _fingerprint(stable)
+
+
 def _planning_progress_evidence(session: Session, user_id: str) -> list[dict]:
     """Build user-scoped, read-only progress evidence for the planner."""
     history = list_completed_training_history(session, user_id, limit=100)
@@ -100,7 +117,7 @@ def planning_readiness(
     current_plan = user.get_dict("weekly_plan_json") if user.weekly_plan_json else {}
     provenance = current_plan.get("_evolve_core", {}) if isinstance(current_plan, dict) else {}
     planning_progress = _planning_progress_evidence(session, user.id)
-    progress_fingerprint = _fingerprint(planning_progress)
+    progress_fingerprint = _planning_progress_fingerprint(planning_progress)
     profile_stale = bool(provenance.get("profile_fingerprint")) and provenance.get("profile_fingerprint") != _fingerprint(profile_inputs)
     assessment_stale = bool(provenance.get("assessment_fingerprint")) and provenance.get("assessment_fingerprint") != _fingerprint(assessment_inputs)
     progress_stale = bool(provenance.get("progress_fingerprint")) and provenance.get("progress_fingerprint") != progress_fingerprint
