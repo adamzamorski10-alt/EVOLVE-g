@@ -27,10 +27,11 @@ def _day_key(value: Any) -> str:
 
 
 def _day_date_map(start: date, days: int) -> dict[str, date]:
-    return {
-        _WEEKDAYS_PL[(start + timedelta(days=offset)).weekday()]: start + timedelta(days=offset)
-        for offset in range(days)
-    }
+    mapping: dict[str, date] = {}
+    for offset in range(days):
+        current = start + timedelta(days=offset)
+        mapping.setdefault(_WEEKDAYS_PL[current.weekday()], current)
+    return mapping
 
 
 def build_rolling_plan_contract(
