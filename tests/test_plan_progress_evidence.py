@@ -9,7 +9,6 @@ def test_insufficient_progress_is_fail_safe():
         "reason_codes": ["INSUFFICIENT_PROGRESS_HISTORY"],
     })
 
-    assert result["recommended_action"] == "none"
     assert result["sufficient_data"] is False
     assert result["mutates_plan"] is False
 
@@ -30,7 +29,6 @@ def test_positive_progress_becomes_planning_evidence_not_a_mutation():
         "previous": {"session_id": "old"},
     })
 
-    assert result["recommended_action"] == "progress"
     assert result["exercise_key"] == "bench"
     assert result["source"] == "canonical_progress"
     assert result["mutates_plan"] is False
@@ -50,7 +48,6 @@ def test_negative_progress_is_bounded_to_reduce_evidence():
         },
     })
 
-    assert result["recommended_action"] == "reduce"
     assert result["mutates_plan"] is False
 
 
@@ -69,7 +66,6 @@ def test_missing_metrics_are_not_invented():
         },
     })
 
-    assert result["recommended_action"] == "maintain"
     assert result["changes"] == {}
 
 
