@@ -19,8 +19,18 @@ def _safe_horizon_days(value: int) -> int:
     return max(MIN_HORIZON_DAYS, min(MAX_HORIZON_DAYS, int(value)))
 
 
+_WEEKDAYS_PL = ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela")
+
+
 def _day_key(value: Any) -> str:
     return str(value or "").strip().casefold()
+
+
+def _day_date_map(start: date, days: int) -> dict[str, date]:
+    return {
+        _WEEKDAYS_PL[(start + timedelta(days=offset)).weekday()]: start + timedelta(days=offset)
+        for offset in range(days)
+    }
 
 
 def build_rolling_plan_contract(
@@ -36,6 +46,7 @@ def build_rolling_plan_contract(
     safe_days = _safe_horizon_days(horizon_days)
     end = horizon_start + timedelta(days=safe_days - 1)
     completed = [item for item in (completed_sessions or []) if isinstance(item, dict)]
+    day_dates = _day_date_map(horizon_start, safe_days)
     completed_by_date = {
         str(item.get("session_date")): item
         for item in completed
@@ -62,7 +73,8 @@ def build_rolling_plan_contract(
         if not isinstance(item, dict) or not item.get("day"):
             continue
         day = item.get("day")
-        matched = completed_by_date.get(str(day))
+        scheduled_date = day_dates.get(_day_key(day))
+        matched = completed_by_date.get(scheduled_date.isoformat()) if scheduled_date else None
         if matched is not None:
             completed_in_horizon.append(matched)
             continue
