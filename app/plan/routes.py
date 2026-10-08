@@ -13,6 +13,9 @@ from app.auth.dependencies import get_current_user
 from app.database import get_session
 from app.legacy_routes import _is_profile_ready_for_plan
 from app.plan.deterministic import build_deterministic_plan
+from app.plan.progress_evidence import build_planning_progress_evidence
+from app.training.history import list_completed_training_history
+from app.training.progress import build_progress_evidence
 from app.models import AssessmentDB, UserDB
 from app.schemas import PlanGenerateRequest, PlanSwapRequest, WeeklyPlanSaveRequest
 
@@ -57,6 +60,23 @@ def _assessment_inputs(assessment: AssessmentDB | None) -> dict | None:
 def _fingerprint(value: object) -> str:
     canonical = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+def _planning_progress_evidence(session: Session, user_id: str) -> list[dict]:
+    """Build user-scoped, read-only progress evidence for the planner."""
+    history = list_completed_training_history(session, user_id, limit=100)
+    exercise_keys = sorted({
+        str(exercise.get("exercise_key"))
+        for item in history
+        for exercise in item.get("exercises", [])
+        if exercise.get("exercise_key")
+    })
+    return [
+        build_planning_progress_evidence(
+            build_progress_evidence(history, exercise_key=exercise_key)
+        )
+        for exercise_key in exercise_keys
+    ]
+
 
 @router.get("/readiness", tags=["plan"])
 def planning_readiness(
@@ -147,14 +167,17 @@ def app_generate_plan(
     assessment_inputs = _assessment_inputs(assessment)
     current = user.get_dict("weekly_plan_json") if user.weekly_plan_json else {}
     current_provenance = current.get("_evolve_core", {}) if isinstance(current, dict) else {}
+    planning_progress = _planning_progress_evidence(session, user.id)
+    progress_fingerprint = _fingerprint(planning_progress)
     stale = (
         current_provenance.get("profile_fingerprint") != _fingerprint(profile_inputs)
         or current_provenance.get("assessment_fingerprint") != _fingerprint(assessment_inputs)
+        or current_provenance.get("progress_fingerprint") != progress_fingerprint
     )
     reused_existing = bool(user.weekly_plan_json) and not payload.force and not stale
 
     if not reused_existing:
-        plan = build_deterministic_plan(user, assessment)
+        plan = build_deterministic_plan(user, assessment, planning_progress)
         plan["generated_at"] = datetime.now().isoformat()
         plan["_evolve_core"] = {
             "schema_version": 2,
@@ -165,6 +188,8 @@ def app_generate_plan(
             "assessment_version": assessment.assessment_version,
             "assessment_inputs": assessment_inputs,
             "assessment_fingerprint": _fingerprint(assessment_inputs),
+            "progress_fingerprint": progress_fingerprint,
+            "progress_evidence_count": len(planning_progress),
         }
         user.set_dict("weekly_plan_json", plan)
         user.updated_at = datetime.now()
