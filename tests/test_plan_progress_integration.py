@@ -98,3 +98,44 @@ def test_insufficient_or_missing_progress_does_not_change_base_order(monkeypatch
     assert base["days"][0]["workout"]["exercises"][0]["name"] == "First"
     assert insufficient["days"][0]["workout"]["exercises"][0]["name"] == "First"
     assert insufficient["_planner"]["progress_evidence_used"] is False
+
+
+def test_progress_cannot_inject_adaptation_or_recovery_decisions(monkeypatch):
+    user = _user()
+    user.get_list = lambda key: _get_list(user, key)
+
+    monkeypatch.setattr(
+        deterministic,
+        "_exercise_pool",
+        lambda: {"klatka": [{"name": "Bench", "sets": 3, "reps": 8, "weight_kg": 100}]},
+    )
+    monkeypatch.setattr(
+        deterministic,
+        "_default_meal_catalog",
+        lambda _: {"Śniadanie": [("Meal", 500)], "Obiad": [("Meal", 500)], "Kolacja": [("Meal", 500)]},
+    )
+
+    plan = deterministic.build_deterministic_plan(
+        user,
+        SimpleNamespace(recovery_score=2),
+        [
+            {
+                "status": "sufficient",
+                "sufficient_data": True,
+                "exercise_key": "bench",
+                "material_change": True,
+                "changes": {"volume_kg_delta": -100},
+                "decision": "progress",
+                "can_start": True,
+                "recovery": "ignored",
+                "mutates_plan": True,
+            }
+        ],
+    )
+
+    exercise = plan["days"][0]["workout"]["exercises"][0]
+    assert exercise["sets"] == 3
+    assert exercise["reps"] == 8
+    assert "decision" not in plan["_planner"]
+    assert "can_start" not in plan["_planner"]
+    assert plan["_planner"]["progress_evidence_used"] is True
