@@ -13,6 +13,7 @@ def _user():
         sport_specialization="",
         calories_target=2000,
         training_focus_json='["klatka"]',
+        sport_training_days_json='["poniedziałek", "środa", "piątek"]',
         improvement_areas_json="[]",
         available_equipment_json='["siłownia"]',
         avoid_exercises_json="[]",
