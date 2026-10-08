@@ -45,12 +45,21 @@ def build_rolling_plan_contract(
     """Normalize a plan and completed execution history into a rolling envelope."""
     safe_days = _safe_horizon_days(horizon_days)
     end = horizon_start + timedelta(days=safe_days - 1)
-    completed = [item for item in (completed_sessions or []) if isinstance(item, dict)]
+    completed = []
+    for item in (completed_sessions or []):
+        if not isinstance(item, dict) or item.get("status") != "completed":
+            continue
+        raw_date = item.get("session_date")
+        try:
+            session_date = raw_date if isinstance(raw_date, date) else date.fromisoformat(str(raw_date))
+        except (TypeError, ValueError):
+            continue
+        if horizon_start <= session_date <= end:
+            completed.append({**item, "session_date": session_date.isoformat()})
     day_dates = _day_date_map(horizon_start, safe_days)
     completed_by_date = {
-        str(item.get("session_date")): item
+        item["session_date"]: item
         for item in completed
-        if item.get("session_date")
     }
 
     if not isinstance(plan, dict):
