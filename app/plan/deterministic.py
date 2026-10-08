@@ -110,8 +110,17 @@ def _meal_slots(meals_per_day: int) -> list[str]:
     return slots
 
 
-def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
-    """Generate a reproducible weekly plan from explicit inputs only."""
+def build_deterministic_plan(
+    user: Any,
+    assessment: Any = None,
+    progress_evidence: list[dict[str, Any]] | None = None,
+) -> dict:
+    """Generate a reproducible weekly plan from explicit inputs and evidence.
+
+    Progress evidence is descriptive only. It may improve continuity by
+    prioritizing exercises with observed history, but it never makes an
+    adaptation decision or bypasses execution safety.
+    """
     meal_catalog = _default_meal_catalog(user.diet or "")
     exercise_pool = _exercise_pool()
 
@@ -182,6 +191,22 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
 
         base_calories = calc_calories(user)
 
+    normalized_progress = [
+        item for item in (progress_evidence or [])
+        if isinstance(item, dict)
+        and item.get("status") == "sufficient"
+        and item.get("sufficient_data") is True
+    ]
+
+    def _progress_priority(exercise: dict[str, Any]) -> int:
+        name = str(exercise.get("name") or "").strip().lower()
+        key = str(exercise.get("exercise_key") or "").strip().lower()
+        for evidence in normalized_progress:
+            evidence_key = str(evidence.get("exercise_key") or "").strip().lower()
+            if evidence_key and evidence_key in {name, key}:
+                return 0 if evidence.get("material_change") else 1
+        return 2
+
     days: list[dict] = []
     for day_index, (day_name, is_sunday_rest) in enumerate(_DAY_SCHEDULE):
         is_selected = day_name in selected_days
@@ -222,6 +247,11 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
                 ex for ex in exercise_pool.get(focus_key, [])
                 if _exercise_allowed(ex["name"], equipment, avoid_exercises)
             ]
+            available = sorted(
+                enumerate(available),
+                key=lambda pair: (_progress_priority(pair[1]), pair[0]),
+            )
+            available = [exercise for _, exercise in available]
             if not available:
                 # Never silently bypass equipment or exercise restrictions.
                 available = []
@@ -315,5 +345,7 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
             "target_training_days": target_days,
             "assessment_used": assessment is not None,
             "performance_signals": performance_signals,
+            "progress_evidence_used": bool(normalized_progress),
+            "progress_evidence_count": len(normalized_progress),
         },
     }
