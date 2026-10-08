@@ -200,6 +200,12 @@ def app_generate_plan(
 
     if not reused_existing:
         plan = build_deterministic_plan(user, assessment, planning_progress)
+        completed_history = list_completed_training_history(session, user.id, limit=100)
+        plan["rolling_plan"] = build_rolling_horizon(
+            plan,
+            horizon_start=datetime.now().date(),
+            completed_sessions=completed_history,
+        )
         plan["generated_at"] = datetime.now().isoformat()
         plan["_evolve_core"] = {
             "schema_version": 2,
