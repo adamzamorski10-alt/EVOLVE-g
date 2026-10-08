@@ -1,0 +1,71 @@
+from datetime import date
+
+from app.plan.rolling import (
+    DEFAULT_HORIZON_DAYS,
+    MAX_HORIZON_DAYS,
+    MIN_HORIZON_DAYS,
+    build_rolling_horizon,
+    build_rolling_plan_contract,
+)
+
+
+def _plan():
+    return {
+        "days": [
+            {
+                "day": "Poniedziałek",
+                "day_type": "heavy",
+                "workout": {"title": "Strength", "exercises": [{"name": "Bench"}]},
+            },
+            {"day": "Wtorek", "day_type": "rest", "workout": {}},
+        ]
+    }
+
+
+def test_rolling_contract_has_stable_7_to_14_day_horizon():
+    result = build_rolling_horizon(_plan(), horizon_start=date(2026, 10, 12))
+    assert result["horizon_start"] == "2026-10-12"
+    assert result["horizon_end"] == "2026-10-25"
+    assert result["plan_version"] == "rolling-v1"
+    assert result["source"] == "deterministic_rolling"
+    assert len(result["upcoming_sessions"]) == 2
+    assert result["planned_sessions"] == result["upcoming_sessions"]
+
+
+def test_rolling_horizon_clamps_requested_length():
+    start = date(2026, 10, 12)
+    assert build_rolling_horizon(_plan(), horizon_start=start, horizon_days=1)["horizon_end"] == "2026-10-18"
+    assert build_rolling_horizon(_plan(), horizon_start=start, horizon_days=99)["horizon_end"] == "2026-10-25"
+
+
+def test_invalid_plan_is_fail_safe():
+    result = build_rolling_horizon(None, horizon_start=date(2026, 10, 12))
+    assert result["sufficient_data"] is False
+    assert result["upcoming_sessions"] == []
+    assert result["planned_sessions"] == []
+    assert result["reason_codes"] == ["INVALID_PLAN"]
+
+
+def test_empty_plan_is_insufficient_data():
+    result = build_rolling_plan_contract(
+        {"days": []},
+        horizon_start=date(2026, 10, 12),
+        horizon_days=DEFAULT_HORIZON_DAYS,
+    )
+    assert result["sufficient_data"] is False
+    assert result["reason_codes"] == ["NO_PLANNED_SESSIONS"]
+
+
+def test_rolling_builder_is_read_only_and_deterministic():
+    plan = _plan()
+    before = repr(plan)
+    first = build_rolling_horizon(plan, horizon_start=date(2026, 10, 12))
+    second = build_rolling_horizon(plan, horizon_start=date(2026, 10, 12))
+    assert repr(plan) == before
+    assert first == second
+    assert first["completed_sessions"] == []
+
+
+def test_contract_exports_expected_bounds():
+    assert MIN_HORIZON_DAYS == 7
+    assert MAX_HORIZON_DAYS == 14
