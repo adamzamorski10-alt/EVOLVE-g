@@ -69,3 +69,26 @@ def test_rolling_builder_is_read_only_and_deterministic():
 def test_contract_exports_expected_bounds():
     assert MIN_HORIZON_DAYS == 7
     assert MAX_HORIZON_DAYS == 14
+
+
+def test_completed_history_is_removed_from_upcoming_and_kept_in_completed():
+    completed = [{"session_id": "s1", "session_date": "Poniedziałek", "status": "completed"}]
+    result = build_rolling_horizon(
+        _plan(),
+        horizon_start=date(2026, 10, 12),
+        completed_sessions=completed,
+    )
+    assert [item["day"] for item in result["upcoming_sessions"]] == ["Wtorek"]
+    assert result["completed_sessions"] == completed
+    assert result["planned_sessions"] == result["upcoming_sessions"]
+
+
+def test_foreign_or_unrelated_history_does_not_remove_planned_day():
+    completed = [{"session_id": "s1", "session_date": "Niedziela", "status": "completed"}]
+    result = build_rolling_horizon(
+        _plan(),
+        horizon_start=date(2026, 10, 12),
+        completed_sessions=completed,
+    )
+    assert [item["day"] for item in result["upcoming_sessions"]] == ["Poniedziałek", "Wtorek"]
+    assert result["completed_sessions"] == []
