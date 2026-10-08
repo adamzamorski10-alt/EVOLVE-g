@@ -159,3 +159,18 @@ def test_progress_fingerprint_excludes_temporal_snapshot_objects():
     first = _planning_progress_fingerprint(evidence)
     evidence[0]["latest"]["session_date"] = date(2026, 10, 9)
     assert first == _planning_progress_fingerprint(evidence)
+
+
+
+def test_progress_evidence_contract_is_read_only_and_finite():
+    from app.plan.progress_evidence import build_planning_progress_evidence
+    result = build_planning_progress_evidence({
+        "status": "sufficient",
+        "sufficient_data": True,
+        "exercise_key": "bench",
+        "material_change": True,
+        "changes": {"volume_kg_delta": float("inf"), "reps_delta": 2},
+    })
+    assert result["changes"] == {"reps_delta": 2.0}
+    assert result["mutates_plan"] is False
+    assert result["source"] == "canonical_progress"
