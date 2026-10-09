@@ -12,15 +12,45 @@ from sqlmodel import Session, select
 from app.auth.dependencies import get_current_user
 from app.database import get_session
 from app.legacy_routes import _is_profile_ready_for_plan
-from app.plan.deterministic import build_deterministic_plan
+from app.plan.deterministic import _normalize_weekday, build_deterministic_plan
 from app.plan.progress_evidence import build_planning_progress_evidence
 from app.training.history import list_completed_training_history
 from app.training.progress import build_progress_evidence
 from app.plan.rolling import build_rolling_horizon
 from app.models import AssessmentDB, UserDB
-from app.schemas import PlanGenerateRequest, PlanSwapRequest, WeeklyPlanSaveRequest
+from app.schemas import PlanGenerateRequest, PlanSwapRequest, TrainingAvailabilityRequest, WeeklyPlanSaveRequest
 
 router = APIRouter(prefix="/app/plan", tags=["plan"])
+
+
+@router.get("/availability", tags=["plan"])
+def get_training_availability(user: UserDB = Depends(get_current_user)):
+    """Return the current user's optional weekly training-day availability."""
+    return user.get_dict("training_availability_json")
+
+
+@router.put("/availability", tags=["plan"])
+def set_training_availability(
+    payload: TrainingAvailabilityRequest,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Persist validated weekly availability; changes invalidate plan provenance."""
+    normalized = [_normalize_weekday(day) for day in payload.days]
+    if any(day is None for day in normalized):
+        raise HTTPException(
+            status_code=422,
+            detail="Podaj prawidłowe dni tygodnia po polsku, np. Środa lub Sobota.",
+        )
+    canonical_days = list(dict.fromkeys(day for day in normalized if day is not None))
+    if not canonical_days:
+        raise HTTPException(status_code=422, detail="Wybierz co najmniej jeden dzień dostępności.")
+    user.set_dict("training_availability_json", {"days": canonical_days})
+    user.updated_at = datetime.now()
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user.get_dict("training_availability_json")
 
 
 def _profile_inputs(user: UserDB) -> dict:
@@ -35,6 +65,7 @@ def _profile_inputs(user: UserDB) -> dict:
         "sport_focus": user.sport_focus,
         "sport_specialization": user.sport_specialization,
         "sport_training_days": user.get_list("sport_training_days_json"),
+        "training_availability": user.get_dict("training_availability_json"),
     }
 
 
