@@ -188,6 +188,16 @@ def test_availability_change_marks_existing_plan_stale():
     assert readiness.json()["profile_stale"] is True
 
 
+def test_availability_api_rejects_unknown_weekday():
+    ctx = _context()
+    response = client.put(
+        "/app/plan/availability",
+        json={"days": ["Someday"]},
+        headers=_headers(ctx["token"]),
+    )
+    assert response.status_code == 422
+
+
 def test_new_assessment_invalidates_existing_plan_by_provenance():
     ctx = _context()
     first_assessment = _baseline(ctx, sessions_per_week=4)
