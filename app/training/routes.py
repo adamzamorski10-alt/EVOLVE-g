@@ -1005,6 +1005,21 @@ def log_training_set(
         .where(TrainingSetResultDB.set_number == payload.set_number)
     ).first()
 
+    # Revalidate the active state atomically before mutating any set result.
+    # The conditional UPDATE holds the database write/row lock until commit,
+    # so completion either waits for this set to commit or wins and makes
+    # this claim fail. The initial ORM status check above is only an early exit.
+    claimed = session.exec(
+        update(TrainingSessionDB)
+        .where(TrainingSessionDB.id == row.id)
+        .where(TrainingSessionDB.user_id == user.id)
+        .where(TrainingSessionDB.status == "active")
+        .values(updated_at=datetime.now())
+    ).rowcount
+    if claimed != 1:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Zakończona sesja nie może być edytowana")
+
     if existing:
         existing.actual_reps = payload.actual_reps
         existing.actual_weight_kg = payload.actual_weight_kg
@@ -1044,6 +1059,18 @@ def log_training_set(
         ).first()
         if existing is None:
             raise HTTPException(status_code=409, detail="Konflikt zapisu serii")
+        # IntegrityError rolled back the original claim; reacquire it before
+        # the duplicate-set update so the conflict path cannot bypass closure.
+        claimed = session.exec(
+            update(TrainingSessionDB)
+            .where(TrainingSessionDB.id == row.id)
+            .where(TrainingSessionDB.user_id == user.id)
+            .where(TrainingSessionDB.status == "active")
+            .values(updated_at=datetime.now())
+        ).rowcount
+        if claimed != 1:
+            session.rollback()
+            raise HTTPException(status_code=409, detail="Zakończona sesja nie może być edytowana")
         existing.actual_reps = payload.actual_reps
         existing.actual_weight_kg = payload.actual_weight_kg
         existing.actual_rpe = payload.actual_rpe
