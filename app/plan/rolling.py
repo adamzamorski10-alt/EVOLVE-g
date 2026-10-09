@@ -118,6 +118,8 @@ def build_rolling_plan_contract(
         "horizon_start": horizon_start.isoformat(),
         "horizon_end": end.isoformat(),
         "upcoming_sessions": upcoming,
+        "planned_days": planned_days,
+        "rest_days": rest_days,
         "completed_sessions": completed_result,
         "planned_sessions": list(upcoming),
         "plan_version": plan_version,
