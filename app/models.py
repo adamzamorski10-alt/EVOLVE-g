@@ -345,6 +345,10 @@ class ExerciseResultDB(SQLModel, table=True):
         primary_key=True,
     )
     user_id: str = Field(foreign_key="users.id", index=True)
+    # Provenance for results materialized from the deterministic training-session loop.
+    # Nullable to preserve compatibility with legacy/manual ExerciseResult rows.
+    source_session_id: Optional[str] = Field(default=None, foreign_key="training_sessions.id", index=True)
+    source_exercise_key: Optional[str] = Field(default=None, index=True)
     exercise_name: str = Field(index=True)
     session_date: date = Field(index=True)       # Rzeczywista data
     sets: int

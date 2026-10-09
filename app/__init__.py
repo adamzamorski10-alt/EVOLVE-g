@@ -211,9 +211,18 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     if (legacyPanel) legacyPanel.style.display = "none";
   }
 
+  var myDayLoadSequence = 0;
+
   window.loadEvolveMyDay = async function () {
     var exercisesEl = document.getElementById("myDayExercises");
     if (!exercisesEl) return;
+    var requestId = ++myDayLoadSequence;
+    var statusEl = document.getElementById("myDayStatus");
+    if (statusEl) {
+      statusEl.className = "alert alert-hidden";
+      statusEl.textContent = "";
+    }
+    exercisesEl.innerHTML = '<div class="spinner"></div>';
 
     var token = localStorage.getItem("fitai_token");
     if (!token) {
@@ -223,13 +232,13 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       return;
     }
 
-    exercisesEl.innerHTML = '<div class="spinner"></div>';
     try {
       var response = await fetch("/app/training/today", {
         headers: {Authorization: "Bearer " + token},
         cache: "no-store"
       });
       var data = await response.json();
+      if (requestId !== myDayLoadSequence) return;
       if (!response.ok) throw new Error(data.detail || "Nie udało się pobrać danych Mój dzień");
 
       document.getElementById("myDayDate").textContent = data.day_label ? data.day_label + ", " + data.date : (data.date || "—");
@@ -247,8 +256,17 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       document.getElementById("myDaySessionBar").style.width = pct + "%";
 
       var startLink = document.getElementById("myDayStartLink");
+      var canStartTraining = Boolean(data.has_workout || session.id);
       startLink.textContent = session.id ? "Wznów trening" : (data.has_workout ? "Rozpocznij trening" : "Brak treningu");
-      startLink.href = "/app/training/session-ui";
+      if (canStartTraining) {
+        startLink.href = "/app/training/session-ui";
+        startLink.removeAttribute("aria-disabled");
+        startLink.classList.remove("btn-ghost");
+      } else {
+        startLink.removeAttribute("href");
+        startLink.setAttribute("aria-disabled", "true");
+        startLink.classList.add("btn-ghost");
+      }
 
       document.getElementById("myDayExerciseCount").textContent = (data.exercises || []).length + " ćwiczeń";
       if (!data.has_workout) {
@@ -266,6 +284,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
           '<div class="item-card-meta">' + reps + " powtórzeń" + (weight ? " · " + weight : "") + "</div></div>";
       }).join("");
     } catch (error) {
+      if (requestId !== myDayLoadSequence) return;
       var statusEl = document.getElementById("myDayStatus");
       statusEl.className = "alert alert-warn";
       statusEl.textContent = "⚠️ " + error.message;
@@ -274,6 +293,20 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       exercisesEl.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center;">Błąd ładowania danych.</div>';
     }
   };
+
+  function installMyDayRoutingHook() {
+    if (window.__evolveMyDayRoutingHookInstalled) return;
+    if (typeof window.showTab !== "function") return;
+    var originalShowTab = window.showTab;
+    window.showTab = function (tab) {
+      var result = originalShowTab.apply(this, arguments);
+      if (tab === "my-day") {
+        window.loadEvolveMyDay();
+      }
+      return result;
+    };
+    window.__evolveMyDayRoutingHookInstalled = true;
+  }
 
   function installHashRouting() {
     var raw = window.location.hash.replace("#", "");
@@ -284,6 +317,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 
   document.addEventListener("DOMContentLoaded", function () {
     injectMyDayShell();
+    installMyDayRoutingHook();
     installHashRouting();
   });
   window.addEventListener("hashchange", installHashRouting);
