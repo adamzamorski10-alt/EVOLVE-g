@@ -55,6 +55,7 @@ from app.schemas import (
     WaterLogRequest,
 )
 from app.fitness.utils import upsert_user_from_profile
+from app.plan.deterministic import _normalize_weekday
 
 router = APIRouter(prefix="/app", tags=["fitness"])
 
@@ -1502,21 +1503,41 @@ def configure_sport(
     req: SportConfigRequest,
     user: UserDB = Depends(get_current_user),
 ):
-    """Konfiguruj moduł sportowy — sport, specjalizacja, dni treningowe."""
+    """Konfiguruj sport, dni treningowe i opcjonalne zarezerwowane godziny."""
+    normalized_days = [_normalize_weekday(day) for day in req.sport_training_days]
+    if any(day is None for day in normalized_days):
+        raise HTTPException(status_code=422, detail="Podaj prawidłowe dni tygodnia po polsku.")
+    canonical_days = list(dict.fromkeys(day for day in normalized_days if day is not None))
+    canonical_windows = {}
+    for raw_day, window in req.sport_training_windows.items():
+        day = _normalize_weekday(raw_day)
+        if day is None or day not in canonical_days:
+            raise HTTPException(
+                status_code=422,
+                detail="Godziny treningu sportowego muszą należeć do skonfigurowanego dnia sportowego.",
+            )
+        canonical_windows[day] = window.model_dump()
+
     with Session(engine) as session:
         db_user = upsert_user_from_profile(
             user.user_key,
             {
                 "sport_focus": req.sport_focus,
                 "sport_specialization": req.sport_specialization,
-                "sport_training_days": req.sport_training_days,
+                "sport_training_days": canonical_days,
             },
             session,
         )
+        db_user.set_dict("sport_training_schedule_json", {"windows": canonical_windows})
+        db_user.updated_at = datetime.now()
+        session.add(db_user)
+        session.commit()
+        session.refresh(db_user)
         return {
             "status": "ok",
             "message": "Sport konfiguracja zaktualizowana",
             "sport_focus": db_user.sport_focus,
             "sport_specialization": db_user.sport_specialization,
             "sport_training_days": db_user.get_list("sport_training_days_json"),
+            "sport_training_windows": db_user.get_dict("sport_training_schedule_json").get("windows", {}),
         }
