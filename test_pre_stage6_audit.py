@@ -131,7 +131,7 @@ def test_migration_chain_has_single_head_after_stage_18_availability():
         elif parent:
             children.add(parent)
     heads = sorted(revision for revision in revisions if revision not in children)
-    assert heads == ["evolve23_training_availability"], heads
+    assert heads == ["evolve24_sport_training_schedule"], heads
 
 
 def test_external_verification_queue_keeps_stage_0_5_checks_pending():
