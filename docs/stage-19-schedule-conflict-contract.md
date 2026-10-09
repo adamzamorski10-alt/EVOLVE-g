@@ -35,8 +35,13 @@ All clock times are local wall-clock HH:MM values. V1 windows must have start ea
 - `sport_reserved`: the weekday is occupied by the configured sport session; the normal gym session must not also be scheduled.
 - `overlapping_events`: two actual scheduled event intervals overlap. This category must only be emitted when both intervals represent booked/planned events; an availability interval is not itself an event.
 - `invalid_constraint`: persisted or submitted scheduling data cannot be safely interpreted.
+- `weekly_target_reached`: a day was eligible, but the requested weekly training-day target was already satisfied.
 
 Conflict records should be deterministic and machine-readable, and should identify the affected canonical weekday/date plus a stable reason code. Do not include secrets or another user's data. If the system has insufficient information to determine a conflict, report insufficient information rather than asserting no conflict.
+
+## Current implementation in Stage 19B
+
+The deterministic planner now includes private plan metadata at _planner.schedule_diagnostics with the requested/scheduled/unmet training-day counts, sport-reserved weekdays, and excluded weekdays with stable reason codes. These diagnostics explain the current weekly-template decision; they do not constitute arbitrary event-overlap detection or external-calendar conflict detection.
 
 ## Scope boundaries
 
