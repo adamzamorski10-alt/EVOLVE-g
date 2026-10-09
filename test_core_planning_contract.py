@@ -580,6 +580,9 @@ def test_infeasible_weekly_target_exposes_deterministic_schedule_diagnostics():
     assert diagnostics["requested_training_days"] == 3
     assert diagnostics["scheduled_training_days"] == 1
     assert diagnostics["unmet_training_days"] == 2
+    assert diagnostics["scheduled_training_days"] == len([
+        day for day in generated.json()["plan"]["days"] if day["day_type"] != "rest"
+    ])
     reasons = {item["day"]: item["reason_code"] for item in diagnostics["excluded_days"]}
     assert reasons["Poniedziałek"] == "unavailable_day"
     assert reasons["Czwartek"] == "insufficient_window"
@@ -627,3 +630,29 @@ def test_malformed_persisted_availability_fails_closed_with_diagnostics():
         item["reason_code"] == "invalid_constraint"
         for item in diagnostics["excluded_days"]
     )
+
+
+
+def test_malformed_persisted_availability_window_is_invalid_constraint():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+
+    with Session(engine) as session:
+        user = session.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        assert user is not None
+        user.training_availability_json = json.dumps({
+            "days": ["Wtorek"],
+            "windows": {"Wtorek": {"start": "9:00", "end": "11:00"}},
+            "session_duration_minutes": 60,
+        })
+        session.add(user)
+        session.commit()
+
+    generated = client.post("/app/plan/generate", json={"force": True}, headers=headers)
+    assert generated.status_code == 200, generated.text
+    plan = generated.json()["plan"]
+    diagnostics = plan["_planner"]["schedule_diagnostics"]
+    assert not [day for day in plan["days"] if day["day_type"] != "rest"]
+    reasons = {item["day"]: item["reason_code"] for item in diagnostics["excluded_days"]}
+    assert reasons["Wtorek"] == "invalid_constraint"
