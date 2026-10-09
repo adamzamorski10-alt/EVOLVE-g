@@ -109,6 +109,21 @@ def test_profile_equipment_changes_plan_behavior():
     assert all("sztang" not in name and "maszyn" not in name and "leg press" not in name for name in exercises)
 
 
+def test_planner_normalizes_short_sport_weekdays():
+    ctx = _context()
+    response = client.put(
+        "/app/profile",
+        json={"sport_focus": "koszykówka", "sport_training_days": ["śr", "Sob."]},
+        headers=_headers(ctx["token"]),
+    )
+    assert response.status_code == 200, response.text
+    _baseline(ctx, sessions_per_week=3)
+    generated = client.post("/app/plan/generate", json={"force": True}, headers=_headers(ctx["token"]))
+    assert generated.status_code == 200, generated.text
+    days = generated.json()["plan"]["days"]
+    assert [day["day"] for day in days if day["is_sport_session"]] == ["Środa", "Sobota"]
+
+
 def test_new_assessment_invalidates_existing_plan_by_provenance():
     ctx = _context()
     first_assessment = _baseline(ctx, sessions_per_week=4)
