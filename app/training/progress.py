@@ -57,7 +57,6 @@ def build_progress_evidence(
                     value is not None and not isfinite(float(value))
                     for value in numeric_values
                 ):
-                    malformed = True
                     continue
 
                 if parsed_weight is None and parsed_reps is None and parsed_rpe is None:
