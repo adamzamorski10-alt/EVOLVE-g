@@ -446,3 +446,34 @@ def test_generated_sport_session_exposes_reserved_time_window():
     assert sport_days[0]["day"] == "Środa"
     assert sport_days[0]["workout"]["scheduled_time"] == {"start": "18:00", "end": "19:30"}
 
+def test_reserved_sport_session_is_not_filtered_by_short_gym_availability_window():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+    saved = client.put(
+        "/app/plan/availability",
+        json={
+            "days": ["Poniedziałek", "Wtorek", "Środa", "Czwartek"],
+            "windows": {"Środa": {"start": "18:00", "end": "18:30"}},
+            "session_duration_minutes": 60,
+        },
+        headers=headers,
+    )
+    assert saved.status_code == 200, saved.text
+    sport = client.post(
+        "/app/sport-config",
+        json={
+            "sport_focus": "koszykówka",
+            "sport_specialization": "rzuty",
+            "sport_training_days": ["Środa"],
+            "sport_training_windows": {"Środa": {"start": "19:00", "end": "20:30"}},
+        },
+        headers=headers,
+    )
+    assert sport.status_code == 200, sport.text
+    generated = client.post("/app/plan/generate", json={"force": True}, headers=headers)
+    assert generated.status_code == 200, generated.text
+    wednesday = next(day for day in generated.json()["plan"]["days"] if day["day"] == "Środa")
+    assert wednesday["is_sport_session"] is True
+    assert wednesday["workout"]["scheduled_time"] == {"start": "19:00", "end": "20:30"}
+
