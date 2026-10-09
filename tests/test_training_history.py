@@ -130,3 +130,31 @@ def test_history_is_deterministically_ordered_and_limit_is_bounded():
 def test_history_returns_empty_for_no_completed_sessions():
     user = _seed_user()
     assert list_completed_training_history(Session(engine), user.id) == []
+
+
+
+def test_history_data_quality_requires_completed_sets():
+    user = _seed_user()
+    training = _completed_session(user, date(2026, 10, 6))
+    with Session(engine) as db:
+        db.add(
+            TrainingSetResultDB(
+                session_id=training.id,
+                user_id=user.id,
+                exercise_key="squat",
+                exercise_name="Squat",
+                set_number=1,
+                planned_reps=5,
+                planned_weight_kg=100,
+                actual_reps=0,
+                actual_weight_kg=0,
+                completed=False,
+            )
+        )
+        db.commit()
+
+    history = list_completed_training_history(Session(engine), user.id)
+    assert len(history) == 1
+    assert history[0]["total_sets"] == 1
+    assert history[0]["completed_sets"] == 0
+    assert history[0]["sufficient_data"] is False
