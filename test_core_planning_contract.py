@@ -545,3 +545,40 @@ def test_training_availability_and_sport_schedule_are_isolated_between_users():
     assert other_profile["sport_training_schedule"]["windows"] == {
         "Niedziela": {"start": "08:00", "end": "09:00"}
     }
+
+def test_infeasible_weekly_target_exposes_deterministic_schedule_diagnostics():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+    saved = client.put(
+        "/app/plan/availability",
+        json={
+            "days": ["Wtorek", "Czwartek"],
+            "windows": {
+                "Wtorek": {"start": "17:00", "end": "19:00"},
+                "Czwartek": {"start": "18:00", "end": "18:30"},
+            },
+            "session_duration_minutes": 60,
+        },
+        headers=headers,
+    )
+    assert saved.status_code == 200, saved.text
+
+    generated = client.post(
+        "/app/plan/generate",
+        json={"force": True},
+        headers=headers,
+    )
+    assert generated.status_code == 200, generated.text
+    diagnostics = generated.json()["plan"]["_planner"]["schedule_diagnostics"]
+
+    assert diagnostics["requested_training_days"] == 3
+    assert diagnostics["scheduled_training_days"] == 1
+    assert diagnostics["unmet_training_days"] == 2
+    reasons = {item["day"]: item["reason_code"] for item in diagnostics["excluded_days"]}
+    assert reasons["Poniedziałek"] == "unavailable_day"
+    assert reasons["Czwartek"] == "insufficient_window"
+    assert "Poniedziałek" not in [
+        item["day"] for item in generated.json()["plan"]["days"]
+        if item["day_type"] != "rest"
+    ]
