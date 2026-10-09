@@ -236,8 +236,13 @@ def _apply_recovery_constraint(plan: dict, recovery: dict) -> tuple[dict, str]:
     return constrained, constraint
 
 
-def _effective_plan(user: UserDB, session: Session) -> tuple[dict, dict]:
-    """Resolve adaptive plan, then apply today's deterministic recovery constraint."""
+def _effective_plan(
+    user: UserDB,
+    session: Session,
+    *,
+    apply_recovery: bool = True,
+) -> tuple[dict, dict]:
+    """Resolve the effective plan; optionally omit today's transient recovery constraint."""
     base = _load_base_plan(user)
     revision = _latest_adaptive_revision(user.id, session)
     resolved = base
@@ -269,17 +274,20 @@ def _effective_plan(user: UserDB, session: Session) -> tuple[dict, dict]:
                 "algorithm": metadata.get("algorithm", "deterministic-v1"),
             }
 
-    recovery = evaluate_recovery(
-        session.exec(
-            select(DailyLogDB)
-            .where(DailyLogDB.user_id == user.id)
-            .where(DailyLogDB.log_date == date.today())
-        ).first()
-    )
-    resolved, recovery_constraint = _apply_recovery_constraint(resolved, recovery)
-    meta["recovery_constraint"] = recovery_constraint
-    meta["recovery_status"] = recovery.get("status")
-    meta["readiness_score"] = recovery.get("readiness_score")
+    if apply_recovery:
+        recovery = evaluate_recovery(
+            session.exec(
+                select(DailyLogDB)
+                .where(DailyLogDB.user_id == user.id)
+                .where(DailyLogDB.log_date == date.today())
+            ).first()
+        )
+        resolved, recovery_constraint = _apply_recovery_constraint(resolved, recovery)
+        meta["recovery_constraint"] = recovery_constraint
+        meta["recovery_status"] = recovery.get("status")
+        meta["readiness_score"] = recovery.get("readiness_score")
+    else:
+        meta["recovery_constraint"] = "not_applied_to_horizon"
     return resolved, meta
 
 def _owned_session(session: Session, user: UserDB, session_id: str) -> TrainingSessionDB:
