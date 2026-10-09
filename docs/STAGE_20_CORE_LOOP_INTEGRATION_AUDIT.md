@@ -188,3 +188,24 @@ Verification for test commit `495710ccf5d2d3740c03f99b628e12482f75ba98`:
 - The full regression and migration jobs passed; the workflow's informational legacy job remains non-blocking.
 
 Stage 20 remains isolated and is not merged into `main`. External browser verification is still pending; CI does not substitute for that check.
+
+
+## Stage 20I — safe resume and close when recovery blocks execution
+
+The active-session recovery path exposed a UX/safety gap: the start endpoint rejected every resume when the current Decision Engine result was `recover`, so the user could not reopen the active session UI to close it, even though set logging was correctly blocked and the completion endpoint is intentionally allowed to persist already-completed work.
+
+The resume path now checks for an existing active session before rejecting a new session start. If an active session exists, it returns that owned session with `execution_blocked` and `execution_block_reason` metadata when the current decision disallows exercise. The session UI displays a recovery warning, disables set editing/logging controls, and keeps the completion action available for previously completed sets. If there is no active session, a recovery-blocked user still cannot start a new one. The set-logging API remains independently guarded by the canonical decision gate.
+
+Regression coverage:
+- An active session can be resumed in close-only mode when recovery changes to `recover`.
+- Attempting to log another set remains blocked with `TRAINING_EXECUTION_BLOCKED`.
+- A session with previously completed work can be safely completed and materialize its result despite a newly active recovery block.
+- The UI disables editing controls when the resumed session reports `execution_blocked`.
+
+CI for test commit `33a0d3697c2107966ef664b595b70118e649fa6b`:
+- [GitHub Actions run #646](https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/37983041303): overall **SUCCESS**
+- Current EVOLVE regression: **311 passed, 7 warnings**
+- Alembic clean-database integrity: **PASS**
+- Legacy regression: **FAIL, informational / non-blocking**
+
+The preceding implementation-only commit's run #645 failed because the then-current test still asserted the old 409-on-resume behavior; the test was updated to the intended safe-close-only contract and run #646 passed. Stage 20 remains unmerged. External browser verification remains open, particularly confirming that the disabled controls and safe completion UX behave correctly in a real browser.
