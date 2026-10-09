@@ -77,3 +77,20 @@ These changes are on the isolated Stage 20 branch and remain subject to the fina
 - Legacy regression remains informational and must be reported transparently.
 - No changes are merged into `main` without separate review.
 - No AI Coach/AI Manager integration is introduced in Stage 20.
+
+## Stage 20B — adaptive rolling-diagnostics integration test
+
+Added `test_rolling_plan_preserves_schedule_diagnostics_after_adaptation` in `test_training_next_effective_plan.py`.
+
+The test seeds canonical planner diagnostics into a base plan, completes a session, applies the adaptive revision, and verifies both the persisted adaptive plan and `/app/plan/rolling` retain the exact diagnostics. It also asserts the rolling endpoint identifies the applied plan as adaptive, guarding against the UI silently losing the weekly-target explanation when adaptation is active.
+
+### Verified CI checkpoint
+
+- Commit: `47d713e02ede2085b584198810ced63510f44e94`
+- Workflow run #621: [GitHub Actions](https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/37966480624)
+- Current EVOLVE regression: **304 passed, 7 warnings**
+- Alembic clean-database integrity: **PASS**
+- Legacy regression: **FAIL, informational / non-blocking**, as configured in the workflow
+- Overall workflow: **SUCCESS**
+
+This closes the specific adaptive rolling-diagnostics preservation check. The broader Stage 20 audit remains open until remaining integration boundaries and the final current-SHA gate are reviewed.
