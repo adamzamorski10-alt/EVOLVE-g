@@ -219,6 +219,8 @@ def test_plan_ui_exposes_weekly_availability_editor():
         'name="sportEnd"',
         '"/app/sport-config"',
         'data.sport_training_schedule?.windows',
+        "esc(w.start||'')",
+        "esc(w.end||'')",
         "Godzina: ",
         "session_duration_minutes:Number",
         "Uzupełnij obie godziny albo pozostaw oba pola puste:",
