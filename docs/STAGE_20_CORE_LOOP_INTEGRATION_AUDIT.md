@@ -153,3 +153,20 @@ Verification on current code/test SHA `9da1c4614558908c64671cea2d225b07e292d567`
 - Legacy regression: **FAIL, informational / non-blocking**.
 
 This closes the targeted malformed/non-finite recovery-signal check. It does not replace the pending external browser verification documented in `docs/EXTERNAL_VERIFICATION.md`, nor does it authorize merging Stage 20 into `main`.
+
+
+## Stage 20G — Decision Engine execution-gate hostile input hardening
+
+The execution permission helper now fails closed when the decision payload is not a dictionary, the `decision` field is absent, or the value is not a string in the canonical decision set. This avoids exceptions from unhashable malformed values and prevents a missing/null decision from being silently converted into `insufficient_data`.
+
+A canonical explicit `insufficient_data` decision remains execution-eligible when other execution checks pass; this represents lack of optimization evidence, not a safety contraindication. The canonical `recover` decision remains blocked.
+
+Added hostile tests for missing/null/boolean/dict/list/unknown decisions and coverage for every canonical decision state. The prior expectation that an empty dictionary was allowed was updated to match the fail-closed contract.
+
+Verification on code/test SHA `807395601f8b4a7e7465f72a6b792447dacc40f1`:
+- CI run #638: [GitHub Actions](https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/37977890035) — overall **SUCCESS**.
+- Current EVOLVE regression: **310 passed, 7 warnings**.
+- Alembic clean-database integrity: **PASS**.
+- Legacy regression: **FAIL, informational / non-blocking**.
+
+This closes the targeted malformed execution-decision input check. It does not mark external browser verification complete and does not authorize merging Stage 20 into `main`.
