@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 TRAINING_ROUTES = (ROOT / "app" / "training" / "routes.py").read_text(encoding="utf-8")
 APP_INIT = (ROOT / "app" / "__init__.py").read_text(encoding="utf-8")
+PLAN_ROUTES = (ROOT / "app" / "plan" / "routes.py").read_text(encoding="utf-8")
 
 
 def test_training_execution_api_contract_is_present():
@@ -181,3 +182,17 @@ def test_today_ui_uses_semantic_action_contract():
     assert 'id="myDayActionWhy"' in APP_INIT
     assert 'data.primary_action' in APP_INIT
     assert 'data.workout' in APP_INIT
+
+
+
+def test_rolling_plan_ui_uses_dated_api_and_canonical_execution():
+    required = [
+        '@router.get("/rolling"',
+        '"/app/plan/rolling?horizon_days=14"',
+        'id="rollingHorizon"',
+        'item.scheduled_date',
+        'list_completed_training_history',
+        'href="/app/training/session-ui"',
+    ]
+    for marker in required:
+        assert marker in PLAN_ROUTES, f"Missing rolling-plan UX marker: {marker}"
