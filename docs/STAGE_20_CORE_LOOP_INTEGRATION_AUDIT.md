@@ -94,3 +94,11 @@ The test seeds canonical planner diagnostics into a base plan, completes a sessi
 - Overall workflow: **SUCCESS**
 
 This closes the specific adaptive rolling-diagnostics preservation check. The broader Stage 20 audit remains open until remaining integration boundaries and the final current-SHA gate are reviewed.
+
+## Stage 20C — TODAY decision validation
+
+The TODAY semantic mapper previously treated an unknown decision value as the default train-as-planned state. The execution endpoint independently enforced its safety gate, but the presentation contract could still become misleading if fed malformed or mismatched decision data.
+
+The mapper now accepts only canonical Decision Engine values. Unknown strings, nulls, booleans, and other malformed values map to `insufficient_data`, block the TODAY start action, mark data quality insufficient, and emit `INVALID_DECISION_FAIL_CLOSED`. Hostile unit coverage verifies this even when the training payload otherwise reports that a workout can start. This does not replace the independent execution gate.
+
+Verification: [CI run #624](https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/37972087577) passed the current regression (**305 passed, 7 warnings**) and Alembic integrity. The legacy regression remains a non-blocking informational failure. Commits: `2cc14cf873e3cfd40e648c58d178ced1c93c7820` and `5a27fb8694e8bd42cf32f34b3b654194e94f6ad4`.
