@@ -124,6 +124,13 @@ def test_planner_normalizes_short_sport_weekdays():
     assert [day["day"] for day in days if day["is_sport_session"]] == ["Środa", "Sobota"]
 
 
+def test_availability_weekdays_are_normalized():
+    from app.plan.deterministic import _normalize_weekday
+    assert _normalize_weekday("wt") == "Wtorek"
+    assert _normalize_weekday("Czw.") == "Czwartek"
+    assert _normalize_weekday("unknown") is None
+
+
 def test_new_assessment_invalidates_existing_plan_by_provenance():
     ctx = _context()
     first_assessment = _baseline(ctx, sessions_per_week=4)
