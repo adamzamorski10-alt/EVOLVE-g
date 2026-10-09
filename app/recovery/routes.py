@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from math import isfinite
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
@@ -30,8 +31,13 @@ def _signal_scores(log: DailyLogDB) -> dict[str, float]:
     def bounded(value: Any, minimum: float, maximum: float) -> float | None:
         if value is None:
             return None
-        numeric = float(value)
-        return numeric if minimum <= numeric <= maximum else None
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if not isfinite(numeric) or not minimum <= numeric <= maximum:
+            return None
+        return numeric
 
     sleep_hours = bounded(log.sleep_hours, 0.0, 24.0)
     sleep_quality = bounded(log.sleep_quality, 1.0, 10.0)
