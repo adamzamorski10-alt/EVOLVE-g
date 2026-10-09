@@ -50,5 +50,5 @@ def test_progress_evidence_counts_only_valid_completed_sets():
 
     result = build_progress_evidence(history, exercise_key="squat")
     assert result["status"] == "sufficient"
-    assert result["observations"][0]["completed_sets"] == 1
+    assert result["latest"]["completed_sets"] == 1
     assert result["changes"]["completed_sets_delta"] == 0
