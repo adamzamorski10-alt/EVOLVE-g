@@ -91,6 +91,7 @@ class UserDB(SQLModel, table=True):
     sport_focus: Optional[str] = None                  # np. "koszykówka"
     sport_specialization: Optional[str] = None         # np. "rzuty"
     sport_training_days_json: str = "[]"               # np. ["Środa", "Sobota"]
+    training_availability_json: str = "{}"             # optional weekly day-level availability contract
     # ─── Auth (dodane w v2.1) ───────────────────────────────────────────────
     hashed_password: Optional[str] = None             # None = konto Netlify Identity (stare)
     is_active: bool = True                             # możliwość blokowania konta
@@ -179,6 +180,7 @@ class UserDB(SQLModel, table=True):
             "sport_focus": self.sport_focus,
             "sport_specialization": self.sport_specialization,
             "sport_training_days": self.get_list("sport_training_days_json"),
+            "training_availability": self.get_dict("training_availability_json"),
             "total_xp": self.total_xp,
             "level": _xp_to_level(self.total_xp),
             "injuries": [i.strip() for i in self.injuries.split(",") if i.strip()],
