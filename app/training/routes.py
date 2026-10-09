@@ -872,7 +872,7 @@ def start_training_session(
         claimed_user = session.exec(
             update(UserDB)
             .where(UserDB.id == user.id)
-            .values(updated_at=datetime.now())
+            .values(updated_at=UserDB.updated_at)
         ).rowcount
     except SQLAlchemyError as exc:
         # A concurrent SQLite/Postgres writer can reject the claim before the
