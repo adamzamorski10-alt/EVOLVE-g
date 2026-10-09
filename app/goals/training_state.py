@@ -7,6 +7,7 @@ goal lifecycle, training plan, or adaptive plan.
 from __future__ import annotations
 
 from datetime import date
+from math import isfinite
 from typing import Any, Iterable
 
 from app.goals.service import SUPPORTED_METRICS, calculate_progress, validate_metric_key
@@ -26,15 +27,36 @@ def build_goal_training_state(
     metric = validate_metric_key(goal.metric_key)
     definition = {"key": metric, **SUPPORTED_METRICS[metric]} if metric else None
 
-    snapshots = [
-        {
-            "date": item.get("date"),
-            "value": float(item["value"]) if item.get("value") is not None else None,
-            "session_id": item.get("session_id"),
-        }
-        for item in training_snapshots
-        if item.get("value") is not None and item.get("session_id")
-    ]
+    snapshots: list[dict[str, Any]] = []
+    for item in training_snapshots or []:
+        if not isinstance(item, dict) or not item.get("session_id"):
+            continue
+        raw_value = item.get("value")
+        if raw_value is None or isinstance(raw_value, bool):
+            continue
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if not isfinite(value):
+            continue
+
+        raw_date = item.get("date")
+        try:
+            if isinstance(raw_date, date):
+                snapshot_date = raw_date.isoformat()
+            elif isinstance(raw_date, str):
+                snapshot_date = date.fromisoformat(raw_date).isoformat()
+            else:
+                continue
+        except (TypeError, ValueError):
+            continue
+
+        snapshots.append({
+            "date": snapshot_date,
+            "value": value,
+            "session_id": str(item["session_id"]),
+        })
     snapshots.sort(key=lambda item: (item["date"] or "", item["session_id"] or ""))
 
     current = snapshots[-1]["value"] if snapshots else None
