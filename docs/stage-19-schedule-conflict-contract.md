@@ -41,7 +41,7 @@ Conflict records should be deterministic and machine-readable, and should identi
 
 ## Current implementation in Stage 19B
 
-The deterministic planner now includes private plan metadata at _planner.schedule_diagnostics with the requested/scheduled/unmet training-day counts, sport-reserved weekdays, and excluded weekdays with stable reason codes. These diagnostics explain the current weekly-template decision; they do not constitute arbitrary event-overlap detection or external-calendar conflict detection.
+The deterministic planner now includes plan metadata at _planner.schedule_diagnostics with requested/scheduled/unmet training-day counts, sport-reserved weekdays, and excluded weekdays with stable reason codes. The rolling-plan API exposes these diagnostics and the UI shows both the weekly target shortfall and human-readable reasons for excluded weekdays. These diagnostics explain the current weekly-template decision; they do not constitute arbitrary event-overlap detection or external-calendar conflict detection.
 
 ## Scope boundaries
 
