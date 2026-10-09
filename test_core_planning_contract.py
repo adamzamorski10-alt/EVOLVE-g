@@ -139,7 +139,11 @@ def test_availability_api_persists_canonical_days():
         headers=_headers(ctx["token"]),
     )
     assert response.status_code == 200, response.text
-    assert response.json() == {"days": ["Wtorek", "Czwartek", "Sobota"]}
+    assert response.json() == {
+        "days": ["Wtorek", "Czwartek", "Sobota"],
+        "windows": {},
+        "session_duration_minutes": 60,
+    }
     fetched = client.get("/app/plan/availability", headers=_headers(ctx["token"]))
     assert fetched.status_code == 200
     assert fetched.json() == response.json()
