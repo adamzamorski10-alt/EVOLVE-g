@@ -200,3 +200,17 @@ def test_rolling_plan_ui_uses_dated_api_and_canonical_execution():
     ]
     for marker in required:
         assert marker in PLAN_ROUTES, f"Missing rolling-plan UX marker: {marker}"
+
+def test_plan_ui_exposes_weekly_availability_editor():
+    required = [
+        'id="availabilityDays"',
+        'id="saveAvailability"',
+        'id="availabilityStatus"',
+        '"/app/plan/availability"',
+        'name="availabilityDay"',
+        "Zapisz dostępność",
+        "Nie ustawiono ograniczeń — wszystkie dni są dostępne.",
+        "Zaznacz co najmniej jeden dzień.",
+    ]
+    for marker in required:
+        assert marker in PLAN_ROUTES, f"Missing weekly availability UI marker: {marker}"
