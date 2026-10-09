@@ -139,3 +139,65 @@ def test_goal_training_state_excludes_incomplete_cancelled_and_foreign_execution
         auth_routes.limiter.enabled = previous
 
 
+
+
+
+def test_average_rpe_goal_does_not_reuse_stale_metric_on_session_without_rpe():
+    previous = auth_routes.limiter.enabled
+    auth_routes.limiter.enabled = False
+    try:
+        token, email = _user_context()
+        today = date.today()
+        with Session(engine) as db:
+            user = db.exec(select(UserDB).where(UserDB.email == email)).first()
+            for day, rpe in [
+                (today - timedelta(days=2), 7),
+                (today - timedelta(days=1), None),
+            ]:
+                training = TrainingSessionDB(
+                    user_id=user.id,
+                    session_date=day,
+                    status="completed",
+                    planned_snapshot_json=json.dumps({"exercises": []}),
+                    started_at=datetime.now(),
+                    completed_at=datetime.now(),
+                )
+                db.add(training)
+                db.commit()
+                db.refresh(training)
+                db.add(TrainingSetResultDB(
+                    session_id=training.id,
+                    user_id=user.id,
+                    exercise_key="squat",
+                    exercise_name="Squat",
+                    set_number=1,
+                    planned_reps=5,
+                    planned_weight_kg=100,
+                    actual_reps=5,
+                    actual_weight_kg=100,
+                    actual_rpe=rpe,
+                    completed=True,
+                ))
+                db.commit()
+
+        created = client.post("/app/goals", headers=_headers(token), json={
+            "goal_type": "strength",
+            "title": "Average effort",
+            "metric_key": "average_rpe",
+            "baseline_value": 8,
+            "target_value": 6,
+            "metadata": {"exercise_key": "squat"},
+            "start_date": (today - timedelta(days=3)).isoformat(),
+        })
+        assert created.status_code == 200, created.text
+        response = client.get(
+            f"/app/goals/{created.json()['id']}/training-state",
+            headers=_headers(token),
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["current_value"] == 7
+        assert data["evidence_count"] == 1
+        assert data["latest_supporting_training_date"] == (today - timedelta(days=2)).isoformat()
+    finally:
+        auth_routes.limiter.enabled = previous
