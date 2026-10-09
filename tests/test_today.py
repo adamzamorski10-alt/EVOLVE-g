@@ -77,13 +77,15 @@ def test_maintain_state():
     assert result["state"] == "maintain_training"
 
 
-def test_insufficient_data_state_blocks_training():
+def test_canonical_insufficient_data_limits_adaptation_not_safe_execution():
     result = build_today_action(
         decision=_decision("insufficient_data"),
-        training=_training(),
+        training=_training(has_workout=True, can_start=True),
     )
     assert result["state"] == "insufficient_data"
-    assert result["primary_action"]["can_start"] is False
+    assert result["primary_action"]["can_start"] is True
+    assert result["workout"]["can_start"] is True
+    assert result["safety"]["blocked"] is False
     assert result["data_quality"]["sufficient_data"] is False
 
 
