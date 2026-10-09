@@ -25,7 +25,17 @@ def build_today_action(
     This function does not decide what the user should do; it only maps an
     already-computed decision into a frontend-safe semantic contract.
     """
-    decision_key = str(decision.get("decision") or "insufficient_data")
+    raw_decision = decision.get("decision")
+    allowed_decisions = {
+        "train_as_planned",
+        "reduce_training",
+        "recover",
+        "progress_training",
+        "maintain_training",
+        "insufficient_data",
+    }
+    decision_is_valid = isinstance(raw_decision, str) and raw_decision in allowed_decisions
+    decision_key = raw_decision if decision_is_valid else "insufficient_data"
     has_workout = bool(training.get("has_workout"))
     training_can_start = bool(training.get("can_start"))
 
@@ -79,7 +89,11 @@ def build_today_action(
         safety_blocked = False
         data_quality = "sufficient"
 
-    reason_codes = [str(code) for code in decision.get("reason_codes", []) if code]
+    reason_codes = (
+        [str(code) for code in decision.get("reason_codes", []) if code]
+        if decision_is_valid
+        else ["INVALID_DECISION_FAIL_CLOSED"]
+    )
     return {
         "state": state,
         "primary_action": {
