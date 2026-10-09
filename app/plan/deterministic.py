@@ -210,7 +210,10 @@ def build_deterministic_plan(
         name for name, is_rest in _DAY_SCHEDULE
         if not is_rest
         and (not configured_availability or name in available_days)
-        and has_sufficient_window(name)
+        and (
+            (name in configured_sport_days and bool(sport_drills))
+            or has_sufficient_window(name)
+        )
     ]
     # Availability is a hard constraint: never fill the weekly target on an
     # unavailable day. A smaller feasible plan is safer than an impossible one.
