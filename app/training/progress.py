@@ -38,7 +38,6 @@ def build_progress_evidence(
                 continue
 
             valid_sets: list[tuple[float | None, int | None, float | None]] = []
-            malformed = False
             for item in sets:
                 weight = item.get("actual_weight_kg")
                 reps = item.get("actual_reps")
@@ -49,7 +48,6 @@ def build_progress_evidence(
                     parsed_reps = int(reps) if reps is not None else None
                     parsed_rpe = float(rpe) if rpe is not None else None
                 except (TypeError, ValueError, OverflowError):
-                    malformed = True
                     continue
 
                 numeric_values = (
