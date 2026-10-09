@@ -1928,19 +1928,9 @@ def complete_training_session(
     if row.status != "active":
         raise HTTPException(status_code=409, detail="Sesja nie jest aktywna")
 
-    decision = decision_for_user(user=user, db=session)
-    if not training_start_allowed(decision):
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "TRAINING_EXECUTION_BLOCKED",
-                "decision": decision["decision"],
-                "priority": decision["priority"],
-                "action": decision["action"],
-                "reason_codes": decision["reason_codes"],
-            },
-        )
-
+    # Closing an active session only persists already-completed work; it does
+    # not authorize further exercise. Keep this escape path available if
+    # recovery changes mid-session and blocks additional sets.
     completed_at = datetime.now()
     claimed = session.exec(
         update(TrainingSessionDB)
