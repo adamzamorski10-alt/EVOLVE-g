@@ -652,8 +652,11 @@ def test_training_today_remains_readable_when_recovery_blocks_execution():
 def test_malformed_training_decision_fails_closed():
     from app.decision_engine import training_execution_allowed
 
-    assert training_execution_allowed({}) is True
+    assert training_execution_allowed({}) is False
     assert training_execution_allowed({"decision": "unknown"}) is False
+    assert training_execution_allowed({"decision": None}) is False
+    assert training_execution_allowed({"decision": {}}) is False
+    assert training_execution_allowed({"decision": []}) is False
     assert training_execution_allowed({"decision": "recover"}) is False
     assert training_execution_allowed({"decision": "insufficient_data"}) is True
 
