@@ -283,3 +283,23 @@ def test_recovery_insufficient_data_does_not_create_optimization_without_context
     assert result["decision"] == "insufficient_data"
     assert result["priority"] == "low"
     assert "INSUFFICIENT_RECOVERY_DATA" in result["reason_codes"]
+
+
+
+def test_training_execution_gate_fails_closed_on_malformed_decision_payloads():
+    from app.decision_engine import training_execution_allowed, training_start_allowed
+
+    for malformed in (None, [], {}, {"decision": None}, {"decision": True}, {"decision": {}}, {"decision": []}, {"decision": "unknown"}):
+        assert training_execution_allowed(malformed) is False
+        assert training_start_allowed(malformed) is False
+
+
+def test_training_execution_gate_allows_only_canonical_non_recovery_decisions():
+    from app.decision_engine import DECISIONS, training_execution_allowed, training_start_allowed
+
+    for value in DECISIONS - {"recover"}:
+        payload = {"decision": value}
+        assert training_execution_allowed(payload) is True
+        assert training_start_allowed(payload) is True
+    assert training_execution_allowed({"decision": "recover"}) is False
+    assert training_start_allowed({"decision": "recover"}) is False
