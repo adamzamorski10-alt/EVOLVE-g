@@ -102,3 +102,15 @@ The TODAY semantic mapper previously treated an unknown decision value as the de
 The mapper now accepts only canonical Decision Engine values. Unknown strings, nulls, booleans, and other malformed values map to `insufficient_data`, block the TODAY start action, mark data quality insufficient, and emit `INVALID_DECISION_FAIL_CLOSED`. Hostile unit coverage verifies this even when the training payload otherwise reports that a workout can start. This does not replace the independent execution gate.
 
 Verification: [CI run #624](https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/37972087577) passed the current regression (**305 passed, 7 warnings**) and Alembic integrity. The legacy regression remains a non-blocking informational failure. Commits: `2cc14cf873e3cfd40e648c58d178ced1c93c7820` and `5a27fb8694e8bd42cf32f34b3b654194e94f6ad4`.
+
+## Stage 20D — TODAY and execution-gate consistency
+
+The integration audit found that TODAY treated the canonical `insufficient_data` decision as a hard safety block, while the independent execution gate permits it. The execution contract explicitly distinguishes missing evidence for optimization from a contraindication to training. This caused the read-only summary to disagree with the actual session-start endpoint.
+
+TODAY now preserves the `insufficient_data` state and insufficient data-quality marker, but permits starting an available planned workout when the canonical execution gate allows it. It does not imply that adaptation or progression is justified. Invalid or malformed decision values remain fail-closed: TODAY blocks start and reports `INVALID_DECISION_FAIL_CLOSED`.
+
+Added:
+- A semantic unit test that distinguishes canonical insufficient evidence from an invalid decision.
+- An end-to-end integration test that supplies the same canonical `insufficient_data` decision to TODAY and the execution route, then verifies that both permit the planned session consistently.
+
+This change aligns presentation with the existing execution policy rather than silently changing the safety policy itself. The Stage 20 final gate must still verify the latest branch SHA; Stage 20 remains open until that gate and the remaining audit review are complete.
