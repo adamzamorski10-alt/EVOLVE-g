@@ -114,3 +114,9 @@ Added:
 - An end-to-end integration test that supplies the same canonical `insufficient_data` decision to TODAY and the execution route, then verifies that both permit the planned session consistently.
 
 This change aligns presentation with the existing execution policy rather than silently changing the safety policy itself. The Stage 20 final gate must still verify the latest branch SHA; Stage 20 remains open until that gate and the remaining audit review are complete.
+
+## Stage 20E — stale-plan execution boundary
+
+Added an integration regression that gives the current weekly plan provenance pointing to a no-longer-current assessment. It verifies that the training-today endpoint exposes `plan_stale=true` and `can_start=false`, the session-start endpoint rejects the stale plan with HTTP 409, and no active session is created. This complements the existing plan-readiness stale-state tests by exercising the actual execution boundary.
+
+The test is included in the next current-SHA CI gate. Stage 20 remains open until the gate passes and the remaining integration review is complete.
