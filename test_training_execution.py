@@ -737,7 +737,7 @@ def test_legacy_day_workout_logging_is_blocked_by_recovery():
     assert blocked.json()["detail"]["decision"] == "recover"
 
 
-def test_active_session_completion_is_blocked_when_recovery_blocks_execution():
+def test_active_session_can_be_safely_completed_when_recovery_blocks_more_sets():
     ctx = _context()
     started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
     assert started.status_code == 200
@@ -745,22 +745,31 @@ def test_active_session_completion_is_blocked_when_recovery_blocks_execution():
     assert _log_set(ctx["token"], sid, 1).status_code == 200
 
     _add_recovery_for_today(ctx)
-    blocked = client.post(
+    blocked_set = _log_set(ctx["token"], sid, 2)
+    assert blocked_set.status_code == 409
+    assert blocked_set.json()["detail"]["code"] == "TRAINING_EXECUTION_BLOCKED"
+    assert blocked_set.json()["detail"]["decision"] == "recover"
+
+    completed = client.post(
         f"/app/training/sessions/{sid}/complete",
         json={"final_rpe": 8},
         headers=_headers(ctx["token"]),
     )
-    assert blocked.status_code == 409
-    assert blocked.json()["detail"]["code"] == "TRAINING_EXECUTION_BLOCKED"
-    assert blocked.json()["detail"]["decision"] == "recover"
+    assert completed.status_code == 200, completed.text
+    assert completed.json()["status"] == "completed"
+    assert completed.json()["session"]["status"] == "completed"
 
     with Session(engine) as db:
         user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
         row = db.exec(select(TrainingSessionDB).where(TrainingSessionDB.id == sid).where(TrainingSessionDB.user_id == user.id)).first()
         assert row is not None
-        assert row.status == "active"
-        results = db.exec(select(ExerciseResultDB).where(ExerciseResultDB.user_id == user.id).where(ExerciseResultDB.source_session_id == sid)).all()
-        assert results == []
+        assert row.status == "completed"
+        results = db.exec(
+            select(ExerciseResultDB)
+            .where(ExerciseResultDB.user_id == user.id)
+            .where(ExerciseResultDB.source_session_id == sid)
+        ).all()
+        assert len(results) == 1
 
 
 def test_completion_path_materializes_owned_result_when_execution_is_allowed():
