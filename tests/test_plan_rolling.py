@@ -28,7 +28,10 @@ def test_rolling_contract_has_stable_7_to_14_day_horizon():
     assert result["horizon_end"] == "2026-10-25"
     assert result["plan_version"] == "rolling-v1"
     assert result["source"] == "deterministic_rolling"
-    assert len(result["upcoming_sessions"]) == 2
+    assert len(result["upcoming_sessions"]) == 4
+    assert [item["scheduled_date"] for item in result["upcoming_sessions"]] == [
+        "2026-10-12", "2026-10-13", "2026-10-19", "2026-10-20"
+    ]
     assert result["planned_sessions"] == result["upcoming_sessions"]
 
 
@@ -78,7 +81,9 @@ def test_completed_history_is_removed_from_upcoming_and_kept_in_completed():
         horizon_start=date(2026, 10, 12),
         completed_sessions=completed,
     )
-    assert [item["day"] for item in result["upcoming_sessions"]] == ["Wtorek"]
+    assert [item["scheduled_date"] for item in result["upcoming_sessions"]] == [
+        "2026-10-13", "2026-10-19", "2026-10-20"
+    ]
     assert result["completed_sessions"] == completed
     assert result["planned_sessions"] == result["upcoming_sessions"]
 
@@ -90,7 +95,9 @@ def test_foreign_or_unrelated_history_does_not_remove_planned_day():
         horizon_start=date(2026, 10, 12),
         completed_sessions=completed,
     )
-    assert [item["day"] for item in result["upcoming_sessions"]] == ["Poniedziałek", "Wtorek"]
+    assert [item["scheduled_date"] for item in result["upcoming_sessions"]] == [
+        "2026-10-12", "2026-10-13", "2026-10-19", "2026-10-20"
+    ]
     assert result["completed_sessions"] == []
 
 
@@ -102,7 +109,7 @@ def test_completed_history_only_consumes_sessions_inside_horizon():
         completed_sessions=completed,
     )
     assert result["completed_sessions"] == []
-    assert len(result["upcoming_sessions"]) == 2
+    assert len(result["upcoming_sessions"]) == 4
 
 
 def test_malicious_history_payload_does_not_create_execution_decision():
@@ -119,4 +126,4 @@ def test_malicious_history_payload_does_not_create_execution_decision():
         }],
     )
     assert result["completed_sessions"] == []
-    assert len(result["upcoming_sessions"]) == 2
+    assert len(result["upcoming_sessions"]) == 4
