@@ -477,3 +477,71 @@ def test_reserved_sport_session_is_not_filtered_by_short_gym_availability_window
     assert wednesday["is_sport_session"] is True
     assert wednesday["workout"]["scheduled_time"] == {"start": "19:00", "end": "20:30"}
 
+
+def test_training_availability_and_sport_schedule_are_isolated_between_users():
+    owner = _context()
+    other = _context()
+
+    owner_availability = client.put(
+        "/app/plan/availability",
+        headers=_headers(owner["token"]),
+        json={
+            "days": ["Wtorek"],
+            "windows": {"Wtorek": {"start": "17:00", "end": "19:00"}},
+            "session_duration_minutes": 60,
+        },
+    )
+    other_availability = client.put(
+        "/app/plan/availability",
+        headers=_headers(other["token"]),
+        json={
+            "days": ["Czwartek"],
+            "windows": {"Czwartek": {"start": "18:00", "end": "20:00"}},
+            "session_duration_minutes": 90,
+        },
+    )
+    assert owner_availability.status_code == 200, owner_availability.text
+    assert other_availability.status_code == 200, other_availability.text
+
+    owner_sport = client.post(
+        "/app/sport-config",
+        headers=_headers(owner["token"]),
+        json={
+            "sport_focus": "koszykówka",
+            "sport_training_days": ["Sobota"],
+            "sport_training_windows": {"Sobota": {"start": "10:00", "end": "11:30"}},
+        },
+    )
+    other_sport = client.post(
+        "/app/sport-config",
+        headers=_headers(other["token"]),
+        json={
+            "sport_focus": "bieganie",
+            "sport_training_days": ["Niedziela"],
+            "sport_training_windows": {"Niedziela": {"start": "08:00", "end": "09:00"}},
+        },
+    )
+    assert owner_sport.status_code == 200, owner_sport.text
+    assert other_sport.status_code == 200, other_sport.text
+
+    owner_availability_read = client.get(
+        "/app/plan/availability", headers=_headers(owner["token"])
+    ).json()
+    other_availability_read = client.get(
+        "/app/plan/availability", headers=_headers(other["token"])
+    ).json()
+    assert owner_availability_read["days"] == ["Wtorek"]
+    assert other_availability_read["days"] == ["Czwartek"]
+    assert owner_availability_read["session_duration_minutes"] == 60
+    assert other_availability_read["session_duration_minutes"] == 90
+
+    owner_profile = client.get("/app/profile", headers=_headers(owner["token"])).json()
+    other_profile = client.get("/app/profile", headers=_headers(other["token"])).json()
+    assert owner_profile["sport_training_days"] == ["Sobota"]
+    assert other_profile["sport_training_days"] == ["Niedziela"]
+    assert owner_profile["sport_training_schedule"]["windows"] == {
+        "Sobota": {"start": "10:00", "end": "11:30"}
+    }
+    assert other_profile["sport_training_schedule"]["windows"] == {
+        "Niedziela": {"start": "08:00", "end": "09:00"}
+    }
