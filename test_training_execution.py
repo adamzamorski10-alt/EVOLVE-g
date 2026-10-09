@@ -857,3 +857,36 @@ def test_legacy_day_item_is_user_scoped():
             str(value.get("item_id"))
             for value in attacker_log.get_workouts()
         }
+
+def test_today_and_execution_agree_on_canonical_insufficient_data(monkeypatch):
+    from app import today_routes
+    from app.training import routes as training_routes
+
+    ctx = _context()
+    decision = {
+        "decision": "insufficient_data",
+        "priority": "low",
+        "action": "Collect completed training evidence before changing the plan.",
+        "reason_codes": ["INSUFFICIENT_GOAL_TRAINING_EVIDENCE"],
+        "supporting_goal_ids": [],
+        "supporting_session_ids": [],
+        "constraints": [],
+        "sufficient_data": False,
+        "algorithm_version": "deterministic-decision-v1",
+        "mutates_plan": False,
+    }
+    monkeypatch.setattr(training_routes, "decision_for_user", lambda user, db: decision)
+    monkeypatch.setattr(today_routes, "decision_today", lambda user, db: decision)
+
+    today = client.get("/app/today", headers=_headers(ctx["token"]))
+    assert today.status_code == 200, today.text
+    payload = today.json()
+    assert payload["status"] == "insufficient_data"
+    assert payload["data_quality"]["sufficient_data"] is False
+    assert payload["safety"]["blocked"] is False
+    assert payload["primary_action"]["can_start"] is True
+    assert payload["workout"]["can_start"] is True
+
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200, started.text
+    assert started.json()["status"] == "started"
