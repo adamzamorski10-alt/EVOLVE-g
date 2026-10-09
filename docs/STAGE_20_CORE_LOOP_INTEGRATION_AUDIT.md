@@ -225,3 +225,13 @@ Verification status at documentation time:
 - Test commit: `5b64ec1b0a4b78876c5e788eabd91157f7ad17a9`
 - The GitHub connector did not return workflow runs for the test commit through its PR-only workflow lookup. A successful CI result has **not** been confirmed here; test execution and workflow status remain pending verification.
 - This change does not close external browser verification and does not authorize merging Stage 20 into `main`.
+
+## Stage 20K — serialize concurrent session starts
+
+A further code review identified a possible check-then-insert race in `/sessions/start`: two requests could both observe no active session for the user/date and then insert separate active sessions. This is a code-level concurrency risk, not a confirmed production incident.
+
+The start route now updates the authenticated user's `updated_at` row before querying for an active session. The write lock is held in the same transaction as the active-session recheck and any new-session insert. On databases with row-level locks, competing starts for the same user serialize on the user row; after the first request commits, the next request re-reads the active session and resumes it instead of creating another. SQLite uses its database write-lock semantics for the same write claim.
+
+This is intentionally a narrow application-level serialization change and does not add a migration or alter historical data. Verification must include the full current regression and clean-database migration jobs. A dedicated true parallel-request integration test is still desirable before treating this race as fully closed; ordinary sequential resume tests alone do not prove concurrency behavior.
+
+Stage 20 remains unmerged. External browser verification remains open.
