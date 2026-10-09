@@ -31,6 +31,7 @@ def test_my_day_is_integrated_into_shared_dashboard_shell():
         'id="myDayExercises"',
         'id="myDaySessionProgress"',
         'href="/app/training/session-ui"',
+        'href="/app/plan/ui',
         "Wznów trening",
     ]
     for marker in required:
