@@ -179,14 +179,25 @@ def app_get_rolling_plan(
     session: Session = Depends(get_session),
 ):
     """Return a fresh user-scoped rolling view; never treat planned items as completed."""
-    raw_plan = user.get_dict("weekly_plan_json") if user.weekly_plan_json else None
+    # Resolve the same applied adaptive plan used by canonical execution, but do not
+    # spread today's transient recovery-volume constraint across future scheduled days.
+    from app.training.routes import _base_plan_is_stale, _effective_plan, _load_base_plan
+
+    base_plan = _load_base_plan(user)
+    effective_plan, plan_meta = _effective_plan(user, session, apply_recovery=False)
     completed_history = list_completed_training_history(session, user.id, limit=100)
-    return build_rolling_horizon(
-        raw_plan if isinstance(raw_plan, dict) else None,
+    result = build_rolling_horizon(
+        effective_plan if isinstance(effective_plan, dict) else None,
         horizon_start=datetime.now().date(),
         horizon_days=horizon_days,
         completed_sessions=completed_history,
     )
+    result["effective_plan"] = {
+        "source": plan_meta.get("source", "base"),
+        "version": plan_meta.get("version", 0),
+        "stale": _base_plan_is_stale(user, session, base_plan),
+    }
+    return result
 
 
 @router.post("/generate", tags=["plan"])
