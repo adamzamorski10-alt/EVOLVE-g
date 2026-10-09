@@ -171,7 +171,8 @@ def build_deterministic_plan(
             secondary_drills=secondary_drills,
         )
 
-    availability = user.get_dict("training_availability_json")
+    get_dict = getattr(user, "get_dict", None)
+    availability = get_dict("training_availability_json") if callable(get_dict) else {}
     configured_availability = availability.get("days") if isinstance(availability, dict) else None
     available_days = {
         day
