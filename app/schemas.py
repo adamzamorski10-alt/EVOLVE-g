@@ -356,7 +356,8 @@ class SportConfigRequest(BaseModel):
     """Konfiguracja modułu sportowego użytkownika."""
     sport_focus: str                            # np. "koszykówka"
     sport_specialization: str = ""             # np. "rzuty"
-    sport_training_days: list[str] = []        # np. ["Środa", "Sobota"]
+    sport_training_days: list[str] = Field(default_factory=list, max_length=7)
+    sport_training_windows: dict[str, TrainingAvailabilityWindow] = Field(default_factory=dict)
 
 
 # ─── Plan / Reminder Schemas ──────────────────────────────────────────────────
