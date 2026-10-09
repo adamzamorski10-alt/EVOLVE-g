@@ -227,6 +227,7 @@ def test_plan_ui_exposes_weekly_availability_editor():
         "Dlaczego plan ma mniej treningów?",
         "brak dostępności",
         "za krótkie okno czasowe",
+        "nieprawidłowe ustawienia harmonogramu",
         "session_duration_minutes:Number",
         "Uzupełnij obie godziny albo pozostaw oba pola puste:",
         "Zapisz dostępność",
