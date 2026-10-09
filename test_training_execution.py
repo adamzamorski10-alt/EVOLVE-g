@@ -890,3 +890,34 @@ def test_today_and_execution_agree_on_canonical_insufficient_data(monkeypatch):
     started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
     assert started.status_code == 200, started.text
     assert started.json()["status"] == "started"
+
+def test_stale_plan_is_blocked_by_today_and_session_start():
+    ctx = _context()
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        plan = json.loads(user.weekly_plan_json)
+        plan["_evolve_core"] = {
+            "assessment_id": "no-longer-current-assessment",
+            "assessment_version": 1,
+        }
+        user.weekly_plan_json = json.dumps(plan, ensure_ascii=False)
+        db.add(user)
+        db.commit()
+
+    today = client.get("/app/training/today", headers=_headers(ctx["token"]))
+    assert today.status_code == 200, today.text
+    assert today.json()["plan_stale"] is True
+    assert today.json()["can_start"] is False
+
+    response = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert response.status_code == 409, response.text
+    assert "nieaktualny" in response.json()["detail"].lower()
+
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        active = db.exec(
+            select(TrainingSessionDB)
+            .where(TrainingSessionDB.user_id == user.id)
+            .where(TrainingSessionDB.status == "active")
+        ).all()
+        assert active == []
