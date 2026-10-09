@@ -171,14 +171,27 @@ def build_deterministic_plan(
             secondary_drills=secondary_drills,
         )
 
-    candidate_days = [name for name, is_rest in _DAY_SCHEDULE if not is_rest]
+    availability = user.get_dict("training_availability_json")
+    configured_availability = availability.get("days") if isinstance(availability, dict) else None
+    available_days = {
+        day
+        for value in (configured_availability or [])
+        if (day := _normalize_weekday(value)) is not None
+    }
+    candidate_days = [
+        name for name, is_rest in _DAY_SCHEDULE
+        if not is_rest and (not configured_availability or name in available_days)
+    ]
+    # Availability is a hard constraint: never fill the weekly target on an
+    # unavailable day. A smaller feasible plan is safer than an impossible one.
+    feasible_target_days = min(target_days, len(candidate_days))
     selected_days: list[str] = [
         day for day in candidate_days if day in configured_sport_days
     ]
     for day in candidate_days:
-        if day not in selected_days and len(selected_days) < target_days:
+        if day not in selected_days and len(selected_days) < feasible_target_days:
             selected_days.append(day)
-    selected_days = selected_days[:target_days]
+    selected_days = selected_days[:feasible_target_days]
 
     focus = [x.lower() for x in user.get_list("training_focus_json") if isinstance(x, str) and x.strip()]
     improve = [x.lower() for x in user.get_list("improvement_areas_json") if isinstance(x, str) and x.strip()]
