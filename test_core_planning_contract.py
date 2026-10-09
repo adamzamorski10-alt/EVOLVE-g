@@ -656,3 +656,27 @@ def test_malformed_persisted_availability_window_is_invalid_constraint():
     assert not [day for day in plan["days"] if day["day_type"] != "rest"]
     reasons = {item["day"]: item["reason_code"] for item in diagnostics["excluded_days"]}
     assert reasons["Wtorek"] == "invalid_constraint"
+
+
+
+def test_unknown_persisted_weekday_fails_closed():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+
+    with Session(engine) as session:
+        user = session.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        assert user is not None
+        user.training_availability_json = json.dumps({"days": ["Someday"]})
+        session.add(user)
+        session.commit()
+
+    generated = client.post("/app/plan/generate", json={"force": True}, headers=headers)
+    assert generated.status_code == 200, generated.text
+    plan = generated.json()["plan"]
+    diagnostics = plan["_planner"]["schedule_diagnostics"]
+    assert not [day for day in plan["days"] if day["day_type"] != "rest"]
+    assert all(
+        item["reason_code"] == "invalid_constraint"
+        for item in diagnostics["excluded_days"]
+    )
