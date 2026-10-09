@@ -35,3 +35,20 @@ def test_progress_evidence_filters_exercise_key():
     result = build_progress_evidence(_history(), exercise_key="bench")
     assert result["status"] == "insufficient_data"
     assert result["observations"] == []
+
+
+def test_progress_evidence_counts_only_valid_completed_sets():
+    history = _history()
+    history[0]["exercises"][0]["sets"].append({
+        "actual_weight_kg": "not-a-number",
+        "actual_reps": 5,
+        "actual_rpe": 7,
+        "completed": True,
+    })
+    history[0]["exercises"][0]["sets"].append(None)
+    history.append(None)
+
+    result = build_progress_evidence(history, exercise_key="squat")
+    assert result["status"] == "sufficient"
+    assert result["observations"][0]["completed_sets"] == 1
+    assert result["changes"]["completed_sets_delta"] == 0
