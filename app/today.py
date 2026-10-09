@@ -43,8 +43,11 @@ def build_today_action(
         state = "insufficient_data"
         title = "Need more data"
         instruction = "Collect the missing evidence before changing the training direction."
-        can_start = False
-        safety_blocked = True
+        # Canonical insufficient evidence limits adaptation, but is not itself
+        # a safety contraindication. Keep TODAY aligned with the execution gate.
+        # An invalid decision payload is different and must fail closed.
+        can_start = decision_is_valid and training_can_start and has_workout
+        safety_blocked = not decision_is_valid
         data_quality = "insufficient"
     elif decision_key == "recover":
         state = "recover"
