@@ -868,11 +868,21 @@ def start_training_session(
     # row lock until the transaction commits, so concurrent starts re-check
     # for an active session only after the preceding start has committed.
     # This avoids relying on an application-level SELECT-then-INSERT check.
-    claimed_user = session.exec(
-        update(UserDB)
-        .where(UserDB.id == user.id)
-        .values(updated_at=datetime.now())
-    ).rowcount
+    try:
+        claimed_user = session.exec(
+            update(UserDB)
+            .where(UserDB.id == user.id)
+            .values(updated_at=datetime.now())
+        ).rowcount
+    except SQLAlchemyError as exc:
+        # A concurrent SQLite/Postgres writer can reject the claim before the
+        # lock is acquired. Roll back the read transaction and fail closed;
+        # never continue into the SELECT-then-INSERT path without the claim.
+        session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Rozpoczęcie treningu jest chwilowo zablokowane — spróbuj ponownie",
+        ) from exc
     if claimed_user != 1:
         session.rollback()
         raise HTTPException(status_code=409, detail="Nie udało się zarezerwować rozpoczęcia treningu")
