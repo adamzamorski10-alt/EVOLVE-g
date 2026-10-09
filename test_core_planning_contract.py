@@ -197,10 +197,16 @@ def test_rolling_endpoint_returns_a_fresh_dated_horizon_and_is_authenticated():
     assert data["horizon_start"] == date.today().isoformat()
     assert data["horizon_end"] == (date.today() + timedelta(days=13)).isoformat()
     dates = [item["scheduled_date"] for item in data["upcoming_sessions"]]
+    planned_dates = [item["scheduled_date"] for item in data["planned_days"]]
     assert dates == sorted(dates)
     assert len(dates) == len(set(dates))
-    assert all(data["horizon_start"] <= value <= data["horizon_end"] for value in dates)
+    assert planned_dates == sorted(planned_dates)
+    assert len(planned_dates) == len(set(planned_dates))
+    assert all(data["horizon_start"] <= value <= data["horizon_end"] for value in planned_dates)
     assert all(item.get("status") != "completed" for item in data["upcoming_sessions"])
+    assert all(item["day_type"] == "rest" for item in data["rest_days"])
+    assert all(item["status"] == "rest" for item in data["rest_days"])
+    assert all(item["day_type"] != "rest" for item in data["upcoming_sessions"])
 
 
 def test_rolling_endpoint_rejects_unauthenticated_requests():
