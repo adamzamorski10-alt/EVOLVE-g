@@ -179,9 +179,34 @@ def build_deterministic_plan(
         for value in (configured_availability or [])
         if (day := _normalize_weekday(value)) is not None
     }
+    raw_windows = availability.get("windows", {}) if isinstance(availability, dict) else {}
+    windows = raw_windows if isinstance(raw_windows, dict) else {}
+    try:
+        required_minutes = max(15, min(240, int(availability.get("session_duration_minutes", 60))))
+    except (TypeError, ValueError):
+        required_minutes = 60
+
+    def has_sufficient_window(day: str) -> bool:
+        window = windows.get(day)
+        if not isinstance(window, dict):
+            return True
+        start, end = window.get("start"), window.get("end")
+        if not isinstance(start, str) or not isinstance(end, str):
+            return False
+        try:
+            start_hour, start_minute = (int(part) for part in start.split(":"))
+            end_hour, end_minute = (int(part) for part in end.split(":"))
+            start_total = start_hour * 60 + start_minute
+            end_total = end_hour * 60 + end_minute
+        except (TypeError, ValueError):
+            return False
+        return 0 <= start_total < end_total <= 1439 and end_total - start_total >= required_minutes
+
     candidate_days = [
         name for name, is_rest in _DAY_SCHEDULE
-        if not is_rest and (not configured_availability or name in available_days)
+        if not is_rest
+        and (not configured_availability or name in available_days)
+        and has_sufficient_window(name)
     ]
     # Availability is a hard constraint: never fill the weekly target on an
     # unavailable day. A smaller feasible plan is safer than an impossible one.
