@@ -104,3 +104,17 @@ def test_mapping_is_deterministic_and_does_not_mutate_inputs():
     second = build_today_action(decision=decision, training=training)
     assert first == second
     assert (repr(decision), repr(training)) == before
+
+def test_unknown_or_malformed_decision_fails_closed():
+    for invalid_value in ("unexpected_decision", None, True, {"decision": "recover"}):
+        result = build_today_action(
+            decision=_decision(invalid_value, sufficient_data=True),
+            training=_training(has_workout=True, can_start=True),
+        )
+        assert result["state"] == "insufficient_data"
+        assert result["primary_action"]["can_start"] is False
+        assert result["workout"]["can_start"] is False
+        assert result["safety"]["blocked"] is True
+        assert result["data_quality"]["status"] == "insufficient"
+        assert result["data_quality"]["sufficient_data"] is False
+        assert result["explanation"]["reason_codes"] == ["INVALID_DECISION_FAIL_CLOSED"]
