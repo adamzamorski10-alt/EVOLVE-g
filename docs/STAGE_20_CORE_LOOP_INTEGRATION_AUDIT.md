@@ -209,3 +209,19 @@ CI for test commit `33a0d3697c2107966ef664b595b70118e649fa6b`:
 - Legacy regression: **FAIL, informational / non-blocking**
 
 The preceding implementation-only commit's run #645 failed because the then-current test still asserted the old 409-on-resume behavior; the test was updated to the intended safe-close-only contract and run #646 passed. Stage 20 remains unmerged. External browser verification remains open, particularly confirming that the disabled controls and safe completion UX behave correctly in a real browser.
+
+
+
+## Stage 20J — atomic set-write gate against session completion
+
+A review of the session lifecycle found a potential interleaving: set logging checked the ORM session status early, while completion independently changed the database status to `completed`. A set request could therefore pass the early check and attempt to persist after completion had already claimed the session. This was a code-level race hypothesis; it was not represented as a previously reproduced production failure.
+
+The set endpoint now performs a conditional database update scoped to session ID, authenticated user ID, and `status == "active"` before mutating the set result. The write claim and set mutation share the same transaction. On databases with row-level locking, the conditional update holds the row lock through commit; on SQLite it participates in the database's write-lock semantics. If completion wins first, the conditional update affects no row and set logging returns HTTP 409. The integrity-conflict retry path reacquires the same gate after rollback, so it cannot bypass session closure.
+
+Added `test_set_write_rechecks_session_status_after_initial_read`, a deterministic interleaving test that marks the session completed after the endpoint's initial status check and before the conditional claim, then verifies the set write is rejected and no set row is persisted.
+
+Verification status at documentation time:
+- Code commit: `261b98e1773eee519591f01654b457e26012fd42`
+- Test commit: `5b64ec1b0a4b78876c5e788eabd91157f7ad17a9`
+- The GitHub connector did not return workflow runs for the test commit through its PR-only workflow lookup. A successful CI result has **not** been confirmed here; test execution and workflow status remain pending verification.
+- This change does not close external browser verification and does not authorize merging Stage 20 into `main`.
