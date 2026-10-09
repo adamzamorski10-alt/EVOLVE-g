@@ -333,8 +333,8 @@ class DrillResultRequest(BaseModel):
 
 class TrainingAvailabilityWindow(BaseModel):
     """A local clock-time window during which a workout can be scheduled."""
-    start: str = Field(pattern=r"^(?:[01]\\d|2[0-3]):[0-5]\\d$")
-    end: str = Field(pattern=r"^(?:[01]\\d|2[0-3]):[0-5]\\d$")
+    start: str = Field(pattern=r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
+    end: str = Field(pattern=r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
 
     @field_validator("end")
     @classmethod
