@@ -131,6 +131,20 @@ def test_availability_weekdays_are_normalized():
     assert _normalize_weekday("unknown") is None
 
 
+def test_availability_api_persists_canonical_days():
+    ctx = _context()
+    response = client.put(
+        "/app/plan/availability",
+        json={"days": ["wt", "Czw.", "sob"]},
+        headers=_headers(ctx["token"]),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == {"days": ["Wtorek", "Czwartek", "Sobota"]}
+    fetched = client.get("/app/plan/availability", headers=_headers(ctx["token"]))
+    assert fetched.status_code == 200
+    assert fetched.json() == response.json()
+
+
 def test_new_assessment_invalidates_existing_plan_by_provenance():
     ctx = _context()
     first_assessment = _baseline(ctx, sessions_per_week=4)
