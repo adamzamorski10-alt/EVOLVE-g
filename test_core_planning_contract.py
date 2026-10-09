@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import pytest
+from sqlmodel import Session, select
 
 from app.auth import routes as auth_routes
+from app.database import engine
+from app.models import UserDB
 from test_training_execution import _context, _headers, client
 
 
@@ -588,3 +591,39 @@ def test_infeasible_weekly_target_exposes_deterministic_schedule_diagnostics():
     rolling = client.get("/app/plan/rolling?horizon_days=14", headers=headers)
     assert rolling.status_code == 200, rolling.text
     assert rolling.json()["schedule_diagnostics"]["unmet_training_days"] == 2
+
+
+
+def test_malformed_persisted_availability_fails_closed_with_diagnostics():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+
+    with Session(engine) as session:
+        user = session.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        assert user is not None
+        user.training_availability_json = '{"days": [broken'
+        session.add(user)
+        session.commit()
+
+    generated = client.post(
+        "/app/plan/generate",
+        json={"force": True},
+        headers=headers,
+    )
+    assert generated.status_code == 200, generated.text
+    plan = generated.json()["plan"]
+    diagnostics = plan["_planner"]["schedule_diagnostics"]
+    actual_sessions = [
+        day for day in plan["days"] if day["day_type"] != "rest"
+    ]
+
+    assert actual_sessions == []
+    assert diagnostics["requested_training_days"] == 3
+    assert diagnostics["scheduled_training_days"] == 0
+    assert diagnostics["unmet_training_days"] == 3
+    assert diagnostics["excluded_days"]
+    assert all(
+        item["reason_code"] == "invalid_constraint"
+        for item in diagnostics["excluded_days"]
+    )
