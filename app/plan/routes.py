@@ -45,7 +45,24 @@ def set_training_availability(
     canonical_days = list(dict.fromkeys(day for day in normalized if day is not None))
     if not canonical_days:
         raise HTTPException(status_code=422, detail="Wybierz co najmniej jeden dzień dostępności.")
-    user.set_dict("training_availability_json", {"days": canonical_days})
+
+    canonical_windows = {}
+    for raw_day, window in payload.windows.items():
+        day = _normalize_weekday(raw_day)
+        if day is None or day not in canonical_days:
+            raise HTTPException(
+                status_code=422,
+                detail="Okna godzinowe mogą dotyczyć wyłącznie prawidłowych, zaznaczonych dni.",
+            )
+        canonical_windows[day] = window.model_dump()
+    user.set_dict(
+        "training_availability_json",
+        {
+            "days": canonical_days,
+            "windows": canonical_windows,
+            "session_duration_minutes": payload.session_duration_minutes,
+        },
+    )
     user.updated_at = datetime.now()
     session.add(user)
     session.commit()
