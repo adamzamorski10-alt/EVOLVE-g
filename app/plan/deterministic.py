@@ -286,8 +286,6 @@ def build_deterministic_plan(
                 reason_code = "weekly_target_reached"
         else:
             reason_code = "weekly_target_reached"
-        else:
-            reason_code = "weekly_target_reached"
         excluded_schedule_days.append({
             "day": day_name,
             "reason_code": reason_code,
