@@ -236,9 +236,9 @@ def build_deterministic_plan(
             continue
         if configured_availability and day_name not in available_days:
             reason_code = "unavailable_day"
-        elif (
-            day_name not in configured_sport_days
-            and not has_sufficient_window(day_name)
+        elif not (
+            (day_name in configured_sport_days and bool(sport_drills))
+            or has_sufficient_window(day_name)
         ):
             reason_code = "insufficient_window"
         else:
