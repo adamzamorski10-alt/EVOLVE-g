@@ -9,9 +9,10 @@ from datetime import date
 from app.auth import routes as auth_routes
 
 from fastapi.testclient import TestClient
-from sqlmodel import Session, select, delete
+from sqlmodel import Session, select, delete, update
 
 from app.database import engine
+from app.training import routes as training_routes
 from app.models import DailyLogDB, ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
 from main import app
 
@@ -96,6 +97,46 @@ def _log_set(token, session_id, set_number, reps=5, weight=100, rpe=7):
         },
         headers=_headers(token),
     )
+
+
+def test_set_write_rechecks_session_status_after_initial_read(monkeypatch):
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+
+    original_decision = training_routes.decision_for_user
+
+    def complete_after_initial_status_check(*, user, db):
+        # Deterministically model completion winning after the route's first
+        # status read but before its conditional write claim.
+        db.exec(
+            update(TrainingSessionDB)
+            .where(TrainingSessionDB.id == sid)
+            .where(TrainingSessionDB.user_id == user.id)
+            .where(TrainingSessionDB.status == "active")
+            .values(status="completed")
+        )
+        db.commit()
+        return original_decision(user=user, db=db)
+
+    monkeypatch.setattr(
+        training_routes, "decision_for_user", complete_after_initial_status_check
+    )
+    response = _log_set(ctx["token"], sid, 1)
+
+    assert response.status_code == 409
+    with Session(engine) as db:
+        row = db.exec(
+            select(TrainingSessionDB)
+            .where(TrainingSessionDB.id == sid)
+        ).first()
+        results = db.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == sid)
+        ).all()
+        assert row is not None and row.status == "completed"
+        assert results == []
 
 
 def test_start_session_snapshots_plan_and_resumes():
