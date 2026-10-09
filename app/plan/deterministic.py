@@ -227,9 +227,9 @@ def build_deterministic_plan(
         if not isinstance(start, str) or not isinstance(end, str):
             return "invalid"
         import re
-        if not re.fullmatch(r"(?:[01]\\d|2[0-3]):[0-5]\\d", start):
+        if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", start):
             return "invalid"
-        if not re.fullmatch(r"(?:[01]\\d|2[0-3]):[0-5]\\d", end):
+        if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", end):
             return "invalid"
         start_hour, start_minute = (int(part) for part in start.split(":"))
         end_hour, end_minute = (int(part) for part in end.split(":"))
