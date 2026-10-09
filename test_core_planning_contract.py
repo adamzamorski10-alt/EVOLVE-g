@@ -302,3 +302,84 @@ def test_rolling_endpoint_returns_a_fresh_dated_horizon_and_is_authenticated():
 def test_rolling_endpoint_rejects_unauthenticated_requests():
     response = client.get("/app/plan/rolling")
     assert response.status_code in (401, 403)
+
+def test_availability_time_windows_are_persisted_and_canonicalized():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    response = client.put(
+        "/app/plan/availability",
+        json={
+            "days": ["pon", "wt", "śr"],
+            "windows": {
+                "Poniedziałek": {"start": "16:00", "end": "16:30"},
+                "wt": {"start": "17:00", "end": "19:00"},
+            },
+            "session_duration_minutes": 60,
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["days"] == ["Poniedziałek", "Wtorek", "Środa"]
+    assert response.json()["windows"] == {
+        "Poniedziałek": {"start": "16:00", "end": "16:30"},
+        "Wtorek": {"start": "17:00", "end": "19:00"},
+    }
+    assert response.json()["session_duration_minutes"] == 60
+
+
+def test_planner_excludes_availability_windows_shorter_than_session_duration():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+    saved = client.put(
+        "/app/plan/availability",
+        json={
+            "days": ["Poniedziałek", "Wtorek", "Środa", "Czwartek"],
+            "windows": {
+                "Poniedziałek": {"start": "16:00", "end": "16:30"},
+                "Wtorek": {"start": "16:00", "end": "18:00"},
+            },
+            "session_duration_minutes": 60,
+        },
+        headers=headers,
+    )
+    assert saved.status_code == 200, saved.text
+    generated = client.post(
+        "/app/plan/generate",
+        json={"force": True},
+        headers=headers,
+    )
+    assert generated.status_code == 200, generated.text
+    sessions = [
+        day["day"] for day in generated.json()["plan"]["days"]
+        if day["day_type"] != "rest"
+    ]
+    assert "Poniedziałek" not in sessions
+    assert set(sessions).issubset({"Wtorek", "Środa", "Czwartek"})
+
+
+def test_availability_rejects_window_for_unselected_day():
+    ctx = _context()
+    response = client.put(
+        "/app/plan/availability",
+        json={
+            "days": ["Wtorek"],
+            "windows": {"Piątek": {"start": "16:00", "end": "18:00"}},
+        },
+        headers=_headers(ctx["token"]),
+    )
+    assert response.status_code == 422
+
+
+def test_availability_rejects_non_increasing_time_window():
+    ctx = _context()
+    response = client.put(
+        "/app/plan/availability",
+        json={
+            "days": ["Wtorek"],
+            "windows": {"Wtorek": {"start": "18:00", "end": "17:00"}},
+        },
+        headers=_headers(ctx["token"]),
+    )
+    assert response.status_code == 422
+
