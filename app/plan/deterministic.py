@@ -32,6 +32,21 @@ _DAY_SCHEDULE = [
 ]
 
 
+def _normalize_weekday(value: Any) -> str | None:
+    """Normalize supported Polish weekday labels to the planner's canonical names."""
+    normalized = str(value or "").strip().casefold().rstrip(".")
+    aliases = {
+        "pon": "Poniedziałek", "poniedzialek": "Poniedziałek", "poniedziałek": "Poniedziałek",
+        "wt": "Wtorek", "wto": "Wtorek", "wtorek": "Wtorek",
+        "sr": "Środa", "śr": "Środa", "sroda": "Środa", "środa": "Środa",
+        "czw": "Czwartek", "czwartek": "Czwartek",
+        "pt": "Piątek", "piatek": "Piątek", "piątek": "Piątek",
+        "sob": "Sobota", "sobota": "Sobota",
+        "nd": "Niedziela", "niedz": "Niedziela", "niedziela": "Niedziela",
+    }
+    return aliases.get(normalized)
+
+
 def _frequency_days(value: str | None) -> int:
     import re
 
@@ -131,9 +146,9 @@ def build_deterministic_plan(
     sport_focus = (user.sport_focus or "").lower().strip()
     sport_specialization = (user.sport_specialization or "").lower().strip()
     configured_sport_days = {
-        d.strip()
-        for d in user.get_list("sport_training_days_json")
-        if isinstance(d, str) and d.strip()
+        day
+        for value in user.get_list("sport_training_days_json")
+        if (day := _normalize_weekday(value)) is not None
     }
 
     sport_drills: list[dict] = []
