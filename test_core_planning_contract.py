@@ -682,3 +682,39 @@ def test_unknown_persisted_weekday_fails_closed():
         item["reason_code"] == "invalid_constraint"
         for item in diagnostics["excluded_days"]
     )
+
+
+
+def test_schedule_diagnostics_are_deterministic_for_identical_inputs():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+    saved = client.put(
+        "/app/plan/availability",
+        json={
+            "days": ["Wtorek", "Czwartek"],
+            "windows": {
+                "Wtorek": {"start": "17:00", "end": "19:00"},
+                "Czwartek": {"start": "18:00", "end": "18:30"},
+            },
+            "session_duration_minutes": 60,
+        },
+        headers=headers,
+    )
+    assert saved.status_code == 200, saved.text
+
+    plans = []
+    for _ in range(2):
+        response = client.post(
+            "/app/plan/generate",
+            json={"force": True},
+            headers=headers,
+        )
+        assert response.status_code == 200, response.text
+        plan = response.json()["plan"]
+        plans.append((
+            plan["_planner"]["schedule_diagnostics"],
+            [day["day"] for day in plan["days"] if day["day_type"] != "rest"],
+        ))
+
+    assert plans[0] == plans[1]
