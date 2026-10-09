@@ -26,10 +26,10 @@ def training_execution_allowed(decision: dict[str, Any]) -> bool:
     decisions fail closed; insufficient_data is not itself a safety
     contraindication.
     """
+    if not isinstance(decision, dict):
+        return False
     value = decision.get("decision")
-    if value is None:
-        value = "insufficient_data"
-    return value in DECISIONS and value != "recover"
+    return isinstance(value, str) and value in DECISIONS and value != "recover"
 
 
 def training_start_allowed(decision: dict[str, Any]) -> bool:
