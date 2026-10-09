@@ -138,3 +138,18 @@ Final verified commit before this documentation checkpoint: `c83f1b4fda4f8dadf3e
 - No AI Coach/AI Manager integration was introduced.
 
 The Stage 20 acceptance gate is complete on this branch. The informational legacy regression failure remains visible and is not represented as passing.
+
+
+## Stage 20F — recovery signal parsing hardening
+
+The recovery signal normalizer now handles malformed numeric input defensively. Conversion failures (TypeError, ValueError, and OverflowError), non-finite values (NaN and infinities), and values outside the signal's accepted range are ignored rather than raising or contributing to recovery scoring.
+
+Added `test_recovery_ignores_malformed_and_non_finite_signals`, which mixes one valid sleep-quality signal with malformed sleep hours and non-finite energy, stress, and fatigue values. It verifies that only the valid signal contributes, and that the resulting evidence remains `insufficient_data` with no recovery constraint.
+
+Verification on current code/test SHA `9da1c4614558908c64671cea2d225b07e292d567`:
+- CI run #634: [GitHub Actions](https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/37974775621) — overall **SUCCESS**.
+- Current EVOLVE regression: **PASS**.
+- Alembic clean-database integrity: **PASS**.
+- Legacy regression: **FAIL, informational / non-blocking**.
+
+This closes the targeted malformed/non-finite recovery-signal check. It does not replace the pending external browser verification documented in `docs/EXTERNAL_VERIFICATION.md`, nor does it authorize merging Stage 20 into `main`.
