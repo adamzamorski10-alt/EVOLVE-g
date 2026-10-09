@@ -331,6 +331,11 @@ class DrillResultRequest(BaseModel):
     weight_kg: Optional[float] = Field(default=None, ge=0, description="Obciążenie [kg]")
 
 
+class TrainingAvailabilityRequest(BaseModel):
+    """Weekly days on which the user can realistically train."""
+    days: list[str] = Field(min_length=1, max_length=7)
+
+
 class SportConfigRequest(BaseModel):
     """Konfiguracja modułu sportowego użytkownika."""
     sport_focus: str                            # np. "koszykówka"
