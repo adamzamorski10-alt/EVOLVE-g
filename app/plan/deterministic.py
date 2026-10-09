@@ -8,6 +8,7 @@ are deterministic and derive only from explicit profile/assessment inputs.
 from __future__ import annotations
 
 from typing import Any
+import json
 
 from app.exercise_descriptions import get_how_to
 from app.plan.performance_signals import build_performance_signals, prioritize_sport_drills
@@ -171,9 +172,31 @@ def build_deterministic_plan(
             secondary_drills=secondary_drills,
         )
 
-    get_dict = getattr(user, "get_dict", None)
-    availability = get_dict("training_availability_json") if callable(get_dict) else {}
-    configured_availability = availability.get("days") if isinstance(availability, dict) else None
+    def _read_constraint_dict(field: str) -> tuple[dict[str, Any], bool]:
+        """Read persisted scheduling JSON without letting corrupt data widen availability."""
+        raw = getattr(user, field, "{}")
+        if isinstance(raw, dict):
+            return raw, True
+        if not isinstance(raw, str) or not raw.strip():
+            return {}, True
+        try:
+            parsed = json.loads(raw)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return {}, False
+        return (parsed, True) if isinstance(parsed, dict) else ({}, False)
+
+    availability, availability_valid = _read_constraint_dict("training_availability_json")
+    configured_availability = availability.get("days") if availability_valid else None
+    if availability_valid and "days" in availability:
+        availability_valid = (
+            isinstance(configured_availability, list)
+            and bool(configured_availability)
+            and all(isinstance(day, str) for day in configured_availability)
+        )
+    if availability_valid and "windows" in availability:
+        availability_valid = isinstance(availability.get("windows"), dict)
+    if not availability_valid:
+        configured_availability = ["<invalid-availability-constraint>"]
     available_days = {
         day
         for value in (configured_availability or [])
@@ -181,8 +204,11 @@ def build_deterministic_plan(
     }
     raw_windows = availability.get("windows", {}) if isinstance(availability, dict) else {}
     windows = raw_windows if isinstance(raw_windows, dict) else {}
-    sport_schedule = get_dict("sport_training_schedule_json") if callable(get_dict) else {}
-    sport_schedule = sport_schedule if isinstance(sport_schedule, dict) else {}
+    sport_schedule, sport_schedule_valid = _read_constraint_dict("sport_training_schedule_json")
+    if not sport_schedule_valid:
+        # Sport time windows are optional; malformed stored data must not crash
+        # plan generation or be surfaced as a trusted scheduled time.
+        sport_schedule = {}
     raw_sport_windows = sport_schedule.get("windows", {})
     sport_windows = raw_sport_windows if isinstance(raw_sport_windows, dict) else {}
     try:
@@ -191,9 +217,11 @@ def build_deterministic_plan(
         required_minutes = 60
 
     def has_sufficient_window(day: str) -> bool:
-        window = windows.get(day)
-        if not isinstance(window, dict):
+        if day not in windows:
             return True
+        window = windows[day]
+        if not isinstance(window, dict):
+            return False
         start, end = window.get("start"), window.get("end")
         if not isinstance(start, str) or not isinstance(end, str):
             return False
@@ -208,7 +236,7 @@ def build_deterministic_plan(
 
     candidate_days = [
         name for name, is_rest in _DAY_SCHEDULE
-        if not is_rest
+        if availability_valid and not is_rest
         and (not configured_availability or name in available_days)
         and (
             (name in configured_sport_days and bool(sport_drills))
@@ -234,7 +262,9 @@ def build_deterministic_plan(
     for day_name, is_rest in _DAY_SCHEDULE:
         if is_rest or day_name in selected_day_set:
             continue
-        if configured_availability and day_name not in available_days:
+        if not availability_valid:
+            reason_code = "invalid_constraint"
+        elif configured_availability and day_name not in available_days:
             reason_code = "unavailable_day"
         elif not (
             (day_name in configured_sport_days and bool(sport_drills))
