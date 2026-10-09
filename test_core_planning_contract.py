@@ -145,6 +145,31 @@ def test_availability_api_persists_canonical_days():
     assert fetched.json() == response.json()
 
 
+def test_availability_days_constrain_generated_plan():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=4)
+    saved = client.put(
+        "/app/plan/availability",
+        json={"days": ["Wtorek", "Czwartek", "Sobota"]},
+        headers=headers,
+    )
+    assert saved.status_code == 200, saved.text
+    generated = client.post(
+        "/app/plan/generate",
+        json={"force": True},
+        headers=headers,
+    )
+    assert generated.status_code == 200, generated.text
+    sessions = [
+        day["day"] for day in generated.json()["plan"]["days"]
+        if day["day_type"] != "rest"
+    ]
+    assert sessions
+    assert set(sessions).issubset({"Wtorek", "Czwartek", "Sobota"})
+    assert len(sessions) <= 3
+
+
 def test_new_assessment_invalidates_existing_plan_by_provenance():
     ctx = _context()
     first_assessment = _baseline(ctx, sessions_per_week=4)
