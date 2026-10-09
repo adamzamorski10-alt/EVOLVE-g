@@ -1,6 +1,6 @@
 # Stage 20 — Core Loop Integration Audit
 
-Status: implementation complete; latest acceptance gate passed on the isolated Stage 20 branch. Not merged to main. Legacy regression remains informational and non-blocking.
+Status: continued hostile integration audit on the isolated Stage 20 branch. No merge to main. External browser verification remains open. Legacy regression remains informational and non-blocking.
 
 ## Objective
 
@@ -121,9 +121,9 @@ Added an integration regression that gives the current weekly plan provenance po
 
 The test is included in the next current-SHA CI gate. Stage 20 remains open until the gate passes and the remaining integration review is complete.
 
-## Stage 20 final acceptance checkpoint
+## Stage 20 implementation acceptance checkpoint (historical; hostile audit continued afterward)
 
-**Status: CLOSED on `stage-20-core-loop-integration-audit` only.**
+**Status at that checkpoint: implementation gate passed on `stage-20-core-loop-integration-audit`; this did not close the later hostile audit or external browser verification.**
 
 Final verified commit before this documentation checkpoint: `c83f1b4fda4f8dadf3e0a40cfe97d007568bf979`.
 
@@ -170,3 +170,21 @@ Verification on code/test SHA `807395601f8b4a7e7465f72a6b792447dacc40f1`:
 - Legacy regression: **FAIL, informational / non-blocking**.
 
 This closes the targeted malformed execution-decision input check. It does not mark external browser verification complete and does not authorize merging Stage 20 into `main`.
+
+
+## Stage 20H — resumed-session set ownership hardening
+
+The hostile review found two resume paths that loaded set rows using the active session ID without also filtering by the authenticated user's ID: the normal resume path and the database-conflict recovery path. Although session IDs are unique in normal operation, this was inconsistent with the repository's explicit user-scoped data-access contract and could expose an incorrectly associated foreign-user row if the database contained inconsistent ownership data.
+
+Both queries now require `TrainingSetResultDB.user_id == user.id`.
+
+Added `test_resuming_session_serializes_only_sets_owned_by_session_user`, which deliberately seeds a foreign-user set against an owned session and verifies that the resume response serializes only the owner's set.
+
+Verification for test commit `495710ccf5d2d3740c03f99b628e12482f75ba98`:
+- CI run #641: [GitHub Actions](https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/37979372184)
+- Current EVOLVE regression: **311 passed, 7 warnings**
+- Alembic clean-database integrity: **PASS**
+- Legacy regression: **FAIL, informational / non-blocking**
+- The full regression and migration jobs passed; the workflow's informational legacy job remains non-blocking.
+
+Stage 20 remains isolated and is not merged into `main`. External browser verification is still pending; CI does not substitute for that check.
