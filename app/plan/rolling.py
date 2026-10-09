@@ -15,6 +15,16 @@ MIN_HORIZON_DAYS = 7
 MAX_HORIZON_DAYS = 14
 
 _WEEKDAYS_PL = ("poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela")
+_WEEKDAY_ALIASES_PL = {
+    "pon": "poniedziałek",
+    "wt": "wtorek",
+    "śr": "środa",
+    "sr": "środa",
+    "czw": "czwartek",
+    "pt": "piątek",
+    "sob": "sobota",
+    "niedz": "niedziela",
+}
 
 
 def _safe_horizon_days(value: int) -> int:
@@ -26,7 +36,8 @@ def _safe_horizon_days(value: int) -> int:
 
 
 def _day_key(value: Any) -> str:
-    return str(value or "").strip().casefold()
+    normalized = str(value or "").strip().casefold().rstrip(".")
+    return _WEEKDAY_ALIASES_PL.get(normalized, normalized)
 
 
 def build_rolling_plan_contract(
@@ -89,7 +100,7 @@ def build_rolling_plan_contract(
             matched = completed_by_date.get(scheduled_date, [])
             is_rest = str(item.get("day_type") or "").casefold() == "rest"
             planned_day = {
-                "day": item.get("day"),
+                "day": _WEEKDAYS_PL[scheduled_date.weekday()].capitalize(),
                 "scheduled_date": scheduled_date.isoformat(),
                 "day_type": item.get("day_type"),
                 "workout": item.get("workout", {}),
