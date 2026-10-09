@@ -643,18 +643,19 @@ def _add_recovery_for_today(ctx):
         db.commit()
 
 
-def test_active_session_cannot_be_resumed_when_recovery_blocks_execution():
+def test_active_session_can_resume_in_safe_close_only_mode_when_recovery_blocks_execution():
     ctx = _context()
     started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
     assert started.status_code == 200
     sid = started.json()["session"]["id"]
 
     _add_recovery_for_today(ctx)
-    blocked = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
-    assert blocked.status_code == 409
-    detail = blocked.json()["detail"]
-    assert detail["code"] == "TRAINING_START_BLOCKED"
-    assert detail["decision"] == "recover"
+    resumed = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    assert resumed.status_code == 200, resumed.text
+    assert resumed.json()["status"] == "resumed"
+    assert resumed.json()["session"]["id"] == sid
+    assert resumed.json()["session"]["execution_blocked"] is True
+    assert resumed.json()["session"]["execution_block_reason"]
 
     with Session(engine) as db:
         user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
