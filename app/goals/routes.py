@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from math import isfinite
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -158,7 +159,7 @@ def delete_goal_api(goal_id: str, user: UserDB = Depends(get_current_user), db: 
 
 
 def _metric_snapshots(db: Session, user: UserDB, goal: GoalDB) -> list[dict[str, Any]]:
-    """Build cumulative goal metric snapshots from the same completed execution source as Progress."""
+    """Build cumulative goal metric snapshots from completed, metric-relevant evidence."""
     metric = goal.metric_key
     if not metric:
         return []
@@ -172,10 +173,9 @@ def _metric_snapshots(db: Session, user: UserDB, goal: GoalDB) -> list[dict[str,
     exercise_key = goal.metadata_dict().get("exercise_key")
     snapshots: list[dict[str, Any]] = []
     cumulative_volume = 0.0
-    cumulative_sets = 0
     cumulative_rpes: list[float] = []
-    best_weight = 0.0
-    best_reps_at_best_weight = 0
+    best_weight: float | None = None
+    best_reps_at_best_weight: int | None = None
     training_days: set[str] = set()
 
     for training in sessions:
@@ -190,40 +190,79 @@ def _metric_snapshots(db: Session, user: UserDB, goal: GoalDB) -> list[dict[str,
         if not sets and (exercise_key or metric not in {"sessions", "training_days"}):
             continue
 
-        if sets:
-            cumulative_sets += len(sets)
-            cumulative_volume += sum(float(row.actual_weight_kg or 0) * int(row.actual_reps or 0) for row in sets)
-            for row in sets:
-                weight = float(row.actual_weight_kg or 0)
-                reps = int(row.actual_reps or 0)
-                if weight > best_weight:
+        session_has_volume = False
+        session_has_weight = False
+        session_has_weight_and_reps = False
+        session_has_rpe = False
+        for row in sets:
+            weight = None
+            reps = None
+            rpe = None
+
+            if row.actual_weight_kg is not None:
+                try:
+                    candidate_weight = float(row.actual_weight_kg)
+                    if isfinite(candidate_weight) and candidate_weight >= 0:
+                        weight = candidate_weight
+                        session_has_weight = True
+                except (TypeError, ValueError, OverflowError):
+                    pass
+            if row.actual_reps is not None:
+                try:
+                    candidate_reps = int(row.actual_reps)
+                    if candidate_reps >= 0:
+                        reps = candidate_reps
+                except (TypeError, ValueError, OverflowError):
+                    pass
+            if row.actual_rpe is not None:
+                try:
+                    candidate_rpe = float(row.actual_rpe)
+                    if isfinite(candidate_rpe) and 1 <= candidate_rpe <= 10:
+                        rpe = candidate_rpe
+                except (TypeError, ValueError, OverflowError):
+                    pass
+
+            if weight is not None and reps is not None:
+                cumulative_volume += weight * reps
+                session_has_volume = True
+                session_has_weight_and_reps = True
+                if best_weight is None or weight > best_weight:
                     best_weight = weight
                     best_reps_at_best_weight = reps
                 elif weight == best_weight:
-                    best_reps_at_best_weight = max(best_reps_at_best_weight, reps)
-                if row.actual_rpe is not None:
-                    cumulative_rpes.append(float(row.actual_rpe))
+                    best_reps_at_best_weight = max(best_reps_at_best_weight or 0, reps)
+            if rpe is not None:
+                cumulative_rpes.append(rpe)
+                session_has_rpe = True
 
         training_days.add(training.session_date.isoformat())
         if metric == "sessions":
-            value = float(len([item for item in snapshots]) + 1)
+            value = float(len(snapshots) + 1)
         elif metric == "training_days":
             value = float(len(training_days))
         elif metric == "total_volume_kg":
+            if not session_has_volume:
+                continue
             value = cumulative_volume
         elif metric == "best_weight_kg":
+            if not session_has_weight:
+                continue
             value = best_weight
         elif metric == "best_reps_at_best_weight":
+            if not session_has_weight_and_reps:
+                continue
             value = best_reps_at_best_weight
         elif metric == "average_rpe":
-            if not cumulative_rpes:
+            if not session_has_rpe or not cumulative_rpes:
                 continue
             value = sum(cumulative_rpes) / len(cumulative_rpes)
         else:
             continue
+        if value is None or not isfinite(float(value)):
+            continue
         snapshots.append({
             "date": training.session_date.isoformat(),
-            "value": round(value, 2),
+            "value": round(float(value), 2),
             "session_id": training.id,
         })
     return snapshots
