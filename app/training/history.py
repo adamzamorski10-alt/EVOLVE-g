@@ -117,7 +117,7 @@ def list_completed_training_history(
                     else None
                 ),
                 "exercises": list(exercises.values()),
-                "sufficient_data": bool(sets),
+                "sufficient_data": bool(completed_sets),
             }
         )
 
