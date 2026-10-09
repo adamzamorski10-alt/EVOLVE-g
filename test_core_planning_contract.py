@@ -168,3 +168,41 @@ def test_low_recovery_reduces_session_volume():
     ]
     assert workout_days
     assert all(len(day["workout"]["exercises"]) <= 2 for day in workout_days if not day["is_sport_session"])
+
+
+
+def test_rolling_endpoint_returns_a_fresh_dated_horizon_and_is_authenticated():
+    from datetime import date, timedelta
+
+    ctx = _context()
+    missing_plan = client.get("/app/plan/rolling", headers=_headers(ctx["token"]))
+    assert missing_plan.status_code == 200, missing_plan.text
+    empty = missing_plan.json()
+    assert empty["horizon_start"] == date.today().isoformat()
+    assert empty["horizon_end"] == (date.today() + timedelta(days=13)).isoformat()
+    assert empty["sufficient_data"] is False
+    assert empty["reason_codes"] == ["INVALID_PLAN"]
+
+    _baseline(ctx, sessions_per_week=3)
+    generated = client.post(
+        "/app/plan/generate",
+        json={"force": True},
+        headers=_headers(ctx["token"]),
+    )
+    assert generated.status_code == 200, generated.text
+    response = client.get("/app/plan/rolling?horizon_days=14", headers=_headers(ctx["token"]))
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["plan_version"] == "rolling-v1"
+    assert data["horizon_start"] == date.today().isoformat()
+    assert data["horizon_end"] == (date.today() + timedelta(days=13)).isoformat()
+    dates = [item["scheduled_date"] for item in data["upcoming_sessions"]]
+    assert dates == sorted(dates)
+    assert len(dates) == len(set(dates))
+    assert all(data["horizon_start"] <= value <= data["horizon_end"] for value in dates)
+    assert all(item.get("status") != "completed" for item in data["upcoming_sessions"])
+
+
+def test_rolling_endpoint_rejects_unauthenticated_requests():
+    response = client.get("/app/plan/rolling")
+    assert response.status_code in (401, 403)
