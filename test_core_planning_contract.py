@@ -584,3 +584,7 @@ def test_infeasible_weekly_target_exposes_deterministic_schedule_diagnostics():
         item["day"] for item in generated.json()["plan"]["days"]
         if item["day_type"] != "rest"
     ]
+
+    rolling = client.get("/app/plan/rolling?horizon_days=14", headers=headers)
+    assert rolling.status_code == 200, rolling.text
+    assert rolling.json()["schedule_diagnostics"]["unmet_training_days"] == 2
