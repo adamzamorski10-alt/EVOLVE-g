@@ -168,6 +168,23 @@ load();
 
 
 
+@router.get("/rolling", tags=["plan"])
+def app_get_rolling_plan(
+    horizon_days: int = 14,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return a fresh user-scoped rolling view; never treat planned items as completed."""
+    raw_plan = user.get_dict("weekly_plan_json") if user.weekly_plan_json else None
+    completed_history = list_completed_training_history(session, user.id, limit=100)
+    return build_rolling_horizon(
+        raw_plan if isinstance(raw_plan, dict) else None,
+        horizon_start=datetime.now().date(),
+        horizon_days=horizon_days,
+        completed_sessions=completed_history,
+    )
+
+
 @router.post("/generate", tags=["plan"])
 def app_generate_plan(
     payload: PlanGenerateRequest,
