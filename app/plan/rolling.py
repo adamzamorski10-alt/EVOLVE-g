@@ -122,8 +122,8 @@ def build_rolling_plan_contract(
         "planned_sessions": list(upcoming),
         "plan_version": plan_version,
         "source": source,
-        "sufficient_data": bool(upcoming or completed_result),
-        "reason_codes": [] if (upcoming or completed_result) else ["NO_PLANNED_SESSIONS"],
+        "sufficient_data": bool(planned_days or completed_result),
+        "reason_codes": [] if (planned_days or completed_result) else ["NO_PLANNED_SESSIONS"],
     }
 
 
