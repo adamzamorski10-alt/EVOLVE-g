@@ -142,6 +142,21 @@ def test_recovery_ignores_invalid_out_of_range_signals():
     assert result["constraint"] == "none"
 
 
+def test_recovery_ignores_malformed_and_non_finite_signals():
+    log = _log(sleep_quality=5)
+    log.sleep_hours = "not-a-number"
+    log.energy_level = float("nan")
+    log.stress_level = float("inf")
+    log.fatigue_score = float("-inf")
+
+    result = evaluate_recovery(log)
+
+    assert result["signal_count"] == 1
+    assert result["signals"] == {"sleep_quality": 50.0}
+    assert result["status"] == "insufficient_data"
+    assert result["constraint"] == "none"
+
+
 def test_recovery_boundary_scores_are_stable():
     ready = evaluate_recovery(_log(energy_level=10, stress_level=1))
     caution = evaluate_recovery(_log(energy_level=6, stress_level=6))
