@@ -226,6 +226,39 @@ def build_deterministic_plan(
             selected_days.append(day)
     selected_days = selected_days[:feasible_target_days]
 
+    # Keep scheduling outcomes explicit so a reduced plan is not mistaken for
+    # a fully satisfied weekly target. Diagnostics are deterministic and contain
+    # only the authenticated user's own constraints.
+    selected_day_set = set(selected_days)
+    excluded_schedule_days = []
+    for day_name, is_rest in _DAY_SCHEDULE:
+        if is_rest or day_name in selected_day_set:
+            continue
+        if configured_availability and day_name not in available_days:
+            reason_code = "unavailable_day"
+        elif (
+            day_name not in configured_sport_days
+            and not has_sufficient_window(day_name)
+        ):
+            reason_code = "insufficient_window"
+        else:
+            reason_code = "weekly_target_reached"
+        excluded_schedule_days.append({
+            "day": day_name,
+            "reason_code": reason_code,
+        })
+    sport_reserved_days = [
+        day for day in selected_days
+        if day in configured_sport_days and bool(sport_drills)
+    ]
+    schedule_diagnostics = {
+        "requested_training_days": target_days,
+        "scheduled_training_days": len(selected_days),
+        "unmet_training_days": max(0, target_days - len(selected_days)),
+        "sport_reserved_days": sport_reserved_days,
+        "excluded_days": excluded_schedule_days,
+    }
+
     focus = [x.lower() for x in user.get_list("training_focus_json") if isinstance(x, str) and x.strip()]
     improve = [x.lower() for x in user.get_list("improvement_areas_json") if isinstance(x, str) and x.strip()]
     preferred = focus + [x for x in improve if x not in focus] or ["klatka", "plecy", "nogi", "brzuch", "barki"]
@@ -418,5 +451,6 @@ def build_deterministic_plan(
             "performance_signals": performance_signals,
             "progress_evidence_used": bool(normalized_progress),
             "progress_evidence_count": len(normalized_progress),
+            "schedule_diagnostics": schedule_diagnostics,
         },
     }
