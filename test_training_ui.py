@@ -191,7 +191,10 @@ def test_rolling_plan_ui_uses_dated_api_and_canonical_execution():
         '@router.get("/rolling"',
         '"/app/plan/rolling?horizon_days=14"',
         'id="rollingHorizon"',
+        'plannedDays=data.planned_days||upcoming',
         'item.scheduled_date',
+        'item.status==="rest"',
+        'item.status==="completed"',
         'list_completed_training_history',
         'href="/app/training/session-ui"',
     ]
