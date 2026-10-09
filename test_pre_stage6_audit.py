@@ -78,7 +78,7 @@ def test_main_shell_exposes_native_stage_0_5_domains():
     missing = [marker for marker in required if marker not in source]
     assert not missing, f"Missing native shell source markers: {missing}"
 
-def test_migration_chain_has_single_head_through_stage_5():
+def test_migration_chain_has_single_head_after_stage_18_availability():
     versions = ROOT / "alembic" / "versions"
     revisions: dict[str, object] = {}
     for path in versions.glob("*.py"):
@@ -131,7 +131,7 @@ def test_migration_chain_has_single_head_through_stage_5():
         elif parent:
             children.add(parent)
     heads = sorted(revision for revision in revisions if revision not in children)
-    assert heads == ["evolve22adaptive_audit"], heads
+    assert heads == ["evolve23_training_availability"], heads
 
 
 def test_external_verification_queue_keeps_stage_0_5_checks_pending():
