@@ -212,6 +212,7 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
             '<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">' +
               '<a id="myDayStartLink" class="btn btn-primary btn-sm" href="/app/training/session-ui">Rozpocznij trening</a>' +
               '<a class="btn btn-outline btn-sm" href="/app/training/dashboard">Analiza treningu</a>' +
+              '<a class="btn btn-outline btn-sm" href="/app/plan/ui">Plan na 14 dni</a>' +
             '</div>' +
           '</div>' +
           '<div class="card" style="padding:20px;">' +
