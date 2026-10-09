@@ -387,3 +387,62 @@ def test_availability_rejects_non_increasing_time_window():
     )
     assert response.status_code == 422
 
+def test_sport_config_persists_canonical_reserved_time_windows():
+    ctx = _context()
+    response = client.post(
+        "/app/sport-config",
+        json={
+            "sport_focus": "koszykówka",
+            "sport_specialization": "rzuty",
+            "sport_training_days": ["śr", "Sob."],
+            "sport_training_windows": {
+                "śr": {"start": "18:00", "end": "19:30"},
+                "Sobota": {"start": "10:00", "end": "11:30"},
+            },
+        },
+        headers=_headers(ctx["token"]),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["sport_training_days"] == ["Środa", "Sobota"]
+    assert response.json()["sport_training_windows"] == {
+        "Środa": {"start": "18:00", "end": "19:30"},
+        "Sobota": {"start": "10:00", "end": "11:30"},
+    }
+
+
+def test_sport_config_rejects_window_for_unconfigured_day():
+    ctx = _context()
+    response = client.post(
+        "/app/sport-config",
+        json={
+            "sport_focus": "koszykówka",
+            "sport_training_days": ["Środa"],
+            "sport_training_windows": {"Piątek": {"start": "18:00", "end": "19:30"}},
+        },
+        headers=_headers(ctx["token"]),
+    )
+    assert response.status_code == 422
+
+
+def test_generated_sport_session_exposes_reserved_time_window():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+    configured = client.post(
+        "/app/sport-config",
+        json={
+            "sport_focus": "koszykówka",
+            "sport_specialization": "rzuty",
+            "sport_training_days": ["śr"],
+            "sport_training_windows": {"Środa": {"start": "18:00", "end": "19:30"}},
+        },
+        headers=headers,
+    )
+    assert configured.status_code == 200, configured.text
+    generated = client.post("/app/plan/generate", json={"force": True}, headers=headers)
+    assert generated.status_code == 200, generated.text
+    sport_days = [day for day in generated.json()["plan"]["days"] if day["is_sport_session"]]
+    assert len(sport_days) == 1
+    assert sport_days[0]["day"] == "Środa"
+    assert sport_days[0]["workout"]["scheduled_time"] == {"start": "18:00", "end": "19:30"}
+
