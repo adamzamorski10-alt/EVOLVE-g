@@ -175,6 +175,7 @@ def _metric_snapshots(db: Session, user: UserDB, goal: GoalDB) -> list[dict[str,
     cumulative_volume = 0.0
     cumulative_rpes: list[float] = []
     best_weight: float | None = None
+    best_weight_with_reps: float | None = None
     best_reps_at_best_weight: int | None = None
     training_days: set[str] = set()
 
@@ -222,14 +223,17 @@ def _metric_snapshots(db: Session, user: UserDB, goal: GoalDB) -> list[dict[str,
                 except (TypeError, ValueError, OverflowError):
                     pass
 
+            if weight is not None:
+                if best_weight is None or weight > best_weight:
+                    best_weight = weight
             if weight is not None and reps is not None:
                 cumulative_volume += weight * reps
                 session_has_volume = True
                 session_has_weight_and_reps = True
-                if best_weight is None or weight > best_weight:
-                    best_weight = weight
+                if best_weight_with_reps is None or weight > best_weight_with_reps:
+                    best_weight_with_reps = weight
                     best_reps_at_best_weight = reps
-                elif weight == best_weight:
+                elif weight == best_weight_with_reps:
                     best_reps_at_best_weight = max(best_reps_at_best_weight or 0, reps)
             if rpe is not None:
                 cumulative_rpes.append(rpe)
