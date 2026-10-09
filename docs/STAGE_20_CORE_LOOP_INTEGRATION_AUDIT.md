@@ -53,15 +53,21 @@ Stage 20 is an integration audit, not a feature expansion. Preserve deterministi
    - Dated sessions, rest days, completed history, effective adaptive plan, and scheduling diagnostics must remain semantically consistent.
    - A rolling horizon is a projection, not a second source of truth.
 
-## Initial audit observations to verify with targeted tests
+## Stage 20A — findings and fixes in progress
 
-- `list_completed_training_history` currently sets `sufficient_data` using whether any set rows exist, while progress calculations consume only completed set rows. Verify whether an all-incomplete set collection can be mislabeled as sufficient history.
-- `build_goal_training_state` converts snapshot values to `float` while materializing inputs. Verify behavior for malformed or non-finite snapshots and ensure it returns a safe insufficient-data state instead of raising or reporting fabricated progress.
-- `build_progress_evidence` skips malformed set values but may retain an observation when other valid values exist in the same session. Define and test whether partial observations are acceptable or must be marked insufficient.
-- `/app/plan/rolling` takes diagnostics from the effective plan's `_planner` metadata. Verify that applying a valid adaptive revision preserves scheduling diagnostics and does not silently drop them.
-- Verify whether the goal snapshot provider filters every supporting training record by authenticated user and completed session status before calling the pure goal-state builder.
+Verified from code and covered by targeted regression tests:
 
-These are audit hypotheses, not declared defects until verified by tests and call-path inspection.
+- **History quality flag:** history previously marked `sufficient_data` when any set row existed, including all-incomplete sets. It now requires at least one completed set.
+- **Malformed Goal evidence:** the pure goal-state builder previously called `float()` on supplied values without validating the item, value, or date. It now skips malformed records, non-finite values, invalid dates, and boolean-as-number inputs; if nothing usable remains, it reports insufficient training evidence.
+- **Progress set counts:** progress evidence previously counted all completed rows in an observation even when some rows had malformed/non-finite values. It now ignores malformed history/exercise/set containers and counts only valid completed set observations.
+- **Metric-specific Goal snapshots:** cumulative Goal snapshots previously could reuse an old metric value on a later session with no fresh value for that metric. Snapshot generation now requires metric-specific evidence in the current session (e.g. an RPE for an average-RPE snapshot, or actual weight for a best-weight snapshot) and rejects non-finite/invalid numeric values.
+
+Remaining Stage 20A verification:
+
+- `/app/plan/rolling` takes diagnostics from the effective plan's `_planner` metadata. Confirm with an integration test that applying a valid adaptive revision preserves scheduling diagnostics.
+- Continue checking the full execution → history → progress → goals → TODAY path for cross-user isolation, incomplete-session leakage, stale-plan safety, and agreement between read-only decisions and execution gates.
+
+These changes are on the isolated Stage 20 branch and remain subject to the final CI gate.
 
 ## Required acceptance gate
 
