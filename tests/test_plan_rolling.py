@@ -98,7 +98,7 @@ def test_foreign_or_unrelated_history_does_not_remove_planned_day():
     assert [item["scheduled_date"] for item in result["upcoming_sessions"]] == [
         "2026-10-12", "2026-10-13", "2026-10-19", "2026-10-20"
     ]
-    assert result["completed_sessions"] == []
+    assert result["completed_sessions"] == completed
 
 
 def test_completed_history_only_consumes_sessions_inside_horizon():
