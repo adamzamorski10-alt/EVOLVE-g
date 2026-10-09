@@ -62,6 +62,8 @@ def build_rolling_plan_contract(
             "horizon_start": horizon_start.isoformat(),
             "horizon_end": end.isoformat(),
             "upcoming_sessions": [],
+            "planned_days": [],
+            "rest_days": [],
             "completed_sessions": completed,
             "planned_sessions": [],
             "plan_version": plan_version,
@@ -77,21 +79,30 @@ def build_rolling_plan_contract(
             templates.setdefault(_day_key(item.get("day")), []).append(item)
 
     upcoming = []
+    planned_days = []
+    rest_days = []
     completed_scheduled = []
     for offset in range(safe_days):
         scheduled_date = horizon_start + timedelta(days=offset)
         day_key = _WEEKDAYS_PL[scheduled_date.weekday()]
         for item in templates.get(day_key, []):
             matched = completed_by_date.get(scheduled_date, [])
-            if matched:
-                completed_scheduled.extend(matched)
-                continue
-            upcoming.append({
+            is_rest = str(item.get("day_type") or "").casefold() == "rest"
+            planned_day = {
                 "day": item.get("day"),
                 "scheduled_date": scheduled_date.isoformat(),
                 "day_type": item.get("day_type"),
                 "workout": item.get("workout", {}),
-            })
+                "status": "rest" if is_rest else ("completed" if matched else "planned"),
+            }
+            planned_days.append(planned_day)
+            if is_rest:
+                rest_days.append(planned_day)
+                continue
+            if matched:
+                completed_scheduled.extend(matched)
+                continue
+            upcoming.append(planned_day)
 
     # Keep all completed sessions in the horizon, including sessions on a weekday
     # that is not represented by the weekly template; deduplicate by stable session ID/date.
