@@ -92,6 +92,15 @@ def test_apply_adaptation_becomes_effective_today_plan_and_start_snapshot():
     assert data["status"] == "applied"
     assert data["version"] == 1
 
+    rolling = client.get("/app/plan/rolling", headers=_headers(ctx["token"]))
+    assert rolling.status_code == 200, rolling.text
+    assert rolling.json()["effective_plan"] == {
+        "source": "adaptive",
+        "version": 1,
+        "stale": False,
+    }
+    assert rolling.json()["planned_days"]
+
     today = client.get("/app/training/today", headers=_headers(ctx["token"]))
     assert today.status_code == 200
     today_data = today.json()
