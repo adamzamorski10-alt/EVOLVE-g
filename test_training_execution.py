@@ -119,6 +119,55 @@ def test_start_session_snapshots_plan_and_resumes():
     assert resumed.json()["session"]["planned"]["exercises"][0]["weight_kg"] == 100
 
 
+
+def test_resuming_session_serializes_only_sets_owned_by_session_user():
+    owner = _context()
+    foreign = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(owner["token"]))
+    assert started.status_code == 200
+    sid = started.json()["session"]["id"]
+
+    with Session(engine) as db:
+        owner_user = db.exec(select(UserDB).where(UserDB.email == owner["email"])).first()
+        foreign_user = db.exec(select(UserDB).where(UserDB.email == foreign["email"])).first()
+        own_set = TrainingSetResultDB(
+            session_id=sid,
+            user_id=owner_user.id,
+            exercise_key="squat-1",
+            exercise_name="Przysiad",
+            set_number=1,
+            planned_reps=5,
+            planned_weight_kg=100,
+            actual_reps=5,
+            actual_weight_kg=100,
+            completed=True,
+        )
+        foreign_set = TrainingSetResultDB(
+            session_id=sid,
+            user_id=foreign_user.id,
+            exercise_key="squat-1",
+            exercise_name="FOREIGN PRIVATE SET",
+            set_number=2,
+            planned_reps=5,
+            planned_weight_kg=100,
+            actual_reps=99,
+            actual_weight_kg=999,
+            completed=True,
+        )
+        db.add(own_set)
+        db.add(foreign_set)
+        db.commit()
+        db.refresh(own_set)
+        own_set_id = own_set.id
+
+    resumed = client.post("/app/training/sessions/start", headers=_headers(owner["token"]))
+    assert resumed.status_code == 200, resumed.text
+    assert resumed.json()["status"] == "resumed"
+    sets = resumed.json()["session"]["sets"]
+    assert [item["id"] for item in sets] == [own_set_id]
+    assert all(item["exercise_name"] != "FOREIGN PRIVATE SET" for item in sets)
+
+
 def test_set_is_idempotent_and_completion_creates_result_once():
     ctx = _context()
     started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
