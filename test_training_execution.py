@@ -1033,7 +1033,7 @@ def test_start_session_fails_closed_when_concurrent_lock_claim_errors(monkeypatc
     original_exec = Session.exec
 
     def fail_user_claim(self, statement, *args, **kwargs):
-        if "UPDATE users" in str(statement).upper():
+        if "updated_at" in str(statement).lower() and "user" in str(statement).lower():
             raise SQLAlchemyError("simulated concurrent write-lock contention")
         return original_exec(self, statement, *args, **kwargs)
 
