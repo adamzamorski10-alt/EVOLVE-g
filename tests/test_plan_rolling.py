@@ -137,3 +137,18 @@ def test_malicious_history_payload_does_not_create_execution_decision():
     )
     assert result["completed_sessions"] == []
     assert len(result["upcoming_sessions"]) == 2
+
+
+
+def test_abbreviated_polish_weekdays_are_normalized_to_canonical_labels():
+    result = build_rolling_horizon(
+        {"days": [
+            {"day": "Pt", "day_type": "heavy", "workout": {"title": "Strength"}},
+            {"day": "Sob.", "day_type": "rest", "workout": {}},
+        ]},
+        horizon_start=date(2026, 10, 9),
+        horizon_days=7,
+    )
+    assert [item["scheduled_date"] for item in result["upcoming_sessions"]] == ["2026-10-09"]
+    assert [item["day"] for item in result["planned_days"]] == ["Piątek", "Sobota"]
+    assert [item["scheduled_date"] for item in result["rest_days"]] == ["2026-10-10"]
