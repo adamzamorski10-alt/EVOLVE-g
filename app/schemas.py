@@ -331,9 +331,25 @@ class DrillResultRequest(BaseModel):
     weight_kg: Optional[float] = Field(default=None, ge=0, description="Obciążenie [kg]")
 
 
+class TrainingAvailabilityWindow(BaseModel):
+    """A local clock-time window during which a workout can be scheduled."""
+    start: str = Field(pattern=r"^(?:[01]\\d|2[0-3]):[0-5]\\d$")
+    end: str = Field(pattern=r"^(?:[01]\\d|2[0-3]):[0-5]\\d$")
+
+    @field_validator("end")
+    @classmethod
+    def end_must_follow_start(cls, value: str, info):
+        start = info.data.get("start")
+        if start and value <= start:
+            raise ValueError("Koniec okna musi być późniejszy niż początek.")
+        return value
+
+
 class TrainingAvailabilityRequest(BaseModel):
-    """Weekly days on which the user can realistically train."""
+    """Weekly days and optional time windows available for training."""
     days: list[str] = Field(min_length=1, max_length=7)
+    windows: dict[str, TrainingAvailabilityWindow] = Field(default_factory=dict)
+    session_duration_minutes: int = Field(default=60, ge=15, le=240)
 
 
 class SportConfigRequest(BaseModel):
