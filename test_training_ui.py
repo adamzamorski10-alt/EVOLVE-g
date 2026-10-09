@@ -222,6 +222,8 @@ def test_plan_ui_exposes_weekly_availability_editor():
         "esc(w.start||'')",
         "esc(w.end||'')",
         "Godzina: ",
+        "schedule_diagnostics",
+        "uwaga: plan nie spełnia pełnego celu tygodniowego",
         "session_duration_minutes:Number",
         "Uzupełnij obie godziny albo pozostaw oba pola puste:",
         "Zapisz dostępność",
