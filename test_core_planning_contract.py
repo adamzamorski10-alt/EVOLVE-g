@@ -445,6 +445,8 @@ def test_generated_sport_session_exposes_reserved_time_window():
     assert len(sport_days) == 1
     assert sport_days[0]["day"] == "Środa"
     assert sport_days[0]["workout"]["scheduled_time"] == {"start": "18:00", "end": "19:30"}
+    diagnostics = generated.json()["plan"]["_planner"]["schedule_diagnostics"]
+    assert "Środa" in diagnostics["sport_reserved_days"]
 
 def test_reserved_sport_session_is_not_filtered_by_short_gym_availability_window():
     ctx = _context()
