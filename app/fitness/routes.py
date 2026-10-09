@@ -55,7 +55,6 @@ from app.schemas import (
     WaterLogRequest,
 )
 from app.fitness.utils import upsert_user_from_profile
-from app.plan.deterministic import _normalize_weekday
 
 router = APIRouter(prefix="/app", tags=["fitness"])
 
@@ -1503,6 +1502,7 @@ def configure_sport(
     req: SportConfigRequest,
     user: UserDB = Depends(get_current_user),
 ):
+    from app.plan.deterministic import _normalize_weekday
     """Konfiguruj sport, dni treningowe i opcjonalne zarezerwowane godziny."""
     normalized_days = [_normalize_weekday(day) for day in req.sport_training_days]
     if any(day is None for day in normalized_days):
