@@ -1,6 +1,6 @@
 # Stage 20 — Core Loop Integration Audit
 
-Status: discovery complete; implementation and acceptance gates are not yet complete.
+Status: implementation complete; latest acceptance gate passed on the isolated Stage 20 branch. Not merged to main. Legacy regression remains informational and non-blocking.
 
 ## Objective
 
@@ -120,3 +120,21 @@ This change aligns presentation with the existing execution policy rather than s
 Added an integration regression that gives the current weekly plan provenance pointing to a no-longer-current assessment. It verifies that the training-today endpoint exposes `plan_stale=true` and `can_start=false`, the session-start endpoint rejects the stale plan with HTTP 409, and no active session is created. This complements the existing plan-readiness stale-state tests by exercising the actual execution boundary.
 
 The test is included in the next current-SHA CI gate. Stage 20 remains open until the gate passes and the remaining integration review is complete.
+
+## Stage 20 final acceptance checkpoint
+
+**Status: CLOSED on `stage-20-core-loop-integration-audit` only.**
+
+Final verified commit before this documentation checkpoint: `c83f1b4fda4f8dadf3e0a40cfe97d007568bf979`.
+
+- CI run #631: [GitHub Actions](https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/37972958939)
+- Current EVOLVE regression: **307 passed, 7 warnings**
+- Alembic clean-database integrity: **PASS**
+- Legacy regression: **FAIL, informational / non-blocking**
+- The Stage 20D consistency test confirms TODAY and the independent execution endpoint agree for canonical `insufficient_data`.
+- The Stage 20E test confirms stale plans remain blocked at the execution boundary and do not create an active session.
+- Earlier gates cover malformed TODAY decisions, adaptive rolling diagnostics, completed-history quality, malformed progress evidence, and metric-specific Goal snapshots.
+- No Stage 20 changes have been merged into `main`; the branch remains isolated pending a separate integration review.
+- No AI Coach/AI Manager integration was introduced.
+
+The Stage 20 acceptance gate is complete on this branch. The informational legacy regression failure remains visible and is not represented as passing.
