@@ -70,3 +70,56 @@ def test_next_effective_preview_is_user_scoped():
     assert first_preview.json()["has_data"] is True
     assert second_preview.json()["has_data"] is False
     assert second_preview.json()["source_session_ids"] == []
+
+
+
+def test_rolling_plan_preserves_schedule_diagnostics_after_adaptation():
+    import json
+
+    from sqlmodel import Session, select
+
+    from app.database import engine
+    from app.models import UserDB
+
+    ctx = _context()
+    diagnostics = {
+        "requested_training_days": 4,
+        "scheduled_training_days": 2,
+        "unmet_training_days": 2,
+        "sport_reserved_days": [],
+        "excluded_days": [
+            {"day": "Wtorek", "reason_code": "unavailable_day"},
+            {"day": "Czwartek", "reason_code": "insufficient_window"},
+        ],
+    }
+
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        assert user is not None
+        plan = user.get_dict("weekly_plan_json")
+        plan["_planner"] = {
+            "version": "deterministic-v2",
+            "schedule_diagnostics": diagnostics,
+        }
+        user.set_dict("weekly_plan_json", plan)
+        db.add(user)
+        db.commit()
+
+    _complete(ctx)
+
+    applied = client.post(
+        "/app/training/adaptive/apply",
+        headers=_headers(ctx["token"]),
+    )
+    assert applied.status_code == 200, applied.text
+    assert applied.json()["version"] == 1
+    assert applied.json()["plan"]["_planner"]["schedule_diagnostics"] == diagnostics
+
+    rolling = client.get(
+        "/app/plan/rolling?horizon_days=14",
+        headers=_headers(ctx["token"]),
+    )
+    assert rolling.status_code == 200, rolling.text
+    payload = rolling.json()
+    assert payload["effective_plan"]["source"] == "adaptive"
+    assert payload["schedule_diagnostics"] == diagnostics
