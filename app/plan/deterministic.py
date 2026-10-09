@@ -216,23 +216,33 @@ def build_deterministic_plan(
     except (TypeError, ValueError):
         required_minutes = 60
 
-    def has_sufficient_window(day: str) -> bool:
+    def window_status(day: str) -> str:
+        """Return unrestricted, sufficient, insufficient, or invalid for a weekday."""
         if day not in windows:
-            return True
+            return "unrestricted"
         window = windows[day]
         if not isinstance(window, dict):
-            return False
+            return "invalid"
         start, end = window.get("start"), window.get("end")
         if not isinstance(start, str) or not isinstance(end, str):
-            return False
-        try:
-            start_hour, start_minute = (int(part) for part in start.split(":"))
-            end_hour, end_minute = (int(part) for part in end.split(":"))
-            start_total = start_hour * 60 + start_minute
-            end_total = end_hour * 60 + end_minute
-        except (TypeError, ValueError):
-            return False
-        return 0 <= start_total < end_total <= 1439 and end_total - start_total >= required_minutes
+            return "invalid"
+        import re
+        if not re.fullmatch(r"(?:[01]\\d|2[0-3]):[0-5]\\d", start):
+            return "invalid"
+        if not re.fullmatch(r"(?:[01]\\d|2[0-3]):[0-5]\\d", end):
+            return "invalid"
+        start_hour, start_minute = (int(part) for part in start.split(":"))
+        end_hour, end_minute = (int(part) for part in end.split(":"))
+        start_total = start_hour * 60 + start_minute
+        end_total = end_hour * 60 + end_minute
+        if start_total >= end_total:
+            return "invalid"
+        if end_total - start_total < required_minutes:
+            return "insufficient"
+        return "sufficient"
+
+    def has_sufficient_window(day: str) -> bool:
+        return window_status(day) in {"unrestricted", "sufficient"}
 
     candidate_days = [
         name for name, is_rest in _DAY_SCHEDULE
@@ -266,11 +276,16 @@ def build_deterministic_plan(
             reason_code = "invalid_constraint"
         elif configured_availability and day_name not in available_days:
             reason_code = "unavailable_day"
-        elif not (
-            (day_name in configured_sport_days and bool(sport_drills))
-            or has_sufficient_window(day_name)
-        ):
-            reason_code = "insufficient_window"
+        elif day_name not in configured_sport_days or not sport_drills:
+            status = window_status(day_name)
+            if status == "invalid":
+                reason_code = "invalid_constraint"
+            elif status == "insufficient":
+                reason_code = "insufficient_window"
+            else:
+                reason_code = "weekly_target_reached"
+        else:
+            reason_code = "weekly_target_reached"
         else:
             reason_code = "weekly_target_reached"
         excluded_schedule_days.append({
