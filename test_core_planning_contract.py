@@ -181,7 +181,7 @@ def test_rolling_endpoint_returns_a_fresh_dated_horizon_and_is_authenticated():
     assert empty["horizon_start"] == date.today().isoformat()
     assert empty["horizon_end"] == (date.today() + timedelta(days=13)).isoformat()
     assert empty["sufficient_data"] is False
-    assert empty["reason_codes"] == ["INVALID_PLAN"]
+    assert empty["reason_codes"] == ["NO_PLANNED_SESSIONS"]
 
     _baseline(ctx, sessions_per_week=3)
     generated = client.post(
