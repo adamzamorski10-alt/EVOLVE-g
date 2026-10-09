@@ -864,6 +864,19 @@ def start_training_session(
     decision = decision_for_user(user=user, db=session)
     execution_allowed = training_start_allowed(decision)
 
+    # Serialize session creation for this user. The UPDATE takes a database
+    # row lock until the transaction commits, so concurrent starts re-check
+    # for an active session only after the preceding start has committed.
+    # This avoids relying on an application-level SELECT-then-INSERT check.
+    claimed_user = session.exec(
+        update(UserDB)
+        .where(UserDB.id == user.id)
+        .values(updated_at=datetime.now())
+    ).rowcount
+    if claimed_user != 1:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Nie udało się zarezerwować rozpoczęcia treningu")
+
     active = session.exec(
         select(TrainingSessionDB)
         .where(TrainingSessionDB.user_id == user.id)
