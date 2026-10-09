@@ -170,6 +170,24 @@ def test_availability_days_constrain_generated_plan():
     assert len(sessions) <= 3
 
 
+def test_availability_change_marks_existing_plan_stale():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+    generated = client.post("/app/plan/generate", json={"force": True}, headers=headers)
+    assert generated.status_code == 200, generated.text
+
+    updated = client.put(
+        "/app/plan/availability",
+        json={"days": ["Poniedziałek", "Piątek"]},
+        headers=headers,
+    )
+    assert updated.status_code == 200, updated.text
+    readiness = client.get("/app/plan/readiness", headers=headers)
+    assert readiness.status_code == 200, readiness.text
+    assert readiness.json()["profile_stale"] is True
+
+
 def test_new_assessment_invalidates_existing_plan_by_provenance():
     ctx = _context()
     first_assessment = _baseline(ctx, sessions_per_week=4)
