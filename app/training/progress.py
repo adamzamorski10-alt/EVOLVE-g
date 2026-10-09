@@ -16,13 +16,23 @@ def build_progress_evidence(
     observations: list[dict[str, Any]] = []
 
     for session in history:
-        for exercise in session.get("exercises", []):
+        if not isinstance(session, dict):
+            continue
+        raw_exercises = session.get("exercises")
+        if not isinstance(raw_exercises, list):
+            continue
+        for exercise in raw_exercises:
+            if not isinstance(exercise, dict):
+                continue
             if exercise_key and exercise.get("exercise_key") != exercise_key:
                 continue
 
+            raw_sets = exercise.get("sets")
+            if not isinstance(raw_sets, list):
+                continue
             sets = [
-                item for item in exercise.get("sets", [])
-                if item.get("completed")
+                item for item in raw_sets
+                if isinstance(item, dict) and item.get("completed") is True
             ]
             if not sets:
                 continue
@@ -57,7 +67,7 @@ def build_progress_evidence(
 
                 valid_sets.append((parsed_weight, parsed_reps, parsed_rpe))
 
-            if not valid_sets or malformed and not valid_sets:
+            if not valid_sets:
                 continue
 
             weights = [
@@ -82,7 +92,7 @@ def build_progress_evidence(
                     "session_date": session.get("session_date"),
                     "exercise_key": exercise.get("exercise_key"),
                     "exercise_name": exercise.get("exercise_name"),
-                    "completed_sets": len(sets),
+                    "completed_sets": len(valid_sets),
                     "average_weight_kg": (
                         round(sum(weights) / len(weights), 2)
                         if weights else None
