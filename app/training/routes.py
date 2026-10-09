@@ -862,17 +862,7 @@ def start_training_session(
     target_date = date.today()
 
     decision = decision_for_user(user=user, db=session)
-    if not training_start_allowed(decision):
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "TRAINING_START_BLOCKED",
-                "decision": decision["decision"],
-                "priority": decision["priority"],
-                "action": decision["action"],
-                "reason_codes": decision["reason_codes"],
-            },
-        )
+    execution_allowed = training_start_allowed(decision)
 
     active = session.exec(
         select(TrainingSessionDB)
@@ -889,7 +879,24 @@ def start_training_session(
                 .order_by(TrainingSetResultDB.exercise_key, TrainingSetResultDB.set_number)
             ).all()
         )
-        return {"status": "resumed", "session": _serialize_session(active, sets)}
+        serialized = _serialize_session(active, sets)
+        serialized["execution_blocked"] = not execution_allowed
+        serialized["execution_block_reason"] = (
+            decision.get("action") if not execution_allowed else None
+        )
+        return {"status": "resumed", "session": serialized}
+
+    if not execution_allowed:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "TRAINING_START_BLOCKED",
+                "decision": decision["decision"],
+                "priority": decision["priority"],
+                "action": decision["action"],
+                "reason_codes": decision["reason_codes"],
+            },
+        )
 
     base_plan = _load_base_plan(user)
     if _base_plan_is_stale(user, session, base_plan):
@@ -1759,7 +1766,7 @@ function renderProgress(){
 }
 function render(){
  if(!current)return;
- setStatus(current.status==='completed'?'Trening ukończony.':'Aktywna sesja · zapisuj serię po jej wykonaniu.',current.status==='completed'?'success':'');
+ setStatus(current.status==='completed'?'Trening ukończony.':current.execution_blocked?'Recovery blokuje kolejne serie. Możesz bezpiecznie zakończyć i zapisać dotychczasowy trening.':'Aktywna sesja · zapisuj serię po jej wykonaniu.',current.status==='completed'?'success':current.execution_blocked?'error':'');
  const exercises=current.planned?.exercises||[];
  workoutEl.innerHTML=exercises.length?exercises.map((ex,ei)=>{
   const logged=(current.sets||[]).filter(s=>s.exercise_key===ex.exercise_key);
@@ -1767,10 +1774,10 @@ function render(){
   return '<section class="exercise '+(done<Number(ex.sets||0)?'active':'')+'"><div class="head"><div><div class="title">'+(ei+1)+'. '+esc(ex.exercise_name)+'</div><div class="target">Cel: '+ex.sets+' × '+esc(ex.reps_label||ex.reps)+(ex.weight_kg?' · '+ex.weight_kg+' kg':'')+(ex.rpe?' · RPE '+ex.rpe:'')+'</div></div><span class="tag">'+done+'/'+ex.sets+' serie</span></div><div class="sets">'+Array.from({length:Math.max(0,Number(ex.sets||0))},(_,i)=>{
    const n=i+1,old=logged.find(s=>s.set_number===n),safe=encodeURIComponent(ex.exercise_key);
    return '<div class="set '+(old?.completed?'saved':'')+'"><b>Seria '+n+'</b>'+
-    '<input id="r-'+safe+'-'+n+'" type="number" min="0" max="1000" value="'+(old?.actual_reps??ex.reps)+'" aria-label="Powtórzenia">'+
-    '<input id="w-'+safe+'-'+n+'" type="number" min="0" max="10000" step="0.5" value="'+(old?.actual_weight_kg??ex.weight_kg??0)+'" aria-label="Ciężar kg">'+
-    '<input id="p-'+safe+'-'+n+'" type="number" min="1" max="10" value="'+(old?.actual_rpe??'')+'" placeholder="RPE" aria-label="RPE">'+
-    '<button class="save '+(old?.completed?'done':'')+'" onclick="logSet(\''+encodeURIComponent(ex.exercise_key)+'\','+n+',this)">'+(old?.completed?'Edytuj / zapisz':'Zapisz serię')+'</button>'+
+    '<input id="r-'+safe+'-'+n+'" type="number" min="0" max="1000" value="'+(old?.actual_reps??ex.reps)+'" aria-label="Powtórzenia" '+(current.execution_blocked?'disabled':'')+'>'+
+    '<input id="w-'+safe+'-'+n+'" type="number" min="0" max="10000" step="0.5" value="'+(old?.actual_weight_kg??ex.weight_kg??0)+'" aria-label="Ciężar kg" '+(current.execution_blocked?'disabled':'')+'>'+
+    '<input id="p-'+safe+'-'+n+'" type="number" min="1" max="10" value="'+(old?.actual_rpe??'')+'" placeholder="RPE" aria-label="RPE" '+(current.execution_blocked?'disabled':'')+'>'+
+    '<button class="save '+(old?.completed?'done':'')+'" '+(current.execution_blocked?'disabled':'')+' onclick="logSet(\''+encodeURIComponent(ex.exercise_key)+'\','+n+',this)">'+(old?.completed?'Edytuj / zapisz':'Zapisz serię')+'</button>'+
     '<textarea id="n-'+safe+'-'+n+'" maxlength="1000" placeholder="Notatka">'+esc(old?.note||'')+'</textarea></div>';
   }).join('')+'</div></section>'
  }).join(''):'<div class="progress-card empty">Brak ćwiczeń w snapshotcie tej sesji.</div>';
