@@ -127,7 +127,13 @@ class UserDB(SQLModel, table=True):
         setattr(self, field, json.dumps(value, ensure_ascii=False))
 
     def get_dict(self, field: str) -> dict:
-        return json.loads(getattr(self, field, "{}") or "{}")
+        """Read a JSON object defensively; corrupt persisted JSON must not crash requests."""
+        raw = getattr(self, field, "{}")
+        try:
+            value = json.loads(raw or "{}") if isinstance(raw, str) else raw
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return {}
+        return value if isinstance(value, dict) else {}
 
     def set_dict(self, field: str, value: dict):
         setattr(self, field, json.dumps(value, ensure_ascii=False))
