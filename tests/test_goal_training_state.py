@@ -79,3 +79,37 @@ def test_goal_training_state_does_not_mutate_goal_or_input():
     build_goal_training_state(goal, evidence)
     assert not hasattr(goal, "current_value")
     assert evidence == [{"date": "2026-10-05", "value": 105.0, "session_id": "s1"}]
+
+
+
+def test_goal_training_state_ignores_malformed_and_non_finite_snapshots():
+    state = build_goal_training_state(
+        make_goal(),
+        [
+            {"date": "2026-10-03", "value": 102.5, "session_id": "s1"},
+            {"date": "2026-10-04", "value": "not-a-number", "session_id": "bad"},
+            {"date": "2026-10-05", "value": float("nan"), "session_id": "nan"},
+            None,
+        ],
+        as_of=date(2026, 10, 5),
+    )
+    assert state["current_value"] == 102.5
+    assert state["evidence_count"] == 1
+    assert state["supporting_session_ids"] == ["s1"]
+    assert state["sufficient_data"] is True
+
+
+def test_goal_training_state_with_only_malformed_snapshots_is_insufficient():
+    state = build_goal_training_state(
+        make_goal(),
+        [
+            {"date": "2026-10-03", "value": "not-a-number", "session_id": "bad"},
+            {"date": "2026-10-04", "value": float("inf"), "session_id": "inf"},
+        ],
+        as_of=date(2026, 10, 5),
+    )
+    assert state["current_value"] is None
+    assert state["progress_pct"] is None
+    assert state["trend"] is None
+    assert state["sufficient_data"] is False
+    assert state["reason_codes"] == ["INSUFFICIENT_TRAINING_EVIDENCE"]
