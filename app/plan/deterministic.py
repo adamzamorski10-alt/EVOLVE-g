@@ -191,10 +191,20 @@ def build_deterministic_plan(
         availability_valid = (
             isinstance(configured_availability, list)
             and bool(configured_availability)
-            and all(isinstance(day, str) for day in configured_availability)
+            and all(
+                isinstance(day, str) and _normalize_weekday(day) is not None
+                for day in configured_availability
+            )
         )
     if availability_valid and "windows" in availability:
         availability_valid = isinstance(availability.get("windows"), dict)
+    if availability_valid and "session_duration_minutes" in availability:
+        duration = availability.get("session_duration_minutes")
+        availability_valid = (
+            isinstance(duration, int)
+            and not isinstance(duration, bool)
+            and 15 <= duration <= 240
+        )
     if not availability_valid:
         configured_availability = ["<invalid-availability-constraint>"]
     available_days = {
