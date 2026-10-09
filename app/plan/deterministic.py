@@ -181,6 +181,10 @@ def build_deterministic_plan(
     }
     raw_windows = availability.get("windows", {}) if isinstance(availability, dict) else {}
     windows = raw_windows if isinstance(raw_windows, dict) else {}
+    sport_schedule = get_dict("sport_training_schedule_json") if callable(get_dict) else {}
+    sport_schedule = sport_schedule if isinstance(sport_schedule, dict) else {}
+    raw_sport_windows = sport_schedule.get("windows", {})
+    sport_windows = raw_sport_windows if isinstance(raw_sport_windows, dict) else {}
     try:
         required_minutes = max(15, min(240, int(availability.get("session_duration_minutes", 60))))
     except (TypeError, ValueError):
@@ -394,6 +398,7 @@ def build_deterministic_plan(
                 "is_sport_session": is_sport_session,
                 "sport": sport_focus if is_sport_session else None,
                 "specialization": sport_specialization if is_sport_session else None,
+                "scheduled_time": sport_windows.get(day_name) if is_sport_session else None,
                 "exercises": workout_items,
             },
             "meals": meals,
