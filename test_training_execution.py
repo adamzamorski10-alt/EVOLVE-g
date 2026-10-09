@@ -1024,3 +1024,31 @@ def test_stale_plan_is_blocked_by_today_and_session_start():
             .where(TrainingSessionDB.status == "active")
         ).all()
         assert active == []
+
+
+def test_start_session_fails_closed_when_concurrent_lock_claim_errors(monkeypatch):
+    from sqlalchemy.exc import SQLAlchemyError
+
+    ctx = _context()
+    original_exec = Session.exec
+
+    def fail_user_claim(self, statement, *args, **kwargs):
+        if "UPDATE users" in str(statement).upper():
+            raise SQLAlchemyError("simulated concurrent write-lock contention")
+        return original_exec(self, statement, *args, **kwargs)
+
+    monkeypatch.setattr(Session, "exec", fail_user_claim)
+    response = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+
+    assert response.status_code == 409
+    assert "spróbuj ponownie" in response.json()["detail"].lower()
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        active = db.exec(
+            select(TrainingSessionDB)
+            .where(TrainingSessionDB.user_id == user.id)
+            .where(TrainingSessionDB.session_date == date.today())
+            .where(TrainingSessionDB.status == "active")
+        ).all()
+        assert active == []
+
