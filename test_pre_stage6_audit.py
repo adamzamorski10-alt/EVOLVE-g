@@ -131,7 +131,7 @@ def test_migration_chain_has_single_head_after_stage_18_availability():
         elif parent:
             children.add(parent)
     heads = sorted(revision for revision in revisions if revision not in children)
-    assert heads == ["evolve25_user_key_constraint_cleanup"], heads
+    assert heads == ["evolve25userkey"], heads
 
 
 def test_external_verification_queue_keeps_stage_0_5_checks_pending():
