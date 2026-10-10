@@ -32,8 +32,10 @@ Status: repository-side work in progress; deployed backend verification is block
 ## PostgreSQL CI follow-up (2026-10-10)
 
 - The PostgreSQL 16 job now successfully upgrades the clean database to the latest head and confirms the partial active-session index exists.
-- `alembic check` exposed a pre-existing schema drift: PostgreSQL retained the implicit unique constraint `users_user_key_key`, while current SQLModel metadata models this invariant through the unique index `ix_users_user_key`. Added migration `evolve25_user_key_constraint_cleanup` to remove only that redundant PostgreSQL constraint when present; the unique index remains the uniqueness enforcement.
-- The migration-chain test now expects `evolve25_user_key_constraint_cleanup` as the single head.
+- `alembic check` exposed a pre-existing schema drift: PostgreSQL retained the implicit unique constraint `users_user_key_key`, while current SQLModel metadata models this invariant through the unique index `ix_users_user_key`. Added migration `evolve25userkey` to remove only that redundant PostgreSQL constraint when present; the unique index remains the uniqueness enforcement.
+- The migration-chain test now expects `evolve25userkey` as the single head.
 - The CI run for commit `6bea808f` passed the current Stage 0–5 regression and clean SQLite migration integrity, but PostgreSQL `alembic check` failed on the schema drift described above. The new migration and updated head assertion are awaiting CI verification.
 - This proves only CI behavior against PostgreSQL 16 and SQLite. It does not identify the actual deployed Render database backend or verify production schema.
 - EV-022 browser verification remains pending.
+
+- A follow-up PostgreSQL run caught that the first revision identifier exceeded Alembic's 32-character version column. Renamed the revision to the short identifier `evolve25userkey`; the rerun is required before the PostgreSQL gate can be considered green.
