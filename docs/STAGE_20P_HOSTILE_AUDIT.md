@@ -61,3 +61,30 @@ Evidence:
 ## Decision
 
 The static hostile review found no new confirmed defect in the three transaction paths reviewed. Stage 20 is **not ready to close or merge** until EV-022 is completed and the deployed backend is identified. Prefer adding PostgreSQL route-level concurrency coverage if PostgreSQL is the deployed backend or is a supported production backend.
+
+## Stage 20R — Current-head re-review — 2026-10-10
+
+Status: static re-review complete; external verification remains pending.
+
+### Current code re-reviewed
+
+- Re-read the current branch versions of `app/training/routes.py`, `app/models.py`, and `test_training_execution.py`.
+- Session start performs a same-value update on the authenticated user's row before rechecking the active session; the partial unique index remains a second guard for supported SQLite/PostgreSQL backends.
+- Set writes recheck `status = 'active'` with a user-scoped conditional update immediately before mutation; the duplicate-key recovery path reacquires the same guard after rollback.
+- Completion conditionally transitions an owned active session and materializes canonical exercise results in the same transaction. Set aggregation is filtered by both session and authenticated user.
+- The current PostgreSQL CI job exercises route-level concurrent-start, set-after-completion rejection, and user-scoped materialization tests.
+
+### Current CI checkpoint
+
+- Latest checked PR workflow #734: https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/38085139296
+- Current Stage 0–5 regression: PASS.
+- SQLite clean-database Alembic integrity: PASS.
+- PostgreSQL 16 migration integrity plus route-level transaction tests: PASS.
+- Legacy regression: informational FAIL; not counted as a passing required gate.
+
+### Assessment and remaining blockers
+
+- This re-review found no new confirmed defect in the inspected transaction paths. It is not a claim that all application behavior is defect-free.
+- Browser-level two-tab races, refresh/resume/history consistency, and cross-user direct-ID behavior have not been independently observed in a real browser; EV-022 remains PENDING.
+- The actual deployed database backend, deployed Alembic head, and deployed `uq_training_active_user_day` definition remain unverified.
+- Keep PR #50 as Draft and do not merge until deployment evidence and EV-022 are recorded, then run the final required CI gates on the resulting head.
