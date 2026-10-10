@@ -27,3 +27,13 @@ Status: repository-side work in progress; deployed backend verification is block
 - `TrainingSessionDB` now declares the same partial unique index in SQLModel metadata so `alembic check` can compare the migrated database with the model definitions without reporting the index as an unexpected removal.
 - Updated the migration-head regression assertion to expect `evolve21active_session_unique` as the single current head.
 - CI run #690 caught the outdated expected-head assertion after migration integrity passed; the assertion was corrected. Final Stage 20N repository CI head: `155c6eb56d22bdf065dfa40e8a2a263687ad707b`. Push workflow #693 (https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/38080939768) and PR workflow #694 (https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/38080942789) both completed successfully: 315 passed, 7 warnings; Alembic clean-database integrity and the new partial-index assertion passed. The legacy regression remains an informational failure and is not counted as passing.
+
+
+## PostgreSQL CI follow-up (2026-10-10)
+
+- The PostgreSQL 16 job now successfully upgrades the clean database to the latest head and confirms the partial active-session index exists.
+- `alembic check` exposed a pre-existing schema drift: PostgreSQL retained the implicit unique constraint `users_user_key_key`, while current SQLModel metadata models this invariant through the unique index `ix_users_user_key`. Added migration `evolve25_user_key_constraint_cleanup` to remove only that redundant PostgreSQL constraint when present; the unique index remains the uniqueness enforcement.
+- The migration-chain test now expects `evolve25_user_key_constraint_cleanup` as the single head.
+- The CI run for commit `6bea808f` passed the current Stage 0–5 regression and clean SQLite migration integrity, but PostgreSQL `alembic check` failed on the schema drift described above. The new migration and updated head assertion are awaiting CI verification.
+- This proves only CI behavior against PostgreSQL 16 and SQLite. It does not identify the actual deployed Render database backend or verify production schema.
+- EV-022 browser verification remains pending.
