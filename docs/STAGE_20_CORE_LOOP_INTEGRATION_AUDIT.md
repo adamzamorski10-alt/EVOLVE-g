@@ -270,3 +270,19 @@ Current repository CI for head 9c5cc899e77c3a0ad8a5046b4d1b5c012e37f55b:
 - Legacy regression fails in both runs but remains explicitly informational/non-blocking; it is not counted as a pass.
 
 Stage 20L is an audit checkpoint, not a claim of production verification. Stage 20 remains isolated and must not be merged until the deployed backend and external EV-022 evidence are confirmed.
+
+## Stage 20M — hostile transaction and ownership audit
+
+The Stage 20M review re-read the session-start, set-write, and completion transaction paths against the existing invariants. It did not identify a new confirmed production defect in those reviewed paths. In particular, completion's canonical aggregation query is already scoped by both the owned session ID and the authenticated user's ID; the audit added an explicit hostile regression so that this ownership condition cannot be removed accidentally.
+
+Added `test_completion_materializes_only_sets_owned_by_session_user` to `test_training_execution.py`. It seeds a deliberately inconsistent foreign-user set row linked to an owned session, completes the session, and asserts that the owner's canonical `ExerciseResultDB` contains only the owner's completed set (count, reps, and weight remain unaffected by the foreign row).
+
+This is defense-in-depth test coverage, not a claim that a production data leak was observed.
+
+Verification:
+- Test commit: `e1eb026d66c700c9e002f5fc427c5e8c143fce69`.
+- CI is running for this exact commit: push workflow #675 and PR workflow #676. Results must be checked before treating the test as accepted.
+- Existing session lifecycle coverage also checks set-write rejection after completion wins, idempotent completion/materialization, empty-session rejection, partial completion, cross-user session access, and parallel session starts.
+- The code-level concurrency test remains SQLite CI evidence only; the Stage 20L backend and EV-022 browser gates remain open.
+
+Stage 20M is complete as a static review and test addition, conditional on the current-SHA CI gate. Do not merge Stage 20 until the current-SHA CI is green, the actual deployment backend has been checked, EV-022 is complete, and the final audit authorizes merge.
