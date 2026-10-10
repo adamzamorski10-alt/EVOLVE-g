@@ -63,7 +63,8 @@ def upgrade() -> None:
         batch_op.alter_column('log_date',
                    existing_type=sa.VARCHAR(),
                    type_=sa.Date(),
-                   existing_nullable=False)
+                   existing_nullable=False,
+                   postgresql_using='log_date::date')
         batch_op.alter_column('meals_json',
                    existing_type=sa.TEXT(),
                    type_=sqlmodel.AutoString(),
@@ -82,7 +83,8 @@ def upgrade() -> None:
         batch_op.alter_column('logged_at',
                    existing_type=sa.VARCHAR(),
                    type_=sa.DateTime(),
-                   existing_nullable=False)
+                   existing_nullable=False,
+                   postgresql_using='logged_at::timestamp')
         batch_op.drop_column('waist_cm')
         batch_op.drop_column('eaten_meals_json')
         batch_op.drop_column('photo_path')
@@ -95,11 +97,13 @@ def upgrade() -> None:
         batch_op.alter_column('session_date',
                    existing_type=sa.VARCHAR(),
                    type_=sa.Date(),
-                   existing_nullable=False)
+                   existing_nullable=False,
+                   postgresql_using='session_date::date')
         batch_op.alter_column('logged_at',
                    existing_type=sa.VARCHAR(),
                    type_=sa.DateTime(),
-                   existing_nullable=False)
+                   existing_nullable=False,
+                   postgresql_using='logged_at::timestamp')
 
     op.drop_index(op.f('ix_drill_results_user_date'), table_name='drill_results')
 
@@ -107,11 +111,13 @@ def upgrade() -> None:
         batch_op.alter_column('session_date',
                    existing_type=sa.VARCHAR(),
                    type_=sa.Date(),
-                   existing_nullable=False)
+                   existing_nullable=False,
+                   postgresql_using='session_date::date')
         batch_op.alter_column('logged_at',
                    existing_type=sa.VARCHAR(),
                    type_=sa.DateTime(),
-                   existing_nullable=False)
+                   existing_nullable=False,
+                   postgresql_using='created_at::timestamp')
 
     op.drop_index(op.f('ix_exercise_results_user_date'), table_name='exercise_results')
     op.drop_index(op.f('ix_exercise_results_user_name'), table_name='exercise_results')
@@ -133,7 +139,8 @@ def upgrade() -> None:
         batch_op.alter_column('created_at',
                    existing_type=sa.VARCHAR(),
                    type_=sa.DateTime(),
-                   existing_nullable=False)
+                   existing_nullable=False,
+                   postgresql_using='updated_at::timestamp')
         batch_op.alter_column('updated_at',
                    existing_type=sa.VARCHAR(),
                    type_=sa.DateTime(),
