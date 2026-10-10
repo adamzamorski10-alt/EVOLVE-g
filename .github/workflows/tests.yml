@@ -72,7 +72,8 @@ jobs:
                   "AND indexname = 'uq_training_active_user_day'"
               )).scalar_one_or_none()
           assert row and "UNIQUE INDEX" in row.upper(), row
-          assert "WHERE (status = 'active'::character varying)" in row.lower() or "WHERE ((status)::text = 'active'::text)" in row.lower() or "WHERE (status)::text = 'active'::text" in row.lower() or "WHERE status = 'active'::character varying" in row.lower(), row
+          normalized_indexdef = " ".join(row.upper().split()) if row else ""
+          assert row and "WHERE" in normalized_indexdef and "STATUS" in normalized_indexdef and "'ACTIVE'" in normalized_indexdef, row
           print(row)
           PY
 
