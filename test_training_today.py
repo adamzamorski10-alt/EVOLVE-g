@@ -92,19 +92,28 @@ def test_apply_adaptation_becomes_effective_today_plan_and_start_snapshot():
     assert data["status"] == "applied"
     assert data["version"] == 1
 
+    rolling = client.get("/app/plan/rolling", headers=_headers(ctx["token"]))
+    assert rolling.status_code == 200, rolling.text
+    assert rolling.json()["effective_plan"] == {
+        "source": "adaptive",
+        "version": 1,
+        "stale": False,
+    }
+    assert rolling.json()["planned_days"]
+
     today = client.get("/app/training/today", headers=_headers(ctx["token"]))
     assert today.status_code == 200
     today_data = today.json()
     assert today_data["plan"]["source"] == "adaptive"
     assert today_data["plan"]["version"] == 1
-    assert today_data["exercises"][0]["weight_kg"] == 95
+    assert today_data["exercises"][0]["weight_kg"] == 97.5
 
     started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
     assert started.status_code == 200
     snapshot = started.json()["session"]["planned"]
     assert snapshot["plan_source"] == "adaptive"
     assert snapshot["plan_version"] == 1
-    assert snapshot["exercises"][0]["weight_kg"] == 95
+    assert snapshot["exercises"][0]["weight_kg"] == 97.5
 
     with Session(engine) as db:
         revision = db.exec(
@@ -113,7 +122,7 @@ def test_apply_adaptation_becomes_effective_today_plan_and_start_snapshot():
         ).first()
         assert revision is not None
         applied_plan = json.loads(revision.applied_plan_json)
-        assert applied_plan["days"][0]["workout"]["exercises"][0]["weight_kg"] == 95
+        assert applied_plan["days"][0]["workout"]["exercises"][0]["weight_kg"] == 97.5
         assert sid in revision.source_session_ids()
 
 
@@ -129,7 +138,7 @@ def test_effective_adaptive_plan_is_user_scoped():
     assert first_today.status_code == 200
     assert second_today.status_code == 200
     assert first_today.json()["plan"]["source"] == "adaptive"
-    assert first_today.json()["exercises"][0]["weight_kg"] == 95
+    assert first_today.json()["exercises"][0]["weight_kg"] == 97.5
     assert second_today.json()["plan"]["source"] == "base"
     assert second_today.json()["plan"]["version"] == 0
     assert second_today.json()["exercises"][0]["weight_kg"] == 100
@@ -144,3 +153,23 @@ def test_today_ui_exposes_effective_plan_and_start_action():
     assert 'href="/app#my-day"' in response.text
     assert "← Panel" in response.text
     assert "dostosowany na podstawie ostatnich treningów" in response.text
+
+def test_recovery_constraint_cannot_be_bypassed_by_adaptive_plan():
+    from datetime import date
+    from app.models import DailyLogDB, UserDB
+    ctx = _context()
+    _complete_one(ctx)
+    applied = client.post('/app/training/adaptive/apply', headers=_headers(ctx['token']))
+    assert applied.status_code == 200
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx['email'])).first()
+        log = DailyLogDB(user_id=user.id, log_date=date.today(), sleep_hours=4, sleep_quality=3, energy_level=3, stress_level=9)
+        db.add(log)
+        db.commit()
+    today = client.get('/app/training/today', headers=_headers(ctx['token']))
+    assert today.status_code == 200
+    assert today.json()['plan']['source'] == 'adaptive'
+    assert today.json()['plan']['recovery_constraint'] == 'reduce_volume_50'
+    assert today.json()['can_start'] is False
+    constrained_sets = today.json()['exercises'][0]['sets']
+    assert 1 <= constrained_sets < 3

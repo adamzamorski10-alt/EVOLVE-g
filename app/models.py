@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Index, UniqueConstraint
 
 if TYPE_CHECKING:
     from app.fitness.calculations import _xp_to_level  # avoid circular import
@@ -91,6 +91,8 @@ class UserDB(SQLModel, table=True):
     sport_focus: Optional[str] = None                  # np. "koszykówka"
     sport_specialization: Optional[str] = None         # np. "rzuty"
     sport_training_days_json: str = "[]"               # np. ["Środa", "Sobota"]
+    training_availability_json: str = "{}"             # optional weekly day-level availability contract
+    sport_training_schedule_json: str = "{}"          # optional reserved sports-session time windows
     # ─── Auth (dodane w v2.1) ───────────────────────────────────────────────
     hashed_password: Optional[str] = None             # None = konto Netlify Identity (stare)
     is_active: bool = True                             # możliwość blokowania konta
@@ -125,7 +127,13 @@ class UserDB(SQLModel, table=True):
         setattr(self, field, json.dumps(value, ensure_ascii=False))
 
     def get_dict(self, field: str) -> dict:
-        return json.loads(getattr(self, field, "{}") or "{}")
+        """Read a JSON object defensively; corrupt persisted JSON must not crash requests."""
+        raw = getattr(self, field, "{}")
+        try:
+            value = json.loads(raw or "{}") if isinstance(raw, str) else raw
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return {}
+        return value if isinstance(value, dict) else {}
 
     def set_dict(self, field: str, value: dict):
         setattr(self, field, json.dumps(value, ensure_ascii=False))
@@ -179,6 +187,8 @@ class UserDB(SQLModel, table=True):
             "sport_focus": self.sport_focus,
             "sport_specialization": self.sport_specialization,
             "sport_training_days": self.get_list("sport_training_days_json"),
+            "training_availability": self.get_dict("training_availability_json"),
+            "sport_training_schedule": self.get_dict("sport_training_schedule_json"),
             "total_xp": self.total_xp,
             "level": _xp_to_level(self.total_xp),
             "injuries": [i.strip() for i in self.injuries.split(",") if i.strip()],
@@ -300,6 +310,68 @@ class DailyLogDB(SQLModel, table=True):
 
 
 
+
+
+
+class NutritionEntryDB(SQLModel, table=True):
+    """User-owned nutrition intake entry.
+
+    This is the canonical structured source for actual intake. Legacy
+    DailyLogDB meal JSON remains supported for compatibility, but new
+    nutrition analytics should consume this table.
+    """
+    __tablename__ = "nutrition_entries"
+
+    id: Optional[str] = Field(
+        default_factory=lambda: str(_uuid_mod.uuid4()),
+        primary_key=True,
+    )
+    user_id: str = Field(foreign_key="users.id", index=True)
+    consumed_at: datetime = Field(default_factory=datetime.now, index=True)
+    meal_type: str = Field(default="other", index=True)
+    name: str
+    calories_kcal: float = Field(default=0, ge=0)
+    protein_g: float = Field(default=0, ge=0)
+    carbs_g: float = Field(default=0, ge=0)
+    fat_g: float = Field(default=0, ge=0)
+    fiber_g: float = Field(default=0, ge=0)
+    water_liters: float = Field(default=0, ge=0)
+    notes: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "consumed_at": self.consumed_at.isoformat(),
+            "meal_type": self.meal_type,
+            "name": self.name,
+            "calories_kcal": self.calories_kcal,
+            "protein_g": self.protein_g,
+            "carbs_g": self.carbs_g,
+            "fat_g": self.fat_g,
+            "fiber_g": self.fiber_g,
+            "water_liters": self.water_liters,
+            "notes": self.notes,
+        }
+
+
+
+class NutritionAdaptationDB(SQLModel, table=True):
+    """Audit trail for bounded nutrition target adaptations."""
+    __tablename__ = "nutrition_adaptations"
+
+    id: Optional[str] = Field(default_factory=lambda: str(_uuid_mod.uuid4()), primary_key=True)
+    user_id: str = Field(foreign_key="users.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.now, index=True)
+    evidence_days: int
+    training_sessions: int
+    base_calories_kcal: int
+    proposed_calories_kcal: int
+    base_protein_g: int
+    proposed_protein_g: int
+    direction: str
+    reason: str
+    status: str = "applied"
+
 class TrainingSessionDB(SQLModel, table=True):
     __tablename__ = "training_sessions"
 
@@ -345,6 +417,10 @@ class ExerciseResultDB(SQLModel, table=True):
         primary_key=True,
     )
     user_id: str = Field(foreign_key="users.id", index=True)
+    # Provenance for results materialized from the deterministic training-session loop.
+    # Nullable to preserve compatibility with legacy/manual ExerciseResult rows.
+    source_session_id: Optional[str] = Field(default=None, foreign_key="training_sessions.id", index=True)
+    source_exercise_key: Optional[str] = Field(default=None, index=True)
     exercise_name: str = Field(index=True)
     session_date: date = Field(index=True)       # Rzeczywista data
     sets: int
@@ -375,9 +451,56 @@ class ExerciseResultDB(SQLModel, table=True):
             "logged_at": self.logged_at.isoformat(),
         }
 
+class GoalDB(SQLModel, table=True):
+    """User-owned goal definition used by the deterministic Goal layer.
+
+    Goal metrics and progress calculations are intentionally kept out of this
+    foundation model; Stage 3C owns metric semantics. This table stores the
+    goal identity and lifecycle only.
+    """
+    __tablename__ = "goals"
+
+    id: Optional[str] = Field(
+        default_factory=lambda: str(_uuid_mod.uuid4()),
+        primary_key=True,
+    )
+    user_id: str = Field(foreign_key="users.id", index=True)
+    goal_type: str = Field(index=True)
+    title: str
+    description: str = ""
+    status: str = Field(default="active", index=True)
+    start_date: date = Field(default_factory=date.today, index=True)
+    target_date: Optional[date] = Field(default=None, index=True)
+    completed_at: Optional[datetime] = None
+    archived_at: Optional[datetime] = None
+    priority: int = Field(default=0, ge=0, le=100)
+    metadata_json: str = "{}"
+    metric_key: Optional[str] = Field(default=None, index=True)
+    baseline_value: Optional[float] = None
+    target_value: Optional[float] = None
+    created_at: datetime = Field(default_factory=datetime.now, index=True)
+    updated_at: datetime = Field(default_factory=datetime.now, index=True)
+
+    user: "UserDB" = Relationship(
+        sa_relationship=relationship(
+            "UserDB",
+            lazy="select",
+        )
+    )
+
+    def metadata_dict(self) -> dict:
+        try:
+            value = json.loads(self.metadata_json or "{}")
+            return value if isinstance(value, dict) else {}
+        except (TypeError, json.JSONDecodeError):
+            return {}
+
 class AdaptivePlanRevisionDB(SQLModel, table=True):
     """Audit trail for user-owned adaptive plan revisions."""
     __tablename__ = "adaptive_plan_revisions"
+    __table_args__ = (
+        Index("uq_adaptive_plan_revision_user_version", "user_id", "version", unique=True),
+    )
 
     id: Optional[str] = Field(default_factory=lambda: str(_uuid_mod.uuid4()), primary_key=True)
     user_id: str = Field(foreign_key="users.id", index=True)

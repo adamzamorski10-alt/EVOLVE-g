@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import json
+
 import pytest
+from sqlmodel import Session, select
 
 from app.auth import routes as auth_routes
+from app.database import engine
+from app.models import UserDB
 from test_training_execution import _context, _headers, client
 
 
@@ -109,6 +114,99 @@ def test_profile_equipment_changes_plan_behavior():
     assert all("sztang" not in name and "maszyn" not in name and "leg press" not in name for name in exercises)
 
 
+def test_planner_normalizes_short_sport_weekdays():
+    ctx = _context()
+    response = client.put(
+        "/app/profile",
+        json={"sport_focus": "koszykówka", "sport_training_days": ["śr", "Sob."]},
+        headers=_headers(ctx["token"]),
+    )
+    assert response.status_code == 200, response.text
+    _baseline(ctx, sessions_per_week=3)
+    generated = client.post("/app/plan/generate", json={"force": True}, headers=_headers(ctx["token"]))
+    assert generated.status_code == 200, generated.text
+    days = generated.json()["plan"]["days"]
+    assert [day["day"] for day in days if day["is_sport_session"]] == ["Środa", "Sobota"]
+
+
+def test_availability_weekdays_are_normalized():
+    from app.plan.deterministic import _normalize_weekday
+    assert _normalize_weekday("wt") == "Wtorek"
+    assert _normalize_weekday("Czw.") == "Czwartek"
+    assert _normalize_weekday("unknown") is None
+
+
+def test_availability_api_persists_canonical_days():
+    ctx = _context()
+    response = client.put(
+        "/app/plan/availability",
+        json={"days": ["wt", "Czw.", "sob"]},
+        headers=_headers(ctx["token"]),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "days": ["Wtorek", "Czwartek", "Sobota"],
+        "windows": {},
+        "session_duration_minutes": 60,
+    }
+    fetched = client.get("/app/plan/availability", headers=_headers(ctx["token"]))
+    assert fetched.status_code == 200
+    assert fetched.json() == response.json()
+
+
+def test_availability_days_constrain_generated_plan():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=4)
+    saved = client.put(
+        "/app/plan/availability",
+        json={"days": ["Wtorek", "Czwartek", "Sobota"]},
+        headers=headers,
+    )
+    assert saved.status_code == 200, saved.text
+    generated = client.post(
+        "/app/plan/generate",
+        json={"force": True},
+        headers=headers,
+    )
+    assert generated.status_code == 200, generated.text
+    sessions = [
+        day["day"] for day in generated.json()["plan"]["days"]
+        if day["day_type"] != "rest"
+    ]
+    assert sessions
+    assert set(sessions).issubset({"Wtorek", "Czwartek", "Sobota"})
+    assert len(sessions) <= 3
+
+
+def test_availability_change_marks_existing_plan_stale():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+    generated = client.post("/app/plan/generate", json={"force": True}, headers=headers)
+    assert generated.status_code == 200, generated.text
+
+    updated = client.put(
+        "/app/plan/availability",
+        json={"days": ["Poniedziałek", "Piątek"]},
+        headers=headers,
+    )
+    assert updated.status_code == 200, updated.text
+    readiness = client.get("/app/plan/readiness", headers=headers)
+    assert readiness.status_code == 200, readiness.text
+    assert readiness.json()["profile_stale"] is True
+
+
+def test_availability_api_rejects_unknown_weekday():
+    ctx = _context()
+    response = client.put(
+        "/app/plan/availability",
+        json={"days": ["Someday"]},
+        headers=_headers(ctx["token"]),
+    )
+    assert response.status_code == 422
+
+
 def test_new_assessment_invalidates_existing_plan_by_provenance():
     ctx = _context()
     first_assessment = _baseline(ctx, sessions_per_week=4)
@@ -168,3 +266,455 @@ def test_low_recovery_reduces_session_volume():
     ]
     assert workout_days
     assert all(len(day["workout"]["exercises"]) <= 2 for day in workout_days if not day["is_sport_session"])
+
+
+
+def test_rolling_endpoint_returns_a_fresh_dated_horizon_and_is_authenticated():
+    from datetime import date, timedelta
+
+    ctx = _context()
+    missing_plan = client.get("/app/plan/rolling", headers=_headers(ctx["token"]))
+    assert missing_plan.status_code == 200, missing_plan.text
+    empty = missing_plan.json()
+    assert empty["horizon_start"] == date.today().isoformat()
+    assert empty["horizon_end"] == (date.today() + timedelta(days=13)).isoformat()
+    assert empty["sufficient_data"] is True
+    assert empty["planned_days"]
+    assert empty["reason_codes"] == []
+
+    _baseline(ctx, sessions_per_week=3)
+    generated = client.post(
+        "/app/plan/generate",
+        json={"force": True},
+        headers=_headers(ctx["token"]),
+    )
+    assert generated.status_code == 200, generated.text
+    response = client.get("/app/plan/rolling?horizon_days=14", headers=_headers(ctx["token"]))
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["plan_version"] == "rolling-v1"
+    assert data["horizon_start"] == date.today().isoformat()
+    assert data["horizon_end"] == (date.today() + timedelta(days=13)).isoformat()
+    dates = [item["scheduled_date"] for item in data["upcoming_sessions"]]
+    planned_dates = [item["scheduled_date"] for item in data["planned_days"]]
+    assert dates == sorted(dates)
+    assert len(dates) == len(set(dates))
+    assert planned_dates == sorted(planned_dates)
+    assert len(planned_dates) == len(set(planned_dates))
+    assert all(data["horizon_start"] <= value <= data["horizon_end"] for value in planned_dates)
+    assert all(item.get("status") != "completed" for item in data["upcoming_sessions"])
+    assert all(item["day_type"] == "rest" for item in data["rest_days"])
+    assert all(item["status"] == "rest" for item in data["rest_days"])
+    assert all(item["day_type"] != "rest" for item in data["upcoming_sessions"])
+
+
+def test_rolling_endpoint_rejects_unauthenticated_requests():
+    response = client.get("/app/plan/rolling")
+    assert response.status_code in (401, 403)
+
+def test_availability_time_windows_are_persisted_and_canonicalized():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    response = client.put(
+        "/app/plan/availability",
+        json={
+            "days": ["pon", "wt", "śr"],
+            "windows": {
+                "Poniedziałek": {"start": "16:00", "end": "16:30"},
+                "wt": {"start": "17:00", "end": "19:00"},
+            },
+            "session_duration_minutes": 60,
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["days"] == ["Poniedziałek", "Wtorek", "Środa"]
+    assert response.json()["windows"] == {
+        "Poniedziałek": {"start": "16:00", "end": "16:30"},
+        "Wtorek": {"start": "17:00", "end": "19:00"},
+    }
+    assert response.json()["session_duration_minutes"] == 60
+
+
+def test_planner_excludes_availability_windows_shorter_than_session_duration():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+    saved = client.put(
+        "/app/plan/availability",
+        json={
+            "days": ["Poniedziałek", "Wtorek", "Środa", "Czwartek"],
+            "windows": {
+                "Poniedziałek": {"start": "16:00", "end": "16:30"},
+                "Wtorek": {"start": "16:00", "end": "18:00"},
+            },
+            "session_duration_minutes": 60,
+        },
+        headers=headers,
+    )
+    assert saved.status_code == 200, saved.text
+    generated = client.post(
+        "/app/plan/generate",
+        json={"force": True},
+        headers=headers,
+    )
+    assert generated.status_code == 200, generated.text
+    sessions = [
+        day["day"] for day in generated.json()["plan"]["days"]
+        if day["day_type"] != "rest"
+    ]
+    assert "Poniedziałek" not in sessions
+    assert set(sessions).issubset({"Wtorek", "Środa", "Czwartek"})
+
+
+def test_availability_rejects_window_for_unselected_day():
+    ctx = _context()
+    response = client.put(
+        "/app/plan/availability",
+        json={
+            "days": ["Wtorek"],
+            "windows": {"Piątek": {"start": "16:00", "end": "18:00"}},
+        },
+        headers=_headers(ctx["token"]),
+    )
+    assert response.status_code == 422
+
+
+def test_availability_rejects_non_increasing_time_window():
+    ctx = _context()
+    response = client.put(
+        "/app/plan/availability",
+        json={
+            "days": ["Wtorek"],
+            "windows": {"Wtorek": {"start": "18:00", "end": "17:00"}},
+        },
+        headers=_headers(ctx["token"]),
+    )
+    assert response.status_code == 422
+
+def test_sport_config_persists_canonical_reserved_time_windows():
+    ctx = _context()
+    response = client.post(
+        "/app/sport-config",
+        json={
+            "sport_focus": "koszykówka",
+            "sport_specialization": "rzuty",
+            "sport_training_days": ["śr", "Sob."],
+            "sport_training_windows": {
+                "śr": {"start": "18:00", "end": "19:30"},
+                "Sobota": {"start": "10:00", "end": "11:30"},
+            },
+        },
+        headers=_headers(ctx["token"]),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["sport_training_days"] == ["Środa", "Sobota"]
+    assert response.json()["sport_training_windows"] == {
+        "Środa": {"start": "18:00", "end": "19:30"},
+        "Sobota": {"start": "10:00", "end": "11:30"},
+    }
+
+
+def test_sport_config_rejects_window_for_unconfigured_day():
+    ctx = _context()
+    response = client.post(
+        "/app/sport-config",
+        json={
+            "sport_focus": "koszykówka",
+            "sport_training_days": ["Środa"],
+            "sport_training_windows": {"Piątek": {"start": "18:00", "end": "19:30"}},
+        },
+        headers=_headers(ctx["token"]),
+    )
+    assert response.status_code == 422
+
+
+def test_generated_sport_session_exposes_reserved_time_window():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+    configured = client.post(
+        "/app/sport-config",
+        json={
+            "sport_focus": "koszykówka",
+            "sport_specialization": "rzuty",
+            "sport_training_days": ["śr"],
+            "sport_training_windows": {"Środa": {"start": "18:00", "end": "19:30"}},
+        },
+        headers=headers,
+    )
+    assert configured.status_code == 200, configured.text
+    generated = client.post("/app/plan/generate", json={"force": True}, headers=headers)
+    assert generated.status_code == 200, generated.text
+    sport_days = [day for day in generated.json()["plan"]["days"] if day["is_sport_session"]]
+    assert len(sport_days) == 1
+    assert sport_days[0]["day"] == "Środa"
+    assert sport_days[0]["workout"]["scheduled_time"] == {"start": "18:00", "end": "19:30"}
+    diagnostics = generated.json()["plan"]["_planner"]["schedule_diagnostics"]
+    assert "Środa" in diagnostics["sport_reserved_days"]
+
+def test_reserved_sport_session_is_not_filtered_by_short_gym_availability_window():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+    saved = client.put(
+        "/app/plan/availability",
+        json={
+            "days": ["Poniedziałek", "Wtorek", "Środa", "Czwartek"],
+            "windows": {"Środa": {"start": "18:00", "end": "18:30"}},
+            "session_duration_minutes": 60,
+        },
+        headers=headers,
+    )
+    assert saved.status_code == 200, saved.text
+    sport = client.post(
+        "/app/sport-config",
+        json={
+            "sport_focus": "koszykówka",
+            "sport_specialization": "rzuty",
+            "sport_training_days": ["Środa"],
+            "sport_training_windows": {"Środa": {"start": "19:00", "end": "20:30"}},
+        },
+        headers=headers,
+    )
+    assert sport.status_code == 200, sport.text
+    generated = client.post("/app/plan/generate", json={"force": True}, headers=headers)
+    assert generated.status_code == 200, generated.text
+    wednesday = next(day for day in generated.json()["plan"]["days"] if day["day"] == "Środa")
+    assert wednesday["is_sport_session"] is True
+    assert wednesday["workout"]["scheduled_time"] == {"start": "19:00", "end": "20:30"}
+
+
+def test_training_availability_and_sport_schedule_are_isolated_between_users():
+    owner = _context()
+    other = _context()
+
+    owner_availability = client.put(
+        "/app/plan/availability",
+        headers=_headers(owner["token"]),
+        json={
+            "days": ["Wtorek"],
+            "windows": {"Wtorek": {"start": "17:00", "end": "19:00"}},
+            "session_duration_minutes": 60,
+        },
+    )
+    other_availability = client.put(
+        "/app/plan/availability",
+        headers=_headers(other["token"]),
+        json={
+            "days": ["Czwartek"],
+            "windows": {"Czwartek": {"start": "18:00", "end": "20:00"}},
+            "session_duration_minutes": 90,
+        },
+    )
+    assert owner_availability.status_code == 200, owner_availability.text
+    assert other_availability.status_code == 200, other_availability.text
+
+    owner_sport = client.post(
+        "/app/sport-config",
+        headers=_headers(owner["token"]),
+        json={
+            "sport_focus": "koszykówka",
+            "sport_training_days": ["Sobota"],
+            "sport_training_windows": {"Sobota": {"start": "10:00", "end": "11:30"}},
+        },
+    )
+    other_sport = client.post(
+        "/app/sport-config",
+        headers=_headers(other["token"]),
+        json={
+            "sport_focus": "bieganie",
+            "sport_training_days": ["Niedziela"],
+            "sport_training_windows": {"Niedziela": {"start": "08:00", "end": "09:00"}},
+        },
+    )
+    assert owner_sport.status_code == 200, owner_sport.text
+    assert other_sport.status_code == 200, other_sport.text
+
+    owner_availability_read = client.get(
+        "/app/plan/availability", headers=_headers(owner["token"])
+    ).json()
+    other_availability_read = client.get(
+        "/app/plan/availability", headers=_headers(other["token"])
+    ).json()
+    assert owner_availability_read["days"] == ["Wtorek"]
+    assert other_availability_read["days"] == ["Czwartek"]
+    assert owner_availability_read["session_duration_minutes"] == 60
+    assert other_availability_read["session_duration_minutes"] == 90
+
+    owner_profile = client.get("/app/profile", headers=_headers(owner["token"])).json()
+    other_profile = client.get("/app/profile", headers=_headers(other["token"])).json()
+    assert owner_profile["sport_training_days"] == ["Sobota"]
+    assert other_profile["sport_training_days"] == ["Niedziela"]
+    assert owner_profile["sport_training_schedule"]["windows"] == {
+        "Sobota": {"start": "10:00", "end": "11:30"}
+    }
+    assert other_profile["sport_training_schedule"]["windows"] == {
+        "Niedziela": {"start": "08:00", "end": "09:00"}
+    }
+
+def test_infeasible_weekly_target_exposes_deterministic_schedule_diagnostics():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+    saved = client.put(
+        "/app/plan/availability",
+        json={
+            "days": ["Wtorek", "Czwartek"],
+            "windows": {
+                "Wtorek": {"start": "17:00", "end": "19:00"},
+                "Czwartek": {"start": "18:00", "end": "18:30"},
+            },
+            "session_duration_minutes": 60,
+        },
+        headers=headers,
+    )
+    assert saved.status_code == 200, saved.text
+
+    generated = client.post(
+        "/app/plan/generate",
+        json={"force": True},
+        headers=headers,
+    )
+    assert generated.status_code == 200, generated.text
+    diagnostics = generated.json()["plan"]["_planner"]["schedule_diagnostics"]
+
+    assert diagnostics["requested_training_days"] == 3
+    assert diagnostics["scheduled_training_days"] == 1
+    assert diagnostics["unmet_training_days"] == 2
+    assert diagnostics["scheduled_training_days"] == len([
+        day for day in generated.json()["plan"]["days"] if day["day_type"] != "rest"
+    ])
+    reasons = {item["day"]: item["reason_code"] for item in diagnostics["excluded_days"]}
+    assert reasons["Poniedziałek"] == "unavailable_day"
+    assert reasons["Czwartek"] == "insufficient_window"
+    assert "Poniedziałek" not in [
+        item["day"] for item in generated.json()["plan"]["days"]
+        if item["day_type"] != "rest"
+    ]
+
+    rolling = client.get("/app/plan/rolling?horizon_days=14", headers=headers)
+    assert rolling.status_code == 200, rolling.text
+    assert rolling.json()["schedule_diagnostics"]["unmet_training_days"] == 2
+
+
+
+def test_malformed_persisted_availability_fails_closed_with_diagnostics():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+
+    with Session(engine) as session:
+        user = session.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        assert user is not None
+        user.training_availability_json = '{"days": [broken'
+        session.add(user)
+        session.commit()
+
+    generated = client.post(
+        "/app/plan/generate",
+        json={"force": True},
+        headers=headers,
+    )
+    assert generated.status_code == 200, generated.text
+    plan = generated.json()["plan"]
+    diagnostics = plan["_planner"]["schedule_diagnostics"]
+    actual_sessions = [
+        day for day in plan["days"] if day["day_type"] != "rest"
+    ]
+
+    assert actual_sessions == []
+    assert diagnostics["requested_training_days"] == 3
+    assert diagnostics["scheduled_training_days"] == 0
+    assert diagnostics["unmet_training_days"] == 3
+    assert diagnostics["excluded_days"]
+    assert all(
+        item["reason_code"] == "invalid_constraint"
+        for item in diagnostics["excluded_days"]
+    )
+
+
+
+def test_malformed_persisted_availability_window_is_invalid_constraint():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+
+    with Session(engine) as session:
+        user = session.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        assert user is not None
+        user.training_availability_json = json.dumps({
+            "days": ["Wtorek"],
+            "windows": {"Wtorek": {"start": "9:00", "end": "11:00"}},
+            "session_duration_minutes": 60,
+        })
+        session.add(user)
+        session.commit()
+
+    generated = client.post("/app/plan/generate", json={"force": True}, headers=headers)
+    assert generated.status_code == 200, generated.text
+    plan = generated.json()["plan"]
+    diagnostics = plan["_planner"]["schedule_diagnostics"]
+    assert not [day for day in plan["days"] if day["day_type"] != "rest"]
+    reasons = {item["day"]: item["reason_code"] for item in diagnostics["excluded_days"]}
+    assert reasons["Wtorek"] == "invalid_constraint"
+
+
+
+def test_unknown_persisted_weekday_fails_closed():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+
+    with Session(engine) as session:
+        user = session.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        assert user is not None
+        user.training_availability_json = json.dumps({"days": ["Someday"]})
+        session.add(user)
+        session.commit()
+
+    generated = client.post("/app/plan/generate", json={"force": True}, headers=headers)
+    assert generated.status_code == 200, generated.text
+    plan = generated.json()["plan"]
+    diagnostics = plan["_planner"]["schedule_diagnostics"]
+    assert not [day for day in plan["days"] if day["day_type"] != "rest"]
+    assert all(
+        item["reason_code"] == "invalid_constraint"
+        for item in diagnostics["excluded_days"]
+    )
+
+
+
+def test_schedule_diagnostics_are_deterministic_for_identical_inputs():
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    _baseline(ctx, sessions_per_week=3)
+    saved = client.put(
+        "/app/plan/availability",
+        json={
+            "days": ["Wtorek", "Czwartek"],
+            "windows": {
+                "Wtorek": {"start": "17:00", "end": "19:00"},
+                "Czwartek": {"start": "18:00", "end": "18:30"},
+            },
+            "session_duration_minutes": 60,
+        },
+        headers=headers,
+    )
+    assert saved.status_code == 200, saved.text
+
+    plans = []
+    for _ in range(2):
+        response = client.post(
+            "/app/plan/generate",
+            json={"force": True},
+            headers=headers,
+        )
+        assert response.status_code == 200, response.text
+        plan = response.json()["plan"]
+        plans.append((
+            plan["_planner"]["schedule_diagnostics"],
+            [day["day"] for day in plan["days"] if day["day_type"] != "rest"],
+        ))
+
+    assert plans[0] == plans[1]

@@ -380,6 +380,20 @@ SPORT_DRILLS_DB: dict[str, dict[str, list[dict]]] = {
                 "progression_tip": "Cel: 10/10 ze stabilną pozycją -> dodaj zmianę kierunku.",
             },
         ],
+        "motoryka": [
+            {
+                "name": "Sprint 30 m",
+                "total_attempts": 6,
+                "description": "6 maksymalnych sprintów na 30 m z pełnym odpoczynkiem między próbami.",
+                "progression_tip": "Cel: poprawiaj średni czas przy zachowaniu jakości startu i techniki.",
+            },
+            {
+                "name": "Wyskok dosiężny",
+                "total_attempts": 8,
+                "description": "8 maksymalnych wyskoków dosiężnych z pełnym odpoczynkiem.",
+                "progression_tip": "Cel: utrzymuj wysoką jakość każdego skoku; przerwij serię przy wyraźnym spadku wysokości.",
+            },
+        ],
     },
 }
 

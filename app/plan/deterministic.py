@@ -8,8 +8,10 @@ are deterministic and derive only from explicit profile/assessment inputs.
 from __future__ import annotations
 
 from typing import Any
+import json
 
 from app.exercise_descriptions import get_how_to
+from app.plan.performance_signals import build_performance_signals, prioritize_sport_drills
 from app.legacy_routes import (
     SPORT_DRILLS_DB,
     _MUSCLE_MAP,
@@ -29,6 +31,21 @@ _DAY_SCHEDULE = [
     ("Sobota", False),
     ("Niedziela", True),
 ]
+
+
+def _normalize_weekday(value: Any) -> str | None:
+    """Normalize supported Polish weekday labels to the planner's canonical names."""
+    normalized = str(value or "").strip().casefold().rstrip(".")
+    aliases = {
+        "pon": "Poniedziałek", "poniedzialek": "Poniedziałek", "poniedziałek": "Poniedziałek",
+        "wt": "Wtorek", "wto": "Wtorek", "wtorek": "Wtorek",
+        "sr": "Środa", "śr": "Środa", "sroda": "Środa", "środa": "Środa",
+        "czw": "Czwartek", "czwartek": "Czwartek",
+        "pt": "Piątek", "piatek": "Piątek", "piątek": "Piątek",
+        "sob": "Sobota", "sobota": "Sobota",
+        "nd": "Niedziela", "niedz": "Niedziela", "niedziela": "Niedziela",
+    }
+    return aliases.get(normalized)
 
 
 def _frequency_days(value: str | None) -> int:
@@ -87,8 +104,39 @@ def _assessment_value(assessment: Any, field: str, default: Any = None) -> Any:
     return getattr(assessment, field, default) if assessment is not None else default
 
 
-def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
-    """Generate a reproducible weekly plan from explicit inputs only."""
+def _normalized_constraints(items: list[str]) -> list[str]:
+    return [
+        item.strip().lower()
+        for item in items
+        if isinstance(item, str) and item.strip()
+    ]
+
+
+def _meal_allowed(name: str, forbidden_terms: list[str]) -> bool:
+    lowered = name.lower()
+    return not any(term in lowered for term in forbidden_terms)
+
+
+def _meal_slots(meals_per_day: int) -> list[str]:
+    slots = ["Śniadanie", "Obiad", "Kolacja"]
+    if meals_per_day >= 4:
+        slots.insert(1, "Przekąska 1")
+    if meals_per_day >= 5:
+        slots.insert(3, "Przekąska 2")
+    return slots
+
+
+def build_deterministic_plan(
+    user: Any,
+    assessment: Any = None,
+    progress_evidence: list[dict[str, Any]] | None = None,
+) -> dict:
+    """Generate a reproducible weekly plan from explicit inputs and evidence.
+
+    Progress evidence is descriptive only. It may improve continuity by
+    prioritizing exercises with observed history, but it never makes an
+    adaptation decision or bypasses execution safety.
+    """
     meal_catalog = _default_meal_catalog(user.diet or "")
     exercise_pool = _exercise_pool()
 
@@ -99,24 +147,170 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
     sport_focus = (user.sport_focus or "").lower().strip()
     sport_specialization = (user.sport_specialization or "").lower().strip()
     configured_sport_days = {
-        d.strip()
-        for d in user.get_list("sport_training_days_json")
-        if isinstance(d, str) and d.strip()
+        day
+        for value in user.get_list("sport_training_days_json")
+        if (day := _normalize_weekday(value)) is not None
     }
 
     sport_drills: list[dict] = []
+    performance_signals = build_performance_signals(
+        assessment,
+        sport_focus=sport_focus,
+    )
     if sport_focus in SPORT_DRILLS_DB:
         spec_map = SPORT_DRILLS_DB[sport_focus]
         sport_drills = list(spec_map.get(sport_specialization) or next(iter(spec_map.values()), []))
+        secondary_drills = [
+            drill
+            for drills in spec_map.values()
+            for drill in drills
+            if drill not in sport_drills
+        ]
+        sport_drills = prioritize_sport_drills(
+            sport_drills,
+            performance_signals,
+            secondary_drills=secondary_drills,
+        )
 
-    candidate_days = [name for name, is_rest in _DAY_SCHEDULE if not is_rest]
+    def _read_constraint_dict(field: str) -> tuple[dict[str, Any], bool]:
+        """Read persisted scheduling JSON without letting corrupt data widen availability."""
+        raw = getattr(user, field, "{}")
+        if isinstance(raw, dict):
+            return raw, True
+        if not isinstance(raw, str) or not raw.strip():
+            return {}, True
+        try:
+            parsed = json.loads(raw)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return {}, False
+        return (parsed, True) if isinstance(parsed, dict) else ({}, False)
+
+    availability, availability_valid = _read_constraint_dict("training_availability_json")
+    configured_availability = availability.get("days") if availability_valid else None
+    if availability_valid and "days" in availability:
+        availability_valid = (
+            isinstance(configured_availability, list)
+            and bool(configured_availability)
+            and all(
+                isinstance(day, str) and _normalize_weekday(day) is not None
+                for day in configured_availability
+            )
+        )
+    if availability_valid and "windows" in availability:
+        availability_valid = isinstance(availability.get("windows"), dict)
+    if availability_valid and "session_duration_minutes" in availability:
+        duration = availability.get("session_duration_minutes")
+        availability_valid = (
+            isinstance(duration, int)
+            and not isinstance(duration, bool)
+            and 15 <= duration <= 240
+        )
+    if not availability_valid:
+        configured_availability = ["<invalid-availability-constraint>"]
+    available_days = {
+        day
+        for value in (configured_availability or [])
+        if (day := _normalize_weekday(value)) is not None
+    }
+    raw_windows = availability.get("windows", {}) if isinstance(availability, dict) else {}
+    windows = raw_windows if isinstance(raw_windows, dict) else {}
+    sport_schedule, sport_schedule_valid = _read_constraint_dict("sport_training_schedule_json")
+    if not sport_schedule_valid:
+        # Sport time windows are optional; malformed stored data must not crash
+        # plan generation or be surfaced as a trusted scheduled time.
+        sport_schedule = {}
+    raw_sport_windows = sport_schedule.get("windows", {})
+    sport_windows = raw_sport_windows if isinstance(raw_sport_windows, dict) else {}
+    try:
+        required_minutes = max(15, min(240, int(availability.get("session_duration_minutes", 60))))
+    except (TypeError, ValueError):
+        required_minutes = 60
+
+    def window_status(day: str) -> str:
+        """Return unrestricted, sufficient, insufficient, or invalid for a weekday."""
+        if day not in windows:
+            return "unrestricted"
+        window = windows[day]
+        if not isinstance(window, dict):
+            return "invalid"
+        start, end = window.get("start"), window.get("end")
+        if not isinstance(start, str) or not isinstance(end, str):
+            return "invalid"
+        import re
+        if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", start):
+            return "invalid"
+        if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", end):
+            return "invalid"
+        start_hour, start_minute = (int(part) for part in start.split(":"))
+        end_hour, end_minute = (int(part) for part in end.split(":"))
+        start_total = start_hour * 60 + start_minute
+        end_total = end_hour * 60 + end_minute
+        if start_total >= end_total:
+            return "invalid"
+        if end_total - start_total < required_minutes:
+            return "insufficient"
+        return "sufficient"
+
+    def has_sufficient_window(day: str) -> bool:
+        return window_status(day) in {"unrestricted", "sufficient"}
+
+    candidate_days = [
+        name for name, is_rest in _DAY_SCHEDULE
+        if availability_valid and not is_rest
+        and (not configured_availability or name in available_days)
+        and (
+            (name in configured_sport_days and bool(sport_drills))
+            or has_sufficient_window(name)
+        )
+    ]
+    # Availability is a hard constraint: never fill the weekly target on an
+    # unavailable day. A smaller feasible plan is safer than an impossible one.
+    feasible_target_days = min(target_days, len(candidate_days))
     selected_days: list[str] = [
         day for day in candidate_days if day in configured_sport_days
     ]
     for day in candidate_days:
-        if day not in selected_days and len(selected_days) < target_days:
+        if day not in selected_days and len(selected_days) < feasible_target_days:
             selected_days.append(day)
-    selected_days = selected_days[:target_days]
+    selected_days = selected_days[:feasible_target_days]
+
+    # Keep scheduling outcomes explicit so a reduced plan is not mistaken for
+    # a fully satisfied weekly target. Diagnostics are deterministic and contain
+    # only the authenticated user's own constraints.
+    selected_day_set = set(selected_days)
+    excluded_schedule_days = []
+    for day_name, is_rest in _DAY_SCHEDULE:
+        if is_rest or day_name in selected_day_set:
+            continue
+        if not availability_valid:
+            reason_code = "invalid_constraint"
+        elif configured_availability and day_name not in available_days:
+            reason_code = "unavailable_day"
+        elif day_name not in configured_sport_days or not sport_drills:
+            status = window_status(day_name)
+            if status == "invalid":
+                reason_code = "invalid_constraint"
+            elif status == "insufficient":
+                reason_code = "insufficient_window"
+            else:
+                reason_code = "weekly_target_reached"
+        else:
+            reason_code = "weekly_target_reached"
+        excluded_schedule_days.append({
+            "day": day_name,
+            "reason_code": reason_code,
+        })
+    sport_reserved_days = [
+        day for day in selected_days
+        if day in configured_sport_days and bool(sport_drills)
+    ]
+    schedule_diagnostics = {
+        "requested_training_days": target_days,
+        "scheduled_training_days": len(selected_days),
+        "unmet_training_days": max(0, target_days - len(selected_days)),
+        "sport_reserved_days": sport_reserved_days,
+        "excluded_days": excluded_schedule_days,
+    }
 
     focus = [x.lower() for x in user.get_list("training_focus_json") if isinstance(x, str) and x.strip()]
     improve = [x.lower() for x in user.get_list("improvement_areas_json") if isinstance(x, str) and x.strip()]
@@ -129,9 +323,14 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
     focus_iter = iter(focus_sequence)
 
     equipment = _equipment_aliases(user.get_list("available_equipment_json"))
-    avoid_exercises = user.get_list("avoid_exercises_json")
-    preferred_foods = [x.lower() for x in user.get_list("preferred_foods_json")]
-    avoid_foods = [x.lower() for x in user.get_list("avoid_foods_json")]
+    avoid_exercises = _normalized_constraints(user.get_list("avoid_exercises_json"))
+    preferred_foods = _normalized_constraints(user.get_list("preferred_foods_json"))
+    avoid_foods = _normalized_constraints(user.get_list("avoid_foods_json"))
+    allergies_raw = getattr(user, "allergies", "") or ""
+    allergies = _normalized_constraints(allergies_raw.replace(",", ";").split(";"))
+    forbidden_foods = avoid_foods + [item for item in allergies if item not in avoid_foods]
+    meals_per_day = getattr(user, "meals_per_day", 3) or 3
+    meal_slots = _meal_slots(max(3, min(5, int(meals_per_day))))
 
     base_calories = user.calories_target
     if not base_calories:
@@ -139,9 +338,32 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
 
         base_calories = calc_calories(user)
 
-    days: list[dict] = []
-    meal_slots = ["Śniadanie", "Przekąska 1", "Obiad", "Przekąska 2", "Kolacja"]
+    normalized_progress = [
+        item for item in (progress_evidence or [])
+        if isinstance(item, dict)
+        and item.get("status") == "sufficient"
+        and item.get("sufficient_data") is True
+    ]
 
+    def _progress_priority(exercise: dict[str, Any]) -> int:
+        def _match_key(value: Any) -> str:
+            normalized = "".join(
+                char if char.isalnum() else "-"
+                for char in str(value or "").strip().lower()
+            )
+            return "-".join(part for part in normalized.split("-") if part)
+
+        exercise_keys = {
+            _match_key(exercise.get("name")),
+            _match_key(exercise.get("exercise_key")),
+        }
+        for evidence in normalized_progress:
+            evidence_key = _match_key(evidence.get("exercise_key"))
+            if evidence_key and evidence_key in exercise_keys:
+                return 0 if evidence.get("material_change") else 1
+        return 2
+
+    days: list[dict] = []
     for day_index, (day_name, is_sunday_rest) in enumerate(_DAY_SCHEDULE):
         is_selected = day_name in selected_days
         is_sport_day = is_selected and bool(sport_drills) and day_name in configured_sport_days
@@ -181,14 +403,14 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
                 ex for ex in exercise_pool.get(focus_key, [])
                 if _exercise_allowed(ex["name"], equipment, avoid_exercises)
             ]
+            available = sorted(
+                enumerate(available),
+                key=lambda pair: (_progress_priority(pair[1]), pair[0]),
+            )
+            available = [exercise for _, exercise in available]
             if not available:
-                # If a user selected a restrictive equipment list, keep only
-                # explicitly compatible exercises rather than silently violating it.
-                available = [
-                    {"name": "Pompki", "sets": "3", "reps": "8-15",
-                     "notes": "Wariant bez dodatkowego sprzętu.",
-                     "how_to": "Utrzymuj stabilny tułów i kontrolowany zakres ruchu."}
-                ]
+                # Never silently bypass equipment or exercise restrictions.
+                available = []
 
             exercise_limit = 4
             if _assessment_value(assessment, "training_level") == "początkujący":
@@ -221,7 +443,11 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
 
         meals = []
         for slot in meal_slots:
-            candidates = list(meal_catalog.get(slot, []))
+            catalog_candidates = list(meal_catalog.get(slot, []))
+            candidates = [
+                item for item in catalog_candidates
+                if _meal_allowed(str(item[0]), forbidden_foods)
+            ]
             if preferred_foods:
                 preferred_candidates = [
                     item for item in candidates
@@ -229,14 +455,15 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
                 ]
                 if preferred_candidates:
                     candidates = preferred_candidates
-            if avoid_foods:
-                filtered = [
-                    item for item in candidates
-                    if not any(term in item[0].lower() for term in avoid_foods)
-                ]
-                if filtered:
-                    candidates = filtered
-            candidates = candidates or meal_catalog.get(slot, [("Posiłek", 500)])
+            if not candidates:
+                meals.append({
+                    "slot": slot,
+                    "name": "Brak bezpiecznej propozycji w katalogu",
+                    "kcal": 0,
+                    "alternatives": [],
+                    "constraint_blocked": True,
+                })
+                continue
             main = candidates[day_index % len(candidates)]
             meals.append({
                 "slot": slot,
@@ -246,6 +473,7 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
                     {"name": item[0], "kcal": item[1]}
                     for item in candidates if item[0] != main[0]
                 ][:3],
+                "constraint_blocked": False,
             })
 
         days.append({
@@ -259,6 +487,7 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
                 "is_sport_session": is_sport_session,
                 "sport": sport_focus if is_sport_session else None,
                 "specialization": sport_specialization if is_sport_session else None,
+                "scheduled_time": sport_windows.get(day_name) if is_sport_session else None,
                 "exercises": workout_items,
             },
             "meals": meals,
@@ -272,5 +501,9 @@ def build_deterministic_plan(user: Any, assessment: Any = None) -> dict:
             "version": "deterministic-v2",
             "target_training_days": target_days,
             "assessment_used": assessment is not None,
+            "performance_signals": performance_signals,
+            "progress_evidence_used": bool(normalized_progress),
+            "progress_evidence_count": len(normalized_progress),
+            "schedule_diagnostics": schedule_diagnostics,
         },
     }
