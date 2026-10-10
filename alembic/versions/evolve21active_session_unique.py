@@ -1,13 +1,13 @@
 """Restore the active-session uniqueness invariant after schema sync.
 
 Revision ID: evolve21active_session_unique
-Revises: 0d74b80a4276
+Revises: evolve24_sport_training_schedule
 """
 from alembic import op
 import sqlalchemy as sa
 
 revision = "evolve21active_session_unique"
-down_revision = "0d74b80a4276"
+down_revision = "evolve24_sport_training_schedule"
 branch_labels = None
 depends_on = None
 
