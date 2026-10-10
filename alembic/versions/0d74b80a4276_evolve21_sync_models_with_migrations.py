@@ -140,11 +140,12 @@ def upgrade() -> None:
                    existing_type=sa.VARCHAR(),
                    type_=sa.DateTime(),
                    existing_nullable=False,
-                   postgresql_using='updated_at::timestamp')
+                   postgresql_using='created_at::timestamp')
         batch_op.alter_column('updated_at',
                    existing_type=sa.VARCHAR(),
                    type_=sa.DateTime(),
-                   existing_nullable=False)
+                   existing_nullable=False,
+                   postgresql_using='updated_at::timestamp')
         batch_op.drop_column('level')
         batch_op.drop_column('xp_total')
 
