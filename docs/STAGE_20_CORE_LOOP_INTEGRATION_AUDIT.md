@@ -228,10 +228,19 @@ Verification status at documentation time:
 
 ## Stage 20K — serialize concurrent session starts
 
-A further code review identified a possible check-then-insert race in `/sessions/start`: two requests could both observe no active session for the user/date and then insert separate active sessions. This is a code-level concurrency risk, not a confirmed production incident.
+A code review identified a possible check-then-insert race in `/sessions/start`: two requests could both observe no active session for the user/date and then insert separate active sessions. This was a code-level concurrency risk, not a confirmed production incident.
 
-The start route now updates the authenticated user's `updated_at` row before querying for an active session. The write lock is held in the same transaction as the active-session recheck and any new-session insert. On databases with row-level locks, competing starts for the same user serialize on the user row; after the first request commits, the next request re-reads the active session and resumes it instead of creating another. SQLite uses its database write-lock semantics for the same write claim.
+The start route now performs a same-value UPDATE on the authenticated user's row before querying for an active session. It uses `updated_at = UserDB.updated_at` so the lock claim does not semantically change the profile timestamp. The write claim, active-session recheck and any new-session insert remain in the same transaction. If the database rejects the claim, the route rolls back and returns HTTP 409 rather than continuing without the claim.
 
-This is intentionally a narrow application-level serialization change and does not add a migration or alter historical data. If the database rejects the write claim (for example, due to concurrent SQLite write-lock contention), the route rolls back and returns HTTP 409 rather than continuing without the claim or leaking a database exception. A focused regression test simulates this lock-claim failure and verifies that no active session is created. This test validates the fail-closed path, not true parallel-request serialization; a dedicated parallel-request integration test remains desirable before treating the race as fully closed. Verify the full current regression and clean-database migration jobs for the exact final commit.
+Added two focused tests:
+- A fail-closed test simulates a database error during the user-row UPDATE and verifies HTTP 409 with no active session created.
+- A parallel-request integration test releases two session-start requests together, permits only HTTP 200/409 responses, checks that successful responses do not return distinct session IDs, and asserts that the database contains at most one active session for that user/date.
 
-Stage 20 remains unmerged. External browser verification remains open.
+Verification on exact code/test commit `c1e420551add9073d8553ff6e72e6916ccb54a1d`:
+- [CI run #668](https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/38030821394): overall **SUCCESS**.
+- Current EVOLVE Stage 0–5 regression: **314 passed, 7 warnings**.
+- Alembic clean-database integrity: **PASS**.
+- Legacy regression: **FAIL, informational / non-blocking**; collection reports duplicate `users` table definitions in legacy tests and an outdated HTTP 200 expectation where the API returns 422.
+- The test provides integration evidence for the configured CI database environment. It does not, by itself, establish identical lock semantics for every database backend; backend-specific behavior still requires confirmation against the supported deployment configuration.
+
+Stage 20 remains unmerged. External browser verification remains open, and the PR must remain draft until the remaining transaction-safety review and external verification are complete.
