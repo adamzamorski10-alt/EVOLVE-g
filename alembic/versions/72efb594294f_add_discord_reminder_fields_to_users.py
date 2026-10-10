@@ -22,7 +22,7 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column("discord_connect_code", sa.String(), nullable=True))
         batch_op.add_column(sa.Column("discord_connect_code_expires_at", sa.DateTime(), nullable=True))
         batch_op.add_column(sa.Column("reminder_time", sa.String(), nullable=True))
-        batch_op.add_column(sa.Column("reminder_enabled", sa.Boolean(), nullable=False, server_default=sa.text("0")))
+        batch_op.add_column(sa.Column("reminder_enabled", sa.Boolean(), nullable=False, server_default=sa.false()))
         batch_op.add_column(sa.Column("last_reminder_sent_date", sa.Date(), nullable=True))
 
 
