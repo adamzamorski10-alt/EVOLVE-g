@@ -440,3 +440,19 @@ Implementation may continue to subsequent stages while these checks remain pendi
   - verify Stage 0–5 regression remains green after Recovery integration.
 - Evidence required: exact browser/runtime scenarios, screenshots or equivalent evidence, exact automated command + exit code, and PASS/FAIL for each check.
 - Do not mark PASS from static inspection alone.
+
+## EV-022 — Stage 20 training transaction/concurrency browser verification
+
+- Status: PENDING
+- Owner: Antygravity / local test runner
+- Purpose: verify the real user-facing training lifecycle after the Stage 20 transaction-safety changes.
+- Scope:
+  1. Open today's planned workout and start a session; confirm the UI resumes the same active session on a repeated start.
+  2. Open two tabs for the same authenticated user and issue the start action as close together as possible; confirm there is at most one active session for today's date.
+  3. With an active session, log a set in one tab while completing the session in the other; verify the result is consistent and a late set write is rejected rather than persisted after completion.
+  4. Refresh/reopen the session and verify status, completed sets and history remain consistent.
+  5. Confirm another user's session cannot be resumed or mutated through direct IDs.
+  6. Record browser/network errors and exact environment/database backend used.
+- Evidence required: PASS/FAIL for each scenario, screenshots or concise notes, environment/database backend, and any API status codes observed.
+- Do not mark PASS from automated CI or static review alone.
+
