@@ -456,3 +456,15 @@ Implementation may continue to subsequent stages while these checks remain pendi
 - Evidence required: PASS/FAIL for each scenario, screenshots or concise notes, environment/database backend, and any API status codes observed.
 - Do not mark PASS from automated CI or static review alone.
 
+
+
+## Stage 20Q — PostgreSQL transaction CI checkpoint — 2026-10-10
+
+- Corrected the workflow's regression-test paths and the route-test node ID after the initial run exposed CI configuration errors.
+- Latest PR CI run: https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/38084825190
+- Current Stage 0–5 regression: PASS (315 passed, 7 warnings).
+- SQLite clean-database Alembic integrity: PASS, including a single migration head, upgrade/downgrade/upgrade checks, metadata consistency, and active-session partial unique index.
+- PostgreSQL 16 Alembic integrity: PASS, including metadata consistency and active-session partial unique index.
+- PostgreSQL route-level transaction tests: PASS for concurrent start serialization, rejecting a set write when completion wins the race, and filtering completion materialization to the session owner's sets.
+- Legacy regression: informational FAIL; this remains distinct from required gates.
+- **EV-022 remains PENDING.** CI is not browser evidence. Still required: real UI two-tab checks, refresh/resume/history consistency, cross-user direct-ID isolation, observed HTTP status codes, and identification of the deployed database backend plus deployed Alembic head/index.
