@@ -117,7 +117,7 @@ def upgrade() -> None:
                    existing_type=sa.VARCHAR(),
                    type_=sa.DateTime(),
                    existing_nullable=False,
-                   postgresql_using='created_at::timestamp')
+                   postgresql_using='logged_at::timestamp')
 
     op.drop_index(op.f('ix_exercise_results_user_date'), table_name='exercise_results')
     op.drop_index(op.f('ix_exercise_results_user_name'), table_name='exercise_results')
