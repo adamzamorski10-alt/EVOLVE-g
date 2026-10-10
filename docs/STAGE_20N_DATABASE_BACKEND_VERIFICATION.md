@@ -39,3 +39,12 @@ Status: repository-side work in progress; deployed backend verification is block
 - EV-022 browser verification remains pending.
 
 - A follow-up PostgreSQL run caught that the first revision identifier exceeded Alembic's 32-character version column. Renamed the revision to the short identifier `evolve25userkey`; the rerun is required before the PostgreSQL gate can be considered green.
+
+
+## Latest PostgreSQL assertion correction (2026-10-10)
+
+- CI run #38082938837 confirmed the PostgreSQL migration chain and `alembic check` completed, but the final partial-index assertion failed because its mixed-case expected fragments were compared against a lowercased database definition. The failure was in the test assertion; the returned index definition was `CREATE UNIQUE INDEX ... WHERE ((status)::text = 'active'::text)`.
+- Updated the assertion to normalize the returned definition to uppercase and whitespace-normalized text, then verify the filtered predicate contains `WHERE`, `STATUS`, and `'ACTIVE'`.
+- Fix commit: `04872302b66507169e9a49c5b06b955b54094966`. Push run #38083403310 and PR run #38083406643 are currently running; PostgreSQL gate is not yet considered PASS.
+- Legacy regression continues to fail as an informational job and is not represented as passing.
+- Production backend verification and EV-022 browser verification remain pending.
