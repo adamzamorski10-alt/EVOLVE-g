@@ -19,3 +19,11 @@ Status: repository-side work in progress; deployed backend verification is block
 - Actual deployed database backend, deployed Alembic head/index, and concurrent-start / set-write-vs-completion checks on that backend remain unverified. Do not expose credentials or run destructive race tests against real user data.
 - EV-022 real-browser verification remains pending.
 - Keep PR #50 draft and do not merge until current-head CI passes and deployment-specific evidence is recorded.
+
+
+## Follow-up CI corrections
+
+- The migration was chained after `evolve24_sport_training_schedule`; the initial attachment to `0d74b80a4276` produced two heads and was rejected by CI.
+- `TrainingSessionDB` now declares the same partial unique index in SQLModel metadata so `alembic check` can compare the migrated database with the model definitions without reporting the index as an unexpected removal.
+- Updated the migration-head regression assertion to expect `evolve21active_session_unique` as the single current head.
+- CI run #690 caught the outdated expected-head assertion after migration integrity passed; the assertion was corrected. Latest test commit: `5f6ff6e966b3076cbcac297d21c53d92ff204179`; push run #693 is queued at last check.
