@@ -286,3 +286,34 @@ Verification:
 - The code-level concurrency test remains SQLite CI evidence only; the Stage 20L backend and EV-022 browser gates remain open.
 
 Stage 20M is complete as a static review and test addition, conditional on the current-SHA CI gate. Do not merge Stage 20 until the current-SHA CI is green, the actual deployment backend has been checked, EV-022 is complete, and the final audit authorizes merge.
+
+
+## Stage 20N — database backend verification and active-session invariant
+
+### Repository verification completed
+
+- The deployment manifest `render.yaml` does not declare `DATABASE_URL`; `app/config.py` defaults to SQLite. Therefore, repository configuration does **not** prove which backend the deployed Render service currently uses. The live service's environment/dashboard is not available through this repository connection, and no credentials or connection string were requested or exposed.
+- The CI workflow explicitly sets `DATABASE_URL=sqlite:///...`; prior concurrency evidence is SQLite-only.
+- A deeper migration-chain inspection found a concrete schema issue: migration `0d74b80a4276_evolve21_sync_models_with_migrations.py` drops `uq_training_active_user_day`, and the checked-in migration chain did not recreate it afterward. This meant the documented database-level defense-in-depth was not guaranteed to exist at the latest schema head. This is a repository finding, not evidence of a production incident.
+- Added migration `evolve21active_session_unique` after `0d74b80a4276` to restore the partial unique index on `training_sessions(user_id, session_date)` where `status = 'active'`. It explicitly supports SQLite and PostgreSQL and fails closed on other dialects instead of silently omitting the concurrency invariant.
+- Added a migration CI assertion that checks the SQLite schema after upgrade for the named unique partial index and its active-status predicate.
+
+### Remaining external/deployment checks
+
+These cannot be honestly marked complete from repository-only access:
+
+1. Inspect the deployed service's configured database driver/backend (report only dialect/driver; never copy or publish credentials, host, or the full URL).
+2. On that same backend, run `alembic current --check-heads` and inspect `uq_training_active_user_day`.
+3. In a controlled test account/environment on that backend, run concurrent session-start requests and a set-write-vs-completion race; record HTTP status codes and final database state. Do not perform destructive/concurrent writes against real user data.
+4. If the backend is neither SQLite nor PostgreSQL, stop and design/test a backend-appropriate invariant before deployment; the new migration intentionally fails closed.
+5. Keep EV-022 pending until the browser/user-flow checks are run.
+
+### Status
+
+- Repository/static backend discovery: **COMPLETE**.
+- Migration correction and CI schema assertion: **IMPLEMENTED; current-head CI verification pending**.
+- Actual deployed backend and deployed schema: **BLOCKED — deployment environment access/evidence unavailable here**.
+- Deployed-backend concurrency execution: **BLOCKED — requires a controlled environment using the actual backend**.
+- EV-022 browser verification: **PENDING**.
+
+Do not claim Stage 20N fully passed until the new current-head CI passes and the deployment-specific items above have evidence. Stage 20 remains isolated in draft PR #50 and must not be merged yet.
