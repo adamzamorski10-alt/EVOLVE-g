@@ -1053,3 +1053,40 @@ def test_start_session_fails_closed_when_concurrent_lock_claim_errors(monkeypatc
         ).all()
         assert active == []
 
+def test_start_session_serializes_concurrent_requests_to_at_most_one_active_session():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    ctx = _context()
+    headers = _headers(ctx["token"])
+    gate = Barrier(2)
+
+    def start():
+        gate.wait(timeout=5)
+        return client.post("/app/training/sessions/start", headers=headers)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(start) for _ in range(2)]
+        responses = [future.result(timeout=20) for future in futures]
+
+    assert all(response.status_code in {200, 409} for response in responses), [
+        (response.status_code, response.text) for response in responses
+    ]
+
+    successful = [response for response in responses if response.status_code == 200]
+    session_ids = {
+        response.json()["session"]["id"]
+        for response in successful
+    }
+    assert len(session_ids) <= 1, "Concurrent start requests returned different sessions"
+
+    with Session(engine) as db:
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        active = db.exec(
+            select(TrainingSessionDB)
+            .where(TrainingSessionDB.user_id == user.id)
+            .where(TrainingSessionDB.session_date == date.today())
+            .where(TrainingSessionDB.status == "active")
+        ).all()
+        assert len(active) <= 1, f"Expected at most one active session, found {len(active)}"
+
