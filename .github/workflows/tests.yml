@@ -24,6 +24,58 @@ jobs:
       - run: python -m compileall -q app alembic
       - run: python -m pytest -q test_training_execution.py test_training_ui.py test_training_set_validation.py test_training_today.py test_core_foundation.py test_core_planning_contract.py test_frontend_hosting.py test_goals.py test_goals_api.py test_nutrition_foundation.py test_training_result_provenance.py test_pre_stage6_audit.py test_stage0_5_cross_user_isolation.py test_stage5_final_integration.py test_recovery_response.py test_plan_performance_signals.py test_training_evaluation.py test_training_evaluation_api.py test_training_adaptation.py test_training_next_effective_plan.py test_training_adaptive_audit.py tests/test_goal_training_state.py test_goal_training_state_api.py tests/test_decision_engine.py tests/test_decision_training_integration.py tests/test_decision_api.py tests/test_today.py tests/test_today_api.py tests/test_training_history.py tests/test_training_progress.py tests/test_progress_explanation.py tests/test_progress_routes.py tests/test_progress_hostile.py tests/test_progress_explanation_hostile.py tests/test_plan_progress_integration.py tests/test_plan_rolling.py
 
+
+  migration-integrity-postgresql:
+    name: Alembic PostgreSQL integrity
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: evolve_ci
+          POSTGRES_USER: evolve_ci
+          POSTGRES_PASSWORD: ci-postgres-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U evolve_ci -d evolve_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://evolve_ci:ci-postgres-password@localhost:5432/evolve_ci
+      ENV: development
+      JWT_SECRET_KEY: ci-jwt-secret-key-32-bytes-minimum-for-tests
+      CRON_SECRET: ci-cron-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt "psycopg[binary]>=3.1"
+      - run: python -m alembic heads
+      - run: python -m alembic upgrade head
+      - run: python -m alembic current --check-heads
+      - run: python -m alembic check
+      - name: Verify active-session partial unique index exists
+        run: |
+          python - <<'PY'
+          from app.config import DATABASE_URL
+          from sqlalchemy import create_engine, text
+
+          engine = create_engine(DATABASE_URL)
+          assert engine.dialect.name == "postgresql", engine.dialect.name
+          with engine.connect() as connection:
+              row = connection.execute(text(
+                  "SELECT indexdef FROM pg_indexes "
+                  "WHERE schemaname = current_schema() "
+                  "AND indexname = 'uq_training_active_user_day'"
+              )).scalar_one_or_none()
+          assert row and "UNIQUE INDEX" in row.upper(), row
+          assert "WHERE (status = 'active'::character varying)" in row.lower() or "WHERE ((status)::text = 'active'::text)" in row.lower() or "WHERE (status)::text = 'active'::text" in row.lower() or "WHERE status = 'active'::character varying" in row.lower(), row
+          print(row)
+          PY
+
   legacy-baseline:
     name: Legacy regression (informational)
     runs-on: ubuntu-latest
