@@ -9,7 +9,7 @@ Status: static/code-level review complete; backend-specific concurrency verifica
 - `app/models.py`: active-session partial unique index metadata.
 - `alembic/versions/evolve21active_session_unique.py` and `evolve25_user_key_constraint_cleanup.py`.
 - Existing hostile tests in `test_training_execution.py` and `test_training_set_validation.py`.
-- Current Stage 0–5 regression and SQLite/PostgreSQL migration-integrity CI results.
+- Current Stage 0–5 regression, SQLite/PostgreSQL migration-integrity CI, and PostgreSQL route-level transaction-test results.
 
 ## Findings
 
@@ -41,20 +41,21 @@ Assessment: no new confirmed defect in the reviewed path.
 
 ### P20-4 — Database migration integrity
 
-- Current-head CI passed the Stage 0–5 regression: 315 passed, 7 warnings.
+- Current-head CI passed the Stage 0–5 regression (CI run #730; 315 passed, 7 warnings).
 - SQLite clean-database migration integrity passed, including `alembic current --check-heads`, `alembic check`, and the active-session partial unique index assertion.
-- PostgreSQL 16 clean-database migration integrity passed the same Alembic checks and verified the partial unique index definition.
+- PostgreSQL 16 clean-database migration integrity passed the Alembic checks and verified the partial unique index definition. The latest PostgreSQL job also passed route-level transaction tests for concurrent session starts, set-write rejection after completion, and user-scoped completion materialization (CI run #730).
 - Legacy regression remains an informational failure and is not counted as a passing gate.
 
 Evidence:
-- Push CI: https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/38083454264
-- PR CI: https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/38083457254
+- Earlier push CI: https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/38083454264
+- Earlier PR CI: https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/38083457254
+- Latest corrected CI including PostgreSQL route-level transaction tests: https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/38084825190
 
 ## Open risks / blockers
 
-1. PostgreSQL CI currently verifies migrations/schema, not the route-level concurrent-start and set-vs-completion tests against PostgreSQL. Do not claim concurrency behavior is proven on PostgreSQL from this job.
+1. PostgreSQL CI route-level tests now pass for concurrent start serialization, set-vs-completion status recheck, and user-scoped completion materialization. This is controlled CI evidence, not proof of the deployed environment or a real browser flow.
 2. The deployed Render database backend and deployed Alembic head/index are still unknown because the deployment environment has not been inspected.
-3. EV-022 browser verification remains PENDING: parallel starts, set write racing completion, refresh/resume consistency, cross-user isolation, observed HTTP statuses, and environment/backend evidence.
+3. EV-022 browser verification remains PENDING: real UI parallel starts, set write racing completion, refresh/resume consistency, cross-user isolation, observed HTTP statuses, and environment/backend evidence.
 4. Legacy regression is still informationally red; preserve that distinction in reports.
 
 ## Decision
