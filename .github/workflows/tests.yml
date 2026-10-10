@@ -63,3 +63,6 @@ jobs:
       - run: python -m alembic upgrade head
       - run: python -m alembic current --check-heads
       - run: python -m alembic check
+      - name: Verify active-session partial unique index exists
+        run: |
+          python -c 'from app.config import DATABASE_URL; from sqlalchemy import create_engine, text; e=create_engine(DATABASE_URL); assert e.dialect.name == "sqlite", e.dialect.name; row=e.connect().execute(text("SELECT sql FROM sqlite_master WHERE type=\'index\' AND name=\'uq_training_active_user_day\'")).scalar_one_or_none(); assert row and "UNIQUE INDEX" in row.upper() and "WHERE STATUS = \'ACTIVE\'" in row.upper(), row; print(row)'
