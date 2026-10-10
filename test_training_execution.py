@@ -1090,3 +1090,61 @@ def test_start_session_serializes_concurrent_requests_to_at_most_one_active_sess
         ).all()
         assert len(active) <= 1, f"Expected at most one active session, found {len(active)}"
 
+def test_completion_materializes_only_sets_owned_by_session_user():
+    owner = _context()
+    foreign = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(owner["token"]))
+    assert started.status_code == 200, started.text
+    sid = started.json()["session"]["id"]
+
+    with Session(engine) as db:
+        owner_user = db.exec(select(UserDB).where(UserDB.email == owner["email"])).first()
+        foreign_user = db.exec(select(UserDB).where(UserDB.email == foreign["email"])).first()
+        db.add(TrainingSetResultDB(
+            session_id=sid,
+            user_id=owner_user.id,
+            exercise_key="squat-1",
+            exercise_name="Przysiad",
+            set_number=1,
+            planned_reps=5,
+            planned_weight_kg=100,
+            actual_reps=5,
+            actual_weight_kg=100,
+            actual_rpe=7,
+            completed=True,
+        ))
+        # Simulate inconsistent ownership data: a foreign user's set is linked
+        # to the owner's session. Completion must not aggregate it into history.
+        db.add(TrainingSetResultDB(
+            session_id=sid,
+            user_id=foreign_user.id,
+            exercise_key="squat-1",
+            exercise_name="Foreign private set",
+            set_number=2,
+            planned_reps=5,
+            planned_weight_kg=100,
+            actual_reps=99,
+            actual_weight_kg=999,
+            actual_rpe=10,
+            completed=True,
+        ))
+        db.commit()
+
+    completed = client.post(
+        f"/app/training/sessions/{sid}/complete",
+        json={"final_rpe": 7},
+        headers=_headers(owner["token"]),
+    )
+    assert completed.status_code == 200, completed.text
+
+    with Session(engine) as db:
+        owner_user = db.exec(select(UserDB).where(UserDB.email == owner["email"])).first()
+        results = db.exec(
+            select(ExerciseResultDB)
+            .where(ExerciseResultDB.user_id == owner_user.id)
+            .where(ExerciseResultDB.source_session_id == sid)
+        ).all()
+        assert len(results) == 1
+        assert results[0].sets == 1
+        assert results[0].reps == 5
+        assert results[0].weight_kg == 100
