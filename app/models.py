@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy import Index, UniqueConstraint
+from sqlalchemy import Index, UniqueConstraint, text
 
 if TYPE_CHECKING:
     from app.fitness.calculations import _xp_to_level  # avoid circular import
@@ -374,6 +374,16 @@ class NutritionAdaptationDB(SQLModel, table=True):
 
 class TrainingSessionDB(SQLModel, table=True):
     __tablename__ = "training_sessions"
+    __table_args__ = (
+        Index(
+            "uq_training_active_user_day",
+            "user_id",
+            "session_date",
+            unique=True,
+            sqlite_where=text("status = 'active'"),
+            postgresql_where=text("status = 'active'"),
+        ),
+    )
 
     id: Optional[str] = Field(default_factory=lambda: str(_uuid_mod.uuid4()), primary_key=True)
     user_id: str = Field(foreign_key="users.id", index=True)
