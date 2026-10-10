@@ -244,3 +244,29 @@ Verification on exact code/test commit `c1e420551add9073d8553ff6e72e6916ccb54a1d
 - The test provides integration evidence for the configured CI database environment. It does not, by itself, establish identical lock semantics for every database backend; backend-specific behavior still requires confirmation against the supported deployment configuration.
 
 Stage 20 remains unmerged. External browser verification remains open, and the PR must remain draft until the remaining transaction-safety review and external verification are complete.
+
+## Stage 20L — database-backend compatibility gate
+
+A repository-level deployment review found that the CI workflow explicitly runs the current regression and Alembic integrity jobs against SQLite (DATABASE_URL=sqlite:///...). The checked-in render.yaml does not declare DATABASE_URL, while app/config.py defaults it to sqlite:///fitai.db. The actual Render service may still set DATABASE_URL through dashboard/environment configuration; repository files alone cannot establish the deployed backend.
+
+This distinction matters for Stage 20J/20K: the tests establish behavior in the configured SQLite CI environment, but do not establish the exact lock/error semantics of an independently configured production backend.
+
+Static review confirms the intended defense-in-depth:
+- Stage 20K claims a per-user write gate before rechecking for an active session, and fails closed if the claim errors or affects anything other than one row.
+- The existing partial unique index uq_training_active_user_day independently prevents more than one active session for a user/date on backends that support the migration's partial-index syntax.
+- Stage 20J claims the owned active-session row before changing set results; its integrity-conflict retry reacquires that gate.
+- Neither static review nor SQLite CI is evidence that the deployed database has the expected schema/indexes or identical contention behavior.
+
+Acceptance requirements before closing this gate:
+1. Confirm the actual deployed DATABASE_URL backend without exposing credentials (backend/driver name is sufficient).
+2. Verify alembic current --check-heads and confirm uq_training_active_user_day exists in that database.
+3. Run two simultaneous start requests and the set-write-vs-completion scenario against that same backend; capture response status codes and final database state.
+4. If production uses a backend other than SQLite, add/run a backend-specific integration job or provide reproducible external evidence before claiming compatibility.
+5. Keep EV-022 pending until the real-browser checks are complete.
+
+Current repository CI for head 9c5cc899e77c3a0ad8a5046b4d1b5c012e37f55b:
+- Pull request workflow #672 (https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/38031259124): current Stage 0–5 regression PASS; Alembic clean-database integrity PASS.
+- Push workflow #671 (https://github.com/adamzamorski10-alt/EVOLVE-g/actions/runs/38031256087): current Stage 0–5 regression PASS; Alembic clean-database integrity PASS.
+- Legacy regression fails in both runs but remains explicitly informational/non-blocking; it is not counted as a pass.
+
+Stage 20L is an audit checkpoint, not a claim of production verification. Stage 20 remains isolated and must not be merged until the deployed backend and external EV-022 evidence are confirmed.
