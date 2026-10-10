@@ -1,12 +1,12 @@
 """Align PostgreSQL users.user_key constraint with SQLModel metadata.
 
-Revision ID: evolve25_user_key_constraint_cleanup
+Revision ID: evolve25userkey
 Revises: evolve21active_session_unique
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "evolve25_user_key_constraint_cleanup"
+revision = "evolve25userkey"
 down_revision = "evolve21active_session_unique"
 branch_labels = None
 depends_on = None
