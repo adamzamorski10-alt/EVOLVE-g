@@ -4,6 +4,7 @@ FitAI Configuration — Environment, constants, settings
 
 import os
 import secrets
+import sys
 from datetime import timedelta
 
 from dotenv import load_dotenv
@@ -11,7 +12,37 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ─── Database ─────────────────────────────────────────────────────────────────
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///fitai.db")
+_raw_database_url = os.getenv("DATABASE_URL", "").strip()
+
+if not _raw_database_url:
+    if os.getenv("ENV", "development") == "production":
+        print(
+            "KRYTYCZNY BŁĄD: DATABASE_URL nie jest ustawiony w produkcji — "
+            "bez trwałej bazy aplikacja startowałaby na ulotnym SQLite "
+            "i traciła dane przy każdym restarcie!",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    _raw_database_url = "sqlite:///fitai.db"
+
+
+def _normalize_database_url(raw_url: str) -> str:
+    """Ujednolica schemat PostgreSQL dla aplikacji i Alembica.
+
+    Hostingi (Render/Heroku) podają schemat ``postgres://``, którego
+    SQLAlchemy 2.x nie rozpoznaje. Normalizacja do ``postgresql+psycopg://``
+    gwarantuje ten sam sterownik w obu wejściach: ``app/database.py`` tworzy
+    engine, ``alembic/env.py`` wykonuje migracje. URL SQLite oraz jawne
+    schematy z konkretnym sterownikiem (``postgresql+psycopg2://``) pozostają
+    bez zmian. Operacja jest czysto tekstowa i nie nawiązuje połączenia.
+    """
+    scheme, separator, remainder = raw_url.partition("://")
+    if separator and scheme.lower() in {"postgres", "postgresql"}:
+        return f"postgresql+psycopg://{remainder}"
+    return raw_url
+
+
+DATABASE_URL = _normalize_database_url(_raw_database_url)
 
 # ─── JWT / Auth ────────────────────────────────────────────────────────────────
 _jwt_secret = os.getenv("JWT_SECRET_KEY", "")
