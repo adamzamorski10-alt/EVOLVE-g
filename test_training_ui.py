@@ -1,10 +1,30 @@
+import json
+import re
+import shutil
+import socket
+import subprocess
+import tempfile
+import threading
+import time
 from pathlib import Path
 
+import pytest
+from fastapi.testclient import TestClient
+
+from main import app
 
 ROOT = Path(__file__).parent
 TRAINING_ROUTES = (ROOT / "app" / "training" / "routes.py").read_text(encoding="utf-8")
 APP_INIT = (ROOT / "app" / "__init__.py").read_text(encoding="utf-8")
 PLAN_ROUTES = (ROOT / "app" / "plan" / "routes.py").read_text(encoding="utf-8")
+
+_UI_CLIENT = TestClient(app)
+
+
+def _rendered_inline_scripts(path: str) -> list[str]:
+    html = _UI_CLIENT.get(path).text
+    return [block for block in re.findall(r"<script[^>]*>(.*?)</script>", html, re.S) if block.strip()]
+
 
 
 def test_training_execution_api_contract_is_present():
@@ -236,3 +256,186 @@ def test_plan_ui_exposes_weekly_availability_editor():
     ]
     for marker in required:
         assert marker in PLAN_ROUTES, f"Missing weekly availability UI marker: {marker}"
+
+
+def test_session_ui_rendered_script_has_no_escaped_quote_corruption():
+    scripts = _rendered_inline_scripts("/app/training/session-ui")
+    assert scripts, "session-ui must render an inline script"
+    joined = "\n".join(scripts)
+    # Regression guard for the original defect: the Python template must not
+    # consume the backslash escapes the browser needs, which corrupted every
+    # string in the page and blocked load() at parse time.
+    assert "logSet(''" not in joined
+    assert 'onclick="logSet(' not in joined
+
+
+HOSTILE_EXERCISE_KEYS = [
+    "bench_press",
+    "bench's press",
+    'a"b<c>&d',
+    "100% ciezaru",
+    "back\\slash",
+    "klucz&#39;zewnetrzny&quot;",
+    "klucz ze spacja",
+    "przysiad-ünïcode-ü",
+    "",
+]
+
+
+def _session_payload_with_exercise_key(exercise_key: str) -> dict:
+    """Shape returned by POST /app/training/sessions/start."""
+    return {
+        "status": "started",
+        "session": {
+            "id": "11111111-2222-3333-4444-555555555555",
+            "session_date": "2026-10-11",
+            "status": "active",
+            "execution_blocked": False,
+            "planned": {
+                "exercises": [
+                    {
+                        "exercise_key": exercise_key,
+                        "exercise_name": "Wrogie ćwiczenie",
+                        "sets": 2,
+                        "reps": 10,
+                        "reps_label": "10",
+                        "weight_kg": 50,
+                        "rpe": 8,
+                    }
+                ]
+            },
+            "sets": [],
+        },
+    }
+
+
+def _browser_module():
+    """Return playwright.sync_api or skip when the browser tooling is absent."""
+    pytest.importorskip("playwright", reason="playwright is not installed")
+    from playwright import sync_api
+
+    return sync_api
+
+
+@pytest.fixture(scope="session")
+def live_session_ui_server():
+    import uvicorn
+
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+
+    server = uvicorn.Server(
+        uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error")
+    )
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        for _ in range(200):
+            if server.started:
+                break
+            time.sleep(0.05)
+        else:  # pragma: no cover - startup failure
+            pytest.skip("live server did not start")
+        yield f"http://127.0.0.1:{port}"
+    finally:
+        server.should_exit = True
+        thread.join(timeout=10)
+
+
+@pytest.fixture(scope="session")
+def playwright_browser():
+    sync_api = _browser_module()
+    handle = sync_api.sync_playwright().start()
+    try:
+        try:
+            browser = handle.chromium.launch()
+        except Exception as error:  # pragma: no cover - browser not provisioned
+            pytest.skip(f"chromium could not be launched: {error}")
+        if not browser:  # pragma: no cover - defensive
+            pytest.skip("chromium could not be launched")
+        yield browser
+        browser.close()
+    finally:
+        handle.stop()
+
+
+@pytest.fixture
+def rendered_session_page(playwright_browser):
+    context = playwright_browser.new_context()
+    page = context.new_page()
+    try:
+        yield page
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("exercise_key", HOSTILE_EXERCISE_KEYS)
+def test_session_ui_data_key_escapes_hostile_exercise_key_in_real_browser(
+    exercise_key, live_session_ui_server, rendered_session_page
+):
+    """The save button must keep a hostile key as one attribute value.
+
+    The application renders this markup client-side, so the only faithful check
+    is to drive the shipped page in a real browser and inspect the resulting DOM.
+    Deliberately no Python copy of esc() is used and no source text is pinned,
+    so refactoring the template cannot break or fake this test.
+    """
+    sync_api = _browser_module()
+    page = rendered_session_page
+    page.add_init_script("localStorage.setItem('fitai_token','browser-test-token')")
+    stubbed_body = json.dumps(_session_payload_with_exercise_key(exercise_key))
+    page.route(
+        "**/app/training/sessions/start",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=stubbed_body,
+        ),
+    )
+
+    page.goto(f"{live_session_ui_server}/app/training/session-ui", wait_until="load")
+    page.wait_for_selector("button.save", timeout=10000)
+
+    button = page.locator("button.save").first
+    attribute_names = button.evaluate("el => [...el.attributes].map(a => a.name)")
+    attribute_names.sort()
+
+    # A hostile key must not create extra attributes on the button.
+    assert attribute_names == ["class", "data-key", "data-set"], (
+        f"hostile key {exercise_key!r} produced attributes {attribute_names}"
+    )
+    # The decoded attribute value must be exactly the key the API returned.
+    assert button.evaluate("el => el.dataset.key") == exercise_key
+    # The key must reach the input ids the save flow reads from.
+    expected_input_id = "r-" + _js_encode_uri_component(exercise_key) + "-1"
+    assert page.evaluate(
+        "id => document.getElementById(id) !== null", expected_input_id
+    ), f"save-flow input for {exercise_key!r} was not rendered"
+    # No stray elements may be created by unescaped angle brackets.
+    assert page.locator(".exercise").count() == 1
+    assert page.locator(".set").count() == 2
+
+
+def _js_encode_uri_component(value: str) -> str:
+    """Percent-encoding identical to JavaScript encodeURIComponent."""
+
+    class _Raw(str):
+        pass
+
+    import urllib.parse
+
+    return urllib.parse.quote(value, safe="-_.!~*'()")
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable in this test environment")
+def test_rendered_ui_scripts_parse_with_node():
+    for path in ("/app/training/session-ui", "/app/training/today-ui", "/app/training/dashboard"):
+        for block in _rendered_inline_scripts(path):
+            with tempfile.TemporaryDirectory() as workspace:
+                target = Path(workspace) / "rendered.js"
+                target.write_text(block, encoding="utf-8", newline="")
+                result = subprocess.run(
+                    ["node", "--check", str(target)], capture_output=True, text=True
+                )
+                assert result.returncode == 0, f"{path} rendered invalid JavaScript: {result.stderr}"

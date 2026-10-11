@@ -1789,6 +1789,7 @@ def training_session_ui():
 const token=localStorage.getItem('fitai_token');
 const headers=token?{'Authorization':'Bearer '+token,'Content-Type':'application/json'}:{};
 const statusEl=document.getElementById('status'),progressEl=document.getElementById('progress'),workoutEl=document.getElementById('workout'),completeEl=document.getElementById('complete');
+workoutEl.addEventListener('click',e=>{const b=e.target.closest('button.save');if(b&&!b.disabled)logSet(b.dataset.key,Number(b.dataset.set),b)});
 let current=null, saving=false, restTimer=null, restSeconds=0, activeExerciseIndex=0;
 function stopRest(){if(restTimer){clearInterval(restTimer);restTimer=null}document.getElementById('rest')?.remove()}
 function startRest(seconds=90){
@@ -1827,7 +1828,7 @@ function render(){
     '<input id="r-'+safe+'-'+n+'" type="number" min="0" max="1000" value="'+(old?.actual_reps??ex.reps)+'" aria-label="Powtórzenia" '+(current.execution_blocked?'disabled':'')+'>'+
     '<input id="w-'+safe+'-'+n+'" type="number" min="0" max="10000" step="0.5" value="'+(old?.actual_weight_kg??ex.weight_kg??0)+'" aria-label="Ciężar kg" '+(current.execution_blocked?'disabled':'')+'>'+
     '<input id="p-'+safe+'-'+n+'" type="number" min="1" max="10" value="'+(old?.actual_rpe??'')+'" placeholder="RPE" aria-label="RPE" '+(current.execution_blocked?'disabled':'')+'>'+
-    '<button class="save '+(old?.completed?'done':'')+'" '+(current.execution_blocked?'disabled':'')+' onclick="logSet(\''+encodeURIComponent(ex.exercise_key)+'\','+n+',this)">'+(old?.completed?'Edytuj / zapisz':'Zapisz serię')+'</button>'+
+    '<button class="save '+(old?.completed?'done':'')+'" '+(current.execution_blocked?'disabled':'')+' data-key="'+esc(ex.exercise_key)+'" data-set="'+n+'">'+(old?.completed?'Edytuj / zapisz':'Zapisz serię')+'</button>'+
     '<textarea id="n-'+safe+'-'+n+'" maxlength="1000" placeholder="Notatka">'+esc(old?.note||'')+'</textarea></div>';
   }).join('')+'</div></section>'
  }).join(''):'<div class="progress-card empty">Brak ćwiczeń w snapshotcie tej sesji.</div>';
@@ -1842,9 +1843,9 @@ function renderSummary(){
  workoutEl.innerHTML='<div class="progress-card"><h2>Podsumowanie treningu</h2><p><b>'+sets.length+'</b> wykonanych serii z '+plannedCount()+' · <b>'+Math.round(sets.length/Math.max(plannedCount(),1)*100)+'%</b> planu</p><p>Wolumen: <b>'+Math.round(volume*10)/10+' kg</b> · Śr. RPE serii: <b>'+avg+'</b></p><p class="meta">Końcowe RPE: '+(current.final_rpe??'—')+' · '+(current.session_date||'')+'</p><a class="btn" href="/app#progress">Przejdź do Postępów →</a></div>';
  completeEl.classList.add('hidden');stopRest();focusNext();
 }
-async function logSet(encodedKey,n,button){
+async function logSet(key,n,button){
  if(!current||current.status!=='active'||saving)return;
- const key=decodeURIComponent(encodedKey), safe=encodeURIComponent(key);
+ const safe=encodeURIComponent(key);
  const reps=Number(document.getElementById('r-'+safe+'-'+n).value||0);
  const weight=Number(document.getElementById('w-'+safe+'-'+n).value||0);
  const raw=document.getElementById('p-'+safe+'-'+n).value;
