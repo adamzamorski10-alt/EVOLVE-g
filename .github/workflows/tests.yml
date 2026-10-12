@@ -24,7 +24,7 @@ jobs:
       - run: pip install -r requirements-test.txt
       - run: python -m playwright install --with-deps chromium
       - run: python -m compileall -q app alembic
-      - run: python -m pytest -q test_training_execution.py test_training_ui.py test_assessment_ui.py test_training_set_validation.py test_training_today.py test_core_foundation.py test_core_planning_contract.py test_frontend_hosting.py test_goals.py test_goals_api.py test_nutrition_foundation.py test_training_result_provenance.py test_pre_stage6_audit.py test_stage0_5_cross_user_isolation.py test_stage5_final_integration.py test_recovery_response.py test_plan_performance_signals.py test_training_evaluation.py test_training_evaluation_api.py test_training_adaptation.py test_training_next_effective_plan.py test_training_adaptive_audit.py tests/test_goal_training_state.py test_goal_training_state_api.py tests/test_decision_engine.py tests/test_decision_training_integration.py tests/test_decision_api.py tests/test_today.py tests/test_today_api.py tests/test_training_history.py tests/test_training_progress.py tests/test_progress_explanation.py tests/test_progress_routes.py tests/test_progress_hostile.py tests/test_progress_explanation_hostile.py tests/test_plan_progress_integration.py tests/test_plan_rolling.py test_database_config.py
+      - run: python -m pytest -q test_training_execution.py test_training_ui.py test_assessment_ui.py test_training_set_validation.py test_training_today.py test_core_foundation.py test_core_planning_contract.py test_frontend_hosting.py test_goals.py test_goals_api.py test_nutrition_foundation.py test_training_result_provenance.py test_pre_stage6_audit.py test_stage0_5_cross_user_isolation.py test_stage5_final_integration.py test_recovery_response.py test_plan_performance_signals.py test_training_evaluation.py test_training_evaluation_api.py test_training_adaptation.py test_training_next_effective_plan.py test_training_adaptive_audit.py tests/test_goal_training_state.py test_goal_training_state_api.py tests/test_decision_engine.py tests/test_decision_training_integration.py tests/test_decision_api.py tests/test_today.py tests/test_today_api.py tests/test_training_history.py tests/test_training_progress.py tests/test_progress_explanation.py tests/test_progress_routes.py tests/test_progress_hostile.py tests/test_progress_explanation_hostile.py tests/test_plan_progress_integration.py tests/test_plan_rolling.py test_database_config.py test_database_init.py
 
   migration-integrity-postgresql:
     name: Alembic PostgreSQL integrity + transaction tests
@@ -76,6 +76,112 @@ jobs:
           normalized_indexdef = " ".join(row.upper().split()) if row else ""
           assert row and "WHERE" in normalized_indexdef and "STATUS" in normalized_indexdef and "'ACTIVE'" in normalized_indexdef, row
           print(row)
+          PY
+      - name: Verify PostgreSQL schema integrity across import and startup
+        env:
+          # Produkcyjna konfiguracja startu (ENV=production + DATABASE_URL z joba).
+          # Sekrety to dummy'e wyłącznie dla izolowanego procesu CI.
+          ENV: production
+        run: |
+          python - <<'PY'
+          import contextlib
+          import io
+          import sys
+
+          from fastapi.testclient import TestClient
+          from sqlalchemy import create_engine, text
+
+          from app.config import DATABASE_URL
+
+          # 1. Check musi działać na realnym PostgreSQL — bez cichego fallbacku na SQLite.
+          engine = create_engine(DATABASE_URL)
+          assert engine.dialect.name == "postgresql", (
+              f"oczekiwano PostgreSQL, otrzymano dialekt: {engine.dialect.name}"
+          )
+          assert not DATABASE_URL.startswith("sqlite"), "DATABASE_URL wskazuje SQLite"
+
+          def snapshot():
+              with engine.connect() as conn:
+                  tables = sorted(
+                      row[0]
+                      for row in conn.execute(text(
+                          "SELECT tablename FROM pg_tables "
+                          "WHERE schemaname = current_schema()"
+                      )).fetchall()
+                  )
+                  # indexdef normalizowany (upper + whitespace), aby kolejność
+                  # i formatowanie PostgreSQL nie powodowały fałszywych różnic.
+                  indexes = {
+                      name: " ".join(definition.upper().split())
+                      for name, definition in conn.execute(text(
+                          "SELECT indexname, indexdef FROM pg_indexes "
+                          "WHERE schemaname = current_schema()"
+                      )).fetchall()
+                  }
+              return {"tables": tables, "indexes": indexes}
+
+          # 2. Snapshot PO migracjach Alembica, PRED importem aplikacji.
+          before = snapshot()
+          assert before["tables"], "Brak tabel — migracje Alembica nie zostały zastosowane"
+
+          # 3. Import produkcyjnego entrypointu — wykonuje bootstrap import-time.
+          import main
+
+          # 4. Jawny lifecycle: `with TestClient` startuje event `startup`
+          #    (zwykły TestClient bez `with` go pomija — patrz Stage 20T.1).
+          app_module = sys.modules["app"]
+          original_bootstrap = app_module.create_db_and_tables
+          startup_calls = []
+
+          def counting_bootstrap():
+              result = original_bootstrap()
+              startup_calls.append(result)
+              return result
+
+          app_module.create_db_and_tables = counting_bootstrap
+          startup_output = io.StringIO()
+          try:
+              with contextlib.redirect_stdout(startup_output), TestClient(main.app) as client:
+                  health = client.get("/health/").json()
+          finally:
+              app_module.create_db_and_tables = original_bootstrap
+
+          assert health["database"] == "connected", (
+              f"aplikacja nie połączyła się z PostgreSQL: {health}"
+          )
+          assert startup_calls == [False], (
+              "startup powinien wywołać create_db_and_tables dokładnie raz "
+              f"z wynikiem False (dialect-guard): {startup_calls}"
+          )
+          startup_log = startup_output.getvalue().strip().splitlines()
+          print("[startup log]", startup_log[-1] if startup_log else "<brak>")
+
+          # 5. Ten sam snapshot PO imporcie i starcie.
+          after = snapshot()
+          engine.dispose()
+
+          added_tables = sorted(set(after["tables"]) - set(before["tables"]))
+          removed_tables = sorted(set(before["tables"]) - set(after["tables"]))
+          added_indexes = sorted(set(after["indexes"]) - set(before["indexes"]))
+          removed_indexes = sorted(set(before["indexes"]) - set(after["indexes"]))
+          changed_indexes = sorted(
+              name
+              for name in set(before["indexes"]) & set(after["indexes"])
+              if before["indexes"][name] != after["indexes"][name]
+          )
+          assert not (
+              added_tables or removed_tables or added_indexes
+              or removed_indexes or changed_indexes
+          ), (
+              "import i start aplikacji zmieniły schemat PostgreSQL — "
+              f"dodane_tabele={added_tables} usunięte_tabele={removed_tables} "
+              f"dodane_indeksy={added_indexes} usunięte_indeksy={removed_indexes} "
+              f"zmienione_indeksy={changed_indexes}"
+          )
+          print(
+              f"OK: {len(after['tables'])} tabel i {len(after['indexes'])} indeksów "
+              "bez zmian po imporcie i starcie aplikacji"
+          )
           PY
       - name: Run route-level transaction tests against PostgreSQL
         run: >-

@@ -918,8 +918,10 @@ import asyncio
 @app.on_event("startup")
 async def on_startup():
     """Initialize database and start Discord bot (if token is configured)."""
-    create_db_and_tables()
-    print(f"[{APP_NAME}] Database initialized at startup")
+    if create_db_and_tables():
+        print(f"[{APP_NAME}] Database initialized at startup")
+    else:
+        print(f"[{APP_NAME}] Bootstrap bazy pominięty — schemat zarządzany przez Alembic")
 
     if DISCORD_TOKEN:
         async def _run_bot() -> None:
