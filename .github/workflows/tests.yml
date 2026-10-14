@@ -45,6 +45,9 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgresql+psycopg://evolve_ci:ci-postgres-password@localhost:5432/evolve_ci
+      # Testy narzędzia migracji SQLite -> PostgreSQL uruchamiają się na RZECZISTYM
+      # PostgreSQL 16 z tej usługi (schemat budowany przez `alembic upgrade head`).
+      TEST_POSTGRESQL_URL: postgresql+psycopg://evolve_ci:ci-postgres-password@localhost:5432/evolve_ci
       ENV: development
       JWT_SECRET_KEY: ci-jwt-secret-key-32-bytes-minimum-for-tests
       CRON_SECRET: ci-cron-secret
@@ -190,6 +193,8 @@ jobs:
           test_training_execution.py::test_set_write_rechecks_session_status_after_initial_read
           test_training_execution.py::test_completion_materializes_only_sets_owned_by_session_user
       - name: Run offline SQLite to PostgreSQL migration tool integration tests
+        # Schemat docelowy muszą tworzyć RZECZISTE migracje Alembic (upgrade head),
+        # dlatego testy integracyjne nie używają `metadata.create_all()`.
         run: python -m pytest -q test_migrate_sqlite_to_postgres.py
 
   legacy-baseline:
