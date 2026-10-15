@@ -111,3 +111,47 @@ def test_production_error_message_hides_connection_details(reloaded_config, caps
     assert "://" not in error_output
     assert "fitai.db" not in error_output
     assert "user:password" not in error_output
+
+def test_production_with_sqlite_url_exits(reloaded_config, capsys):
+    with pytest.raises(SystemExit) as exit_info:
+        reloaded_config('sqlite:///./app.db', env='production')
+    assert exit_info.value.code == 1
+    assert 'DATABASE_URL' in capsys.readouterr().err
+
+
+def test_production_with_whitespace_only_database_url_exits(reloaded_config, capsys):
+    with pytest.raises(SystemExit) as exit_info:
+        reloaded_config('   \t\n', env='production')
+    assert exit_info.value.code == 1
+    assert 'DATABASE_URL' in capsys.readouterr().err
+
+
+def test_production_with_postgres_url_is_accepted(reloaded_config):
+    module = reloaded_config('postgres://user:pass@db:5432/app', env='production')
+    assert module.DATABASE_URL.startswith('postgresql+psycopg://')
+
+
+def test_production_with_postgresql_url_is_accepted(reloaded_config):
+    module = reloaded_config('postgresql://user:pass@db:5432/app', env='production')
+    assert module.DATABASE_URL.startswith('postgresql+psycopg://')
+
+
+def test_production_with_explicit_psycopg2_driver_is_accepted(reloaded_config):
+    url = 'postgresql+psycopg2://user:pass@db:5432/app'
+    module = reloaded_config(url, env='production')
+    assert module.DATABASE_URL == url
+
+
+def test_development_with_sqlite_url_is_accepted(reloaded_config):
+    module = reloaded_config('sqlite:///./dev.db', env='development')
+    assert module.DATABASE_URL == 'sqlite:///./dev.db'
+
+
+def test_test_env_with_sqlite_url_is_accepted(reloaded_config):
+    module = reloaded_config('sqlite:///./test.db', env='test')
+    assert module.DATABASE_URL == 'sqlite:///./test.db'
+
+
+def test_missing_database_url_in_dev_keeps_default_sqlite(reloaded_config):
+    module = reloaded_config(env='development')
+    assert module.DATABASE_URL == 'sqlite:///fitai.db'

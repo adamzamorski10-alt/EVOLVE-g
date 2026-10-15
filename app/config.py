@@ -14,12 +14,14 @@ load_dotenv()
 # ─── Database ─────────────────────────────────────────────────────────────────
 _raw_database_url = os.getenv("DATABASE_URL", "").strip()
 
+_env = os.getenv("ENV", "development")
+_is_production = _env == "production"
+
 if not _raw_database_url:
-    if os.getenv("ENV", "development") == "production":
+    if _is_production:
         print(
             "KRYTYCZNY BŁĄD: DATABASE_URL nie jest ustawiony w produkcji — "
-            "bez trwałej bazy aplikacja startowałaby na ulotnym SQLite "
-            "i traciła dane przy każdym restarcie!",
+            "konfiguracja bazy danych jest niekompletna.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -43,6 +45,16 @@ def _normalize_database_url(raw_url: str) -> str:
 
 
 DATABASE_URL = _normalize_database_url(_raw_database_url)
+
+# Fail-closed: w produkcji zabraniaj użycia SQLite
+if _is_production:
+    lowered = DATABASE_URL.lower()
+    if lowered.startswith("sqlite"):
+        print(
+            "KRYTYCZNY BŁĄD: DATABASE_URL wskazuje na SQLite w środowisku produkcyjnym.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 # ─── JWT / Auth ────────────────────────────────────────────────────────────────
 _jwt_secret = os.getenv("JWT_SECRET_KEY", "")
