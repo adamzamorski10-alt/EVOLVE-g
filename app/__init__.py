@@ -262,7 +262,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
         var name = escapeHtml(exercise.exercise_name || exercise.name || ("Ćwiczenie " + (index + 1)));
         var weight = exercise.weight_kg != null ? escapeHtml(exercise.weight_kg + " kg") : "";
         return '<div class="item-card" style="cursor:default;">' +
-          '<div class="item-card-head"><div class="item-card-title">' + (index + 1) + ". " + name + '</div><div class="tag">' + sets + " serie</div></div>' +
+          '<div class="item-card-head"><div class="item-card-title">' + (index + 1) + ". " + name + '</div><div class="tag">' + sets + ' serie</div></div>' +
           '<div class="item-card-meta">' + reps + " powtórzeń" + (weight ? " · " + weight : "") + "</div></div>";
       }).join("");
     } catch (error) {
