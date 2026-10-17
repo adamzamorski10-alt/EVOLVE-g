@@ -146,7 +146,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 (function () {
   function escapeHtml(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
-      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char];
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\\\"":"&quot;","'":"&#39;"}[char];
     });
   }
 
@@ -162,12 +162,12 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       if (legacyPlan) legacyPlan.remove();
 
       profile.insertAdjacentHTML("beforebegin",
-        '<button class="nav-btn" id="nav-my-day" data-tab="my-day" onclick="showTab(\'my-day\')">🎯<span class="nav-tooltip">Mój dzień</span></button>' +
-        '<button class="nav-btn" id="nav-training" data-tab="training" onclick="showTab(\'training\')">🏋️<span class="nav-tooltip">Trening</span></button>' +
-        '<button class="nav-btn" id="nav-basketball" data-tab="basketball" onclick="showTab(\'basketball\')">🏀<span class="nav-tooltip">Koszykówka</span></button>' +
-        '<button class="nav-btn" id="nav-diet" data-tab="diet" onclick="showTab(\'diet\')">🥗<span class="nav-tooltip">Dieta</span></button>' +
-        '<button class="nav-btn" id="nav-recovery" data-tab="recovery" onclick="showTab(\'recovery\')">😴<span class="nav-tooltip">Recovery</span></button>' +
-        '<button class="nav-btn" id="nav-progress" data-tab="progress" onclick="showTab(\'progress\')">📈<span class="nav-tooltip">Postępy</span></button>'
+        '<button class="nav-btn" id="nav-my-day" data-tab="my-day" onclick="showTab(\\'my-day\\')">🎯<span class="nav-tooltip">Mój dzień</span></button>' +
+        '<button class="nav-btn" id="nav-training" data-tab="training" onclick="showTab(\\'training\\')">🏋️<span class="nav-tooltip">Trening</span></button>' +
+        '<button class="nav-btn" id="nav-basketball" data-tab="basketball" onclick="showTab(\\'basketball\\')">🏀<span class="nav-tooltip">Koszykówka</span></button>' +
+        '<button class="nav-btn" id="nav-diet" data-tab="diet" onclick="showTab(\\'diet\\')">🥗<span class="nav-tooltip">Dieta</span></button>' +
+        '<button class="nav-btn" id="nav-recovery" data-tab="recovery" onclick="showTab(\\'recovery\\')">😴<span class="nav-tooltip">Recovery</span></button>' +
+        '<button class="nav-btn" id="nav-progress" data-tab="progress" onclick="showTab(\\'progress\\')">📈<span class="nav-tooltip">Postępy</span></button>'
       );
     }
 
@@ -178,7 +178,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
     var section =
       '<div class="tab-panel" id="tab-my-day">' +
         '<div class="sec-head">' +
-          '<div><div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:700;">Mój dzień 🎯</div>' +
+          '<div><div style="font-family:\\'Syne\\',sans-serif;font-size:26px;font-weight:700;">Mój dzień 🎯</div>' +
           '<div style="font-size:13px;color:var(--muted);margin-top:4px;">Dzisiejszy plan, wykonanie i stan sesji w jednym miejscu.</div></div>' +
           '<div style="font-size:12px;color:var(--muted);" id="myDayDate">—</div>' +
         '</div>' +
@@ -262,7 +262,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
         var name = escapeHtml(exercise.exercise_name || exercise.name || ("Ćwiczenie " + (index + 1)));
         var weight = exercise.weight_kg != null ? escapeHtml(exercise.weight_kg + " kg") : "";
         return '<div class="item-card" style="cursor:default;">' +
-          '<div class="item-card-head"><div class="item-card-title">' + (index + 1) + ". " + name + '</div><div class="tag">' + sets + " serie</div></div>' +
+          '<div class="item-card-head"><div class="item-card-title">' + (index + 1) + ". " + name + '</div><div class="tag">' + sets + ' serie</div></div>' +
           '<div class="item-card-meta">' + reps + " powtórzeń" + (weight ? " · " + weight : "") + "</div></div>";
       }).join("");
     } catch (error) {
