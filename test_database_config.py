@@ -15,7 +15,7 @@ import pytest
 
 import app.config as app_config
 
-_ENV_KEYS = ("DATABASE_URL", "ENV")
+_ENV_KEYS = ("DATABASE_URL", "ENV", "JWT_SECRET_KEY", "CRON_SECRET")
 
 
 @pytest.fixture
@@ -30,6 +30,11 @@ def reloaded_config():
             os.environ["DATABASE_URL"] = database_url
         if env is not None:
             os.environ["ENV"] = env
+        # app.config wymaga tych sekretów przy ENV=production; używaj wyłącznie
+        # syntetycznych wartości testowych i przywracaj oryginały w teardown.
+        if env == "production":
+            os.environ["JWT_SECRET_KEY"] = "test-jwt-secret-key-for-db-tests"
+            os.environ["CRON_SECRET"] = "test-cron-secret-for-db-tests"
         # Izolacja od lokalnego pliku .env — testy w pełni kontrolują środowisko.
         # Patch na module dotenv, bo przywiazanie `from dotenv import load_dotenv`
         # w app.config odświeża się podczas importlib.reload.
