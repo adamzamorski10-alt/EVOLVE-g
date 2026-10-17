@@ -63,7 +63,7 @@ def test_dashboard_inline_javascript_parses_when_node_is_available(tmp_path):
         pytest.skip("Node.js is not installed")
 
     dashboard = (ROOT / "fitai_dashboard.html").read_text(encoding="utf-8")
-    scripts = re.findall(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", dashboard, re.IGNORECASE)
+    scripts = re.findall(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", dashboard, re.IGNORECASE)
     inline_script = max(scripts, key=len)
     script_path = tmp_path / "dashboard-inline.js"
     script_path.write_text(inline_script, encoding="utf-8")
@@ -89,7 +89,7 @@ def test_injected_shell_javascript_parses_when_node_is_available(tmp_path):
         if isinstance(node, ast.Assign)
         and any(isinstance(target, ast.Name) and target.id == "evolve_shell_integration" for target in node.targets)
     )
-    match = re.search(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", shell_value, re.IGNORECASE)
+    match = re.search(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", shell_value, re.IGNORECASE)
     assert match, "Injected shell script tag is missing"
     script_path = tmp_path / "injected-shell.js"
     script_path.write_text(match.group(1), encoding="utf-8")
