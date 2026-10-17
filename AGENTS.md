@@ -2,6 +2,7 @@
 
 Pracując w tym repozytorium:
 
+- Przed rozpoczęciem większej pracy przeczytaj `docs/EVOLVE_WORKING_AGREEMENT.md`; zawiera uzgodniony cel MVP, podział narzędzi, granice zgód, sposób pracy i zasady weryfikacji.
 - Zawsze pisz czytelne, krótkie i konkretne podsumowanie zmian na końcu.
 - Pisz kod jak najbardziej profesjonalnie, prosto i zgodnie z najlepszymi praktykami.
 - Szukaj najlepszego możliwego rozwiązania, a nie tylko pierwszego działającego.
