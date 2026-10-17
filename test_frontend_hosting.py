@@ -44,3 +44,9 @@ def test_my_day_removes_standalone_today_dependency_from_navigation():
 def test_frontend_has_fallback_when_generated_index_is_empty():
     assert 'if not html.strip():' in APP_INIT
     assert 'STATIC_DIR / "fitai_dashboard.html"' in APP_INIT
+
+def test_dashboard_plan_refresh_has_a_matching_try_block():
+    dashboard = (ROOT / "fitai_dashboard.html").read_text(encoding="utf-8")
+    fetch_plan = "try {\\n        const plResp = await fetch('/app/plan/current'"
+    assert fetch_plan in dashboard
+    assert "}catch (e) { console.warn('fetch plan failed', e); }" in dashboard
