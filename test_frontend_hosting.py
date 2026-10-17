@@ -47,6 +47,7 @@ def test_frontend_has_fallback_when_generated_index_is_empty():
 
 def test_dashboard_plan_refresh_has_a_matching_try_block():
     dashboard = (ROOT / "fitai_dashboard.html").read_text(encoding="utf-8")
-    fetch_plan = "try {\\n        const plResp = await fetch('/app/plan/current'"
-    assert fetch_plan in dashboard
+    lines = dashboard.splitlines()
+    fetch_index = next(i for i, line in enumerate(lines) if "const plResp = await fetch('/app/plan/current'" in line)
+    assert lines[fetch_index - 1].strip() == "try {"
     assert "}catch (e) { console.warn('fetch plan failed', e); }" in dashboard
