@@ -149,7 +149,7 @@ async function loadAssessmentHistory(){
  const r=await fetch("/app/assessment/history",{headers:{Authorization:"Bearer "+token}});
  if(!r.ok){return}
  const d=await r.json();
- history.textContent=d.count?d.assessments.map(a=>"v"+a.version+" · "+a.assessment_date+" · "+(a.status||"completed")).join("\n"):"Brak zapisanych wersji.";
+ history.textContent=d.count?d.assessments.map(a=>"v"+a.version+" · "+a.assessment_date+" · "+(a.status||"completed")).join("\\n"):"Brak zapisanych wersji.";
 }
 loadAssessmentHistory();
 </script></main></body></html>""")

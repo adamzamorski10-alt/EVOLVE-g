@@ -2,30 +2,254 @@ name: EVOLVE tests
 
 on:
   push:
-    branches: ["main", "stage-2-training-execution"]
+    branches: ["main", "stage-2-training-execution", "audit/pre-stage-6-full-system", "stage-8-training-adaptation-loop", "stage-9-goals-training-state", "stage-10-decision-engine-foundation", "stage-11-daily-action-today", "stage-12-training-execution-safety", "stage-14-history-progress-foundation", "stage-16-rolling-planning", "stage-17-rolling-plan-ux", "stage-18-training-schedule-availability", "stage-19-schedule-conflict-model", "stage-20-core-loop-integration-audit"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "audit/pre-stage-6-full-system", "stage-11-daily-action-today"]
 
 jobs:
-  modular:
-    name: Modular regression
+  current-regression:
+    name: Current EVOLVE Stage 0-5 regression
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: sqlite:///./ci_test.db
+      ENV: development
+      JWT_SECRET_KEY: ci-jwt-secret-key-32-bytes-minimum-for-tests
+      CRON_SECRET: ci-cron-secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
-      - run: pytest -q test_training_execution.py test_training_ui.py test_training_set_validation.py test_training_today.py test_core_foundation.py test_core_planning_contract.py test_frontend_hosting.py
+      - run: pip install -r requirements-test.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: python -m compileall -q app alembic
+      - run: python -m pytest -q test_training_execution.py test_training_ui.py test_assessment_ui.py test_training_set_validation.py test_training_today.py test_core_foundation.py test_core_planning_contract.py test_frontend_hosting.py test_goals.py test_goals_api.py test_nutrition_foundation.py test_training_result_provenance.py test_pre_stage6_audit.py test_stage0_5_cross_user_isolation.py test_stage5_final_integration.py test_recovery_response.py test_plan_performance_signals.py test_training_evaluation.py test_training_evaluation_api.py test_training_adaptation.py test_training_next_effective_plan.py test_training_adaptive_audit.py tests/test_goal_training_state.py test_goal_training_state_api.py tests/test_decision_engine.py tests/test_decision_training_integration.py tests/test_decision_api.py tests/test_today.py tests/test_today_api.py tests/test_training_history.py tests/test_training_progress.py tests/test_progress_explanation.py tests/test_progress_routes.py tests/test_progress_hostile.py tests/test_progress_explanation_hostile.py tests/test_plan_progress_integration.py tests/test_plan_rolling.py test_database_config.py test_database_init.py test_migrate_sqlite_to_postgres.py
+
+  migration-integrity-postgresql:
+    name: Alembic PostgreSQL integrity + transaction tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: evolve_ci
+          POSTGRES_USER: evolve_ci
+          POSTGRES_PASSWORD: ci-postgres-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U evolve_ci -d evolve_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://evolve_ci:ci-postgres-password@localhost:5432/evolve_ci
+      # Testy narzędzia migracji SQLite -> PostgreSQL uruchamiają się na RZECZISTYM
+      # PostgreSQL 16 z tej usługi (schemat budowany przez `alembic upgrade head`).
+      TEST_POSTGRESQL_URL: postgresql+psycopg://evolve_ci:ci-postgres-password@localhost:5432/evolve_ci
+      ENV: development
+      JWT_SECRET_KEY: ci-jwt-secret-key-32-bytes-minimum-for-tests
+      CRON_SECRET: ci-cron-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: python -m alembic heads
+      - run: python -m alembic upgrade head
+      - run: python -m alembic current --check-heads
+      - run: python -m alembic check
+      - name: Verify active-session partial unique index exists
+        run: |
+          python - <<'PY'
+          from app.config import DATABASE_URL
+          from sqlalchemy import create_engine, text
+
+          engine = create_engine(DATABASE_URL)
+          assert engine.dialect.name == "postgresql", engine.dialect.name
+          with engine.connect() as connection:
+              row = connection.execute(text(
+                  "SELECT indexdef FROM pg_indexes "
+                  "WHERE schemaname = current_schema() "
+                  "AND indexname = 'uq_training_active_user_day'"
+              )).scalar_one_or_none()
+          assert row and "UNIQUE INDEX" in row.upper(), row
+          normalized_indexdef = " ".join(row.upper().split()) if row else ""
+          assert row and "WHERE" in normalized_indexdef and "STATUS" in normalized_indexdef and "'ACTIVE'" in normalized_indexdef, row
+          print(row)
+          PY
+      - name: Verify PostgreSQL schema integrity across import and startup
+        env:
+          # Produkcyjna konfiguracja startu (ENV=production + DATABASE_URL z joba).
+          # Sekrety to dummy'e wyłącznie dla izolowanego procesu CI.
+          ENV: production
+        run: |
+          python - <<'PY'
+          import contextlib
+          import io
+          import sys
+
+          from fastapi.testclient import TestClient
+          from sqlalchemy import create_engine, text
+
+          from app.config import DATABASE_URL
+
+          # 1. Check musi działać na realnym PostgreSQL — bez cichego fallbacku na SQLite.
+          engine = create_engine(DATABASE_URL)
+          assert engine.dialect.name == "postgresql", (
+              f"oczekiwano PostgreSQL, otrzymano dialekt: {engine.dialect.name}"
+          )
+          assert not DATABASE_URL.startswith("sqlite"), "DATABASE_URL wskazuje SQLite"
+
+          def snapshot():
+              with engine.connect() as conn:
+                  tables = sorted(
+                      row[0]
+                      for row in conn.execute(text(
+                          "SELECT tablename FROM pg_tables "
+                          "WHERE schemaname = current_schema()"
+                      )).fetchall()
+                  )
+                  # indexdef normalizowany (upper + whitespace), aby kolejność
+                  # i formatowanie PostgreSQL nie powodowały fałszywych różnic.
+                  indexes = {
+                      name: " ".join(definition.upper().split())
+                      for name, definition in conn.execute(text(
+                          "SELECT indexname, indexdef FROM pg_indexes "
+                          "WHERE schemaname = current_schema()"
+                      )).fetchall()
+                  }
+              return {"tables": tables, "indexes": indexes}
+
+          # 2. Snapshot PO migracjach Alembica, PRED importem aplikacji.
+          before = snapshot()
+          assert before["tables"], "Brak tabel — migracje Alembica nie zostały zastosowane"
+
+          # 3. Import produkcyjnego entrypointu — wykonuje bootstrap import-time.
+          import main
+
+          # 4. Jawny lifecycle: `with TestClient` startuje event `startup`
+          #    (zwykły TestClient bez `with` go pomija — patrz Stage 20T.1).
+          app_module = sys.modules["app"]
+          original_bootstrap = app_module.create_db_and_tables
+          startup_calls = []
+
+          def counting_bootstrap():
+              result = original_bootstrap()
+              startup_calls.append(result)
+              return result
+
+          app_module.create_db_and_tables = counting_bootstrap
+          startup_output = io.StringIO()
+          try:
+              with contextlib.redirect_stdout(startup_output), TestClient(main.app) as client:
+                  health = client.get("/health/").json()
+          finally:
+              app_module.create_db_and_tables = original_bootstrap
+
+          assert health["database"] == "connected", (
+              f"aplikacja nie połączyła się z PostgreSQL: {health}"
+          )
+          assert startup_calls == [False], (
+              "startup powinien wywołać create_db_and_tables dokładnie raz "
+              f"z wynikiem False (dialect-guard): {startup_calls}"
+          )
+          startup_log = startup_output.getvalue().strip().splitlines()
+          print("[startup log]", startup_log[-1] if startup_log else "<brak>")
+
+          # 5. Ten sam snapshot PO imporcie i starcie.
+          after = snapshot()
+          engine.dispose()
+
+          added_tables = sorted(set(after["tables"]) - set(before["tables"]))
+          removed_tables = sorted(set(before["tables"]) - set(after["tables"]))
+          added_indexes = sorted(set(after["indexes"]) - set(before["indexes"]))
+          removed_indexes = sorted(set(before["indexes"]) - set(after["indexes"]))
+          changed_indexes = sorted(
+              name
+              for name in set(before["indexes"]) & set(after["indexes"])
+              if before["indexes"][name] != after["indexes"][name]
+          )
+          assert not (
+              added_tables or removed_tables or added_indexes
+              or removed_indexes or changed_indexes
+          ), (
+              "import i start aplikacji zmieniły schemat PostgreSQL — "
+              f"dodane_tabele={added_tables} usunięte_tabele={removed_tables} "
+              f"dodane_indeksy={added_indexes} usunięte_indeksy={removed_indexes} "
+              f"zmienione_indeksy={changed_indexes}"
+          )
+          print(
+              f"OK: {len(after['tables'])} tabel i {len(after['indexes'])} indeksów "
+              "bez zmian po imporcie i starcie aplikacji"
+          )
+          PY
+      - name: Run route-level transaction tests against PostgreSQL
+        run: >-
+          python -m pytest -q
+          test_training_execution.py::test_start_session_serializes_concurrent_requests_to_at_most_one_active_session
+          test_training_execution.py::test_set_write_rechecks_session_status_after_initial_read
+          test_training_execution.py::test_completion_materializes_only_sets_owned_by_session_user
+      - name: Run offline SQLite to PostgreSQL migration tool integration tests
+        # Schemat docelowy muszą tworzyć RZECZISTE migracje Alembic (upgrade head),
+        # dlatego testy integracyjne nie używają `metadata.create_all()`.
+        run: python -m pytest -q test_migrate_sqlite_to_postgres.py
 
   legacy-baseline:
     name: Legacy regression (informational)
     runs-on: ubuntu-latest
     continue-on-error: true
+    env:
+      DATABASE_URL: sqlite:///./ci_legacy.db
+      ENV: development
+      JWT_SECRET_KEY: ci-jwt-secret-key-32-bytes-minimum-for-tests
+      CRON_SECRET: ci-cron-secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
-      - run: pytest -q
+      - run: python -m pytest -q test_diet.py test_macros.py test_main.py test_etap1.py test_etap2_structure.py test_etap3_full.py test_etap4.py test_day_tracker.py test_weekly_analysis.py test_sport_drills.py test_exercise_descriptions.py
+
+  migration-integrity:
+    name: Alembic clean-database integrity
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: sqlite:///./ci_migration.db
+      ENV: development
+      JWT_SECRET_KEY: ci-jwt-secret-key-32-bytes-minimum-for-tests
+      CRON_SECRET: ci-cron-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: python -m alembic heads
+      - run: python -m alembic upgrade head
+      - run: python -m alembic current
+      - run: python -c "from alembic.config import Config; from alembic.script import ScriptDirectory; s=ScriptDirectory.from_config(Config('alembic.ini')); assert len(s.get_heads()) == 1, s.get_heads()"
+      - run: python -m alembic downgrade evolve20migration_merge
+      - run: python -m alembic upgrade head
+      - run: python -m alembic current --check-heads
+      - run: python -m alembic check
+      - name: Verify active-session partial unique index exists
+        run: |
+          python - <<'PY'
+          from app.config import DATABASE_URL
+          from sqlalchemy import create_engine, text
+
+          engine = create_engine(DATABASE_URL)
+          assert engine.dialect.name == "sqlite", engine.dialect.name
+          with engine.connect() as connection:
+              sql = connection.execute(text(
+                  "SELECT sql FROM sqlite_master "
+                  "WHERE type='index' AND name='uq_training_active_user_day'"
+              )).scalar_one_or_none()
+          assert sql and "UNIQUE INDEX" in sql.upper(), sql
+          assert "WHERE STATUS = 'ACTIVE'" in sql.upper(), sql
+          print(sql)
+          PY

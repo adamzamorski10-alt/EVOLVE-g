@@ -1,4 +1,7 @@
 import pytest
+from pathlib import Path
+from sqlmodel import Session, select
+from app.database import engine
 
 from app.auth import routes as auth_routes
 from test_training_execution import _context, _headers, client
@@ -302,7 +305,7 @@ def test_training_dashboard_contains_history_and_adaptation_sections():
 def test_training_session_ui_is_available_and_exposes_execution_loop():
     response = client.get("/app/training/session-ui")
     assert response.status_code == 200
-    assert "Dzisiejszy trening" in response.text
+    assert "Trening" in response.text
     assert "Zapisz" in response.text
     assert "Zakończ trening" in response.text
 
@@ -333,7 +336,7 @@ def test_adaptive_plan_apply_creates_version_and_preserves_previous_plan():
 
     history = client.get("/app/training/adaptive/history", headers=_headers(ctx["token"]))
     assert history.status_code == 200
-    assert len(history.json()["versions"]) == 1
+    assert len(history.json()["revisions"]) == 1
 
 
 def test_adaptive_plan_apply_is_idempotent_and_user_scoped():
@@ -357,10 +360,126 @@ def test_adaptive_plan_apply_is_idempotent_and_user_scoped():
 
     foreign = client.get("/app/training/adaptive/history", headers=_headers(second["token"]))
     assert foreign.status_code == 200
-    assert foreign.json()["versions"] == []
+    assert foreign.json()["revisions"] == []
 
 
 def test_adaptive_dashboard_exposes_apply_control():
     response = client.get("/app/training/dashboard")
     assert response.status_code == 200
     assert "Zastosuj adaptację jako nową wersję planu" in response.text
+
+
+def test_training_set_identity_is_database_unique_and_owner_scoped():
+    migration = (Path(__file__).parent / "alembic" / "versions" / "evolve13set_unique.py").read_text(encoding="utf-8")
+    routes = (Path(__file__).parent / "app" / "training" / "routes.py").read_text(encoding="utf-8")
+    assert "uq_training_set_session_exercise_number" in migration
+    assert "ON training_set_results(session_id, exercise_key, set_number)" in migration
+    assert ".where(TrainingSetResultDB.user_id == user.id)" in routes
+    assert "except IntegrityError:" in routes
+
+
+def test_completion_is_atomic_and_claims_only_active_owned_session():
+    routes = Path(__file__).parent / "app" / "training" / "routes.py"
+    source = routes.read_text(encoding="utf-8")
+    assert "update(TrainingSessionDB)" in source
+    assert ".where(TrainingSessionDB.user_id == user.id)" in source
+    assert '.where(TrainingSessionDB.status == "active")' in source
+    assert "if claimed != 1:" in source
+
+
+def test_adaptive_revision_version_is_database_unique_and_conflicts_are_handled():
+    migration = (Path(__file__).parent / "alembic" / "versions" / "evolve15adaptive_unique.py").read_text(encoding="utf-8")
+    routes = (Path(__file__).parent / "app" / "training" / "routes.py").read_text(encoding="utf-8")
+    assert "uq_adaptive_plan_revision_user_version" in migration
+    assert "ON adaptive_plan_revisions(user_id, version)" in migration
+    assert "except IntegrityError:" in routes
+    assert "Równoległa adaptacja utworzyła już tę samą wersję planu." in routes
+
+
+def test_training_set_update_is_idempotent_and_editable():
+    ctx = _context()
+    started = client.post("/app/training/sessions/start", headers=_headers(ctx["token"]))
+    sid = started.json()["session"]["id"]
+
+    first = _log_set(ctx["token"], sid, 1, reps=5, weight=100, rpe=7)
+    assert first.status_code == 200
+    second = _log_set(ctx["token"], sid, 1, reps=6, weight=105, rpe=8)
+    assert second.status_code == 200
+    assert second.json()["status"] == "updated"
+    assert second.json()["set"]["actual_reps"] == 6
+    assert second.json()["set"]["actual_weight_kg"] == 105
+
+    with Session(engine) as db:
+        from app.models import UserDB, TrainingSetResultDB
+        user = db.exec(select(UserDB).where(UserDB.email == ctx["email"])).first()
+        rows = db.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.session_id == sid)
+            .where(TrainingSetResultDB.exercise_key == "squat-1")
+            .where(TrainingSetResultDB.set_number == 1)
+        ).all()
+        assert len(rows) == 1
+        assert rows[0].actual_reps == 6
+        assert rows[0].actual_weight_kg == 105
+
+def test_canonical_adaptation_is_deterministic_bounded_and_does_not_mutate_inputs():
+    from app.training.adaptation import adapt_exercise
+    planned = {'exercise_key': 'squat-1', 'exercise_name': 'Squat', 'sets': 3, 'reps': 5, 'weight_kg': 100}
+    evaluation = {'decision': 'progress', 'reason_codes': ['TARGET_COMPLETED']}
+    original = dict(planned)
+    first = adapt_exercise(planned, evaluation)
+    second = adapt_exercise(planned, evaluation)
+    assert first == second
+    assert planned == original
+    assert first['proposed']['weight_kg'] == 102.5
+    assert (first['proposed']['weight_kg'] - first['current']['weight_kg']) / first['current']['weight_kg'] <= 0.05
+
+def test_canonical_adaptation_never_progresses_with_insufficient_data():
+    from app.training.adaptation import adapt_exercise
+    planned = {'exercise_key': 'squat-1', 'exercise_name': 'Squat', 'sets': 3, 'reps': 5, 'weight_kg': 100}
+    result = adapt_exercise(planned, {'decision': 'insufficient_data', 'reason_codes': ['INSUFFICIENT_DATA']})
+    assert result['decision'] == 'insufficient_data'
+    assert result['action'] == 'unchanged'
+    assert result['current'] == result['proposed']
+
+def test_next_effective_preview_is_exactly_the_plan_persisted_by_apply():
+    ctx = _context()
+    started = client.post('/app/training/sessions/start', headers=_headers(ctx['token']))
+    assert started.status_code == 200
+    sid = started.json()['session']['id']
+    for number in (1, 2, 3):
+        assert _log_set(ctx['token'], sid, number, reps=5, weight=100, rpe=7).status_code == 200
+    assert client.post(f'/app/training/sessions/{sid}/complete', json={'final_rpe': 7}, headers=_headers(ctx['token'])).status_code == 200
+    preview = client.get('/app/training/adaptive/next-effective-preview', headers=_headers(ctx['token']))
+    assert preview.status_code == 200
+    body = preview.json()
+    assert body['has_data'] is True and body['plan_mutated'] is False
+    repeated = client.get('/app/training/adaptive/next-effective-preview', headers=_headers(ctx['token']))
+    assert repeated.status_code == 200
+    assert repeated.json()['plan'] == body['plan']
+    applied = client.post('/app/training/adaptive/apply', headers=_headers(ctx['token']))
+    assert applied.status_code == 200
+    applied_body = applied.json()
+    assert applied_body['status'] == 'applied'
+    assert applied_body['plan'] == body['plan']
+    assert applied_body['source_session_ids'] == body['source_session_ids']
+    assert applied_body['decision_summary'] == body['summary']
+
+def test_next_effective_preview_is_user_scoped_and_read_only():
+    first = _context()
+    second = _context()
+    started = client.post('/app/training/sessions/start', headers=_headers(first['token']))
+    assert started.status_code == 200
+    sid = started.json()['session']['id']
+    for number in (1, 2, 3):
+        assert _log_set(first['token'], sid, number).status_code == 200
+    assert client.post(f'/app/training/sessions/{sid}/complete', json={'final_rpe': 7}, headers=_headers(first['token'])).status_code == 200
+    foreign = client.get('/app/training/adaptive/next-effective-preview', headers=_headers(second['token']))
+    assert foreign.status_code == 200
+    assert foreign.json()['has_data'] is False
+    assert foreign.json()['plan_mutated'] is False
+    own = client.get('/app/training/adaptive/next-effective-preview', headers=_headers(first['token']))
+    assert own.status_code == 200
+    assert own.json()['has_data'] is True
+    assert own.json()['plan_mutated'] is False

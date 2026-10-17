@@ -73,7 +73,22 @@ def _backfill_user_numbers():
 
 
 def create_db_and_tables():
-    """Create all tables in database (run once at startup)."""
+    """Create all tables in database (run once at startup).
+
+    Schemat bazy jest własnością Alembica (render build: `alembic upgrade head`).
+    Auto-tworzenie schematu przy starcie omijałoby migracje i desynchronizowało
+    `alembic_version`, dlatego bootstrap wykonujemy wyłącznie dla SQLite, na
+    którym polegają testy i lokalne środowisko deweloperskie.
+
+    Dla PostgreSQL i innych dialektów funkcja jest no-op — nie tworzy schematu,
+    nie synchronizuje sekwencji i nie commituje niczego do bazy.
+
+    Zwraca True, gdy bootstrap faktycznie się wykonał (SQLite).
+    """
+    # engine.dialect jest ustalany przy tworzeniu engine — bez otwierania połączenia.
+    if engine.dialect.name != "sqlite":
+        return False
+
     SQLModel.metadata.create_all(engine)
     _ensure_legacy_sqlite_columns()
     _backfill_user_numbers()    # ← uzupełnia user_number dla istniejących kont
@@ -99,6 +114,8 @@ def create_db_and_tables():
                 print(f"[FitAI] Zsynchronizowano user_number_sequence dla {len(rows)} kont")
     except Exception as exc:
         print(f"[FitAI] Ostrzeżenie — sync user_number_sequence: {exc}")
+
+    return True
 
 
 def _ensure_legacy_sqlite_columns():

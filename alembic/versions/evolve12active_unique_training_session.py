@@ -7,7 +7,7 @@ Revises: evolve11core
 from alembic import op
 
 revision = "evolve12active"
-down_revision = "evolve11core"
+down_revision = "evolve11training"
 branch_labels = None
 depends_on = None
 
