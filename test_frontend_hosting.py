@@ -51,3 +51,47 @@ def test_dashboard_plan_refresh_has_a_matching_try_block():
     fetch_index = next(i for i, line in enumerate(lines) if "const plResp = await fetch('/app/plan/current'" in line)
     assert lines[fetch_index - 1].strip() == "try {"
     assert "}catch (e) { console.warn('fetch plan failed', e); }" in dashboard
+
+def test_dashboard_inline_javascript_parses_when_node_is_available(tmp_path):
+    import re
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if not node:
+        import pytest
+        pytest.skip("Node.js is not installed")
+
+    dashboard = (ROOT / "fitai_dashboard.html").read_text(encoding="utf-8")
+    scripts = re.findall(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", dashboard, re.IGNORECASE)
+    inline_script = max(scripts, key=len)
+    script_path = tmp_path / "dashboard-inline.js"
+    script_path.write_text(inline_script, encoding="utf-8")
+    result = subprocess.run([node, "--check", str(script_path)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+def test_injected_shell_javascript_parses_when_node_is_available(tmp_path):
+    import ast
+    import re
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if not node:
+        import pytest
+        pytest.skip("Node.js is not installed")
+
+    module = ast.parse(APP_INIT)
+    shell_value = next(
+        ast.literal_eval(node.value)
+        for node in ast.walk(module)
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "evolve_shell_integration" for target in node.targets)
+    )
+    match = re.search(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", shell_value, re.IGNORECASE)
+    assert match, "Injected shell script tag is missing"
+    script_path = tmp_path / "injected-shell.js"
+    script_path.write_text(match.group(1), encoding="utf-8")
+    result = subprocess.run([node, "--check", str(script_path)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
