@@ -103,3 +103,71 @@ def test_injected_navigation_uses_safe_event_listeners():
     assert all('onclick=' not in line for line in navigation_lines)
     assert 'button.addEventListener("click"' in APP_INIT
     assert 'String.fromCharCode(34)' in APP_INIT
+
+
+def test_injected_navigation_clicks_route_to_the_selected_tab_when_node_is_available(tmp_path):
+    import ast
+    import re
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if not node:
+        import pytest
+        pytest.skip("Node.js is not installed")
+
+    module = ast.parse(APP_INIT)
+    shell_value = next(
+        ast.literal_eval(node.value)
+        for node in ast.walk(module)
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "evolve_shell_integration" for target in node.targets)
+    )
+    match = re.search(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", shell_value, re.IGNORECASE)
+    assert match, "Injected shell script tag is missing"
+
+    harness = r'''\
+const calls = [];
+const buttons = {};
+const expected = ["my-day", "training", "basketball", "diet", "recovery", "progress"];
+function makeButton(id) {
+  return {
+    handlers: {},
+    addEventListener(name, callback) { this.handlers[name] = callback; },
+    getAttribute(name) { return name === "data-tab" ? id.replace("nav-", "").replace("my-day", "my-day") : null; },
+    click() { if (this.handlers.click) this.handlers.click(); }
+  };
+}
+const profile = {
+  insertAdjacentHTML(_position, html) {
+    for (const id of ["nav-my-day", "nav-training", "nav-basketball", "nav-diet", "nav-recovery", "nav-progress"]) {
+      buttons[id] = makeButton(id);
+    }
+  }
+};
+const content = { insertAdjacentHTML() {} };
+const document = {
+  ready: null,
+  addEventListener(name, callback) { if (name === "DOMContentLoaded") this.ready = callback; },
+  querySelector(selector) { return selector === ".sidebar" ? {} : selector === ".content" ? content : null; },
+  getElementById(id) {
+    if (id === "nav-profile") return profile;
+    if (id === "tab-my-day" || id === "nav-myday" || id === "nav-plan" || id === "tab-myday") return null;
+    return buttons[id] || null;
+  }
+};
+const window = { location: { hash: "" }, addEventListener() {} };
+function showTab(tab) { calls.push(tab); }
+'''
+    script_path = tmp_path / "navigation-runtime.js"
+    script_path.write_text(harness + "\\n" + match.group(1) + "\\n" + r'''\
+if (!document.ready) throw new Error("DOMContentLoaded handler was not registered");
+document.ready();
+for (const id of ["nav-my-day", "nav-training", "nav-basketball", "nav-diet", "nav-recovery", "nav-progress"]) {
+  if (!buttons[id] || typeof buttons[id].handlers.click !== "function") throw new Error("Missing click handler: " + id);
+  buttons[id].click();
+}
+if (JSON.stringify(calls) !== JSON.stringify(expected)) throw new Error("Unexpected tabs: " + JSON.stringify(calls));
+''', encoding="utf-8")
+    result = subprocess.run([node, str(script_path)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
