@@ -84,10 +84,12 @@ def test_injected_shell_javascript_parses_when_node_is_available(tmp_path):
 
     module = ast.parse(APP_INIT)
     shell_value = next(
-        ast.literal_eval(node.value)
+        value
         for node in ast.walk(module)
         if isinstance(node, ast.Assign)
         and any(isinstance(target, ast.Name) and target.id == "evolve_shell_integration" for target in node.targets)
+        for value in [ast.literal_eval(node.value)]
+        if isinstance(value, str) and "<script id=\"evolve-my-day-shell-integration\"" in value
     )
     match = re.search(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", shell_value, re.IGNORECASE)
     assert match, "Injected shell script tag is missing"
@@ -118,10 +120,12 @@ def test_injected_navigation_clicks_route_to_the_selected_tab_when_node_is_avail
 
     module = ast.parse(APP_INIT)
     shell_value = next(
-        ast.literal_eval(node.value)
+        value
         for node in ast.walk(module)
         if isinstance(node, ast.Assign)
         and any(isinstance(target, ast.Name) and target.id == "evolve_shell_integration" for target in node.targets)
+        for value in [ast.literal_eval(node.value)]
+        if isinstance(value, str) and "<script id=\"evolve-my-day-shell-integration\"" in value
     )
     match = re.search(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", shell_value, re.IGNORECASE)
     assert match, "Injected shell script tag is missing"
