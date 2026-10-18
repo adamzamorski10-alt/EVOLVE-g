@@ -123,10 +123,10 @@ def test_injected_navigation_clicks_route_to_the_selected_tab_when_node_is_avail
         if isinstance(node, ast.Assign)
         and any(isinstance(target, ast.Name) and target.id == "evolve_shell_integration" for target in node.targets)
     )
-    match = re.search(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", shell_value, re.IGNORECASE)
+    match = re.search(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", shell_value, re.IGNORECASE)
     assert match, "Injected shell script tag is missing"
 
-    harness = r'''\
+    harness = r'''
 const calls = [];
 const buttons = {};
 const expected = ["my-day", "training", "basketball", "diet", "recovery", "progress"];
@@ -134,12 +134,12 @@ function makeButton(id) {
   return {
     handlers: {},
     addEventListener(name, callback) { this.handlers[name] = callback; },
-    getAttribute(name) { return name === "data-tab" ? id.replace("nav-", "").replace("my-day", "my-day") : null; },
+    getAttribute(name) { return name === "data-tab" ? id.replace("nav-", "") : null; },
     click() { if (this.handlers.click) this.handlers.click(); }
   };
 }
 const profile = {
-  insertAdjacentHTML(_position, html) {
+  insertAdjacentHTML() {
     for (const id of ["nav-my-day", "nav-training", "nav-basketball", "nav-diet", "nav-recovery", "nav-progress"]) {
       buttons[id] = makeButton(id);
     }
@@ -160,7 +160,7 @@ const window = { location: { hash: "" }, addEventListener() {} };
 function showTab(tab) { calls.push(tab); }
 '''
     script_path = tmp_path / "navigation-runtime.js"
-    script_path.write_text(harness + "\\n" + match.group(1) + "\\n" + r'''\
+    script_path.write_text(harness + "\n" + match.group(1) + "\n" + r'''
 if (!document.ready) throw new Error("DOMContentLoaded handler was not registered");
 document.ready();
 for (const id of ["nav-my-day", "nav-training", "nav-basketball", "nav-diet", "nav-recovery", "nav-progress"]) {
