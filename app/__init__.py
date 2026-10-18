@@ -146,7 +146,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 (function () {
   function escapeHtml(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
-      return {"&":"&amp;","<":"&lt;",">":"&gt;","\\\"":"&quot;","'":"&#39;"}[char];
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",[String.fromCharCode(34)]:"&quot;","'":"&#39;"}[char];
     });
   }
 
@@ -162,13 +162,19 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
       if (legacyPlan) legacyPlan.remove();
 
       profile.insertAdjacentHTML("beforebegin",
-        '<button class="nav-btn" id="nav-my-day" data-tab="my-day" onclick="showTab(\\'my-day\\')">🎯<span class="nav-tooltip">Mój dzień</span></button>' +
-        '<button class="nav-btn" id="nav-training" data-tab="training" onclick="showTab(\\'training\\')">🏋️<span class="nav-tooltip">Trening</span></button>' +
-        '<button class="nav-btn" id="nav-basketball" data-tab="basketball" onclick="showTab(\\'basketball\\')">🏀<span class="nav-tooltip">Koszykówka</span></button>' +
-        '<button class="nav-btn" id="nav-diet" data-tab="diet" onclick="showTab(\\'diet\\')">🥗<span class="nav-tooltip">Dieta</span></button>' +
-        '<button class="nav-btn" id="nav-recovery" data-tab="recovery" onclick="showTab(\\'recovery\\')">😴<span class="nav-tooltip">Recovery</span></button>' +
-        '<button class="nav-btn" id="nav-progress" data-tab="progress" onclick="showTab(\\'progress\\')">📈<span class="nav-tooltip">Postępy</span></button>'
+        '<button class="nav-btn" id="nav-my-day" data-tab="my-day">🎯<span class="nav-tooltip">Mój dzień</span></button>' +
+        '<button class="nav-btn" id="nav-training" data-tab="training">🏋️<span class="nav-tooltip">Trening</span></button>' +
+        '<button class="nav-btn" id="nav-basketball" data-tab="basketball">🏀<span class="nav-tooltip">Koszykówka</span></button>' +
+        '<button class="nav-btn" id="nav-diet" data-tab="diet">🥗<span class="nav-tooltip">Dieta</span></button>' +
+        '<button class="nav-btn" id="nav-recovery" data-tab="recovery">😴<span class="nav-tooltip">Recovery</span></button>' +
+        '<button class="nav-btn" id="nav-progress" data-tab="progress">📈<span class="nav-tooltip">Postępy</span></button>'
       );
+      ["nav-my-day", "nav-training", "nav-basketball", "nav-diet", "nav-recovery", "nav-progress"].forEach(function (id) {
+        var button = document.getElementById(id);
+        if (button) button.addEventListener("click", function () {
+          if (typeof showTab === "function") showTab(button.getAttribute("data-tab"));
+        });
+      });
     }
 
     var content = document.querySelector(".content");
