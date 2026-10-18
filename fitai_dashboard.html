@@ -1907,7 +1907,8 @@
         aiCont.innerHTML = `<div class="ai-bubble"><div class="ai-label">🤖 Analiza AI</div>Świetna robota! Dobra spójność. Na jutro pamiętaj o odpowiednim nawodnieniu.</div>`;
       }
       showToast('✅ Raport zapisany (lokalnie)');
-      const plResp = await fetch('/app/plan/current', { credentials: 'same-origin' });
+      try {
+        const plResp = await fetch('/app/plan/current', { credentials: 'same-origin' });
       if (plResp.ok) {
         const planObj = await plResp.json();
         // backend returns full plan structure; map to state.plan
