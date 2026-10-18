@@ -95,3 +95,11 @@ def test_injected_shell_javascript_parses_when_node_is_available(tmp_path):
     script_path.write_text(match.group(1), encoding="utf-8")
     result = subprocess.run([node, "--check", str(script_path)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+
+
+def test_injected_navigation_uses_safe_event_listeners():
+    navigation_lines = [line for line in APP_INIT.splitlines() if 'nav-' in line and 'data-tab=' in line]
+    assert len(navigation_lines) == 6
+    assert all('onclick=' not in line for line in navigation_lines)
+    assert 'button.addEventListener("click"' in APP_INIT
+    assert 'String.fromCharCode(34)' in APP_INIT
