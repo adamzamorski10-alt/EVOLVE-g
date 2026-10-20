@@ -1,0 +1,6 @@
+# Test/CI-only dependencies.
+#
+# Kept separate from requirements.txt so the production runtime image is not
+# burdened with browser tooling it never uses.
+
+playwright>=1.40

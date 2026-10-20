@@ -331,11 +331,33 @@ class DrillResultRequest(BaseModel):
     weight_kg: Optional[float] = Field(default=None, ge=0, description="Obciążenie [kg]")
 
 
+class TrainingAvailabilityWindow(BaseModel):
+    """A local clock-time window during which a workout can be scheduled."""
+    start: str = Field(pattern=r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
+    end: str = Field(pattern=r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
+
+    @field_validator("end")
+    @classmethod
+    def end_must_follow_start(cls, value: str, info):
+        start = info.data.get("start")
+        if start and value <= start:
+            raise ValueError("Koniec okna musi być późniejszy niż początek.")
+        return value
+
+
+class TrainingAvailabilityRequest(BaseModel):
+    """Weekly days and optional time windows available for training."""
+    days: list[str] = Field(min_length=1, max_length=7)
+    windows: dict[str, TrainingAvailabilityWindow] = Field(default_factory=dict)
+    session_duration_minutes: int = Field(default=60, ge=15, le=240)
+
+
 class SportConfigRequest(BaseModel):
     """Konfiguracja modułu sportowego użytkownika."""
     sport_focus: str                            # np. "koszykówka"
     sport_specialization: str = ""             # np. "rzuty"
-    sport_training_days: list[str] = []        # np. ["Środa", "Sobota"]
+    sport_training_days: list[str] = Field(default_factory=list, max_length=7)
+    sport_training_windows: dict[str, TrainingAvailabilityWindow] = Field(default_factory=dict)
 
 
 # ─── Plan / Reminder Schemas ──────────────────────────────────────────────────
@@ -394,3 +416,30 @@ class TrainingSetResultRequest(BaseModel):
 class TrainingCompleteRequest(BaseModel):
     final_rpe: Optional[int] = Field(default=None, ge=1, le=10)
     notes: str = Field(default="", max_length=2000)
+
+
+class GoalCreateRequest(BaseModel):
+    goal_type: str
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=3000)
+    start_date: Optional[str] = None
+    target_date: Optional[str] = None
+    priority: int = Field(default=0, ge=0, le=100)
+    metric_key: Optional[str] = None
+    baseline_value: Optional[float] = None
+    target_value: Optional[float] = None
+    metadata: dict[str, Any] = {}
+
+
+class GoalUpdateRequest(BaseModel):
+    goal_type: Optional[str] = None
+    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=3000)
+    start_date: Optional[str] = None
+    target_date: Optional[str] = None
+    priority: Optional[int] = Field(default=None, ge=0, le=100)
+    status: Optional[str] = None
+    metric_key: Optional[str] = None
+    baseline_value: Optional[float] = None
+    target_value: Optional[float] = None
+    metadata: Optional[dict[str, Any]] = None

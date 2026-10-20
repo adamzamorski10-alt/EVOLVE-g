@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 
 revision: str = "72efb594294f"
-down_revision: Union[str, Sequence[str], None] = "c8b1f3d9a77d"
+down_revision: Union[str, Sequence[str], None] = "a1b2c3d4e5f6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -22,7 +22,7 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column("discord_connect_code", sa.String(), nullable=True))
         batch_op.add_column(sa.Column("discord_connect_code_expires_at", sa.DateTime(), nullable=True))
         batch_op.add_column(sa.Column("reminder_time", sa.String(), nullable=True))
-        batch_op.add_column(sa.Column("reminder_enabled", sa.Boolean(), nullable=False, server_default=sa.text("0")))
+        batch_op.add_column(sa.Column("reminder_enabled", sa.Boolean(), nullable=False, server_default=sa.false()))
         batch_op.add_column(sa.Column("last_reminder_sent_date", sa.Date(), nullable=True))
 
 

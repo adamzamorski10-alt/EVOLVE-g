@@ -13,6 +13,8 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlmodel import Session, select
 
 from app.auth.dependencies import get_current_user
+from app.decision_engine import training_execution_allowed
+from app.decision_service import decision_for_user
 from app.config import (
     _XP_CHECKIN,
     _XP_MEAL_LOGGED,
@@ -435,6 +437,19 @@ def toggle_day_item(
         raise HTTPException(status_code=404, detail="Nie znaleziono elementu dnia")
 
     previous_checked = bool(item.get("checked"))
+    if payload.item_type == "workout" and payload.checked and not previous_checked:
+        decision = decision_for_user(user=user, db=session, target_date=target_date)
+        if not training_execution_allowed(decision):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "TRAINING_EXECUTION_BLOCKED",
+                    "decision": decision["decision"],
+                    "priority": decision["priority"],
+                    "action": decision["action"],
+                    "reason_codes": decision["reason_codes"],
+                },
+            )
     item["checked"] = bool(payload.checked)
     item["updated_at"] = datetime.now().isoformat()
 
@@ -1132,9 +1147,22 @@ def get_checkin_history(
 def log_exercise_result(
     req: ExerciseResultRequest,
     user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ):
     """Zaloguj wynik ćwiczenia — nazwa, serie, powtórzenia, ciężar, RPE."""
     session_date = req.session_date or date.today()  # ← Use date object
+    decision = decision_for_user(user=user, db=session, target_date=session_date)
+    if not training_execution_allowed(decision):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "TRAINING_EXECUTION_BLOCKED",
+                "decision": decision["decision"],
+                "priority": decision["priority"],
+                "action": decision["action"],
+                "reason_codes": decision["reason_codes"],
+            },
+        )
 
     result = ExerciseResultDB(
         user_id=user.id,
@@ -1474,21 +1502,42 @@ def configure_sport(
     req: SportConfigRequest,
     user: UserDB = Depends(get_current_user),
 ):
-    """Konfiguruj moduł sportowy — sport, specjalizacja, dni treningowe."""
+    from app.plan.deterministic import _normalize_weekday
+    """Konfiguruj sport, dni treningowe i opcjonalne zarezerwowane godziny."""
+    normalized_days = [_normalize_weekday(day) for day in req.sport_training_days]
+    if any(day is None for day in normalized_days):
+        raise HTTPException(status_code=422, detail="Podaj prawidłowe dni tygodnia po polsku.")
+    canonical_days = list(dict.fromkeys(day for day in normalized_days if day is not None))
+    canonical_windows = {}
+    for raw_day, window in req.sport_training_windows.items():
+        day = _normalize_weekday(raw_day)
+        if day is None or day not in canonical_days:
+            raise HTTPException(
+                status_code=422,
+                detail="Godziny treningu sportowego muszą należeć do skonfigurowanego dnia sportowego.",
+            )
+        canonical_windows[day] = window.model_dump()
+
     with Session(engine) as session:
         db_user = upsert_user_from_profile(
             user.user_key,
             {
                 "sport_focus": req.sport_focus,
                 "sport_specialization": req.sport_specialization,
-                "sport_training_days": req.sport_training_days,
+                "sport_training_days": canonical_days,
             },
             session,
         )
+        db_user.set_dict("sport_training_schedule_json", {"windows": canonical_windows})
+        db_user.updated_at = datetime.now()
+        session.add(db_user)
+        session.commit()
+        session.refresh(db_user)
         return {
             "status": "ok",
             "message": "Sport konfiguracja zaktualizowana",
             "sport_focus": db_user.sport_focus,
             "sport_specialization": db_user.sport_specialization,
             "sport_training_days": db_user.get_list("sport_training_days_json"),
+            "sport_training_windows": db_user.get_dict("sport_training_schedule_json").get("windows", {}),
         }

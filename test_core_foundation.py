@@ -119,6 +119,36 @@ def test_plan_readiness_and_generation_keep_provenance():
     assert plan["_evolve_core"]["assessment_version"] == 1
 
 
+def test_plan_swap_persists_to_database():
+    ctx = _context()
+    plan = {
+        "days": [{
+            "day": "Poniedziałek",
+            "meals": [{
+                "name": "Posiłek A", "kcal": 500,
+                "alternatives": [{"name": "Posiłek B", "kcal": 600}],
+            }],
+            "workout": {"title": "Trening", "exercises": []},
+        }],
+        "diet": {}, "training": {}, "generated_at": "2026-10-03T00:00:00",
+    }
+    saved = client.put("/app/plan/current", json={"plan": plan}, headers=_headers(ctx["token"]))
+    assert saved.status_code == 200, saved.text
+
+    swapped = client.post(
+        "/app/plan/swap",
+        json={"day_index": 0, "section": "meal", "item_index": 0, "alternative_index": 0},
+        headers=_headers(ctx["token"]),
+    )
+    assert swapped.status_code == 200, swapped.text
+    assert swapped.json()["plan"]["days"][0]["meals"][0]["name"] == "Posiłek B"
+
+    reread = client.get("/app/plan/current", headers=_headers(ctx["token"]))
+    assert reread.status_code == 200, reread.text
+    assert reread.json()["days"][0]["meals"][0]["name"] == "Posiłek B"
+
+
+
 def test_core_setup_uis_are_available():
     assert client.get("/app/assessment/ui").status_code == 200
     assert "Assessment początkowy" in client.get("/app/assessment/ui").text

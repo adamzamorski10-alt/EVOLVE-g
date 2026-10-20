@@ -1702,7 +1702,7 @@
           class="nav-item active flex items-center gap-3 p-3 text-sm font-medium text-cyan-400"><span>🏠</span><span>Home</span></a>
         <a href="#" onclick="showTab('home');return false;" data-tab="home" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-cyan-400"><span>🏠</span><span>Home</span></a>
         <a href="#" onclick="showTab('my-day');return false;" data-tab="my-day" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Dzisiejszy plan, wykonanie i zadania"><span>🎯</span><span>Mój dzień</span></a>
-        <a href="#" onclick="showTab('plan'); switchPlanCategory('trening'); return false;" data-tab="training" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🏋️</span><span>Trening</span></a>
+        <a href="#" onclick="showTab('training');return false;" data-tab="training" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🏋️</span><span>Trening</span></a>
         <a href="#" onclick="showTab('plan'); switchPlanCategory('sport'); return false;" data-tab="basketball" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🏀</span><span>Koszykówka</span></a>
         <a href="#" onclick="showTab('plan'); switchPlanCategory('dieta'); return false;" data-tab="diet" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🥗</span><span>Dieta</span></a>
         <a href="#" onclick="showTab('recovery');return false;" data-tab="recovery" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>😴</span><span>Recovery</span></a>
@@ -1917,6 +1917,50 @@
           <div class="glass rounded-2xl p-5"><p class="text-xs text-gray-500 uppercase tracking-wider">Koszykówka</p><p class="text-white font-bold mt-2">Brak osobnej sesji na dziś</p><p class="text-xs text-gray-500 mt-1">Domena zostanie podłączona do Mój dzień.</p></div>
           <div class="glass rounded-2xl p-5"><p class="text-xs text-gray-500 uppercase tracking-wider">Dieta</p><p class="text-white font-bold mt-2">Dane w przygotowaniu</p><p class="text-xs text-gray-500 mt-1">Docelowo posiłki i realizacja dnia.</p></div>
           <div class="glass rounded-2xl p-5"><p class="text-xs text-gray-500 uppercase tracking-wider">Recovery</p><p class="text-white font-bold mt-2">Brak check-inu</p><p class="text-xs text-gray-500 mt-1">Docelowo sen, zmęczenie i readiness.</p></div>
+        </div>
+      </section>
+
+      <section id="tab-training" class="hidden space-y-6">
+        <div class="glass rounded-3xl p-5 md:p-6 space-y-5">
+          <div class="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h3 class="text-3xl font-bold" style="font-family:'Syne',sans-serif;">Dzisiejszy trening</h3>
+              <p class="text-sm text-gray-500 mt-1" id="trainingTabDayLabel">—</p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="loadTrainingTab()" class="btn-outline-cyan px-4 py-2 rounded-xl text-xs font-bold">Odśwież</button>
+            </div>
+          </div>
+
+          <div id="trainingTabLoading" class="text-center py-8">
+            <div class="inline-block w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-sm text-gray-500 mt-3">Ładowanie treningu...</p>
+          </div>
+
+          <div id="trainingTabError" class="hidden glass p-4 rounded-2xl border border-red-500/30" style="background:rgba(239,68,68,0.05);">
+            <p class="text-sm text-red-400" id="trainingTabErrorText">—</p>
+            <button onclick="loadTrainingTab()" class="mt-2 text-xs text-cyan-400 hover:underline">Spróbuj ponownie</button>
+          </div>
+
+          <div id="trainingTabEmpty" class="hidden text-center py-10">
+            <div class="text-5xl mb-3">🏋️</div>
+            <h4 class="text-xl font-bold text-white mb-2">Brak zaplanowanego treningu na dziś</h4>
+            <p class="text-sm text-gray-500 max-w-md mx-auto" id="trainingTabMessage">—</p>
+          </div>
+
+          <div id="trainingTabContent" class="hidden space-y-4">
+            <div class="rounded-2xl p-4 space-y-2" style="background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.14);">
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <p class="text-xs font-bold text-cyan-200 uppercase tracking-wider">Plan na dziś</p>
+                <span class="text-xs px-2 py-1 rounded-lg" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#cbd5e1;" id="trainingTabMeta">—</span>
+              </div>
+              <div id="trainingTabExercises" class="space-y-2"></div>
+            </div>
+            <div class="flex flex-col gap-3">
+              <button id="trainingTabStartBtn" onclick="startOrResumeTraining()" class="w-full btn-neon px-6 py-3 rounded-2xl text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed">Rozpocznij trening</button>
+              <p class="text-xs text-center text-gray-500" id="trainingTabSessionStatus">—</p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -8447,6 +8491,7 @@
         initActiveDayFromPlan();
         updateSleepDuration(true);
       }
+      if (tabId === 'training') loadTrainingTab();
       document.getElementById('mainContent').scrollTop = 0;
     }
     window.showTab = showTab;
@@ -24605,6 +24650,370 @@
 
     </div>
   </div>
+
+</body>
+
+
+<script>
+  (function ensureSportDrillCountVisible() {
+    function updateOnce() {
+      try {
+        const td = document.getElementById('sportDrillTotalCount');
+        if (!td) return false;
+        const total = Object.keys(window.SPORT_DRILLS || {}).reduce((s, k) => {
+          const cats = Object.entries(window.SPORT_DRILLS[k] || {}).filter(([kk]) => kk !== 'emoji');
+          return s + cats.reduce((s2, [, c]) => s2 + ((c.drills && c.drills.length) || 0), 0);
+        }, 0);
+        td.textContent = `Baza: ${total} drilli`;
+        return true;
+      } catch (e) { return false; }
+    }
+    let attempts = 0;
+    const iv = setInterval(() => { attempts++; if (updateOnce() || attempts > 12) clearInterval(iv); }, 300);
+  })();
+
+  (function initTrainingTab() {
+    let trainingTabLoaded = false;
+    let trainingTabRequest = 0;
+    let startRequest = 0;
+
+    function setVisible(ids, showId) {
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('hidden', id !== showId);
+      });
+    }
+
+    function safeText(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value === null || value === undefined ? '—' : String(value);
+    }
+
+    function clearChildren(id) {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '';
+    }
+
+    function addTextEl(container, text) {
+      const p = document.createElement('p');
+      p.className = 'text-xs text-gray-400';
+      p.textContent = text;
+      container.appendChild(p);
+    }
+
+    function fmtNumber(v) {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return '—';
+      return n;
+    }
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    window.loadTrainingTab = async function loadTrainingTab() {
+      trainingTabLoaded = true;
+      const reqId = ++trainingTabRequest;
+      const token = localStorage.getItem('fitai_token');
+      setVisible(['trainingTabLoading', 'trainingTabError', 'trainingTabEmpty', 'trainingTabContent'], 'trainingTabLoading');
+      safeText('trainingTabSessionStatus', '');
+      try {
+        if (!token) throw new Error('Brak tokena logowania');
+        const res = await fetch(`${window.API_BASE}/app/training/today`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (reqId !== trainingTabRequest) return;
+        if (res.status === 401 || res.status === 403) {
+          throw new Error(data?.detail || 'Sesja logowania wygasła. Zaloguj się ponownie.');
+        }
+        if (!res.ok) {
+          const detail = data?.detail;
+          if (typeof detail === 'string') throw new Error(detail);
+          if (detail && typeof detail === 'object') {
+            const parts = [];
+            if (detail.code) parts.push(detail.code);
+            if (detail.action) parts.push(detail.action);
+            if (detail.reason_codes) parts.push(Array.isArray(detail.reason_codes) ? detail.reason_codes.join(',') : detail.reason_codes);
+            throw new Error(parts.join(' — ') || 'Nie udało się pobrać treningu');
+          }
+          throw new Error('Nie udało się pobrać treningu');
+        }
+        safeText('trainingTabDayLabel', data.day_label || data.date || '—');
+        safeText('trainingTabMessage', data.message || '');
+        const planMeta = data.plan || {};
+        const metaParts = [];
+        if (planMeta.source) metaParts.push(`Źródło: ${planMeta.source}`);
+        if (planMeta.version !== undefined && planMeta.version !== null) metaParts.push(`v${planMeta.version}`);
+        if (data.plan_stale) metaParts.push('plan nieaktualny');
+        if (data.session?.id) metaParts.push(`Sesja: ${data.session.status || 'active'}`);
+        safeText('trainingTabMeta', metaParts.join(' · ') || '—');
+        const exercises = Array.isArray(data.exercises) ? data.exercises : [];
+        if (!data.has_workout || exercises.length === 0) {
+          setVisible(['trainingTabLoading', 'trainingTabError', 'trainingTabEmpty', 'trainingTabContent'], 'trainingTabEmpty');
+          return;
+        }
+        clearChildren('trainingTabExercises');
+        exercises.forEach((ex, exIndex) => {
+          const row = document.createElement('div');
+          row.className = 'flex items-center justify-between gap-3 rounded-xl p-3';
+          row.style.background = 'rgba(255,255,255,0.05)';
+          row.style.border = '1px solid rgba(255,255,255,0.08)';
+          const left = document.createElement('div');
+          left.className = 'min-w-0 flex-1';
+          const name = document.createElement('p');
+          name.className = 'text-sm font-semibold text-white truncate';
+          name.textContent = ex.exercise_name || ex.name || 'Ćwiczenie';
+          const meta = document.createElement('p');
+          meta.className = 'text-xs text-gray-500 truncate';
+          const partsEx = [];
+          partsEx.push(`${fmtNumber(ex.sets)}×${fmtNumber(ex.reps)}`);
+          if (ex.weight_kg !== undefined && ex.weight_kg !== null && Number(ex.weight_kg) > 0) partsEx.push(`@ ${Number(ex.weight_kg).toFixed(1)} kg`);
+          if (ex.rpe) partsEx.push(`RPE ${ex.rpe}`);
+          if (ex.notes) partsEx.push(`— ${ex.notes}`);
+          meta.textContent = partsEx.join(' · ');
+          left.appendChild(name);
+          left.appendChild(meta);
+          row.appendChild(left);
+
+          const right = document.createElement('div');
+          right.className = 'flex flex-col gap-2 items-end md:flex-row md:items-center md:gap-4';
+          const setsCount = Number(ex.sets) || 0;
+          const session = data.session || {};
+          const canLog = session.id && session.status === 'active' && setsCount > 0 && !!ex.exercise_key;
+          if (canLog) {
+            const setsBox = document.createElement('div');
+            setsBox.className = 'flex flex-col gap-2 w-full md:w-80';
+            const setsLabel = document.createElement('p');
+            setsLabel.className = 'text-xs text-gray-400 md:text-right';
+            setsLabel.textContent = 'Seria';
+            setsBox.appendChild(setsLabel);
+            for (let s = 1; s <= setsCount; s++) {
+              const setRow = document.createElement('div');
+              setRow.className = 'flex flex-col sm:flex-row gap-2 items-start sm:items-center';
+              const setLabel = document.createElement('span');
+              setLabel.className = 'text-xs text-gray-500 w-12 sm:w-auto shrink-0';
+              setLabel.textContent = `Seria ${s}`;
+              const repsInput = document.createElement('input');
+              repsInput.type = 'number';
+              repsInput.min = '0';
+              repsInput.placeholder = 'wtr.';
+              repsInput.className = 'w-16 sm:w-20 text-xs border rounded px-2 py-1 bg-transparent text-white border-gray-600 focus:border-cyan-500';
+              const weightInput = document.createElement('input');
+              weightInput.type = 'number';
+              weightInput.min = '0';
+              weightInput.step = '0.1';
+              weightInput.placeholder = 'kg';
+              weightInput.className = 'w-20 sm:w-24 text-xs border rounded px-2 py-1 bg-transparent text-white border-gray-600 focus:border-cyan-500';
+              const rpeInput = document.createElement('input');
+              rpeInput.type = 'number';
+              rpeInput.min = '1';
+              rpeInput.max = '10';
+              rpeInput.placeholder = 'RPE';
+              rpeInput.className = 'w-16 sm:w-16 text-xs border rounded px-2 py-1 bg-transparent text-white border-gray-600 focus:border-cyan-500';
+              const noteInput = document.createElement('input');
+              noteInput.type = 'text';
+              noteInput.placeholder = 'notatka';
+              noteInput.maxLength = 1000;
+              noteInput.className = 'w-full sm:w-32 text-xs border rounded px-2 py-1 bg-transparent text-white border-gray-600 focus:border-cyan-500';
+              const saveBtn = document.createElement('button');
+              saveBtn.type = 'button';
+              saveBtn.textContent = 'Zapisz';
+              saveBtn.className = 'text-xs btn-outline-cyan px-2 py-1 rounded';
+              const status = document.createElement('span');
+              status.className = 'text-xs text-gray-400';
+              setRow.append(setLabel, repsInput, weightInput, rpeInput, noteInput, saveBtn, status);
+              setsBox.appendChild(setRow);
+              (function bindSave() {
+                const key = ex.exercise_key;
+                saveBtn.addEventListener('click', () => {
+                  const repsVal = repsInput.value.trim();
+                  const weightVal = weightInput.value.trim();
+                  if (repsVal === '' || weightVal === '') {
+                    status.textContent = 'Uzupełnij powtórzenia i ciężar';
+                    status.className = 'text-xs text-red-400';
+                    return;
+                  }
+                  const repsN = Number(repsVal);
+                  const weightN = Number(weightVal);
+                  if (!Number.isInteger(repsN) || repsN < 0 || repsN > 1000) {
+                    status.textContent = 'Nieprawidłowe powtórzenia (0–1000, liczba całkowita)';
+                    status.className = 'text-xs text-red-400';
+                    return;
+                  }
+                  if (!Number.isFinite(weightN) || weightN < 0 || weightN > 10000) {
+                    status.textContent = 'Nieprawidłowy ciężar (0–10000 kg)';
+                    status.className = 'text-xs text-red-400';
+                    return;
+                  }
+                  const rpeVal = rpeInput.value.trim();
+                  const rpeN = rpeVal === '' ? undefined : Number(rpeVal);
+                  if (rpeN !== undefined && (!Number.isInteger(rpeN) || rpeN < 1 || rpeN > 10)) {
+                    status.textContent = 'Nieprawidłowy RPE';
+                    status.className = 'text-xs text-red-400';
+                    return;
+                  }
+                  if (noteInput.value.length > 1000) {
+                    status.textContent = 'Notatka zbyt długa (max 1000 znaków)';
+                    status.className = 'text-xs text-red-400';
+                    return;
+                  }
+                  window.saveTrainingSet(token, session.id, key, s, repsN, weightN, rpeN, noteInput.value, saveBtn, status);
+                });
+              })();
+            }
+            right.appendChild(setsBox);
+          } else {
+            const hint = document.createElement('span');
+            hint.className = 'text-xs text-gray-500';
+            hint.textContent = !ex.exercise_key
+              ? 'Brak klucza ćwiczenia — nie można zapisać serii'
+              : session.id && session.status === 'active'
+                ? 'Brak zaplanowanych serii'
+                : 'Rozpocznij sesję aby zapisywać serie';
+            right.appendChild(hint);
+          }
+          row.appendChild(right);
+          document.getElementById('trainingTabExercises').appendChild(row);
+        });
+        const session = data.session || {};
+        let btnLabel = 'Rozpocznij trening';
+        if (session.id && session.status === 'active') {
+          const pct = session.completion_pct !== undefined && session.completion_pct !== null ? ` · ${Math.round(Number(session.completion_pct))}%` : '';
+          safeText('trainingTabSessionStatus', `Aktywna sesja${pct}`);
+          btnLabel = 'Wznów trening';
+        } else {
+          safeText('trainingTabSessionStatus', '');
+        }
+        const btn = document.getElementById('trainingTabStartBtn');
+        if (btn) {
+          btn.textContent = btnLabel;
+          btn.disabled = !data.can_start && !(session.id && session.status === 'active');
+        }
+        setVisible(['trainingTabLoading', 'trainingTabError', 'trainingTabEmpty', 'trainingTabContent'], 'trainingTabContent');
+      } catch (e) {
+        if (reqId !== trainingTabRequest) return;
+        const msg = e && e.message ? e.message : 'Nie udało się pobrać treningu';
+        safeText('trainingTabErrorText', msg);
+        setVisible(['trainingTabLoading', 'trainingTabError', 'trainingTabEmpty', 'trainingTabContent'], 'trainingTabError');
+      }
+    };
+
+    window.startOrResumeTraining = async function startOrResumeTraining() {
+      const reqId = ++startRequest;
+      const token = localStorage.getItem('fitai_token');
+      const btn = document.getElementById('trainingTabStartBtn');
+      if (btn) btn.disabled = true;
+      try {
+        if (!token) throw new Error('Brak tokena logowania');
+        const res = await fetch(`${window.API_BASE}/app/training/sessions/start`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (reqId !== startRequest) return;
+        if (res.status === 401 || res.status === 403) {
+          throw new Error(data?.detail || 'Sesja logowania wygasła. Zaloguj się ponownie.');
+        }
+        if (res.status === 409) {
+          const detail = data?.detail;
+          if (typeof detail === 'string') throw new Error(detail);
+          if (detail && typeof detail === 'object') {
+            const parts = [];
+            if (detail.code) parts.push(detail.code);
+            if (detail.action) parts.push(detail.action);
+            if (Array.isArray(detail.reason_codes)) parts.push(detail.reason_codes.join(','));
+            throw new Error(parts.join(' — ') || 'Rozpoczęcie treningu jest zablokowane');
+          }
+          throw new Error('Rozpoczęcie treningu jest zablokowane');
+        }
+        if (!res.ok) {
+          const detail = data?.detail;
+          if (typeof detail === 'string') throw new Error(detail);
+          throw new Error('Nie udało się rozpocząć treningu');
+        }
+        await window.loadTrainingTab();
+      } catch (e) {
+        if (reqId !== startRequest) return;
+        const msg = e && e.message ? e.message : 'Nie udało się rozpocząć treningu';
+        safeText('trainingTabErrorText', msg);
+        setVisible(['trainingTabLoading', 'trainingTabError', 'trainingTabEmpty', 'trainingTabContent'], 'trainingTabError');
+      } finally {
+        if (reqId === startRequest && btn) btn.disabled = false;
+      }
+    };
+
+    function setText(el, value) {
+      if (el) el.textContent = value === null || value === undefined ? '—' : String(value);
+    }
+
+    window.saveTrainingSet = async function saveTrainingSet(token, sessionId, exerciseKey, setNumber, actualReps, actualWeightKg, actualRpe, note, btnEl, statusEl) {
+      if (btnEl) btnEl.disabled = true;
+      setText(statusEl, 'Zapisywanie…');
+      statusEl.className = 'text-xs text-gray-400';
+      try {
+        const res = await fetch(`${window.API_BASE}/app/training/sessions/${sessionId}/sets`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            exercise_key: exerciseKey,
+            set_number: setNumber,
+            actual_reps: actualReps,
+            actual_weight_kg: actualWeightKg,
+            actual_rpe: actualRpe,
+            completed: true,
+            note: note || ''
+          })
+        });
+        let data;
+        try { data = await res.json(); } catch { data = {}; }
+        if (res.status === 401 || res.status === 403) {
+          throw new Error(data?.detail || 'Sesja logowania wygasła. Zaloguj się ponownie.');
+        }
+        if (res.status === 409 || res.status === 422 || res.status === 500) {
+          const detail = data?.detail;
+          if (typeof detail === 'string') throw new Error(detail);
+          if (detail && typeof detail === 'object') {
+            const parts = [];
+            if (detail.code) parts.push(detail.code);
+            if (detail.action) parts.push(detail.action);
+            if (detail.reason_codes) parts.push(Array.isArray(detail.reason_codes) ? detail.reason_codes.join(',') : detail.reason_codes);
+            throw new Error(parts.join(' — ') || 'Nie udało się zapisać serii');
+          }
+          throw new Error('Nie udało się zapisać serii');
+        }
+        if (!res.ok) {
+          throw new Error('Nie udało się zapisać serii');
+        }
+        setText(statusEl, data.status === 'updated' ? 'Zaktualizowano' : 'Zapisano');
+        statusEl.className = 'text-xs text-cyan-400';
+        await window.loadTrainingTab();
+      } catch (e) {
+        const msg = e && e.message ? e.message : 'Nie udało się zapisać serii';
+        setText(statusEl, msg);
+        statusEl.className = 'text-xs text-red-400';
+      } finally {
+        if (btnEl) btnEl.disabled = false;
+      }
+    };
+
+    const _origShowTab = window.showTab;
+    if (_origShowTab) {
+      window.showTab = function(tabId) {
+        _origShowTab(tabId);
+      };
+    }
+  })();
+</script>
 
 </body>
 
