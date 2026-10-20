@@ -131,13 +131,13 @@ def _insert_before_document_body_end(html: str, fragment: str) -> str:
     """Insert HTML before the real document close, not a </body> inside inline JS."""
     import re
 
-    terminal_body = re.search(r"</body\\s*>\\s*</html\\s*>\\s*$", html, flags=re.IGNORECASE)
+    terminal_body = re.search(r"</body\s*>\s*</html\s*>\s*$", html, flags=re.IGNORECASE)
     if terminal_body:
-        return html[:terminal_body.start()] + fragment + "\\n" + html[terminal_body.start():]
+        return html[:terminal_body.start()] + fragment + "\n" + html[terminal_body.start():]
 
-    terminal_html = re.search(r"</html\\s*>\\s*$", html, flags=re.IGNORECASE)
+    terminal_html = re.search(r"</html\s*>\s*$", html, flags=re.IGNORECASE)
     if terminal_html:
-        return html[:terminal_html.start()] + fragment + "\\n" + html[terminal_html.start():]
+        return html[:terminal_html.start()] + fragment + "\n" + html[terminal_html.start():]
 
     raise ValueError("Cannot inject EVOLVE frontend scripts: no terminal </body></html> document close")
 
