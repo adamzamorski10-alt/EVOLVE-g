@@ -141,6 +141,24 @@ public_dir = STATIC_DIR / "public"
 if public_dir.exists():
     app.mount("/public", StaticFiles(directory=str(public_dir), html=True), name="public")
 
+def _insert_before_document_body_end(html: str, fragment: str) -> str:
+    """Insert HTML before the real document close, not a </body> inside inline JS."""
+    import re
+
+    terminal_body = re.search(r"</body\s*>\s*</html\s*>\s*$", html, flags=re.IGNORECASE)
+    if terminal_body:
+        return html[:terminal_body.start()] + fragment + "\n" + html[terminal_body.start():]
+
+    terminal_html = re.search(r"</html\s*>\s*$", html, flags=re.IGNORECASE)
+    if terminal_html:
+        return html[:terminal_html.start()] + fragment + "\n" + html[terminal_html.start():]
+
+    pos = html.rfind("</body>")
+    if pos != -1:
+        return html[:pos] + fragment + "\n" + html[pos:]
+
+    return html + fragment
+
 
 def _frontend_index_response(index_path: Path):
     """Serve the dashboard shell and inject the native EVOLVE Mój dzień integration."""
@@ -573,6 +591,266 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
     } catch(error) { detail.innerHTML='<div class="alert alert-warn">'+escapeHtml(error.message)+'</div>'; }
   };
 
+  function injectBasketballShell() {
+    if (document.getElementById("basketballSummary")) return;
+    var content = document.querySelector(".content");
+    if (!content) return;
+    var section =
+      '<div class="tab-panel" id="tab-basketball">' +
+        '<div class="sec-head">' +
+          '<div>' +
+            '<div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:700;">Koszykówka & Skill Lab 🏀</div>' +
+            '<div style="font-size:13px;color:var(--muted);margin-top:4px;">Rozwój rzutu, panowania nad piłką, gry w kontakcie i motoryki boiskowej.</div>' +
+          '</div>' +
+          '<button class="btn btn-primary btn-sm" onclick="openEvolveBasketballForm()">+ Zapisz sesję koszykarską</button>' +
+        '</div>' +
+        '<div id="basketballStatus" class="alert alert-hidden" style="margin-bottom:16px;"></div>' +
+        '<div id="basketballSummary" class="grid-2" style="margin-bottom:16px;"></div>' +
+        '<div id="basketballForm" class="card" style="padding:20px;margin-bottom:16px;display:none;"></div>' +
+        '<div class="card" style="padding:20px;margin-bottom:16px;">' +
+          '<div class="sec-head" style="margin-bottom:12px;">' +
+            '<div style="font-weight:700;font-size:16px;">📋 Twoje sesje koszykarskie</div>' +
+            '<div id="basketballHistoryCount" style="font-size:12px;color:var(--muted);">—</div>' +
+          '</div>' +
+          '<div id="basketballHistoryList"><div class="spinner"></div></div>' +
+        '</div>' +
+        '<div class="card" style="padding:20px;">' +
+          '<div class="sec-head" style="margin-bottom:12px;">' +
+            '<div style="font-weight:700;font-size:16px;">🏀 Rekomendowane drille EVOLVE</div>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+              '<button class="btn btn-outline btn-sm" onclick="renderBasketballCatalog(\'all\')">Wszystkie</button>' +
+              '<button class="btn btn-ghost btn-sm" onclick="renderBasketballCatalog(\'rzuty\')">Rzut</button>' +
+              '<button class="btn btn-ghost btn-sm" onclick="renderBasketballCatalog(\'drybling\')">Drybling</button>' +
+              '<button class="btn btn-ghost btn-sm" onclick="renderBasketballCatalog(\'obrona\')">Obrona</button>' +
+              '<button class="btn btn-ghost btn-sm" onclick="renderBasketballCatalog(\'kondycja\')">Motoryka</button>' +
+            '</div>' +
+          '</div>' +
+          '<div id="basketballDrillsCatalog"></div>' +
+        '</div>' +
+      '</div>';
+    content.insertAdjacentHTML("afterbegin", section);
+  }
+
+  var basketballLoadSequence = 0;
+  var EVOLVE_BBALL_DRILLS = [
+    { name: "Catch and shoot z rogu", cat: "rzuty", target: 70, sets: "4 serie po 5 rzutów (20 prób)", desc: "Szybkie złożenie do rzutu po przyjęciu piłki w narożniku. Stabilne stopy i powtarzalny łuk." },
+    { name: "Floater po koźle", cat: "rzuty", target: 65, sets: "4 serie po 5 rzutów (20 prób)", desc: "Miękkie wykończenie akcji nad rękami obrońcy po jednym koźle." },
+    { name: "Mid-range pull-up", cat: "rzuty", target: 68, sets: "4 serie po 5 rzutów (20 prób)", desc: "Rzut z półdystansu po nagłym zatrzymaniu w równowadze." },
+    { name: "Rzuty wolne z rytuałem", cat: "rzuty", target: 75, sets: "5 serii po 4 rzuty (20 prób)", desc: "Powtarzalna rutyna oddechowa i techniczna na linii rzutów wolnych." },
+    { name: "Mikan drill (obie strony)", cat: "rzuty", target: 85, sets: "2 serie po 10 layupów (20 prób)", desc: "Szybkie wykończenie z lewej i prawej strony tablicy spod kosza." },
+    { name: "Crossover na szybkość", cat: "drybling", target: 80, sets: "4 serie po 20 powtórzeń", desc: "Niska pozycja, dynamiczna zmiana ręki przed ciałem bez patrzenia na piłkę." },
+    { name: "Between the legs & change tempo", cat: "drybling", target: 80, sets: "4 serie po 15 powtórzeń", desc: "Zmiana ręki między nogami ze zmianą rytmu i przyspieszeniem pierwszego kroku." },
+    { name: "Euro step & layup w kontakcie", cat: "drybling", target: 75, sets: "4 serie po 8 powtórzeń", desc: "Zwód dwutaktem z minięciem obrońcy i ochroną piłki przy ciele." },
+    { name: "Defensive slides & Closeout", cat: "obrona", target: 85, sets: "5 serii po 10 przesunięć", desc: "Niski środek ciężkości, praca nóg bez krzyżowania, aktywne ręce." },
+    { name: "Jump rope & Vertical Touch", cat: "kondycja", target: 85, sets: "4 serie po 90s + 10 max skoków", desc: "Rytm stóp, eksplozywność wyskoku dosiężnego i tolerancja zmęczenia." },
+    { name: "Mecz / Sparing 5v5", cat: "mecz", target: 100, sets: "Pełny mecz lub gra na punkty", desc: "Rywalizacja meczowa. Rejestruj minuty, intensywność RPE i uwagi techniczne." }
+  ];
+
+  window.renderBasketballCatalog = function(category) {
+    var el = document.getElementById("basketballDrillsCatalog");
+    if (!el) return;
+    var filtered = EVOLVE_BBALL_DRILLS.filter(function(d) {
+      return category === "all" || !category || d.cat.toLowerCase() === category.toLowerCase();
+    });
+    el.innerHTML = filtered.map(function(d) {
+      return '<div class="item-card" style="margin-bottom:10px;">' +
+        '<div class="item-card-head">' +
+          '<div>' +
+            '<div class="item-card-title">' + escapeHtml(d.name) + '</div>' +
+            '<div class="item-card-meta">' + escapeHtml(d.sets) + ' · cel: ' + d.target + '%</div>' +
+          '</div>' +
+          '<button class="btn btn-outline btn-sm" onclick="openEvolveBasketballForm(\'' + escapeHtml(d.name).replace(/'/g, "\\'") + '\', \'' + escapeHtml(d.cat) + '\', ' + d.target + ')">+ Zapisz ten drill</button>' +
+        '</div>' +
+        '<div style="font-size:12px;color:var(--muted);margin-top:6px;">' + escapeHtml(d.desc) + '</div>' +
+      '</div>';
+    }).join("");
+  };
+
+  window.openEvolveBasketballForm = function(prefillName, prefillCat, prefillTarget) {
+    var form = document.getElementById("basketballForm");
+    if (!form) return;
+    form.style.display = "block";
+    var cat = prefillCat || "rzuty";
+    form.innerHTML =
+      '<div style="font-weight:700;font-size:17px;margin-bottom:14px;">Zapisz trening koszykarski 🏀</div>' +
+      '<div class="grid-2">' +
+        '<label>Nazwa ćwiczenia lub meczu' +
+          '<input id="bballName" class="input" placeholder="np. Catch and shoot z rogu" value="' + escapeHtml(prefillName || "") + '">' +
+        '</label>' +
+        '<label>Kategoria' +
+          '<select id="bballCategory" class="input">' +
+            '<option value="Rzuty"' + (cat === "rzuty" ? " selected" : "") + '>🎯 Rzuty</option>' +
+            '<option value="Drybling"' + (cat === "drybling" ? " selected" : "") + '>⚡ Drybling & Atak</option>' +
+            '<option value="Obrona"' + (cat === "obrona" ? " selected" : "") + '>🛡️ Obrona & Kontakt</option>' +
+            '<option value="Kondycja"' + (cat === "kondycja" ? " selected" : "") + '>🚀 Motoryka & Skoczność</option>' +
+            '<option value="Mecz"' + (cat === "mecz" ? " selected" : "") + '>🏀 Mecz / Sparing</option>' +
+          '</select>' +
+        '</label>' +
+        '<label>Trafienia (sukces)' +
+          '<input id="bballSuccess" class="input" type="number" min="0" placeholder="np. 15" value="0">' +
+        '</label>' +
+        '<label>Wszystkie próby' +
+          '<input id="bballAttempts" class="input" type="number" min="0" placeholder="np. 20" value="' + (prefillTarget ? '20' : '0') + '">' +
+        '</label>' +
+        '<label>Czas trwania (minuty)' +
+          '<input id="bballDuration" class="input" type="number" min="1" value="20">' +
+        '</label>' +
+        '<label>Odczuwany wysiłek (RPE 1–10)' +
+          '<input id="bballRpe" class="input" type="number" min="1" max="10" value="7">' +
+        '</label>' +
+        '<label style="grid-column:1/-1;">Notatki / obserwacje techniczne' +
+          '<input id="bballNotes" class="input" placeholder="np. Rzut z pełnej równowagi, skupić się na pracy nadgarstka">' +
+        '</label>' +
+      '</div>' +
+      '<div style="margin-top:14px;display:flex;gap:8px;">' +
+        '<button class="btn btn-primary btn-sm" onclick="saveEvolveBasketballSession()">✓ Zapisz wynik</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="closeEvolveBasketballForm()">Anuluj</button>' +
+      '</div>';
+    form.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
+
+  window.closeEvolveBasketballForm = function() {
+    var form = document.getElementById("basketballForm");
+    if (form) { form.style.display = "none"; form.innerHTML = ""; }
+  };
+
+  window.saveEvolveBasketballSession = async function() {
+    var token = localStorage.getItem("fitai_token");
+    if (!token) {
+      alert("Zaloguj się, aby zapisać trening.");
+      return;
+    }
+    var name = (document.getElementById("bballName").value || "").trim();
+    if (!name) {
+      alert("Podaj nazwę ćwiczenia lub meczu.");
+      return;
+    }
+    var attempts = Number(document.getElementById("bballAttempts").value) || 0;
+    var success = Number(document.getElementById("bballSuccess").value) || 0;
+    var minutes = Number(document.getElementById("bballDuration").value) || 15;
+    var rpe = Number(document.getElementById("bballRpe").value) || 7;
+    var category = document.getElementById("bballCategory").value;
+    var notes = (document.getElementById("bballNotes").value || "").trim();
+
+    var payload = {
+      drill_name: name,
+      drill_category: category,
+      drill_sport: "Koszykówka",
+      success_count: success,
+      total_attempts: attempts,
+      target_pct: attempts > 0 ? Math.round((success / attempts) * 100) : null,
+      rpe: Math.max(1, Math.min(10, rpe)),
+      duration_seconds: minutes * 60,
+      notes: notes
+    };
+
+    try {
+      var res = await fetch("/app/drill-result", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+      var body = await res.json();
+      if (!res.ok) throw new Error(body.detail || "Nie udało się zapisać sesji");
+      closeEvolveBasketballForm();
+      var s = document.getElementById("basketballStatus");
+      if (s) {
+        s.className = "alert alert-good";
+        s.textContent = "✓ Zapisano sesję: " + name + (body.accuracy_pct != null ? " · Skuteczność: " + body.accuracy_pct + "%" : "") + " (+" + (body.xp_earned || 20) + " XP)";
+      }
+      loadEvolveBasketball();
+    } catch (e) {
+      var s = document.getElementById("basketballStatus");
+      if (s) {
+        s.className = "alert alert-warn";
+        s.textContent = "⚠️ " + e.message;
+      }
+    }
+  };
+
+  window.loadEvolveBasketball = async function() {
+    injectBasketballShell();
+    var reqId = ++basketballLoadSequence;
+    var historyEl = document.getElementById("basketballHistoryList");
+    var summaryEl = document.getElementById("basketballSummary");
+    var countEl = document.getElementById("basketballHistoryCount");
+    renderBasketballCatalog("all");
+    if (!historyEl) return;
+    historyEl.innerHTML = '<div class="spinner"></div>';
+
+    var token = localStorage.getItem("fitai_token");
+    if (!token) {
+      historyEl.innerHTML = '<div class="card" style="padding:24px;text-align:center;color:var(--muted);">Zaloguj się, aby rejestrować i przeglądać treningi koszykarskie.</div>';
+      if (countEl) countEl.textContent = "Brak sesji";
+      return;
+    }
+
+    try {
+      var res = await fetch("/app/drill-history?limit=30", {
+        headers: { "Authorization": "Bearer " + token },
+        cache: "no-store"
+      });
+      var data = await res.json();
+      if (reqId !== basketballLoadSequence) return;
+      if (!res.ok) throw new Error(data.detail || "Nie udało się pobrać historii");
+
+      var list = (data.results || []).filter(function(d) {
+        var s = (d.drill_sport || "").toLowerCase();
+        return !s || s.indexOf("kosz") !== -1 || s.indexOf("basket") !== -1;
+      });
+
+      var totalSessions = list.length;
+      var totalAttempts = 0, totalSuccess = 0;
+      list.forEach(function(d) {
+        if (d.total_attempts) {
+          totalAttempts += Number(d.total_attempts);
+          totalSuccess += Number(d.success_count || 0);
+        }
+      });
+      var avgPct = totalAttempts > 0 ? Math.round((totalSuccess / totalAttempts) * 100) : "—";
+
+      summaryEl.innerHTML =
+        progressMetricCard("SESJE KOSZYKÓWKI", totalSessions, "ukończone") +
+        progressMetricCard("ŚREDNIA CELNOŚĆ", avgPct === "—" ? "—" : avgPct + "%", totalAttempts + " oddanych rzutów") +
+        progressMetricCard("WYKONANE RZUTY", totalAttempts, "rejestrowane próby") +
+        progressMetricCard("STATUS MOTORYCZNY", totalSessions > 0 ? "Aktywny" : "Start", "rejestr boiskowy");
+
+      if (countEl) countEl.textContent = totalSessions + " sesji";
+
+      if (!list.length) {
+        historyEl.innerHTML = '<div class="card" style="padding:24px;text-align:center;color:var(--muted);">Brak zapisanych treningów koszykarskich. Kliknij powyżej „+ Zapisz sesję koszykarską”, aby dodać pierwszy wpis!</div>';
+        return;
+      }
+
+      historyEl.innerHTML = list.map(function(item) {
+        var acc = (item.total_attempts && item.total_attempts > 0)
+          ? Math.round((item.success_count / item.total_attempts) * 100)
+          : null;
+        var accBadge = acc !== null
+          ? '<span class="tag" style="background:rgba(0,229,255,.12);color:var(--cyan);font-weight:700;">' + item.success_count + '/' + item.total_attempts + ' (' + acc + '%)</span>'
+          : '<span class="tag">' + escapeHtml(item.drill_category || "Sesja") + '</span>';
+        var rpeBadge = item.rpe ? '<span class="tag">RPE ' + item.rpe + '</span>' : '';
+        return '<div class="item-card" style="margin-bottom:10px;">' +
+          '<div class="item-card-head">' +
+            '<div>' +
+              '<div class="item-card-title">' + escapeHtml(item.drill_name) + '</div>' +
+              '<div class="item-card-meta">' + escapeHtml(item.session_date || "") + (item.duration_seconds ? ' · ' + Math.round(item.duration_seconds / 60) + ' min' : '') + '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:6px;align-items:center;">' + accBadge + rpeBadge + '</div>' +
+          '</div>' +
+          (item.notes ? '<div style="font-size:12px;color:var(--muted);margin-top:6px;">💬 ' + escapeHtml(item.notes) + '</div>' : '') +
+        '</div>';
+      }).join("");
+
+    } catch (e) {
+      if (reqId !== basketballLoadSequence) return;
+      historyEl.innerHTML = '<div class="alert alert-warn">⚠️ ' + escapeHtml(e.message) + '</div>';
+    }
+  };
+
   function installMyDayRoutingHook() {
     if (window.__evolveMyDayRoutingHookInstalled) return;
     if (typeof window.showTab !== "function") return;
@@ -587,6 +865,8 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
         window.loadEvolveGoals();
       } else if (tab === "recovery") {
         window.loadEvolveRecovery();
+      } else if (tab === "basketball") {
+        window.loadEvolveBasketball();
       }
       return result;
     };
@@ -604,6 +884,7 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
     injectMyDayShell();
     injectProgressShell();
     injectGoalsShell();
+    injectBasketballShell();
     installMyDayRoutingHook();
     installHashRouting();
   });
@@ -828,25 +1109,13 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
 })();
 </script>"""
     if 'id="evolve-my-day-shell-integration"' not in html:
-        pos = html.rfind("</body>")
-        if pos != -1:
-            html = html[:pos] + evolve_shell_integration + html[pos:]
-        else:
-            html = html + evolve_shell_integration
+        html = _insert_before_document_body_end(html, evolve_shell_integration)
 
     if 'id="evolve-recovery-shell-integration"' not in html:
-        pos = html.rfind("</body>")
-        if pos != -1:
-            html = html[:pos] + recovery_shell_integration + html[pos:]
-        else:
-            html = html + recovery_shell_integration
+        html = _insert_before_document_body_end(html, recovery_shell_integration)
 
     if 'id="evolve-nutrition-shell-integration"' not in html:
-        pos = html.rfind("</body>")
-        if pos != -1:
-            html = html[:pos] + nutrition_shell_integration + html[pos:]
-        else:
-            html = html + nutrition_shell_integration
+        html = _insert_before_document_body_end(html, nutrition_shell_integration)
 
     if 'id="evolve-dashboard-first-style"' not in html:
         pos = html.find("</head>")
@@ -873,11 +1142,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>"""
     if 'id="evolve-dashboard-first-boot"' not in html:
-        pos = html.rfind("</body>")
-        if pos != -1:
-            html = html[:pos] + dashboard_boot + html[pos:]
-        else:
-            html = html + dashboard_boot
+        html = _insert_before_document_body_end(html, dashboard_boot)
 
     return HTMLResponse(html, media_type="text/html")
 
@@ -895,11 +1160,18 @@ async def serve_root():
 @app.get("/{path:path}")
 async def serve_spa(path: str):
     """
-    Fallback route for SPA routing. Serves index.html for any path
-    that isn't matched by API routes or known static files.
+    Fallback route for SPA routing. Serves static files if found in STATIC_DIR,
+    otherwise serves index.html for client-side routing.
     """
-    # Skip API routes and known assets
-    skip_paths = {".json", ".js", ".css", ".png", ".jpg", ".gif", ".svg", ".ico", ".woff", ".woff2"}
+    safe_path = Path(path)
+    if ".." not in safe_path.parts:
+        target = STATIC_DIR / safe_path
+        if target.is_file():
+            from fastapi.responses import FileResponse
+            return FileResponse(target)
+
+    # Skip API routes and known missing assets
+    skip_paths = {".json", ".js", ".css", ".png", ".jpg", ".gif", ".svg", ".ico", ".woff", ".woff2", ".map"}
     if any(path.endswith(ext) for ext in skip_paths):
         return JSONResponse({"error": "File not found"}, status_code=404)
     
