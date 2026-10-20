@@ -127,6 +127,21 @@ if public_dir.exists():
     app.mount("/public", StaticFiles(directory=str(public_dir), html=True), name="public")
 
 
+def _insert_before_document_body_end(html: str, fragment: str) -> str:
+    """Insert HTML before the real document close, not a </body> inside inline JS."""
+    import re
+
+    terminal_body = re.search(r"</body\s*>\s*</html\s*>\s*$", html, flags=re.IGNORECASE)
+    if terminal_body:
+        return html[:terminal_body.start()] + fragment + "\n" + html[terminal_body.start():]
+
+    terminal_html = re.search(r"</html\s*>\s*$", html, flags=re.IGNORECASE)
+    if terminal_html:
+        return html[:terminal_html.start()] + fragment + "\n" + html[terminal_html.start():]
+
+    raise ValueError("Cannot inject EVOLVE frontend scripts: no terminal </body></html> document close")
+
+
 def _frontend_index_response(index_path: Path):
     """Serve the dashboard shell and inject the native EVOLVE Mój dzień integration."""
     from fastapi.responses import HTMLResponse
@@ -291,7 +306,7 @@ html.evolve-dashboard-first #appContainer { display: flex !important; }
 </script>"""
 
     if 'id="evolve-my-day-shell-integration"' not in html:
-        html = html.replace("</body>", evolve_shell_integration + "</body>", 1)
+        html = _insert_before_document_body_end(html, evolve_shell_integration)
 
     if 'id="evolve-dashboard-first-style"' not in html:
         html = html.replace("</head>", dashboard_first_bootstrap + "</head>", 1)
@@ -302,7 +317,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>"""
     if 'id="evolve-dashboard-first-boot"' not in html:
-        html = html.replace("</body>", dashboard_boot + "</body>", 1)
+        html = _insert_before_document_body_end(html, dashboard_boot)
 
     return HTMLResponse(html, media_type="text/html")
 

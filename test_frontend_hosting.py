@@ -44,3 +44,33 @@ def test_my_day_removes_standalone_today_dependency_from_navigation():
 def test_frontend_has_fallback_when_generated_index_is_empty():
     assert 'if not html.strip():' in APP_INIT
     assert 'STATIC_DIR / "fitai_dashboard.html"' in APP_INIT
+
+
+
+def test_frontend_script_injection_ignores_body_markup_inside_inline_javascript():
+    import ast
+    import re
+
+    tree = ast.parse(APP_INIT)
+    helper = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_insert_before_document_body_end"
+    )
+    module = ast.Module(body=[helper], type_ignores=[])
+    namespace = {"re": re}
+    exec(compile(module, "<frontend-injection-helper>", "exec"), namespace)
+
+    html = (
+        "<!doctype html><html><head></head><body>"
+        "<script>const print = `</body></html>`;</script>"
+        "<main>EVOLVE app</main></body></html>"
+    )
+    injected = namespace["_insert_before_document_body_end"](
+        html, '<script id="evolve-test-injection"></script>'
+    )
+
+    injection_pos = injected.index('id="evolve-test-injection"')
+    assert injection_pos > injected.index("<main>EVOLVE app</main>")
+    assert injection_pos < injected.rindex("</body>")
+    assert injected.count('id="evolve-test-injection"') == 1
