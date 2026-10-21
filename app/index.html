@@ -18,10 +18,11 @@
     rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script>
+    // API_BASE: puste = relative URLs (backend serwuje też frontend z tego samego originu)
     window.API_BASE = window.API_BASE || (
       location.hostname === 'localhost' || location.hostname === '127.0.0.1'
         ? 'http://localhost:8000'
-        : 'https://fitai-api-v83w.onrender.com'
+        : ''
     );
   </script>
   <style>
