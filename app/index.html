@@ -7,10 +7,10 @@
   <link rel="manifest" href="./manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="FitAI">
+  <meta name="apple-mobile-web-app-title" content="EVOLVE">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <meta name="theme-color" content="#0a0b10">
-  <title>FitAI — Ultimate SaaS Platform</title>
+  <title>EVOLVE — Personal Performance System</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
@@ -19579,8 +19579,9 @@
     /** Zwraca tylko rekordy, których name jeszcze nie ma w danym Set. */
     function _deduplicateByName(records, seenSet) {
       const fresh = [];
-      for (const rec of records) {
-        const key = (rec.name || '').trim().toLowerCase();
+      for (const rec of (records || [])) {
+        if (!rec || typeof rec !== 'object') continue;
+        const key = ((rec.name || '') + '').trim().toLowerCase();
         if (!key || seenSet.has(key)) continue;
         seenSet.add(key);
         fresh.push(rec);
@@ -19642,7 +19643,7 @@
      * Strategia ładowania:
      *  1. Jeśli MEAL_DB / EXERCISE_DB już mają dane (inline w HTML) → skanuj
      *     je przez deduplicator żeby uzupełnić _loaded*Names Sets i zakończ.
-     *  2. Spróbuj fetch('fitai_seed_data.js') — parsuj jako JS module eval.
+     *  2. Spróbuj fetch('/fitai_seed_data.js') — parsuj jako JS module eval.
      *  3. Jeśli fetch nie powiedzie się (plik nie istnieje, CORS, błąd sieci)
      *     → użyj danych wbudowanych jako fallback (już są w MEAL_DB/EXERCISE_DB).
      *  4. Po każdej ścieżce odśwież widoki: bibliotekaMealFilter + renderAtlas.
@@ -19655,19 +19656,23 @@
 
       // ── Krok 1: Zeskanuj istniejące dane inline (eliminacja duplikatów) ─────
       const _preScanInline = () => {
-        if (typeof MEAL_DB !== 'undefined') {
+        if (typeof MEAL_DB !== 'undefined' && MEAL_DB) {
           Object.values(MEAL_DB).forEach(meals =>
             (meals || []).forEach(m => {
-              const k = (m.name || '').trim().toLowerCase();
-              if (k) _loadedMealNames.add(k);
+              if (m && m.name) {
+                const k = (m.name + '').trim().toLowerCase();
+                if (k) _loadedMealNames.add(k);
+              }
             })
           );
         }
-        if (typeof EXERCISE_DB !== 'undefined') {
+        if (typeof EXERCISE_DB !== 'undefined' && EXERCISE_DB) {
           Object.values(EXERCISE_DB).forEach(exs =>
             (exs || []).forEach(e => {
-              const k = (e.name || '').trim().toLowerCase();
-              if (k) _loadedExerciseNames.add(k);
+              if (e && e.name) {
+                const k = (e.name + '').trim().toLowerCase();
+                if (k) _loadedExerciseNames.add(k);
+              }
             })
           );
         }
@@ -19685,7 +19690,7 @@
       try {
         // Timestamp cache-buster tylko w dev (localhost)
         const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-        const url = isLocal ? `fitai_seed_data.js?v=${Date.now()}` : 'fitai_seed_data.js';
+        const url = isLocal ? `/fitai_seed_data.js?v=${Date.now()}` : '/fitai_seed_data.js';
 
         const res = await fetch(url, { cache: 'no-store' });
 
@@ -21388,8 +21393,11 @@
         + '<div class="msg-loading"><span></span><span></span><span></span></div>'
         + '<span style="color:var(--muted);">Ładowanie wniosków AI…</span></div>';
       try {
-        const r = await fetch(`${window.API_BASE || "http://localhost:8000"}/app/stats/${identityId}?days=9999`);
-        if (!r.ok) {
+        const token = localStorage.getItem('fitai_token');
+        const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+        const r = await fetch(`${window.API_BASE || "http://localhost:8000"}/app/stats/${identityId}?days=9999`, { headers });
+        const ct = r.headers.get('content-type') || '';
+        if (!r.ok || !ct.includes('application/json')) {
           apiErrorToast({ status: r.status }, 'Statystyki');
           _showStatsMinDaysHint(0);
           return;
@@ -22690,8 +22698,11 @@
         if (!identityId) return;
         try {
           const base = (typeof API_BASE !== 'undefined') ? API_BASE : 'http://localhost:8000';
-          const r = await fetch(base + '/app/stats/' + identityId + '?days=9999');
-          if (!r.ok) { if (typeof _orig === 'function') await _orig(); return; }
+          const token = localStorage.getItem('fitai_token');
+          const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+          const r = await fetch(base + '/app/stats/' + identityId + '?days=9999', { headers });
+          const ct = r.headers.get('content-type') || '';
+          if (!r.ok || !ct.includes('application/json')) { if (typeof _orig === 'function') await _orig(); return; }
           const data = await r.json();
           if (typeof _statsData !== 'undefined') window._statsData = data;
           // Wywołaj oryginalne renderKPI jeśli istnieje (nie nadpisujemy)

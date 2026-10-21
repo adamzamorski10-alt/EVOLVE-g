@@ -16,3 +16,4 @@ fitai_users.json
 
 # Testy
 .pytest_cache/
+*.log

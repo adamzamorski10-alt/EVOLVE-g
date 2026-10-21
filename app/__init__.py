@@ -1169,11 +1169,21 @@ async def serve_spa(path: str):
         if target.is_file():
             from fastapi.responses import FileResponse
             return FileResponse(target)
+        # Check if asset was requested under /app/ subpath (e.g. app/fitai_seed_data.js)
+        if len(safe_path.parts) > 1 and safe_path.parts[0] == "app":
+            app_sub_target = STATIC_DIR / Path(*safe_path.parts[1:])
+            if app_sub_target.is_file():
+                from fastapi.responses import FileResponse
+                return FileResponse(app_sub_target)
 
-    # Skip API routes and known missing assets
-    skip_paths = {".json", ".js", ".css", ".png", ".jpg", ".gif", ".svg", ".ico", ".woff", ".woff2", ".map"}
-    if any(path.endswith(ext) for ext in skip_paths):
+    # Skip API routes and known missing assets (return 404 JSON, never index.html)
+    skip_exts = {".json", ".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".woff", ".woff2", ".map"}
+    if any(path.endswith(ext) for ext in skip_exts):
         return JSONResponse({"error": "File not found"}, status_code=404)
+
+    # Unmatched API or auth routes should return 404 JSON instead of HTML
+    if path.startswith("api/") or path.startswith("auth/") or (path.startswith("app/") and path not in {"app", "app/"} and not path.endswith((".html", ".htm"))):
+        return JSONResponse({"error": "API route not found", "path": path}, status_code=404)
     
     # For all other paths, serve index.html (SPA routing)
     index_path = STATIC_DIR / "index.html"

@@ -916,7 +916,6 @@ const EXERCISE_DB = {
       difficulty: 3,
       instructions: 'Pozycja pompki. Naprzemiennie przyciągaj kolana do klatki jak najszybciej bez unoszenia bioder.',
     },
-,
     {
       name: 'Dragon Flag',
       desc: 'Ekstremalne ćwiczenie na cały core. Uważane za jedno z najtrudniejszych na mięśnie brzucha.',
