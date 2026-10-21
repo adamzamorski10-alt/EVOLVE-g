@@ -32,100 +32,93 @@ Legenda statusów:
 
 ## 🟠 GŁÓWNY CYKL — Profil → Ocena → Plan → Realizacja → Historia → Analiza (Etap B zamysłu)
 
-### Profil użytkownika
+### Profil użytkownika (§5.2, §5.3)
 - [~] Ekran Profil **istnieje** — pokazuje edycję danych, kalkulator makro (BMR, TDEE), cele kaloryczne
-- [ ] Weryfikacja czy dane profilu zapisują się w bazie (nie tylko lokalnie)
-- [ ] Brak pola: doświadczenie treningowe
-- [ ] Brak pola: dostępny sprzęt
-- [ ] Brak pola: miejsca treningów
-- [ ] Brak pola: ograniczenia zdrowotne / kontuzje
-- [ ] Brak pola: pozycja sportowa w koszykówce
-- [ ] Brak pola: dostępność w tygodniu (harmonogram)
+- [ ] Dodać pole: **Dostępny sprzęt** (Pełna siłownia, Hantle/Kettle, Drążek, Piłka do koszykówki, Dostęp do kosza)
+- [ ] Dodać pole: **Dostępność w tygodniu / Harmonogram** (dni na siłownię, dni na koszykówkę, czas trwania sesji)
+- [ ] Dodać pole: **Pozycja sportowa w koszykówce** (PG - Rozgrywający, SG - Rzucający, SF - Niski skrzydłowy, PF - Silny skrzydłowy, C - Środkowy)
+- [ ] Dodać pole: **Ograniczenia zdrowotne / kontuzje** (kolana, stawy skokowe, bark, plecy)
+- [ ] Dodać pole: **Doświadczenie treningowe** (początkujący, średniozaawansowany, zaawansowany)
+- [ ] Weryfikacja zapisu i odczytu rozszerzonego profilu z bazy PostgreSQL
 
-### Ocena początkowa (Assessment)
-- [ ] **Brak ekranu oceny początkowej** — nie ma modułu Assessment w nawigacji
-- [ ] Brak testów: skuteczność rzutu, testy szybkości, wyskok, siła, kondycja
-- [ ] Brak punktu wyjścia do późniejszego porównywania postępów
+### Ocena początkowa (Initial Assessment / Baseline) (§5.2)
+- [ ] **Dodać moduł „Ocena początkowa” do nawigacji bocznej** (brak w obecnym UI)
+- [ ] Formularz testów bazowych:
+  - **Skuteczność rzutu**: próby i trafienia (rzuty osobiste, rzuty z dystansu z 5 pozycji)
+  - **Wyskok dosiężny (Vertical Jump)**: wynik w cm (z miejsca i z nabiegu)
+  - **Szybkość i zmiana kierunku**: test wahadłowy / lane agility
+  - **Siła bazowa**: test wyciskania / przysiadu / podciągania
+- [ ] Zapis wyników oceny początkowej w bazie jako punkt odniesienia do późniejszej analizy postępów
 
-### Plan treningowy
+### Plan treningowy i adaptacja (§5.4)
 - [~] Ekran Trening pokazuje tygodniowy harmonogram i listę ćwiczeń
-- [ ] Weryfikacja czy plan jest powiązany z profilem i celami użytkownika (czy to statyczny mock?)
-- [ ] Brak mechanizmu "plan kroczący na 1–2 tygodnie"
-- [ ] Brak rozróżnienia: plan pierwotny vs rzeczywista realizacja
-- [ ] Brak adaptacji planu do sytuacji (zmęczenie, pominięty trening, brak sprzętu)
+- [ ] Dynamiczne powiązanie planu z wybranym sprzętem i dniami z Profilu
+- [ ] Mechanizm "plan kroczący na 1–2 tygodnie"
+- [ ] Bezpieczna progresja obciążeń (sugestia ciężaru na bazie poprzedniej sesji i RPE)
+- [ ] Możliwość adaptacji planu (zmęczenie po meczu koszykarskim, brak czasu -> wersja skrócona)
 
-### Realizacja treningu (Training Execution)
-- [~] Ekran Trening pokazuje ćwiczenia (Przysiad, Wykroki, Martwy ciąg, Wyciskanie)
-- [ ] Weryfikacja czy można **rozpocząć sesję treningową**
-- [ ] Weryfikacja czy można **zapisać serię** (serie, powtórzenia, ciężar)
-- [ ] Weryfikacja czy można **zakończyć trening**
-- [ ] Weryfikacja czy **wyniki zapisują się do bazy** (nie tylko lokalnie)
-- [ ] Brak RPE (skala odczuwanego wysiłku) przy zapisie serii
-- [ ] Brak możliwości pominięcia / modyfikacji ćwiczenia w trakcie sesji
-- [ ] Brak porównania z poprzednimi sesjami przy ćwiczeniu
+### Realizacja treningu w aplikacji (Workout Execution) (§5.5)
+- [~] Istnieje zewnętrzna podstrona `/app/training/session-ui`
+- [ ] **Integracja rejestratora treningu bezpośrednio w aplikacji głównej (Tech Noir UI)** zamiast surowej podstrony HTML
+- [ ] Start treningu jednym kliknięciem z Dashboardu („Rozpocznij trening”)
+- [ ] Rejestrowanie serii: ciężar (kg), powtórzenia (reps), RPE (skala wysiłku 1–10)
+- [ ] Zegar przerw między seriami (Rest Timer)
+- [ ] Możliwość zamiany lub pominięcia ćwiczenia w trakcie sesji (brak sprzętu/ból)
+- [ ] Zakończenie treningu i natychmiastowy zapis do bazy PostgreSQL oraz aktualizacja historii
 
-### Historia
-- [ ] Weryfikacja czy historia poprawnie odtwarza wykonane treningi
-- [ ] Weryfikacja czy historia nie pokazuje planowanych wyników jako rzeczywistych
+### Historia treningów i aktywności (§5.7)
+- [ ] Widok historii wykonanych treningów z rozbiciem na serie, obciążenia i RPE
+- [ ] Rozróżnienie w historii: planowane założenia vs rzeczywiste wykonanie
+- [ ] Kalendarz zrealizowanych aktywności (siłownia + koszykówka)
 
 ---
 
 ## 🟡 MODUŁY — Stan vs zamysł
 
-### Dashboard / Mój dzień (§5.1)
-- [~] **Istnieje** — pokazuje: pozdrowienie, spójność (0%), wagę, cel, plan, postęp dnia (kcal/białko), listę zadań "Co teraz?"
-- [~] **Nawigacja boczna działa** — kliknięcie każdej pozycji przełącza widok (Home, Mój dzień, Trening, Koszykówka, Dieta, Recovery, Postępy, Profil, Kontakt, Kuchnia AI)
-- [~] **Przycisk "Rozpocznij trening" istnieje i reaguje na klik** — wymaga weryfikacji co robi po kliknięciu
-- [ ] Dashboard oparty na mock/embedded danych — nie na danych użytkownika z bazy
-- [ ] Brak: status realizacji dziennego planu (wykonane / nie wykonane) oparty na rzeczywistych danych
-- [ ] Brak: gotowość do treningu wyliczona z danych (sen, zmęczenie, poprzedni trening)
-- [ ] Brak: ostatnie aktywności (prawdziwe, z historii)
-- [ ] "Spójność 0%" — wskaźnik nie korzysta z rzeczywistych danych
+### Dashboard / TODAY 2.0 (§5.1)
+- [~] **Istnieje** — pokazuje: nagłówek dnia, spójność, wagę, plan, postęp kcal/białko, checklistę zadań
+- [ ] **Karta Trening na dziś**: dynamiczny start treningu bez konieczności szukania w menu
+- [ ] **Karta Koszykówka na dziś**: zastąpienie tekstu *"Brak osobnej sesji na dziś. Domena zostanie podłączona"* rzeczywistym zadaniem koszykarskim (np. 100 rzutów / ball handling)
+- [ ] **Karta Dieta na dziś**: zastąpienie tekstu *"Dane w przygotowaniu"* podsumowaniem zaplanowanych posiłków i makro
+- [ ] **Karta Recovery na dziś**: zastąpienie tekstu *"Brak check-inu"* formularzem szybkiego zapisu snu (godziny) i samopoczucia (1-5) wraz z wyliczoną gotowością (Readiness Score)
+- [ ] Rzeczywisty wskaźnik spójności dnia (Consistency %) wyliczany z wykonanych zadań
 
-### Trening siłowy (§5.5)
-- [~] **Istnieje** — lista ćwiczeń, tygodniowy plan, atlas ćwiczeń
-- [ ] Weryfikacja pełnego flow: start → seria → zakończenie → historia
-- [ ] Brak bezpiecznej progresji obciążeń
-- [ ] Brak porównania z poprzednią sesją przy każdym ćwiczeniu
-
-### Koszykówka / Sport (§5.6)
-- [~] **Istnieje** — wybór dyscypliny, baza drilli, statystyki
-- [ ] Koszykówka jest jedną z 8 dyscyplin — nie jest traktowana priorytetowo
-- [ ] Brak modułu rzutu (rejestrowanie prób, trafień, skuteczności z pozycji)
-- [ ] Brak modułu prowadzenia piłki / ataku
-- [ ] Brak modułu gry w kontakcie
-- [ ] Brak ćwiczeń specyficznych dla koszykówki (szybkość, wyskok, zmiana kierunku)
-- [ ] Brak powiązania drilli koszykarskich z planem treningowym
+### Koszykówka i Rozwój Umiejętności (§5.6)
+- [~] **Katalog drilli istnieje** (wspólny atlas dla wielu sportów)
+- [ ] **Wydzielenie Koszykówki jako priorytetowego modułu sportowego**:
+  - **Moduł Rzutu**: rejestrator prób i trafień (osobiste, 3-point, pull-up jump shot, spot-up) z wyliczaniem % celności
+  - **Moduł Prowadzenia piłki & Finiszu**: drille kontroli piłki, wejścia pod kosz i wykończenia akcji w kontakcie
+  - **Przygotowanie motoryczne pod koszykówkę**: wyskok, pierwszy krok, zmiana kierunku, prewencja urazów kolana/kostki
+  - **Zapis sesji rzutowej do historii**
 
 ### Odżywianie / Dieta (§5.10)
-- [~] **Istnieje** — jadłospisy, biblioteka posiłków, lista zakupów, Kuchnia AI
-- [ ] Weryfikacja czy dane dietetyczne zapisują się do bazy
-- [ ] Weryfikacja czy makro jest powiązane z profilem użytkownika
-- [ ] Brak prostych wskazówek posiłkowych przed/po treningu
-- [ ] Kuchnia AI istnieje — wymaga weryfikacji działania z backendem
+- [~] **Istnieje** — biblioteka posiłków, jadłospis, Kuchnia AI
+- [ ] Wskazówki posiłkowe okołotreningowe:
+  - Rekomendacja posiłku przedtreningowego (węglowodany złożone, lekkostrawne białko)
+  - Rekomendacja posiłku potreningowego (odbudowa glikogenu, regeneracja mięśniowa)
+- [ ] Zapis i synchronizacja dziennika posiłków z bazą danych użytkownika
 
-### Recovery / Regeneracja (§5.9)
-- [~] **Istnieje** — centrum regeneracji, sen, gotowość, trendy, Decision Engine
-- [ ] Weryfikacja czy dane regeneracji zapisują się (sen, zmęczenie, samopoczucie)
-- [ ] Weryfikacja czy Decision Engine korzysta z prawdziwych danych
-- [ ] Brak oceny gotowości do treningu powiązanej z dashboardem
+### Recovery & Gotowość do treningu (§5.9)
+- [~] **Istnieje** — ekran Recovery
+- [ ] Formularz porannego check-inu: sen (h), jakość snu (1-5), bolesność mięśni (DOMS), poziom stresu
+- [ ] Algorytm wyliczania gotowości do treningu (Readiness Score 0-100%)
+- [ ] Połączenie wyniku gotowości z rekomendacją treningową na dany dzień (np. przy dużym zmęczeniu sugestia lżejszej sesji)
 
-### Postępy (§5.8)
-- [~] **Istnieje** — system XP (poziom 1), waga, wolumen treningowy, diet compliance, streak
-- [ ] **Wykresy nie działają** (błąd JSON z API) — krytyczny problem
-- [ ] XP/poziom nie jest powiązane z celami z zamysłu
-- [ ] Brak: historia siły (postęp w ciężarach na ćwiczeniach)
-- [ ] Brak: skuteczność rzutu w czasie
-- [ ] Brak: wyskok / szybkość — testy i postęp
+### Postępy i Cele (§5.8)
+- [x] Naprawiono błąd JSON (`initCharts`) — wykresy renderują się stabilnie
+- [ ] Wykres historii siły w głównych ćwiczeniach (1RM estymowane z serii i powtórzeń)
+- [ ] Wykres skuteczności rzutu w koszykówce w czasie (%)
+- [ ] Wykres postępu wyskoku dosiężnego (cm)
+- [ ] Moduł mierzalnych celów z paskiem postępu (np. waga docelowa, wyskok +5 cm, rzuty wolne 80%)
 
-### Profil / Assessment (§5.2)
-- [~] **Profil istnieje** — edycja danych, kalkulator makro, cele kaloryczne
-- [ ] **Assessment nie istnieje** — brak oceny początkowej jako osobnego modułu
-- [ ] Brak testów wyjściowych do późniejszego śledzenia postępów
-
-### Settings (§5.13)
-- [ ] **Brak osobnego ekranu Ustawień** w nawigacji
-- [ ] Ustawienia (jeśli są) schowane w profilu — wymaga weryfikacji
+### Uwierzytelnianie & Ustawienia (§5.13)
+- [ ] **Widoczny przycisk logowania / rejestracji w nawigacji głównej**:
+  - Modal logowania i rejestracji bez konieczności przechodzenia przez ukryte ekrany
+  - Automatyczne powiązanie tokenu JWT i sesji użytkownika
+- [ ] **Ekran Ustawienia (Settings)**:
+  - Zmiana hasła i danych konta
+  - Eksport danych treningowych i żywieniowych (JSON / CSV)
+  - Ustawienia prywatności i powiadomień
 
 ---
 
