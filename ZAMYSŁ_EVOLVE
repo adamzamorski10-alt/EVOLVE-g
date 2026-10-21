@@ -1,0 +1,949 @@
+# EVOLVE — Główna wizja produktu i docelowy kierunek rozwoju
+
+**Typ dokumentu:** Główna specyfikacja wizji produktu  
+**Projekt:** EVOLVE  
+**Główny cel:** Stworzenie osobistego systemu wspierającego rozwój sportowy, trening siłowy, koszykówkę, regenerację, odżywianie i długoterminowe osiąganie celów.  
+**Zasada nadrzędna:** EVOLVE ma być rzeczywiście użytecznym, spójnym i wiarygodnym narzędziem, a nie tylko zbiorem ekranów i funkcji.
+
+---
+
+# 1. Czym ma być EVOLVE?
+
+EVOLVE ma być osobistym systemem zarządzania rozwojem sportowym i sprawnością fizyczną. Jego zadaniem jest pomagać użytkownikowi trenować mądrzej, poprawiać wyniki, budować siłę i mięśnie, rozwijać umiejętności sportowe oraz utrzymywać odpowiednią regenerację i odżywianie.
+
+Docelowo EVOLVE ma działać jako zintegrowany **Performance OS — osobisty system operacyjny rozwoju sportowego**.
+
+Nie powinien być wyłącznie aplikacją do zapisywania treningów. Powinien rozumieć kontekst użytkownika, przechowywać historię jego aktywności, analizować postępy, pomagać podejmować decyzje i dostosowywać plan do zmieniającej się sytuacji.
+
+EVOLVE ma łączyć w jednym środowisku:
+
+- trening siłowy i rozwój sylwetki;
+- koszykówkę i rozwój umiejętności boiskowych;
+- rozwój szybkości, wyskoku, mocy i sprawności;
+- planowanie treningów i zarządzanie obciążeniem;
+- ocenę gotowości do treningu oraz regeneracji;
+- odżywianie wspierające wyniki sportowe i rozwój mięśni;
+- monitorowanie postępów i realizacji celów;
+- personalizację planu na podstawie rzeczywistych danych;
+- w przyszłości — zaawansowane funkcje AI wspierające analizę i podejmowanie decyzji.
+
+Najważniejsza jest integracja tych obszarów. Trening, regeneracja, odżywianie i postępy nie mogą funkcjonować jako niezależne moduły, które nie wpływają na siebie nawzajem.
+
+Przykładowo, jeśli użytkownik ma za sobą ciężki trening nóg, intensywny mecz i słaby sen, EVOLVE powinien uwzględnić te informacje przy planowaniu kolejnego dnia. Nie powinien bezwarunkowo proponować ciężkiego treningu skocznościowego tylko dlatego, że taki trening znajduje się w pierwotnym harmonogramie.
+
+## 1.1. Główny cel pierwszej użytecznej wersji
+
+Pierwsza użyteczna wersja ma pozwalać użytkownikowi normalnie korzystać z aplikacji w codziennym życiu.
+
+Użytkownik powinien móc:
+
+1. Utworzyć i uzupełnić swój profil.
+2. Przejść ocenę początkową.
+3. Określić cele, możliwości, dostępność i posiadany sprzęt.
+4. Otrzymać odpowiednio dopasowany plan treningowy.
+5. Sprawdzić, co powinien zrobić danego dnia.
+6. Wykonać trening i zapisać jego rzeczywisty przebieg.
+7. Przeglądać historię treningów i obserwować postępy.
+8. Otrzymywać sensowne wskazówki dotyczące dalszego treningu.
+9. Zarządzać podstawowymi informacjami o odżywianiu i regeneracji.
+10. Korzystać z aplikacji bez konieczności podłączania zewnętrznego modelu AI.
+
+**Pierwsze MVP musi być użyteczne bez AI.** Sztuczna inteligencja może później znacznie rozszerzyć możliwości EVOLVE, ale nie może być warunkiem działania podstawowych funkcji.
+
+---
+
+# 2. Zasady projektowe
+
+Cały rozwój EVOLVE powinien być prowadzony według następujących zasad.
+
+## 2.1. Funkcjonalność przed pozorami
+
+Każda funkcja musi rzeczywiście działać. Samo istnienie ekranu, przycisku lub endpointu API nie oznacza, że funkcja jest ukończona.
+
+Przykładowo moduł treningowy nie jest gotowy, jeśli wyświetla ćwiczenia, ale nie potrafi poprawnie rozpocząć sesji, zapisać wyników, zakończyć treningu i odtworzyć go w historii.
+
+## 2.2. Jeden spójny system
+
+Wszystkie moduły muszą korzystać ze wspólnego profilu użytkownika, historii, celów i odpowiednich danych.
+
+Nie należy budować oddzielnych funkcji, które dublują dane, stosują sprzeczne reguły lub wymagają od użytkownika wielokrotnego wpisywania tych samych informacji.
+
+## 2.3. Rozwój etapowy
+
+Projekt należy rozwijać w krótkich, kontrolowanych etapach.
+
+Każdy etap powinien mieć:
+
+- jasno określony cel;
+- ograniczony zakres zmian;
+- kryteria ukończenia;
+- testy odpowiednie do zakresu;
+- weryfikację rzeczywistego działania;
+- zapis aktualnego stanu projektu i kolejnych kroków.
+
+Pełna regresja powinna być wykonywana na odpowiednich bramkach integracyjnych, zamiast uruchamiać ogromny zestaw testów po każdej małej zmianie.
+
+## 2.4. Bezpieczeństwo i wiarygodność
+
+EVOLVE nie może przedstawiać niepewnych wniosków jako pewnych faktów. Powinien uwzględniać ograniczenia użytkownika, możliwość przeciążenia i potrzebę regeneracji.
+
+System nie powinien bez odpowiedniego uzasadnienia sugerować niebezpiecznego zwiększania obciążeń, ignorowania bólu ani skrajnych diet.
+
+## 2.5. Minimalizowanie zbędnej złożoności
+
+Należy wybierać najprostsze rozwiązanie, które spełnia wymagania produktu i bezpieczeństwa.
+
+Nie należy tworzyć rozbudowanych systemów, które nie zwiększają realnej wartości aplikacji. Jednocześnie nie wolno upraszczać fundamentów bezpieczeństwa, integralności danych ani poprawności działania.
+
+## 2.6. Rozwój oparty na danych
+
+W przyszłości EVOLVE powinien coraz lepiej wykorzystywać rzeczywiste dane użytkownika, zamiast opierać się wyłącznie na statycznych planach i ogólnych zaleceniach.
+
+Każda adaptacja planu musi mieć logiczne uzasadnienie i być oparta na dostępnych danych odpowiedniej jakości.
+
+---
+
+# 3. Docelowy użytkownik i personalizacja
+
+EVOLVE ma być systemem osobistym, a nie aplikacją oferującą wszystkim identyczny plan.
+
+W przypadku użytkownika rozwijającego się przede wszystkim w koszykówce system powinien wspierać jednocześnie:
+
+- poprawę rzutu;
+- lepsze wykończenie akcji przy obręczy;
+- skuteczniejszą grę w kontakcie;
+- rozwój prowadzenia piłki i gry jeden na jednego;
+- lepsze podejmowanie decyzji i rozgrywanie;
+- poprawę szybkości, przyspieszenia i zmiany kierunku;
+- rozwój wyskoku i mocy;
+- wzrost siły;
+- budowę mięśni, szczególnie klatki piersiowej i ramion;
+- utrzymanie mobilności, dynamiki i wydolności;
+- prawidłową regenerację i odżywianie.
+
+System musi umieć rozróżniać cele główne, pomocnicze i długoterminowe. Powinien również rozpoznawać sytuacje, w których cele konkurują ze sobą.
+
+Przykładowo nadmierne zwiększanie objętości treningu siłowego może pogorszyć regenerację przed ważnym treningiem koszykarskim. EVOLVE powinien brać takie konflikty pod uwagę.
+
+Personalizacja musi uwzględniać wiek użytkownika, doświadczenie, aktualną sprawność, harmonogram, dostępny sprzęt, ograniczenia, preferencje i zebrane wyniki. W przypadku osób niepełnoletnich zalecenia dotyczące treningu, odżywiania i regeneracji muszą być odpowiednio ostrożne.
+
+---
+
+# 4. Główny cykl działania EVOLVE
+
+Podstawą produktu jest zamknięty cykl rozwoju.
+
+**Profil → Ocena → Plan → Realizacja → Historia → Analiza → Adaptacja → Kolejny plan.**
+
+Każdy element musi poprawnie współpracować z pozostałymi.
+
+## 4.1. Profil użytkownika
+
+System gromadzi informacje niezbędne do przygotowania odpowiedniego planu.
+
+## 4.2. Ocena początkowa
+
+System ustala punkt wyjścia: aktualne możliwości, wyniki, doświadczenie, ograniczenia i priorytety.
+
+## 4.3. Planowanie
+
+Na podstawie profilu, celów, dostępności i oceny początkowej system przygotowuje plan.
+
+## 4.4. Realizacja
+
+Użytkownik wykonuje zaplanowane aktywności, zapisując rzeczywiste wyniki.
+
+## 4.5. Historia i analiza
+
+EVOLVE przechowuje wyniki i analizuje zmiany w czasie.
+
+## 4.6. Adaptacja
+
+System wykorzystuje zebrane dane do proponowania odpowiednich zmian w planie.
+
+## 4.7. Kontynuacja
+
+Nowy plan uwzględnia wcześniejsze wyniki, aktualną sytuację i długoterminowe cele użytkownika.
+
+Ten cykl jest ważniejszy niż liczba dostępnych ekranów. Jeśli nie działa poprawnie od początku do końca, aplikacja nie realizuje swojej głównej funkcji.
+
+---
+
+# 5. Szczegółowy opis modułów
+
+## 5.1. Dashboard i TODAY
+
+To główny ekran aplikacji. Powinien odpowiadać na pytanie:
+
+**„Co powinienem dzisiaj zrobić, aby rozwijać się w odpowiednim kierunku?”**
+
+Dashboard powinien zawierać odpowiednio dobrane informacje:
+
+- najważniejsze zadania i aktywności na dziś;
+- zaplanowany trening;
+- stan realizacji dziennego planu;
+- aktualną gotowość do treningu, jeżeli zebrano wystarczające dane;
+- ostatnie aktywności;
+- podstawowe wskaźniki postępu;
+- istotne informacje o regeneracji;
+- najważniejsze zalecenia wynikające z aktualnego planu;
+- szybkie przejścia do rozpoczęcia treningu, zapisania aktywności lub uzupełnienia danych.
+
+Dashboard nie powinien być przeładowany kartami i przypadkowymi wykresami. Ma pomagać podejmować decyzje, a nie tylko prezentować dane.
+
+W przyszłości ekran TODAY powinien być dynamiczny: jego zawartość i rekomendacje powinny zależeć od aktualnej sytuacji użytkownika.
+
+## 5.2. Profil i ocena początkowa
+
+Profil powinien gromadzić dane, które rzeczywiście wpływają na planowanie.
+
+Zakres obejmuje odpowiednio do potrzeb:
+
+- wiek i podstawowe parametry fizyczne;
+- doświadczenie treningowe;
+- cele krótko- i długoterminowe;
+- dyscypliny i rodzaje aktywności;
+- pozycję i rolę sportową;
+- aktualne możliwości fizyczne;
+- dostępny sprzęt;
+- miejsca treningów;
+- dostępność w ciągu tygodnia;
+- preferencje dotyczące treningu;
+- ograniczenia i informacje istotne dla bezpieczeństwa.
+
+Ocena początkowa powinna obejmować właściwe dla użytkownika testy i pomiary. W koszykówce mogą to być przykładowo:
+
+- skuteczność rzutu w określonych warunkach;
+- podstawowe testy szybkości i zmiany kierunku;
+- ocena wyskoku;
+- wybrane testy siły;
+- ocena kondycji i tolerancji wysiłku;
+- subiektywna ocena mocnych stron i problemów technicznych.
+
+Nie każdy test musi być obowiązkowy dla każdego użytkownika. System powinien odróżniać brak wyniku od słabego wyniku oraz nie wyciągać daleko idących wniosków z niepełnych danych.
+
+Ocena początkowa ma tworzyć punkt odniesienia do późniejszego porównywania postępów.
+
+## 5.3. Dostępność, harmonogram i sprzęt
+
+EVOLVE powinien wiedzieć, kiedy, gdzie i w jakich warunkach użytkownik może trenować.
+
+Moduł powinien obsługiwać:
+
+- dni i przedziały czasowe dostępne na trening;
+- przewidywany czas trwania sesji;
+- dostępne lokalizacje;
+- dostępny sprzęt;
+- treningi koszykarskie, mecze i inne aktywności;
+- czasowe ograniczenia;
+- zmiany dostępności.
+
+Plan musi być realny do wykonania. Nie powinien wymagać sprzętu, którego użytkownik nie ma, ani planować treningu w czasie, w którym użytkownik nie może ćwiczyć.
+
+## 5.4. Plan treningowy i jego adaptacja
+
+EVOLVE powinien tworzyć plan dopasowany do celów i możliwości użytkownika.
+
+Planowanie ma uwzględniać:
+
+- priorytety sportowe;
+- aktualny poziom;
+- dostępny czas i sprzęt;
+- częstotliwość treningów;
+- obciążenie wynikające z koszykówki;
+- trening siłowy;
+- intensywność i objętość;
+- regenerację;
+- wcześniejsze wyniki i tolerancję obciążenia.
+
+Docelowo podstawą powinien być **plan kroczący na około 1–2 tygodnie**, który można aktualizować na podstawie nowych informacji. Nie oznacza to chaotycznego zmieniania planu każdego dnia. Zmiany powinny być uzasadnione i zachowywać ciągłość długoterminowego rozwoju.
+
+System powinien rozróżniać plan pierwotny od jego faktycznej realizacji. Jeśli trening został pominięty lub wykonany inaczej, historia musi odzwierciedlać rzeczywistość.
+
+Przykładowe sytuacje wymagające dostosowania:
+
+- brak czasu na pełną sesję;
+- brak wymaganego sprzętu;
+- zmęczenie po meczu;
+- pogorszenie samopoczucia;
+- nieoczekiwanie duże obciążenie sportowe;
+- systematyczny brak postępów;
+- poprawa wyników pozwalająca na ostrożną progresję.
+
+## 5.5. Trening siłowy
+
+Moduł siłowy powinien obsługiwać rzeczywiste prowadzenie treningu.
+
+Wymagane możliwości obejmują:
+
+- listę ćwiczeń;
+- serie, powtórzenia i obciążenia;
+- przerwy;
+- zapis rzeczywiście wykonanych serii;
+- skalę odczuwanego wysiłku, np. RPE, gdy jest użyteczna;
+- notatki dotyczące wykonania;
+- możliwość pominięcia lub zmodyfikowania ćwiczenia;
+- rozpoczęcie, wznowienie i zakończenie sesji;
+- zapis treningu w historii;
+- porównanie z poprzednimi sesjami;
+- bezpieczną progresję obciążeń.
+
+System powinien rozróżniać ćwiczenia zaplanowane i wykonane. Nie może zapisywać planowanych wyników jako rzeczywistych.
+
+Docelowo moduł ma wspierać budowę siły i mięśni bez ignorowania wymagań sportowych. Trening siłowy powinien współpracować z treningiem koszykarskim, a nie bezrefleksyjnie konkurować z nim o czas i regenerację.
+
+## 5.6. Koszykówka i rozwój umiejętności
+
+Koszykówka musi być pełnoprawnym elementem EVOLVE, a nie dodatkiem do aplikacji siłowej.
+
+Moduł powinien rozwijać i monitorować kilka obszarów:
+
+**Rzut**
+- ćwiczenia techniczne;
+- rejestrowanie liczby prób i trafień;
+- skuteczność z określonych pozycji i dystansów;
+- monitorowanie jakości i powtarzalności rzutu;
+- identyfikowanie problemów wymagających pracy.
+
+**Prowadzenie piłki i atak**
+- ćwiczenia kontroli piłki;
+- zmiany kierunku i tempa;
+- atakowanie obrońcy;
+- wejścia pod kosz;
+- wykończenie akcji.
+
+**Gra w kontakcie**
+- rozwój siły i stabilności;
+- bezpieczne przygotowanie fizyczne;
+- ćwiczenia wykończenia akcji przy presji;
+- rozwój równowagi i kontroli ciała.
+
+**Rozgrywanie i decyzje**
+- ćwiczenia czytania sytuacji;
+- podejmowanie decyzji;
+- rozwój umiejętności rozgrywającego;
+- analizowanie skuteczności wybranych elementów gry, jeśli dostępne są wiarygodne dane.
+
+**Przygotowanie fizyczne**
+- przyspieszenie;
+- szybkość;
+- zmiana kierunku;
+- wyskok;
+- moc;
+- kondycja;
+- mobilność.
+
+System powinien pomagać wybrać priorytety treningowe na podstawie celów i wyników. Nie powinien traktować wszystkich elementów koszykówki jako jednakowo ważnych w każdym okresie.
+
+## 5.7. Historia i rejestrowanie aktywności
+
+Historia jest fundamentem personalizacji.
+
+Powinna przechowywać między innymi:
+
+- wykonane treningi;
+- serie, powtórzenia i obciążenia;
+- treningi koszykarskie;
+- wybrane testy i wyniki;
+- realizację planu;
+- samopoczucie i informacje o regeneracji;
+- istotne zmiany planu;
+- cele i kamienie milowe.
+
+Dane muszą być przypisane do właściwych dat i użytkownika. Ich zapis, aktualizacja i odczyt muszą być niezawodne.
+
+Użytkownik powinien móc sprawdzić, co rzeczywiście zrobił, a nie tylko to, co aplikacja planowała.
+
+## 5.8. Postępy i cele
+
+Moduł postępów powinien pokazywać, czy użytkownik faktycznie zbliża się do swoich celów.
+
+Może obejmować:
+
+- historię wyników;
+- zmiany siły;
+- poprawę wyników testów;
+- skuteczność rzutu;
+- rozwój wyskoku i szybkości;
+- regularność treningów;
+- realizację celów;
+- trendy obciążenia i regeneracji;
+- porównanie aktualnego okresu z wcześniejszymi okresami.
+
+Wykresy powinny służyć do podejmowania decyzji. Nie należy prezentować pozornie precyzyjnych wyników, jeśli dane są zbyt skąpe lub niewiarygodne.
+
+Cele powinny być mierzalne, kiedy jest to możliwe, i mieć określony horyzont czasowy. Użytkownik powinien móc je aktualizować.
+
+## 5.9. Regeneracja i gotowość do treningu
+
+Moduł regeneracji ma pomagać oceniać, czy aktualne obciążenie jest rozsądne.
+
+W zależności od dostępnych danych może uwzględniać:
+
+- długość i jakość snu;
+- subiektywne zmęczenie;
+- bolesność mięśni;
+- samopoczucie;
+- stres;
+- ostatnie treningi;
+- intensywność koszykówki;
+- odczuwaną gotowość do wysiłku.
+
+W przyszłości moduł może obliczać wskaźniki gotowości i prognozy regeneracji. Takie wskaźniki muszą być traktowane jako przybliżenia, a nie diagnozy medyczne.
+
+System powinien wyjaśniać istotne rekomendacje, np. dlaczego sugeruje zmniejszenie objętości treningu. Nie powinien jednak automatycznie obniżać obciążenia wyłącznie na podstawie jednego słabego pomiaru bez uwzględnienia kontekstu.
+
+## 5.10. Odżywianie
+
+Moduł odżywiania ma wspierać rozwój sportowy, budowę mięśni, regenerację i prawidłowe funkcjonowanie organizmu.
+
+Powinien uwzględniać:
+
+- regularność posiłków;
+- źródła białka;
+- węglowodany potrzebne do intensywnego wysiłku;
+- zdrowe tłuszcze;
+- warzywa i owoce;
+- nawodnienie;
+- posiłki przed i po treningu;
+- praktyczne propozycje wykorzystujące produkty dostępne w domu.
+
+W pierwszej użytecznej wersji priorytetem jest praktyczna pomoc, a nie restrykcyjne liczenie każdej kalorii. Użytkownik powinien móc korzystać z prostych propozycji posiłków i elastycznych wskazówek.
+
+W dalszym rozwoju możliwe jest lepsze dopasowywanie odżywiania do harmonogramu i obciążenia treningowego.
+
+W przypadku nastolatków system powinien szczególnie dbać o odpowiednią podaż energii, regularne jedzenie i zdrowy rozwój. Nie powinien proponować skrajnych diet, nieuzasadnionego ograniczania kalorii ani suplementacji bez odpowiednich podstaw.
+
+## 5.11. Silnik decyzji
+
+Decision Engine ma łączyć dane z różnych modułów w spójne rekomendacje.
+
+Przykładowo powinien brać pod uwagę:
+
+- cele;
+- plan;
+- wykonane treningi;
+- aktualne obciążenie;
+- dostępność;
+- wyniki;
+- regenerację;
+- ograniczenia;
+- jakość i kompletność danych.
+
+Silnik nie powinien jedynie generować przypadkowych porad. Każda ważna rekomendacja powinna wynikać z określonych reguł i dostępnych informacji.
+
+Początkowa wersja może korzystać z deterministycznych reguł bez AI. Jest to preferowane, jeżeli pozwala uzyskać przewidywalne, testowalne i bezpieczne działanie.
+
+## 5.12. Personalizacja i pamięć
+
+Docelowo EVOLVE powinien budować coraz lepszy obraz użytkownika na podstawie historii.
+
+Może uwzględniać:
+
+- skuteczne i nieskuteczne metody treningowe;
+- regularność i preferencje;
+- reakcję na różne rodzaje obciążenia;
+- długoterminowe trendy;
+- wcześniejsze cele i ich realizację;
+- uzasadnienia ważnych zmian planu.
+
+System powinien odróżniać dane zaobserwowane od wniosków i hipotez. Nie może przypisywać użytkownikowi niepotwierdzonych cech.
+
+## 5.13. Ustawienia, prywatność i bezpieczeństwo
+
+Użytkownik powinien mieć kontrolę nad swoim profilem, danymi, preferencjami i przyszłymi integracjami.
+
+System powinien zapewniać odpowiednią kontrolę dostępu, bezpieczne przetwarzanie danych, poprawną walidację oraz ochronę historii.
+
+W dalszym rozwoju ustawienia powinny obejmować również kontrolę zakresu automatyzacji i funkcji AI.
+
+---
+
+# 6. Docelowy wygląd i doświadczenie użytkownika
+
+EVOLVE powinien zachować rozpoznawalny charakter wizualny istniejącego FitAI, jednocześnie poprawiając jego kompozycję, hierarchię informacji, czytelność i jakość wykonania.
+
+Celem nie jest przypadkowe stworzenie całkowicie innego produktu. Celem jest dopracowanie obecnego kierunku wizualnego i rozszerzenie go na spójny system.
+
+## 6.1. Kierunek wizualny: FitAI — Tech Noir
+
+Preferowany styl obejmuje:
+
+- ciemne, głębokie tło;
+- neonowy cyjan jako podstawowy akcent;
+- fiolet jako kolor uzupełniający;
+- subtelne gradienty;
+- umiarkowane efekty świetlne;
+- półprzezroczyste karty i powierzchnie;
+- wyraźną hierarchię nagłówków;
+- nowoczesną typografię;
+- profesjonalny dashboard;
+- czytelne wykresy i wskaźniki;
+- spójne przyciski, formularze, karty i nawigację.
+
+Preferowana paleta bazowa:
+
+- tło: `#0a0b10`;
+- cyjan: `#00e5ff`;
+- fiolet: `#7c3aed`.
+
+Preferowany kierunek typograficzny:
+
+- Syne — nagłówki;
+- Plus Jakarta Sans — tekst i interfejs.
+
+Konkretne wartości, fonty i komponenty należy potwierdzić względem istniejącego kodu i faktycznie dostępnych zasobów. Powyższe wartości stanowią kierunek wizualny, a nie nakaz przebudowy wszystkich elementów bez wcześniejszej analizy.
+
+## 6.2. Układ aplikacji
+
+Docelowo aplikacja powinna mieć stałą, zrozumiałą nawigację, np.:
+
+- Dashboard / Today;
+- Training;
+- Basketball;
+- Plan;
+- Progress;
+- Nutrition;
+- Recovery;
+- Profile / Assessment;
+- Settings.
+
+Nazwy i liczba pozycji mogą zostać dopasowane do istniejącej aplikacji. Najważniejsze jest, aby użytkownik mógł szybko dotrzeć do głównych funkcji, a moduły nie sprawiały wrażenia osobnych, niepowiązanych aplikacji.
+
+## 6.3. Przykładowy ekran główny
+
+Ekran główny powinien wizualnie priorytetyzować:
+
+1. Najważniejsze informacje dotyczące dzisiejszego dnia.
+2. Zaplanowaną aktywność i przycisk rozpoczęcia.
+3. Status wykonania planu.
+4. Informacje o gotowości i regeneracji, jeśli są dostępne.
+5. Najważniejsze wskaźniki postępu.
+6. Ostatnie aktywności i istotne rekomendacje.
+
+Kompozycja ma być dopracowana pod względem wykorzystania przestrzeni. Nie należy tworzyć wielu identycznych kart, które tylko zwiększają długość strony.
+
+## 6.4. Zasady UX
+
+- Najważniejsze działania muszą być łatwo dostępne.
+- Interfejs powinien być czytelny na komputerach i urządzeniach mobilnych.
+- Formularze nie powinny wymagać zbędnego wpisywania tych samych informacji.
+- Informacje o błędach i statusie zapisu muszą być zrozumiałe.
+- Długie procesy powinny prowadzić użytkownika krok po kroku.
+- Wartości i wykresy muszą mieć jasne znaczenie.
+- Moduły powinny używać wspólnych wzorców interakcji.
+- Nowe funkcje muszą wizualnie pasować do reszty aplikacji.
+- Efekty dekoracyjne nie mogą pogarszać czytelności ani szybkości działania.
+
+---
+
+# 7. Zatwierdzony kierunek długoterminowych innowacji
+
+Poniższe pomysły należą do długoterminowej wizji EVOLVE. **Nie oznacza to, że wszystkie są częścią pierwszego MVP ani że są już zaimplementowane.** Ich kolejność i termin realizacji zależą od stanu podstawowych modułów, wartości użytkowej i bezpieczeństwa.
+
+## 7.1. Inteligentne rozumienie użytkownika
+
+**1. Personal Performance Twin**
+
+Dynamiczny model możliwości, celów, wyników, preferencji i reakcji użytkownika na trening.
+
+**2. Personal Experiments Lab**
+
+Możliwość testowania hipotez dotyczących treningu i sprawdzania, które rozwiązania rzeczywiście pomagają użytkownikowi.
+
+**3. Pattern Discovery Engine**
+
+Wykrywanie powtarzających się zależności w historii, np. pomiędzy obciążeniem, regeneracją i wynikami.
+
+**20. Personal Baseline**
+
+Ustalanie indywidualnych wartości odniesienia, dzięki którym wyniki są porównywane z typowym poziomem danego użytkownika, a nie tylko z ogólnymi normami.
+
+**21. Long-Term Life Context**
+
+Uwzględnianie długoterminowego kontekstu użytkownika, o ile jest potrzebny, dostępny i został odpowiednio zapisany.
+
+## 7.2. Adaptacyjne planowanie i podejmowanie decyzji
+
+**4. Automatic Plan Adaptation**
+
+Automatyczne dostosowywanie planu do postępów, obciążenia, dostępności i regeneracji.
+
+**5. Goal Conflict Resolver**
+
+Rozpoznawanie konfliktów pomiędzy celami i wybieranie rozsądnych kompromisów.
+
+**6. Decision Memory**
+
+Zapisywanie ważnych decyzji systemu, ich uzasadnień i późniejszych rezultatów.
+
+**7. Decision Simulator**
+
+Porównywanie możliwych decyzji przed wprowadzeniem zmiany w planie.
+
+**8. Future Load Planner**
+
+Planowanie przyszłego obciążenia z uwzględnieniem harmonogramu i przewidywanych aktywności.
+
+**11. Adaptive Goals**
+
+Dostosowywanie celów, gdy zmieniają się możliwości, priorytety lub okoliczności, bez bezrefleksyjnego obniżania standardów.
+
+**19. Challenge My Plan**
+
+Możliwość sprawdzenia, czy istniejący plan jest optymalny, oraz wskazywania jego słabych punktów i alternatyw.
+
+**29. What If Simulator**
+
+Symulowanie hipotetycznych scenariuszy, np. wpływu zmiany częstotliwości treningów na realizację celów. Wyniki muszą być przedstawiane jako szacunki, jeśli nie ma podstaw do dokładnego przewidywania.
+
+## 7.3. Regeneracja i prognozowanie
+
+**9. Readiness Forecast**
+
+Szacowanie gotowości do wysiłku na podstawie dostępnych informacji.
+
+**10. Recovery Debt**
+
+Monitorowanie narastającego obciążenia i możliwego niedoboru regeneracji.
+
+**15. Sport Performance Model**
+
+Modelowanie rozwoju najważniejszych zdolności sportowych i ich wzajemnych zależności.
+
+## 7.4. Naturalna interakcja i nowe sposoby wprowadzania danych
+
+**12. Natural Language Logging**
+
+Zapisywanie aktywności i informacji za pomocą zwykłego języka, np. opisu wykonanego treningu.
+
+**13. Voice Coach**
+
+Głosowa interakcja z trenerem lub asystentem, jeśli będzie dostępna odpowiednia integracja i infrastruktura.
+
+**14. Food Vision**
+
+Wykorzystywanie analizy obrazu do wspierania rejestrowania jedzenia. Funkcja musi uwzględniać niepewność estymacji porcji i składu posiłku.
+
+## 7.5. Zespoły agentów i autonomia
+
+**16. AI Agent Teams**
+
+Współpraca wyspecjalizowanych agentów, np. do planowania treningu, analizy postępów, odżywiania i regeneracji.
+
+**17. User-Controlled Autonomy**
+
+Kontrola użytkownika nad poziomem autonomii systemu, zakresem jego działań i wymaganymi zatwierdzeniami.
+
+**18. Safety Explainability**
+
+Wyjaśnianie ważnych rekomendacji, ograniczeń i powodów, dla których system proponuje określone działanie.
+
+**22. Computer / Device Integration**
+
+Integracje z urządzeniami i usługami, które mogą dostarczać dane lub ułatwiać korzystanie z EVOLVE.
+
+## 7.6. Prywatność, niezawodność i samodoskonalenie
+
+**23. Offline-First EVOLVE**
+
+Możliwość korzystania z wybranych funkcji bez stałego połączenia z internetem, z poprawną synchronizacją danych po odzyskaniu połączenia.
+
+**24. Private AI Mode**
+
+Tryb AI zaprojektowany z naciskiem na prywatność, kontrolę przesyłanych danych i minimalizowanie niepotrzebnego ujawniania informacji.
+
+**25. Self-Evaluation Engine**
+
+System oceniający jakość własnych rekomendacji i wykrywający potencjalne błędy.
+
+**26. Evaluation Lab**
+
+Środowisko testowania i porównywania jakości reguł, modeli i metod planowania.
+
+**30. EVOLVE Performance OS**
+
+Docelowa integracja wszystkich modułów w jeden system, który pomaga zarządzać rozwojem sportowym w sposób spójny, adaptacyjny i zrozumiały.
+
+---
+
+# 8. Rola AI w EVOLVE
+
+AI jest ważnym elementem długoterminowej wizji, ale nie powinno być dodawane przedwcześnie.
+
+Pierwsza użyteczna wersja ma działać na podstawie niezawodnych mechanizmów aplikacji, zapisanych danych i testowalnych reguł.
+
+Po ukończeniu podstawowego produktu można stopniowo wprowadzać AI do:
+
+- interpretowania historii;
+- proponowania zmian w planie;
+- analizowania wzorców;
+- wyjaśniania rekomendacji;
+- prowadzenia rozmowy z użytkownikiem;
+- planowania i symulacji;
+- naturalnego i głosowego rejestrowania aktywności.
+
+Docelowo integracja AI ma współpracować z osobnym AI Managerem użytkownika. Konkretna architektura tej integracji powinna zostać ustalona w odpowiednim etapie, zamiast przedwcześnie wiązać cały produkt z jednym dostawcą lub modelem.
+
+AI nie może zastępować integralności danych, walidacji, reguł bezpieczeństwa ani testów. Rekomendacje wymagające szczególnej ostrożności muszą podlegać odpowiednim ograniczeniom.
+
+---
+
+# 9. Architektura produktu i jakość techniczna
+
+Architektura powinna wspierać rozwój aplikacji bez niepotrzebnego komplikowania obecnego systemu.
+
+Docelowe wymagania obejmują:
+
+- jednoznaczne modele danych;
+- spójne reguły biznesowe;
+- poprawne uwierzytelnianie i autoryzację;
+- niezawodny zapis historii;
+- kontrolowane migracje bazy danych;
+- obsługę błędów;
+- testy jednostkowe i integracyjne;
+- testy krytycznych ścieżek użytkownika;
+- bezpieczną obsługę danych;
+- możliwość odtwarzania i weryfikowania problemów;
+- poprawne działanie na docelowym środowisku produkcyjnym.
+
+Obecny kod należy traktować pragmatycznie. Jeśli istniejąca architektura umożliwia szybkie i bezpieczne dostarczenie MVP, nie należy automatycznie przepisywać całej aplikacji tylko dlatego, że można zastosować nowsze rozwiązania.
+
+Jednocześnie nie należy bez końca rozbudowywać monolitycznego pliku interfejsu, jeśli jego struktura utrudnia niezawodność, testowanie i dalszy rozwój. Decyzje architektoniczne muszą wynikać z audytu i rzeczywistych problemów.
+
+## 9.1. Baza danych i trwałość danych
+
+Dane użytkownika muszą przetrwać ponowne uruchomienie aplikacji i kolejne wdrożenia.
+
+Przed uznaniem produkcji za gotową trzeba potwierdzić:
+
+- jaka baza danych jest faktycznie używana;
+- czy środowisko produkcyjne ma poprawną konfigurację;
+- czy dane są trwale przechowywane;
+- czy migracje wykonują się prawidłowo;
+- czy kopie zapasowe i odtwarzanie danych są odpowiednio rozwiązane.
+
+Nie wolno zakładać, że baza danych jest trwała tylko dlatego, że aplikacja odpowiada poprawnie.
+
+## 9.2. Testowanie
+
+Weryfikacja musi obejmować nie tylko backend i testy CI, ale również rzeczywistą aplikację.
+
+Krytyczne scenariusze to m.in.:
+
+- rejestracja i logowanie;
+- dostęp do właściwego profilu;
+- przejście oceny początkowej;
+- utworzenie i odczyt planu;
+- rozpoczęcie treningu;
+- zapis wykonanych serii;
+- zakończenie treningu;
+- odczyt treningu z historii;
+- poprawne wyświetlenie postępów;
+- zapis i odczyt danych regeneracji;
+- poprawne zachowanie po odświeżeniu strony;
+- prawidłowe działanie po wdrożeniu na produkcję.
+
+Testy muszą potwierdzać rzeczywiste działanie funkcji, a nie jedynie istnienie odpowiednich endpointów.
+
+---
+
+# 10. Kolejność rozwoju
+
+Kolejność należy dostosowywać do wyników audytów. Priorytetem jest jak najszybsze osiągnięcie użytecznej aplikacji bez obniżania standardów bezpieczeństwa i jakości.
+
+## Etap A — Audyt stanu i fundamentów
+
+- potwierdzenie aktualnego stanu repozytorium;
+- analiza dokumentacji i architektury;
+- identyfikacja niespójności;
+- sprawdzenie testów;
+- weryfikacja bazy danych i środowiska;
+- ustalenie rzeczywistych blokad;
+- określenie, które funkcje działają, a które istnieją tylko częściowo.
+
+## Etap B — Domknięcie głównego cyklu
+
+- poprawne działanie profilu;
+- ocena początkowa;
+- generowanie i odczyt planu;
+- realizacja treningu;
+- zapisywanie wyników;
+- historia;
+- podstawowa analiza postępów.
+
+## Etap C — TODAY 2.0 i trening
+
+- dopracowanie ekranu głównego;
+- usprawnienie rozpoczęcia i prowadzenia treningu;
+- poprawa nawigacji;
+- czytelny status planu;
+- ograniczenie liczby zbędnych interakcji.
+
+## Etap D — Profil, ocena i planowanie
+
+- uzupełnienie brakujących danych;
+- personalizacja pod koszykówkę i trening siłowy;
+- harmonogram i sprzęt;
+- plan kroczący;
+- spójne reguły obciążenia i progresji.
+
+## Etap E — Postępy i cele
+
+- wiarygodna historia;
+- wykresy i trendy;
+- cele;
+- porównywanie wyników;
+- informowanie o rzeczywistych zmianach.
+
+## Etap F — Odżywianie i regeneracja
+
+- praktyczne wsparcie odżywiania;
+- podstawowe rejestrowanie regeneracji;
+- uwzględnianie aktywności koszykarskiej;
+- rozsądne rekomendacje dotyczące obciążenia.
+
+## Etap G — Decision Engine i personalizacja
+
+- lepsze wykorzystywanie historii;
+- testowalne reguły adaptacji;
+- uzasadnianie istotnych decyzji;
+- ograniczanie konfliktów między celami.
+
+## Etap H — Stabilizacja i pierwsze pełne MVP
+
+- regresja krytycznych funkcji;
+- testy integracyjne;
+- weryfikacja na rzeczywistej aplikacji;
+- sprawdzenie trwałości danych;
+- poprawa błędów wizualnych i funkcjonalnych;
+- potwierdzenie gotowości do codziennego używania.
+
+## Etap I — Rozwój po MVP
+
+Dopiero po osiągnięciu stabilnej, użytecznej wersji należy priorytetyzować bardziej zaawansowane innowacje, automatyzację, integracje z urządzeniami oraz funkcje AI.
+
+---
+
+# 11. Kryteria ukończenia pierwszego MVP
+
+EVOLVE można uznać za pierwszą rzeczywiście użyteczną wersję dopiero wtedy, gdy spełnione są następujące warunki.
+
+### Funkcjonalność
+
+- Użytkownik może przejść podstawowy proces od profilu do realizacji planu.
+- Plan jest powiązany z jego celami i możliwościami.
+- Można wykonać trening i zapisać jego rzeczywisty przebieg.
+- Historia poprawnie odtwarza wykonane aktywności.
+- Podstawowe wskaźniki postępu korzystają z rzeczywistych danych.
+- Odżywianie i regeneracja zapewniają praktyczną wartość odpowiednią do zakresu MVP.
+
+### Niezawodność
+
+- Krytyczne błędy JavaScript nie blokują uruchomienia interfejsu.
+- Nawigacja i główne przyciski działają.
+- Dane są prawidłowo zapisywane i odczytywane.
+- Produkcyjna baza danych i trwałość danych są potwierdzone.
+- Krytyczne testy przechodzą.
+- Najważniejsze scenariusze zostały sprawdzone w rzeczywistej aplikacji.
+
+### UX i wygląd
+
+- Aplikacja zachowuje spójny styl wizualny.
+- Najważniejsze funkcje są łatwo dostępne.
+- Ekran główny pomaga zaplanować dzień.
+- Formularze i procesy są zrozumiałe.
+- Aplikacja jest użyteczna również na mniejszym ekranie.
+
+### Bezpieczeństwo i wiarygodność
+
+- Dane użytkownika są odpowiednio chronione.
+- Plan nie ignoruje podstawowych ograniczeń i sygnałów przeciążenia.
+- System nie przedstawia niepewnych wniosków jako pewników.
+- Rekomendacje wynikają z danych i jawnych reguł.
+
+**Zaliczenie CI nie jest samo w sobie potwierdzeniem ukończenia MVP.** Potrzebne są również testy rzeczywistych przepływów, weryfikacja środowiska produkcyjnego i potwierdzenie, że aplikacja działa w sposób, w jaki korzysta z niej użytkownik.
+
+---
+
+# 12. Aktualny stan projektu — oddzielenie wizji od rzeczywistości
+
+Poniższa sekcja jest punktem odniesienia na dzień 20 października 2026 r. Musi być aktualizowana po kolejnych audytach i wdrożeniach.
+
+## 12.1. Co wiadomo o aktualnym projekcie
+
+- Projekt posiada repozytorium GitHub `EVOLVE-g`.
+- Obecna aplikacja wykorzystuje backend Python/FastAPI i rozbudowany interfejs oparty na `index.html`.
+- Projekt ma istniejące endpointy i moduły, ale samo ich istnienie nie potwierdza pełnej funkcjonalności.
+- Otwarte PR-y obejmują prace związane z integracją głównego cyklu oraz poprawkami uruchamiania dashboardu.
+- Wcześniej raportowano problemy z parsowaniem JavaScript w głównym interfejsie.
+- Wcześniejsze testy CI potwierdzały wybrane bramki migracji PostgreSQL i regresji, ale nie potwierdzały pełnej poprawności całej aplikacji produkcyjnej.
+- Nie potwierdzono w pełni aktualnej konfiguracji bazy danych i trwałości danych środowiska produkcyjnego.
+- Nie można uznać wszystkich funkcji za gotowe bez ponownego audytu i testów przeglądarkowych.
+
+## 12.2. Czego nie wolno zakładać
+
+Nie należy zakładać, że:
+
+- otwarty PR jest już częścią produkcji;
+- zielone CI oznacza, że cały produkt działa;
+- ekran zwracający HTTP 200 jest w pełni funkcjonalny;
+- plan treningowy działa poprawnie tylko dlatego, że istnieje endpoint;
+- zapis treningu jest trwały bez potwierdzenia w bazie;
+- aplikacja jest gotowa do użycia bez zalogowania i wykonania krytycznych scenariuszy.
+
+## 12.3. Następny krok
+
+Najpierw należy doprowadzić do wiarygodnego obrazu aktualnego stanu repozytorium i aplikacji. Następnie trzeba zamknąć krytyczne błędy, domknąć główny cykl i stopniowo rozszerzać funkcjonalność.
+
+Nie należy rozpoczynać szerokiej przebudowy wizualnej ani implementować wszystkich innowacji jednocześnie, jeśli podstawowe ścieżki użytkownika nie działają poprawnie.
+
+---
+
+# 13. Sposób zarządzania projektem
+
+Rozwój EVOLVE ma być prowadzony adaptacyjnie przez głównego architekta projektu.
+
+Oznacza to:
+
+- samodzielne proponowanie najlepszej kolejności prac;
+- wybieranie rozwiązań o najlepszym stosunku wartości do kosztu;
+- aktywne wykrywanie zbędnej pracy i ryzyk;
+- utrzymywanie spójnego planu;
+- dzielenie prac na małe etapy;
+- precyzyjne definiowanie kryteriów ukończenia;
+- wykonywanie odpowiednich testów;
+- aktualizowanie dokumentacji po istotnych zmianach;
+- informowanie użytkownika o postępach i blokadach.
+
+Komunikacja o stanie projektu powinna jasno rozdzielać:
+
+**DONE** — ukończone i zweryfikowane.
+
+**IN PROGRESS** — aktualnie realizowane.
+
+**BLOCKED** — zablokowane przez brak dostępu, konfiguracji, informacji lub działania użytkownika.
+
+**NEXT** — najbliższe działania.
+
+Nie wolno przedstawiać funkcji jako ukończonych, jeśli nie ma wystarczających dowodów na ich działanie.
+
+Zmiany w repozytorium mogą być przygotowywane i weryfikowane etapami. Scalanie zmian do głównej gałęzi i wdrażanie na produkcję wymagają osobnej, świadomej decyzji użytkownika.
+
+---
+
+# 14. Ostateczna wizja EVOLVE
+
+Docelowo EVOLVE ma być jednym, spójnym i osobistym systemem, który pomaga użytkownikowi systematycznie rozwijać się sportowo.
+
+Ma rozumieć jego cele, gromadzić historię, pomagać planować treningi, wspierać realizację planu, analizować postępy i proponować sensowne zmiany. Powinien łączyć koszykówkę, trening siłowy, szybkość, wyskok, odżywianie i regenerację w jeden proces rozwoju.
+
+W pierwszej kolejności musi stać się niezawodną aplikacją, z której można korzystać każdego dnia. Dopiero później powinien rozwijać się w kierunku bardziej zaawansowanej personalizacji, predykcji, automatyzacji i integracji AI.
+
+Najważniejsze kryterium sukcesu nie brzmi: „Ile funkcji ma EVOLVE?”.
+
+Brzmi ono:
+
+**„Czy EVOLVE pomaga użytkownikowi podejmować lepsze decyzje, trenować regularnie, rozumieć własne postępy i osiągać cele skuteczniej niż bez tej aplikacji?”**
+
+Wszystkie decyzje produktowe, architektoniczne i implementacyjne powinny służyć temu celowi.

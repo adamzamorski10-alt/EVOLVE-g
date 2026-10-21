@@ -2849,167 +2849,201 @@ def app_meal_prep_plan(request: Request, days: int = 3, extra_context: Optional[
         )
 
 
+def _empty_user_stats() -> dict:
+    return {
+        "weight_entries": [],
+        "training_volume": [],
+        "diet_compliance_pct": 0,
+        "streak_days": 0,
+        "target_weight": None,
+        "kpi": {
+            "weight_delta": None,
+            "avg_rpe_7d": None,
+            "goal_date_estimate": None,
+        },
+        "stagnation_detected": False,
+        "stagnation": {},
+        "xp": {"current_level": 1, "current_xp": 0, "xp_for_next": 100, "progress_pct": 0},
+        "overload": {"overload_detected": False},
+        "injuries": [],
+        "last_weight_change": None,
+    }
+
+
+def _compute_user_stats(user: UserDB, session: Session, days: int = 30) -> dict:
+    # ── Daily logs ────────────────────────────────────────────────────────
+    all_logs = list(session.exec(
+        select(DailyLogDB)
+        .where(DailyLogDB.user_id == user.id)
+        .order_by(DailyLogDB.log_date)
+    ).all())
+
+    # Weight entries (last `days`, include mood for tooltip)
+    weight_entries = [
+        {"date": l.log_date, "weight": l.weight, "mood": l.mood}
+        for l in all_logs if l.weight is not None
+    ][-days:]
+
+    # Diet compliance: days with food logged / total days with any log
+    log_days_total = len({l.log_date for l in all_logs})
+    food_days = len({l.log_date for l in all_logs if l.food and l.food.strip()})
+    diet_compliance_pct = round((food_days / log_days_total) * 100) if log_days_total else 0
+
+    # Streak
+    streak_days = _compute_streak_days_from_logs(all_logs)
+
+    # ── Exercise results -> training volume per day ────────────────────────
+    ex_results = list(session.exec(
+        select(ExerciseResultDB)
+        .where(ExerciseResultDB.user_id == user.id)
+        .order_by(ExerciseResultDB.session_date)
+    ).all())
+
+    volume_by_day: dict = {}
+    for r in ex_results:
+        vol = r.sets * r.reps * r.weight_kg
+        volume_by_day[r.session_date] = volume_by_day.get(r.session_date, 0) + vol
+
+    training_volume = [
+        {"date": d, "volume": round(v)}
+        for d, v in sorted(volume_by_day.items())
+    ][-days:]
+
+    # ── KPI calculations ──────────────────────────────────────────────────
+    # 1. Weight delta (start vs latest)
+    weight_delta = None
+    if weight_entries:
+        first_w = weight_entries[0]["weight"]
+        last_w = weight_entries[-1]["weight"]
+        if first_w and last_w:
+            weight_delta = round(last_w - first_w, 1)
+
+    # 2. Average RPE last 7 days
+    cutoff_7d = (date.today().toordinal() - 7)
+    recent_rpe = [
+        r.rpe for r in ex_results
+        if r.session_date and date.fromisoformat(r.session_date).toordinal() >= cutoff_7d
+    ]
+    avg_rpe_7d = round(sum(recent_rpe) / len(recent_rpe), 1) if recent_rpe else None
+
+    # 3. Projected goal date based on weight trend
+    goal_date_estimate = None
+    target_weight = user.target_weight
+    if len(weight_entries) >= 2 and target_weight:
+        recent_w = weight_entries[-14:]
+        n = len(recent_w)
+        if n >= 2:
+            try:
+                d0 = date.fromisoformat(recent_w[0]["date"])
+                d1 = date.fromisoformat(recent_w[-1]["date"])
+                days_span = (d1 - d0).days or 1
+                w0 = recent_w[0]["weight"]
+                w1 = recent_w[-1]["weight"]
+                daily_rate = (w1 - w0) / days_span
+                remaining = target_weight - w1
+                if daily_rate != 0 and (remaining / daily_rate) > 0:
+                    days_to_goal = int(remaining / daily_rate)
+                    goal_date = date.today().toordinal() + days_to_goal
+                    goal_date_estimate = date.fromordinal(goal_date).isoformat()
+            except (ValueError, OverflowError):
+                pass
+
+    # ── Stagnation detection ─────────────────────────────────────────────
+    stagnation_detected = False
+    stagnation_info: dict = {}
+    goal_lower = (user.goal or "").lower()
+    is_reduction_goal = any(x in goal_lower for x in ["redukcj", "odchudzani", "schud"])
+    is_mass_goal = any(x in goal_lower for x in ["masa", "budow", "przyty"])
+
+    all_weight_entries = [
+        {"date": l.log_date, "weight": l.weight}
+        for l in all_logs if l.weight is not None
+    ]
+    if len(all_weight_entries) >= 14:
+        recent_7 = [e["weight"] for e in all_weight_entries[-7:]]
+        prev_7 = [e["weight"] for e in all_weight_entries[-14:-7]]
+        avg_recent = sum(recent_7) / len(recent_7)
+        avg_prev = sum(prev_7) / len(prev_7)
+        delta = round(avg_recent - avg_prev, 2)
+        if (is_reduction_goal or is_mass_goal) and abs(delta) < 0.1:
+            stagnation_detected = True
+        stagnation_info = {
+            "avg_weight_last_7": round(avg_recent, 2),
+            "avg_weight_prev_7": round(avg_prev, 2),
+            "delta_kg": delta,
+            "goal_type": "redukcja" if is_reduction_goal else ("masa" if is_mass_goal else "inne"),
+            "message": (
+                "Brak zmian wagi od 2 tygodni - czas na korektę deficytu lub planu treningowego."
+                if stagnation_detected else
+                f"Waga zmienia się zgodnie z planem ({delta:+.2f} kg / 7 dni)."
+            ),
+        }
+
+    # ── XP & leveling ────────────────────────────────────────────────────
+    xp_info = _xp_to_next_level(user.total_xp or 0)
+
+    # ── Overload detection ────────────────────────────────────────────────
+    overload = _check_overload(user.id, session, threshold_pct=0.20)
+
+    # ── Injuries list ─────────────────────────────────────────────────────
+    injuries_list = [i.strip() for i in (user.injuries or "").split(",") if i.strip()]
+
+    # ── Update last_weight_change on user record (passive update) ─────────
+    if len(all_weight_entries) >= 2:
+        w_latest = all_weight_entries[-1]["weight"]
+        w_prev = all_weight_entries[-2]["weight"]
+        new_delta = round(w_latest - w_prev, 2)
+        if user.last_weight_change != new_delta:
+            user.last_weight_change = new_delta
+            session.commit()
+
+    return {
+        "weight_entries": weight_entries,
+        "training_volume": training_volume,
+        "diet_compliance_pct": diet_compliance_pct,
+        "streak_days": streak_days,
+        "target_weight": target_weight,
+        "kpi": {
+            "weight_delta": weight_delta,
+            "avg_rpe_7d": avg_rpe_7d,
+            "goal_date_estimate": goal_date_estimate,
+        },
+        "stagnation_detected": stagnation_detected,
+        "stagnation": stagnation_info,
+        "xp": xp_info,
+        "overload": overload,
+        "injuries": injuries_list,
+        "last_weight_change": user.last_weight_change,
+    }
+
+
 @router.get("/app/stats", tags=["stats"])
 def app_get_stats(days: int = 30, user: UserDB = Depends(get_current_user)):
     """
     Agreguje dane postępów użytkownika z DailyLogDB i ExerciseResultDB.
-    Zwraca:
-      - weight_entries: ostatnie 30 wpisów wagi (data + wartość + nastrój)
-      - training_volume: wolumen treningowy per dzień (serie × powtórzenia × ciężar)
-      - diet_compliance_pct: % dni z zalogowanymi posiłkami
-      - streak_days: aktualny streak (dni z rzędu z aktywnością)
-      - kpi: zmienność wagi, średnie RPE (7d), prognozowana data celu
     """
     with Session(engine) as session:
+        return _compute_user_stats(user, session, days=days)
 
-        # ── Daily logs ────────────────────────────────────────────────────────
-        all_logs = list(session.exec(
-            select(DailyLogDB)
-            .where(DailyLogDB.user_id == user.id)
-            .order_by(DailyLogDB.log_date)
-        ).all())
 
-        # Weight entries (last `days`, include mood for tooltip)
-        weight_entries = [
-            {"date": l.log_date, "weight": l.weight, "mood": l.mood}
-            for l in all_logs if l.weight is not None
-        ][-days:]
-
-        # Diet compliance: days with food logged / total days with any log
-        log_days_total = len({l.log_date for l in all_logs})
-        food_days = len({l.log_date for l in all_logs if l.food and l.food.strip()})
-        diet_compliance_pct = round((food_days / log_days_total) * 100) if log_days_total else 0
-
-        # Streak
-        streak_days = _compute_streak_days_from_logs(all_logs)
-
-        # ── Exercise results -> training volume per day ────────────────────────
-        ex_results = list(session.exec(
-            select(ExerciseResultDB)
-            .where(ExerciseResultDB.user_id == user.id)
-            .order_by(ExerciseResultDB.session_date)
-        ).all())
-
-        volume_by_day: dict = {}
-        for r in ex_results:
-            vol = r.sets * r.reps * r.weight_kg
-            volume_by_day[r.session_date] = volume_by_day.get(r.session_date, 0) + vol
-
-        training_volume = [
-            {"date": d, "volume": round(v)}
-            for d, v in sorted(volume_by_day.items())
-        ][-days:]
-
-        # ── KPI calculations ──────────────────────────────────────────────────
-        # 1. Weight delta (start vs latest)
-        weight_delta = None
-        if weight_entries:
-            first_w = weight_entries[0]["weight"]
-            last_w = weight_entries[-1]["weight"]
-            if first_w and last_w:
-                weight_delta = round(last_w - first_w, 1)
-
-        # 2. Average RPE last 7 days
-        cutoff_7d = (date.today().toordinal() - 7)
-        recent_rpe = [
-            r.rpe for r in ex_results
-            if r.session_date and date.fromisoformat(r.session_date).toordinal() >= cutoff_7d
-        ]
-        avg_rpe_7d = round(sum(recent_rpe) / len(recent_rpe), 1) if recent_rpe else None
-
-        # 3. Projected goal date based on weight trend
-        goal_date_estimate = None
-        target_weight = user.target_weight
-        if len(weight_entries) >= 2 and target_weight:
-            # Use linear regression on last 14 entries
-            recent_w = weight_entries[-14:]
-            n = len(recent_w)
-            if n >= 2:
-                # Simple slope: (last - first) / days_between
-                try:
-                    d0 = date.fromisoformat(recent_w[0]["date"])
-                    d1 = date.fromisoformat(recent_w[-1]["date"])
-                    days_span = (d1 - d0).days or 1
-                    w0 = recent_w[0]["weight"]
-                    w1 = recent_w[-1]["weight"]
-                    daily_rate = (w1 - w0) / days_span  # kg/day; negative = losing
-                    remaining = target_weight - w1
-                    if daily_rate != 0 and (remaining / daily_rate) > 0:
-                        days_to_goal = int(remaining / daily_rate)
-                        goal_date = date.today().toordinal() + days_to_goal
-                        goal_date_estimate = date.fromordinal(goal_date).isoformat()
-                except (ValueError, OverflowError):
-                    pass
-
-        # ── Stagnation detection ─────────────────────────────────────────────
-        # Porównaj średnią wagę: ostatnie 7 vs poprzednie 7 wpisów wagowych
-        stagnation_detected = False
-        stagnation_info: dict = {}
-        goal_lower = (user.goal or "").lower()
-        is_reduction_goal = any(x in goal_lower for x in ["redukcj", "odchudzani", "schud"])
-        is_mass_goal = any(x in goal_lower for x in ["masa", "budow", "przyty"])
-
-        all_weight_entries = [
-            {"date": l.log_date, "weight": l.weight}
-            for l in all_logs if l.weight is not None
-        ]
-        if len(all_weight_entries) >= 14:
-            recent_7 = [e["weight"] for e in all_weight_entries[-7:]]
-            prev_7 = [e["weight"] for e in all_weight_entries[-14:-7]]
-            avg_recent = sum(recent_7) / len(recent_7)
-            avg_prev = sum(prev_7) / len(prev_7)
-            delta = round(avg_recent - avg_prev, 2)
-            if (is_reduction_goal or is_mass_goal) and abs(delta) < 0.1:
-                stagnation_detected = True
-            stagnation_info = {
-                "avg_weight_last_7": round(avg_recent, 2),
-                "avg_weight_prev_7": round(avg_prev, 2),
-                "delta_kg": delta,
-                "goal_type": "redukcja" if is_reduction_goal else ("masa" if is_mass_goal else "inne"),
-                "message": (
-                    "Brak zmian wagi od 2 tygodni - czas na korektę deficytu lub planu treningowego."
-                    if stagnation_detected else
-                    f"Waga zmienia się zgodnie z planem ({delta:+.2f} kg / 7 dni)."
-                ),
-            }
-
-        # ── XP & leveling ────────────────────────────────────────────────────
-        xp_info = _xp_to_next_level(user.total_xp or 0)
-
-        # ── Overload detection ────────────────────────────────────────────────
-        overload = _check_overload(user.id, session, threshold_pct=0.20)
-
-        # ── Injuries list ─────────────────────────────────────────────────────
-        injuries_list = [i.strip() for i in (user.injuries or "").split(",") if i.strip()]
-
-        # ── Update last_weight_change on user record (passive update) ─────────
-        if len(all_weight_entries) >= 2:
-            w_latest = all_weight_entries[-1]["weight"]
-            w_prev = all_weight_entries[-2]["weight"]
-            new_delta = round(w_latest - w_prev, 2)
-            if user.last_weight_change != new_delta:
-                user.last_weight_change = new_delta
-                session.commit()
-
-        return {
-            "weight_entries": weight_entries,
-            "training_volume": training_volume,
-            "diet_compliance_pct": diet_compliance_pct,
-            "streak_days": streak_days,
-            "target_weight": target_weight,
-            "kpi": {
-                "weight_delta": weight_delta,
-                "avg_rpe_7d": avg_rpe_7d,
-                "goal_date_estimate": goal_date_estimate,
-            },
-            # ── v2 extensions ─────────────────────────────────────────────────
-            "stagnation_detected": stagnation_detected,
-            "stagnation": stagnation_info,
-            "xp": xp_info,
-            "overload": overload,
-            "injuries": injuries_list,
-            "last_weight_change": user.last_weight_change,
-        }
+@router.get("/app/stats/{identity_id}", tags=["stats"])
+def app_get_stats_by_identity(identity_id: str, days: int = 30):
+    """
+    Agreguje dane postępów użytkownika po identity_id (używane przez frontend SPA).
+    Gdy użytkownik nie istnieje jeszcze w bazie, zwraca pusty profil statystyk.
+    """
+    with Session(engine) as session:
+        user = session.exec(
+            select(UserDB).where(
+                (UserDB.identity_id == identity_id) |
+                (UserDB.user_key == f"web:{identity_id}") |
+                (UserDB.user_key == identity_id) |
+                (UserDB.id == identity_id)
+            )
+        ).first()
+        if not user:
+            return _empty_user_stats()
+        return _compute_user_stats(user, session, days=days)
 
 
 @router.post("/app/diet/add-meal", tags=["diet"])
