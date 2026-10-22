@@ -2189,6 +2189,77 @@
           </div>
         </div>
 
+        <!-- ══ EVOLVE DECISION HUB (Decision Engine & Readiness) ══ -->
+        <div id="evolveDecisionHubCard" class="glass rounded-3xl p-6" style="background:linear-gradient(135deg,rgba(0,229,255,0.06) 0%,rgba(124,58,237,0.08) 100%);border:1px solid rgba(0,229,255,0.2);">
+          <div class="flex items-center justify-between flex-wrap gap-4 mb-4">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest text-cyan-400 mb-1" style="letter-spacing:0.14em;">Decision Engine · Stan Dnia</p>
+              <h3 id="decisionTitle" class="text-2xl font-extrabold text-white" style="font-family:'Syne',sans-serif;">Ładowanie stanu dnia…</h3>
+              <p id="decisionInstruction" class="text-xs text-gray-400 mt-1 max-w-xl">Pobieranie rekomendacji treningowej i poziomu gotowości…</p>
+            </div>
+            <div id="readinessBadge" class="px-4 py-2 rounded-2xl flex items-center gap-2" style="background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.25);">
+              <span class="text-xs font-bold text-gray-400">Gotowość:</span>
+              <span id="readinessValue" class="text-lg font-black text-cyan-400" style="font-family:'Syne',sans-serif;">—</span>
+            </div>
+          </div>
+
+          <!-- Dwie karty główne: Siłownia i Koszykówka -->
+          <div class="grid md:grid-cols-2 gap-4 mt-4">
+            <!-- Trening siłowy -->
+            <div class="glass p-5 rounded-2xl flex flex-col justify-between" style="border-color:rgba(124,58,237,0.25);background:rgba(124,58,237,0.04);">
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs uppercase font-bold text-violet-400">🏋️ Trening Siłowy</span>
+                  <span id="workoutStatusBadge" class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-violet-500/10 text-violet-300 border border-violet-500/20">Zaplanowany</span>
+                </div>
+                <h4 id="todayWorkoutName" class="text-lg font-bold text-white mb-1" style="font-family:'Syne',sans-serif;">Dzień Treningowy</h4>
+                <p id="todayWorkoutExercises" class="text-xs text-gray-400 mb-4">Ładowanie ćwiczeń…</p>
+              </div>
+              <button type="button" onclick="window.evolveStartTraining()" id="todayStartWorkoutBtn" class="btn-neon w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
+                <span>▶ Rozpocznij trening na żywo</span>
+              </button>
+            </div>
+
+            <!-- Koszykówka -->
+            <div class="glass p-5 rounded-2xl flex flex-col justify-between" style="border-color:rgba(0,229,255,0.25);background:rgba(0,229,255,0.03);">
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs uppercase font-bold text-cyan-400">🏀 Koszykówka & Motoryka</span>
+                  <span class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">Dzisiejsza sesja</span>
+                </div>
+                <h4 class="text-lg font-bold text-white mb-1" style="font-family:'Syne',sans-serif;">Trening rzutowy & handle</h4>
+                <p class="text-xs text-gray-400 mb-4">50 rzutów (osobiste + 3PT) oraz drille prowadzenia piłki</p>
+              </div>
+              <button type="button" onclick="showTab('plan'); switchPlanCategory('sport');" class="btn-outline-cyan w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
+                <span>🎯 Otwórz Shot Tracker</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Szybki check-in regeneracji (Quick Recovery Pulse) -->
+          <div class="mt-4 pt-4 border-t" style="border-color:rgba(255,255,255,0.06);">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+              <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Poranny Check-in Regeneracji</span>
+              <span id="quickCheckinStatus" class="text-xs font-semibold text-green-400 hidden"></span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label class="text-gray-400 block mb-1">Sen (godziny): <span id="quickSleepLabel" class="text-cyan-400 font-bold">7.5h</span></label>
+                <input type="range" id="quickSleepHours" min="4" max="11" step="0.5" value="7.5" oninput="document.getElementById('quickSleepLabel').textContent=this.value+'h'" class="w-full">
+              </div>
+              <div>
+                <label class="text-gray-400 block mb-1">Jakość snu (1–10): <span id="quickSleepQualLabel" class="text-violet-400 font-bold">8/10</span></label>
+                <input type="range" id="quickSleepQuality" min="1" max="10" step="1" value="8" oninput="document.getElementById('quickSleepQualLabel').textContent=this.value+'/10'" class="w-full">
+              </div>
+              <div class="flex items-end">
+                <button type="button" onclick="submitQuickRecoveryCheckin()" class="w-full py-2 px-3 rounded-xl font-bold text-xs btn-ghost hover:border-cyan-500/40 text-cyan-400">
+                  ⚡ Zapisz poranny stan
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div id="macroAlertBanner" class="hidden alert-warn">
           <p id="macroAlertText" class="text-sm font-medium"></p>
         </div>
@@ -10114,6 +10185,7 @@
         }
         updateSleepDuration(true);
         if (typeof loadTodayData === 'function') loadTodayData();
+        if (typeof window.loadEvolveTodayHub === 'function') window.loadEvolveTodayHub();
       }
       document.getElementById('mainContent').scrollTop = 0;
     }
@@ -28555,6 +28627,121 @@ window.openDayItemSwap = openDayItemSwap;
       if (btn) btn.disabled = false;
     }
   };
+})();
+</script>
+<script id="evolve-today-hub-script">
+(function() {
+  window.loadEvolveTodayHub = async function() {
+    var token = localStorage.getItem('fitai_token');
+    if (!token) return;
+
+    var titleEl = document.getElementById('decisionTitle');
+    var instrEl = document.getElementById('decisionInstruction');
+    var readinessVal = document.getElementById('readinessValue');
+    var workoutNameEl = document.getElementById('todayWorkoutName');
+    var workoutExEl = document.getElementById('todayWorkoutExercises');
+    var statusBadge = document.getElementById('workoutStatusBadge');
+
+    try {
+      // 1. Pobierz stan dnia z Decision Engine
+      var res = await fetch((window.API_BASE || '') + '/app/today', {
+        headers: { 'Authorization': 'Bearer ' + token },
+        cache: 'no-store'
+      });
+      if (res.ok) {
+        var data = await res.json();
+        var status = data.status || '';
+        var statusMap = {
+          'train_as_planned': '🟢 Trenuj zgodnie z planem',
+          'reduce_training': '🟡 Zredukuj objętość (zmęczenie)',
+          'recover': '🟣 Dziś priorytetem jest regeneracja',
+          'progress_training': '🚀 Zwiększ obciążenie (progresja)',
+          'maintain_training': '⚪ Utrzymaj obecne obciążenia',
+          'rest': '🛌 Dzień odpoczynku od siłowni',
+          'insufficient_data': '⚡ Twój plan na dziś'
+        };
+        if (titleEl) titleEl.textContent = statusMap[status] || '⚡ Twój plan na dziś';
+        if (instrEl) instrEl.textContent = (data.primary_action && data.primary_action.instruction) ? data.primary_action.instruction : 'Zrealizuj zaplanowane aktywności na dany dzień.';
+
+        var w = data.workout || {};
+        if (workoutNameEl) workoutNameEl.textContent = w.day_label || 'Trening dnia';
+        var exCount = (w.exercises || []).length;
+        if (workoutExEl) {
+          workoutExEl.textContent = exCount > 0 ? (exCount + ' zaplanowanych ćwiczeń do wykonania') : 'Brak ćwiczeń na ten dzień.';
+        }
+        if (statusBadge) {
+          statusBadge.textContent = w.has_workout ? 'Gotowy do startu' : 'Dzień wolny';
+        }
+      }
+
+      // 2. Pobierz aktualny Readiness Score
+      var recRes = await fetch((window.API_BASE || '') + '/app/recovery', {
+        headers: { 'Authorization': 'Bearer ' + token },
+        cache: 'no-store'
+      });
+      if (recRes.ok) {
+        var recData = await recRes.json();
+        var score = recData.readiness_score != null ? Math.round(recData.readiness_score) : null;
+        if (readinessVal) {
+          readinessVal.textContent = score != null ? (score + '%') : '—';
+          if (score >= 80) readinessVal.style.color = '#4ade80';
+          else if (score >= 60) readinessVal.style.color = '#00e5ff';
+          else readinessVal.style.color = '#fbbf24';
+        }
+      }
+    } catch (e) {
+      console.warn('[loadEvolveTodayHub] Error:', e.message);
+    }
+  };
+
+  window.submitQuickRecoveryCheckin = async function() {
+    var token = localStorage.getItem('fitai_token');
+    var statusEl = document.getElementById('quickCheckinStatus');
+    if (!token) {
+      if (statusEl) {
+        statusEl.className = 'text-xs font-semibold text-red-400';
+        statusEl.textContent = 'Zaloguj się, aby zapisać check-in';
+        statusEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    var sleepHours = parseFloat(document.getElementById('quickSleepHours')?.value || '7.5');
+    var sleepQuality = parseInt(document.getElementById('quickSleepQuality')?.value || '8');
+
+    try {
+      var res = await fetch((window.API_BASE || '') + '/app/checkin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({
+          sleep_hours: sleepHours,
+          sleep_quality: sleepQuality
+        })
+      });
+      if (res.ok) {
+        if (statusEl) {
+          statusEl.className = 'text-xs font-semibold text-green-400';
+          statusEl.textContent = '✓ Zapisano stan poranny!';
+          statusEl.classList.remove('hidden');
+          setTimeout(function() { statusEl.classList.add('hidden'); }, 4000);
+        }
+        window.loadEvolveTodayHub();
+      }
+    } catch(err) {
+      if (statusEl) {
+        statusEl.className = 'text-xs font-semibold text-red-400';
+        statusEl.textContent = 'Błąd zapisu: ' + err.message;
+        statusEl.classList.remove('hidden');
+      }
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(window.loadEvolveTodayHub, 400);
+  });
 })();
 </script>
 </body>
