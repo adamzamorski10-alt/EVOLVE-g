@@ -494,21 +494,23 @@ Preferowany kierunek typograficzny:
 
 Konkretne wartości, fonty i komponenty należy potwierdzić względem istniejącego kodu i faktycznie dostępnych zasobów. Powyższe wartości stanowią kierunek wizualny, a nie nakaz przebudowy wszystkich elementów bez wcześniejszej analizy.
 
-## 6.2. Układ aplikacji
+## 6.2. Układ aplikacji — 7 Filarów Performance OS (Zatwierdzona Architektura)
 
-Docelowo aplikacja powinna mieć stałą, zrozumiałą nawigację, np.:
+Aplikacja posiada stałą, intuicyjną nawigację opartą na 7 filarach:
 
-- Dashboard / Today;
-- Training;
-- Basketball;
-- Plan;
-- Progress;
-- Nutrition;
-- Recovery;
-- Profile / Assessment;
-- Settings.
+1. **⚡ DZIŚ (Today Hub)** — Dzienne centrum dowodzenia: co mam dzisiaj zrobić, stan gotowości (Readiness Ring), start treningu jednym kliknięciem, podsumowanie zadań.
+2. **🏀 KOSZYKÓWKA (Court & Skills)** — Dedykowany moduł boiskowy: Shot Tracker (kalkulator skuteczności rzutów z kluczowych stref), drille panowania nad piłką (handle), wykończenie akcji przy kontakcie (finishing) oraz motoryka koszykarska.
+3. **🏋️ TRENING (Gym & Strength)** — Prowadzenie treningu siłowego na żywo bezpośrednio w UI Tech Noir (zamiast zewnętrznej podstrony): serie, ciężary, powtórzenia, RPE, automatyczny timer przerw (Rest Timer) oraz podgląd poprzednich wyników (Ghost Weights).
+4. **🥗 ODŻYWIANIE (Fuel & Nutrition)** — Praktyczne wsparcie odżywiania pod kątem energii i regeneracji: cele kaloryczne i makroskładniki, rekomendacje okołotreningowe (posiłek przed/po treningu) oraz proste propozycje z dostępnych produktów.
+5. **🔋 REGENERACJA (Recovery & Readiness)** — Szybki poranny check-in (sen, jakość snu, DOMS/bolesność mięśni) wyliczający wskaźnik gotowości do wysiłku (Readiness Score 0–100%) oraz ochrona przed przeciążeniem.
+6. **📈 POSTĘPY (Progress & Lab)** — Kluczowe wykresy sportowe: wyskok dosiężny (cm), skuteczność rzutu (%), szacowane 1RM w głównych ćwiczeniach siłowych oraz trendy wagi/składu ciała.
+7. **⚙️ PROFIL & BAZA (Baseline & Setup)** — Ocena początkowa (Assessment), dostępny sprzęt, harmonogram tygodnia, pozycja na boisku i ograniczenia zdrowotne.
 
-Nazwy i liczba pozycji mogą zostać dopasowane do istniejącej aplikacji. Najważniejsze jest, aby użytkownik mógł szybko dotrzeć do głównych funkcji, a moduły nie sprawiały wrażenia osobnych, niepowiązanych aplikacji.
+### 6.2.1. Kluczowe rozwiązania funkcjonalne (Approved Features)
+- **Court & Gym Load Balancer**: Automatyczne uwzględnianie meczów i ciężkich treningów koszykarskich przy planowaniu treningu siłowego (zapobieganie przetrenowaniu nóg i przeciążeniom ścięgien).
+- **Shot Tracker**: Szybkie rejestrowanie prób i celnych rzutów (osobiste, 3-point z 5 stref, mid-range) z natychmiastowym przeliczaniem % skuteczności i trendu.
+- **Ghost Weights**: Wyświetlanie poprzedniego obciążenia podczas logowania serii, aby ułatwić bezpieczną progresję liniową/falową.
+- **Offline First (PWA)**: Niezawodne rejestrowanie sesji treningowych nawet przy braku połączenia internetowego w siłowni lub hali sportowej.
 
 ## 6.3. Przykładowy ekran główny
 

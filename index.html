@@ -20,14 +20,10 @@
   <script>
     window.API_BASE = window.API_BASE || (
       location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-        ? 'http://localhost:8000'
-        : (location.hostname.endsWith('.onrender.com')
-          ? location.origin
-          : 'https://fitai-backend-l918.onrender.com')
+        ? (location.port === '8000' ? window.location.origin : 'http://localhost:8000')
+        : (location.protocol !== 'file:' ? window.location.origin : 'http://localhost:8000')
     );
-    // Logowanie/rejestracja dostępne tylko na docelowej domenie GitHub Pages.
-    // Otwierając plik lokalnie (file://) lub z innej domeny widoczny jest tylko podgląd.
-    window.IS_LIVE_SITE = (location.hostname === 'adamzamorski10-alt.github.io');
+    window.IS_LIVE_SITE = (location.protocol !== 'file:');
   </script>
   <style>
     * {
@@ -1599,8 +1595,8 @@
       <div class="flex items-center gap-3">
         <div
           class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#00e5ff] to-[#7c3aed] flex items-center justify-center font-bold text-black text-lg shadow-[0_0_20px_rgba(0,229,255,0.4)]">
-          F</div>
-        <span class="font-bold text-white text-xl hidden sm:block" style="font-family:'Syne',sans-serif;">FitAI</span>
+          E</div>
+        <span class="font-bold text-white text-xl hidden sm:block" style="font-family:'Syne',sans-serif;">EVOLVE</span>
       </div>
       <div id="landingLinks" class="hidden md:flex items-center gap-8 text-sm font-medium text-gray-400">
         <a href="#o-nas" class="hover:text-white transition-colors">O nas</a>
@@ -1608,6 +1604,8 @@
         <a href="#cennik" class="hover:text-white transition-colors">Cennik</a>
       </div>
       <div class="flex items-center gap-3">
+        <button id="authTriggerBtn" onclick="openAuthModal('login')"
+          class="hidden px-4 py-2 text-sm font-semibold text-cyan-400 border border-cyan-500/30 rounded-xl hover:bg-cyan-500/10 transition-colors">Zaloguj się</button>
         <div id="userSwitcher" class="hidden flex items-center gap-2">
           <div style="
             display:flex;align-items:center;gap:8px;
@@ -1869,18 +1867,17 @@
       class="hidden md:flex w-64 glass-sidebar p-6 border-r fixed top-16 h-[calc(100vh-64px)] flex-col gap-6 overflow-y-auto z-40"
       style="border-color:var(--border);">
       <nav class="space-y-1 flex-1" aria-label="Główna nawigacja">
-        <p class="px-3 py-1 text-xs font-bold text-gray-600 uppercase tracking-wider">Menu</p>
-        <a href="#" onclick="showTab('home');return false;" data-tab="home" class="nav-item active flex items-center gap-3 p-3 text-sm font-medium text-cyan-400"><span>🏠</span><span>Home</span></a>
-        <a href="#my-day" onclick="showTab('my-day'); return false;" data-tab="my-day" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Dzisiejszy plan, wykonanie i zadania"><span>🎯</span><span>Mój dzień</span></a>
-        <a href="#" onclick="showTab('plan'); switchPlanCategory('trening'); return false;" data-tab="training" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🏋️</span><span>Trening</span></a>
-        <a href="#" onclick="showTab('plan'); switchPlanCategory('sport'); return false;" data-tab="basketball" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🏀</span><span>Koszykówka</span></a>
-        <a href="#" onclick="showTab('plan'); switchPlanCategory('dieta'); return false;" data-tab="diet" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🥗</span><span>Dieta</span></a>
-        <a href="#" onclick="showTab('recovery'); return false;" data-tab="recovery" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>😴</span><span>Recovery</span></a>
-        <a href="#" onclick="showTab('postepy'); return false;" data-tab="postepy" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>📈</span><span>Postępy</span></a>
-        <a href="#" onclick="showTab('profile'); return false;" data-tab="profile" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>👤</span><span>Profil</span></a>
-        <a href="#" onclick="showTab('contact'); return false;" data-tab="contact" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>💬</span><span>Kontakt</span></a>
-        <a href="#" onclick="showTab('plan'); switchPlanCategory('dieta'); setTimeout(() => switchPlanSubTab('dieta', 'kuchnia'), 50); return false;" data-tab="kuchnia" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"><span>🤖</span><span>Kuchnia AI</span></a>
-      /nav>
+        <p class="px-3 py-1 text-xs font-bold uppercase tracking-wider" style="color:var(--cyan);letter-spacing:0.12em;">Performance OS</p>
+        <a href="#my-day" onclick="showTab('my-day'); return false;" data-tab="my-day" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-cyan-400 active" title="Dzisiejsze centrum dowodzenia"><span>⚡</span><span>1. Dziś (Today)</span></a>
+        <a href="#" onclick="showTab('plan'); switchPlanCategory('sport'); return false;" data-tab="basketball" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Rzut, ball handling, wykończenie i motoryka"><span>🏀</span><span>2. Koszykówka</span></a>
+        <a href="#" onclick="showTab('plan'); switchPlanCategory('trening'); return false;" data-tab="training" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Trening siłowy, serie, ciężary"><span>🏋️</span><span>3. Trening siłowy</span></a>
+        <a href="#" onclick="showTab('plan'); switchPlanCategory('dieta'); return false;" data-tab="diet" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Paliwo sportowe i makroskładniki"><span>🥗</span><span>4. Odżywianie</span></a>
+        <a href="#" onclick="showTab('recovery'); return false;" data-tab="recovery" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Sen, gotowość i zmęczenie"><span>🔋</span><span>5. Regeneracja</span></a>
+        <a href="#" onclick="showTab('postepy'); return false;" data-tab="postepy" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Wykresy wyskoku, siły i celności"><span>📈</span><span>6. Postępy</span></a>
+        <a href="#" onclick="showTab('assessment'); return false;" data-tab="assessment" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Ocena wyjściowa i generowanie planu"><span>📋</span><span>7. Assessment & Baza</span></a>
+        <div style="height:1px;background:rgba(255,255,255,0.06);margin:8px 0;"></div>
+        <a href="#" onclick="showTab('profile'); return false;" data-tab="profile" class="nav-item flex items-center gap-3 p-2.5 text-xs font-medium text-gray-500 hover:text-gray-300"><span>👤</span><span>Mój Profil</span></a>
+      </nav>
       <div class="glass rounded-2xl p-4">
         <p class="text-xs font-bold text-gray-500 uppercase mb-3">Twój Fundament</p>
         <div class="space-y-2 text-xs">
@@ -3471,14 +3468,93 @@
               <!-- Sport > Drille -->
               <div class="plan-tab-panel" id="panel-sport-drills">
                 <div id="sportInnerContainer" class="space-y-4">
+                  <!-- ══════════════════════════════════════════ -->
+                  <!-- EVOLVE SHOT TRACKER — DEDYKOWANY MODUŁ BOISKOWY -->
+                  <!-- ══════════════════════════════════════════ -->
+                  <div class="glass p-6 rounded-3xl" style="background:linear-gradient(135deg,rgba(0,229,255,0.05) 0%,rgba(124,58,237,0.08) 100%);border:1px solid rgba(0,229,255,0.2);">
+                    <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
+                      <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-xl" style="background:rgba(0,229,255,0.15);border:1px solid rgba(0,229,255,0.3);">
+                          🏀
+                        </div>
+                        <div>
+                          <h3 class="text-lg font-bold text-white" style="font-family:'Syne',sans-serif;">Shot Tracker — Rejestrator Rzutów</h3>
+                          <p class="text-xs text-gray-400">Notuj skuteczność z kluczowych pozycji na boisku i buduj powtarzalność rzutu</p>
+                        </div>
+                      </div>
+                      <span id="shotTrackerStatus" class="text-xs px-3 py-1 rounded-full font-bold hidden"></span>
+                    </div>
+
+                    <!-- Strefa rzutowa -->
+                    <div class="mb-4">
+                      <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Wybierz pozycję na boisku:</p>
+                      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2" id="shotZoneSelector">
+                        <button type="button" onclick="selectShotZone('Osobiste (Free Throws)')" class="shot-zone-btn active px-3 py-2 rounded-xl text-xs font-bold transition-all" style="background:rgba(0,229,255,0.15);border:1px solid var(--cyan);color:#00e5ff;">🎯 Osobiste (FT)</button>
+                        <button type="button" onclick="selectShotZone('Corner 3 (Rogi)')" class="shot-zone-btn px-3 py-2 rounded-xl text-xs font-bold transition-all btn-ghost">🎯 Rogi 3PT</button>
+                        <button type="button" onclick="selectShotZone('Wing 3 (Skrzydła)')" class="shot-zone-btn px-3 py-2 rounded-xl text-xs font-bold transition-all btn-ghost">🎯 Skrzydła 3PT</button>
+                        <button type="button" onclick="selectShotZone('Top 3 (Szczyt)')" class="shot-zone-btn px-3 py-2 rounded-xl text-xs font-bold transition-all btn-ghost">🎯 Szczyt 3PT</button>
+                        <button type="button" onclick="selectShotZone('Mid-range (Półdystans)')" class="shot-zone-btn px-3 py-2 rounded-xl text-xs font-bold transition-all btn-ghost">🎯 Półdystans</button>
+                      </div>
+                    </div>
+
+                    <!-- Liczniki trafień i prób -->
+                    <div class="grid sm:grid-cols-3 gap-4 items-center mb-5">
+                      <!-- Celne -->
+                      <div class="glass p-4 rounded-2xl" style="border-color:rgba(74,222,128,0.25);">
+                        <p class="text-xs uppercase font-bold text-green-400 mb-2">Trafione</p>
+                        <div class="flex items-center justify-between">
+                          <span id="shotMadeDisplay" class="text-3xl font-extrabold text-white" style="font-family:'Syne',sans-serif;">0</span>
+                          <div class="flex gap-1">
+                            <button type="button" onclick="adjustShots('made', -1)" class="w-8 h-8 rounded-lg btn-ghost flex items-center justify-center font-bold text-sm">-</button>
+                            <button type="button" onclick="adjustShots('made', 1)" class="px-2.5 h-8 rounded-lg font-bold text-xs" style="background:rgba(74,222,128,0.2);color:#4ade80;border:1px solid rgba(74,222,128,0.3);">+1</button>
+                            <button type="button" onclick="adjustShots('made', 5)" class="px-2.5 h-8 rounded-lg font-bold text-xs" style="background:rgba(74,222,128,0.2);color:#4ade80;border:1px solid rgba(74,222,128,0.3);">+5</button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Próby łączne -->
+                      <div class="glass p-4 rounded-2xl" style="border-color:rgba(0,229,255,0.25);">
+                        <p class="text-xs uppercase font-bold text-cyan-400 mb-2">Łącznie oddanych</p>
+                        <div class="flex items-center justify-between">
+                          <span id="shotAttemptsDisplay" class="text-3xl font-extrabold text-white" style="font-family:'Syne',sans-serif;">0</span>
+                          <div class="flex gap-1">
+                            <button type="button" onclick="adjustShots('attempts', -1)" class="w-8 h-8 rounded-lg btn-ghost flex items-center justify-center font-bold text-sm">-</button>
+                            <button type="button" onclick="adjustShots('attempts', 1)" class="px-2.5 h-8 rounded-lg font-bold text-xs" style="background:rgba(0,229,255,0.15);color:#00e5ff;border:1px solid rgba(0,229,255,0.3);">+1</button>
+                            <button type="button" onclick="adjustShots('attempts', 5)" class="px-2.5 h-8 rounded-lg font-bold text-xs" style="background:rgba(0,229,255,0.15);color:#00e5ff;border:1px solid rgba(0,229,255,0.3);">+5</button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Skuteczność % -->
+                      <div class="glass p-4 rounded-2xl text-center" style="border-color:rgba(124,58,237,0.3);">
+                        <p class="text-xs uppercase font-bold text-violet-400 mb-1">Skuteczność</p>
+                        <span id="shotAccuracyDisplay" class="text-3xl font-extrabold" style="font-family:'Syne',sans-serif;color:var(--cyan);">0%</span>
+                        <div class="w-full bg-white/5 rounded-full h-2 mt-2 overflow-hidden">
+                          <div id="shotAccuracyBar" class="h-2 rounded-full transition-all duration-300" style="width:0%;background:linear-gradient(90deg,var(--cyan),var(--violet));"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Przyciski akcji -->
+                    <div class="flex items-center justify-between flex-wrap gap-3">
+                      <div class="flex items-center gap-2">
+                        <button type="button" onclick="setQuickBatch(10, 7)" class="px-3 py-1.5 rounded-lg text-xs btn-ghost">Szybkie 7/10</button>
+                        <button type="button" onclick="setQuickBatch(25, 18)" class="px-3 py-1.5 rounded-lg text-xs btn-ghost">Szybkie 18/25</button>
+                        <button type="button" onclick="resetShotTracker()" class="px-3 py-1.5 rounded-lg text-xs text-red-400 hover:bg-red-500/10 transition-colors">Reset</button>
+                      </div>
+                      <button type="button" id="saveShotsBtn" onclick="saveShotSession()" class="btn-neon px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2">
+                        <span>💾 Zapisz serię rzutową</span>
+                      </button>
+                    </div>
+                  </div>
+
                   <div class="flex items-center justify-between">
-                    <p class="text-sm mt-1" style="color:var(--muted);">Wybierz sport, przeglądaj ćwiczenia i dodawaj
-                      drille do planu</p>
+                    <p class="text-sm mt-1" style="color:var(--muted);">Katalog drilli boiskowych i motorycznych</p>
                     <span id="sportDrillTotalCount" class="text-xs ml-2" style="color:var(--muted);">Ładowanie…</span>
                   </div>
                   <!-- Sport selector -->
                   <div class="glass p-5 rounded-2xl">
-                    <p class="text-xs font-bold uppercase mb-3" style="color:var(--muted);">Wybierz sport</p>
+                    <p class="text-xs font-bold uppercase mb-3" style="color:var(--muted);">Filtruj wg dyscypliny</p>
                     <div id="sportSelectorGrid" class="grid grid-cols-4 sm:grid-cols-8 gap-3"></div>
                   </div>
                   <!-- Drills -->
@@ -4662,6 +4738,151 @@
         </div>
       </section>
 
+      <!-- ====== TAB: ASSESSMENT ====== -->
+      <section id="tab-assessment" class="hidden space-y-6">
+        <!-- Hero header -->
+        <div style="background:linear-gradient(135deg,rgba(0,229,255,0.06) 0%,rgba(124,58,237,0.09) 100%);border:1px solid rgba(0,229,255,0.15);border-radius:24px;padding:28px;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:-30px;right:-30px;width:180px;height:180px;background:radial-gradient(circle,rgba(0,229,255,0.07),transparent 70%);pointer-events:none;"></div>
+          <p class="text-xs font-bold uppercase tracking-widest mb-2" style="color:rgba(0,229,255,0.65);letter-spacing:0.18em;">Baza Wyjściowa</p>
+          <h1 class="text-3xl font-extrabold text-white" style="font-family:'Syne',sans-serif;">Assessment 📋</h1>
+          <p class="text-sm text-gray-400 mt-2 max-w-xl">Wypełnij profil bazowy, aby EVOLVE mógł wygenerować spersonalizowany plan treningowy i dietetyczny.</p>
+        </div>
+
+        <!-- Status / flash message -->
+        <div id="assessmentStatus" class="hidden glass rounded-2xl px-5 py-3 text-sm font-medium"></div>
+
+        <!-- Current assessment summary (shown if exists) -->
+        <div id="assessmentSummaryCard" class="hidden">
+          <div style="background:rgba(74,222,128,0.07);border:1px solid rgba(74,222,128,0.25);border-radius:20px;padding:20px;">
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-widest mb-1" style="color:#4ade80;">Aktywna ocena bazowa</p>
+                <p id="assessmentSummaryText" class="text-sm text-gray-300 mt-1">—</p>
+              </div>
+              <button onclick="document.getElementById('assessmentFormCard').classList.toggle('hidden')"
+                class="px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                style="background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.3);color:#00e5ff;">
+                Aktualizuj
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Assessment form card -->
+        <div id="assessmentFormCard" class="glass rounded-3xl overflow-hidden">
+          <!-- Form header -->
+          <div style="background:rgba(0,229,255,0.04);border-bottom:1px solid rgba(255,255,255,0.07);padding:20px 24px;">
+            <h3 class="text-base font-bold text-white" style="font-family:'Syne',sans-serif;">📋 Dane bazowe</h3>
+            <p class="text-xs text-gray-500 mt-0.5">Dane używane do wygenerowania pierwszego planu</p>
+          </div>
+          <div class="p-6 space-y-6">
+
+            <!-- Section: Trening -->
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest mb-3" style="color:var(--cyan);">Doświadczenie treningowe</p>
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div class="space-y-1.5">
+                  <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Poziom</label>
+                  <select id="assmTrainingLevel" class="profile-input w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none"
+                    style="background:rgba(12,13,20,0.98);border:1px solid rgba(255,255,255,0.09);">
+                    <option value="beginner">Początkujący</option>
+                    <option value="intermediate" selected>Średniozaawansowany</option>
+                    <option value="advanced">Zaawansowany</option>
+                  </select>
+                </div>
+                <div class="space-y-1.5">
+                  <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Lata stażu</label>
+                  <input type="number" id="assmExperienceYears" min="0" max="40" value="2" placeholder="np. 2"
+                    class="profile-input w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);">
+                </div>
+                <div class="space-y-1.5">
+                  <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Treningi/tydzień</label>
+                  <input type="number" id="assmSessionsPerWeek" min="1" max="7" value="4" placeholder="np. 4"
+                    class="profile-input w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);">
+                </div>
+                <div class="space-y-1.5">
+                  <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Godz./tydzień</label>
+                  <input type="number" id="assmAvailHours" min="1" max="20" value="6" placeholder="np. 6"
+                    class="profile-input w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);">
+                </div>
+                <div class="space-y-1.5">
+                  <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Wynik Recovery (0–10)</label>
+                  <input type="number" id="assmRecoveryScore" min="0" max="10" step="0.5" value="7" placeholder="np. 7"
+                    class="profile-input w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);">
+                </div>
+              </div>
+            </div>
+
+            <!-- Section: Koszykówka -->
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest mb-3" style="color:var(--cyan);">Koszykówka 🏀</p>
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div class="space-y-1.5">
+                  <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Poziom (1–10)</label>
+                  <input type="number" id="assmBballLevel" min="1" max="10" value="5" placeholder="np. 5"
+                    class="profile-input w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);">
+                </div>
+                <div class="space-y-1.5">
+                  <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Skuteczność z gry (%)</label>
+                  <input type="number" id="assmShootingPct" min="0" max="100" value="" placeholder="np. 42"
+                    class="profile-input w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);">
+                </div>
+                <div class="space-y-1.5">
+                  <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Rzuty wolne (%)</label>
+                  <input type="number" id="assmFreeThrowPct" min="0" max="100" value="" placeholder="np. 65"
+                    class="profile-input w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);">
+                </div>
+              </div>
+            </div>
+
+            <!-- Section: Motoryka -->
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest mb-3" style="color:var(--cyan);">Motoryka ⚡</p>
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-1.5">
+                  <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Sprint 30m (sekundy)</label>
+                  <input type="number" id="assmSprint30m" min="3" max="10" step="0.01" value="" placeholder="np. 4.25"
+                    class="profile-input w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);">
+                </div>
+                <div class="space-y-1.5">
+                  <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Doskok (cm)</label>
+                  <input type="number" id="assmVerticalJump" min="10" max="100" value="" placeholder="np. 58"
+                    class="profile-input w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);">
+                </div>
+              </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="space-y-1.5">
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Notatki / ograniczenia / cel</label>
+              <textarea id="assmNotes" rows="2" placeholder="np. kontuzja kolana 2023, chcę grać na pozycji rozgrywającego"
+                class="profile-input w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none resize-none"
+                style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);"></textarea>
+            </div>
+
+            <!-- Submit button -->
+            <button id="assmSubmitBtn" onclick="submitEvolveAssessment()"
+              class="w-full py-4 rounded-2xl font-bold text-sm transition-all duration-300 hover:scale-[1.02] active:scale-[0.99]"
+              style="background:linear-gradient(135deg,rgba(0,229,255,0.22),rgba(124,58,237,0.22));border:1px solid rgba(0,229,255,0.45);color:#00e5ff;letter-spacing:0.05em;box-shadow:0 0 20px rgba(0,229,255,0.1);">
+              <span id="assmSubmitLabel" class="flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Zapisz assessment i wygeneruj plan
+              </span>
+            </button>
+
+          </div>
+        </div>
+      </section>
+
       <!-- ====== TAB: KUCHNIA AI ====== -->
       <!-- ====== TAB: RECOVERY ====== -->
       <section id="tab-recovery" class="hidden space-y-6" data-domain="recovery">
@@ -4682,8 +4903,8 @@
         </div>
       </section>
 
-      <!-- ====== TAB: POSTĘPY ====== -->
-      <section id="tab-my-day" class="hidden space-y-6" data-domain="daily">
+      <!-- ====== TAB: EVOLVE DAILY (legacy duplicate - hidden via EVOLVE shell) ====== -->
+      <section id="tab-evolve-daily" class="hidden space-y-6" data-domain="daily">
         <div class="glass rounded-3xl p-6 md:p-8 hero-bg"><div class="flex items-start justify-between gap-5 flex-wrap"><div><p class="text-xs font-bold uppercase tracking-[0.18em] mb-2" style="color:var(--cyan);">Daily execution hub</p><h2 class="text-3xl md:text-4xl font-extrabold text-white" style="font-family:'Syne',sans-serif;">Mój dzień 🎯</h2><p id="myDayDate" class="text-sm text-gray-400 mt-2">Dzisiejszy stan EVOLVE</p></div><button type="button" onclick="loadEvolveMyDay()" class="btn-ghost px-4 py-2 rounded-xl text-sm font-bold">Odśwież</button></div></div>
         <div id="myDayStatus" class="glass rounded-2xl p-5 text-sm text-gray-400">Ładowanie dzisiejszego planu…</div>
         <div id="myDayWorkout" class="hidden glass rounded-2xl p-5"><div class="flex items-center justify-between gap-3 flex-wrap"><div><p class="text-xs uppercase tracking-wider text-gray-500">Trening dzisiaj</p><h3 id="myDayWorkoutTitle" class="text-xl font-bold text-white mt-1">—</h3></div><a href="/app/training/session-ui" class="btn-neon px-5 py-3 rounded-xl text-sm font-bold no-underline">▶ Rozpocznij trening</a></div><div id="myDayExercises" class="grid md:grid-cols-2 gap-3 mt-5"></div></div>
@@ -9881,6 +10102,7 @@
       if (tabId === 'profile') renderProfileTabs();
       if (tabId === 'postepy') initCharts();
       if (tabId === 'kuchnia') { kitchenInit(); }
+      if (tabId === 'assessment') { if (typeof window.loadEvolveAssessment === 'function') window.loadEvolveAssessment(); }
       if (tabId === 'my-day') {
         // Jeśli profil nie ma planu — najpierw zsynchronizuj z backendu
         var _p = (typeof getCurrentProfile === 'function') ? getCurrentProfile() : null;
@@ -26908,6 +27130,169 @@ async function syncProfileFromBackend() {
 window.syncProfileFromBackend = syncProfileFromBackend;
 </script>
 
+<script id="evolve-assessment-module">
+// ═══════════════════════════════════════════════════
+// EVOLVE — ASSESSMENT MODULE
+// Hooks: loadEvolveAssessment, submitEvolveAssessment
+// Backend: POST /app/assessment, GET /app/assessment/latest, POST /app/plan/generate
+// ═══════════════════════════════════════════════════
+(function () {
+  function _esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function _assmStatus(msg, type) {
+    var el = document.getElementById('assessmentStatus');
+    if (!el) return;
+    el.className = 'glass rounded-2xl px-5 py-3 text-sm font-medium ' +
+      (type === 'ok' ? 'text-green-400 border border-green-500/30' :
+       type === 'err' ? 'text-red-400 border border-red-500/30' :
+       'text-cyan-400 border border-cyan-500/20');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  function _val(id) {
+    var el = document.getElementById(id);
+    return el ? (el.value || '').trim() : '';
+  }
+
+  function _num(id) {
+    var v = parseFloat(_val(id));
+    return isNaN(v) ? null : v;
+  }
+
+  // ──────────────────────────────────────────────────
+  // LOAD — pre-fill form with existing assessment data
+  // ──────────────────────────────────────────────────
+  window.loadEvolveAssessment = async function () {
+    var token = localStorage.getItem('fitai_token');
+    if (!token) {
+      _assmStatus('Zaloguj się, aby skorzystać z Assessmentu.', 'err');
+      return;
+    }
+    try {
+      var res = await fetch('/app/assessment/latest', {
+        headers: { Authorization: 'Bearer ' + token },
+        cache: 'no-store'
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Błąd pobierania assessmentu');
+
+      if (data.has_assessment && data.assessment) {
+        var a = data.assessment;
+        // Pre-fill form fields
+        var level = document.getElementById('assmTrainingLevel');
+        if (level && a.training_level) level.value = a.training_level;
+        var setVal = function (id, v) { var e = document.getElementById(id); if (e && v != null) e.value = v; };
+        setVal('assmExperienceYears', a.training_experience_years);
+        setVal('assmSessionsPerWeek', a.sessions_per_week);
+        setVal('assmAvailHours', a.availability_hours_per_week);
+        setVal('assmRecoveryScore', a.recovery_score);
+        setVal('assmBballLevel', a.basketball_level);
+        setVal('assmShootingPct', a.shooting_pct);
+        setVal('assmFreeThrowPct', a.free_throw_pct);
+        setVal('assmSprint30m', a.sprint_30m_seconds);
+        setVal('assmVerticalJump', a.vertical_jump_cm);
+        var notes = document.getElementById('assmNotes');
+        if (notes && a.notes) notes.value = a.notes;
+
+        // Show summary banner
+        var summaryCard = document.getElementById('assessmentSummaryCard');
+        var summaryText = document.getElementById('assessmentSummaryText');
+        var formCard = document.getElementById('assessmentFormCard');
+        if (summaryCard) summaryCard.classList.remove('hidden');
+        if (summaryText) {
+          summaryText.textContent = 'v' + a.version + ' · ' + a.assessment_date + ' · Poziom: ' + _esc(a.training_level) +
+            ' · ' + (a.sessions_per_week || '?') + ' treningów/tydzień' +
+            (a.basketball_level ? ' · Koszykówka: ' + a.basketball_level + '/10' : '');
+        }
+        if (formCard) formCard.classList.add('hidden');
+        _assmStatus('✅ Wczytano assessment v' + a.version + ' z dnia ' + a.assessment_date, 'ok');
+      } else {
+        _assmStatus('Brak zapisanego assessmentu — wypełnij formularz poniżej.', 'info');
+      }
+    } catch (e) {
+      _assmStatus('⚠️ ' + e.message, 'err');
+    }
+  };
+
+  // ──────────────────────────────────────────────────
+  // SUBMIT — save assessment + trigger plan generation
+  // ──────────────────────────────────────────────────
+  window.submitEvolveAssessment = async function () {
+    var token = localStorage.getItem('fitai_token');
+    if (!token) {
+      _assmStatus('Zaloguj się przed zapisaniem assessmentu.', 'err');
+      return;
+    }
+
+    var btn = document.getElementById('assmSubmitBtn');
+    var labelEl = document.getElementById('assmSubmitLabel');
+    if (btn) btn.disabled = true;
+    if (labelEl) labelEl.textContent = 'Zapisywanie…';
+    _assmStatus('Zapisywanie danych…', 'info');
+
+    try {
+      var bballRaw = _num('assmBballLevel');
+      var payload = {
+        training_level: _val('assmTrainingLevel') || 'intermediate',
+        training_experience_years: _num('assmExperienceYears'),
+        sessions_per_week: _num('assmSessionsPerWeek') != null ? Math.round(_num('assmSessionsPerWeek')) : null,
+        availability_hours_per_week: _num('assmAvailHours'),
+        recovery_score: _num('assmRecoveryScore') != null ? Math.round(_num('assmRecoveryScore')) : null,
+        basketball_level: bballRaw != null ? String(Math.round(bballRaw)) : null,
+        shooting_pct: _num('assmShootingPct'),
+        free_throw_pct: _num('assmFreeThrowPct'),
+        sprint_30m_seconds: _num('assmSprint30m'),
+        vertical_jump_cm: _num('assmVerticalJump'),
+        notes: _val('assmNotes') || '',
+        metrics: {}
+      };
+
+      var res = await fetch('/app/assessment', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Nie udało się zapisać assessmentu');
+
+      _assmStatus('✅ Assessment zapisany (v' + data.assessment.version + '). Generuję plan…', 'ok');
+
+      // Try to auto-generate plan
+      try {
+        var planRes = await fetch('/app/plan/generate', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ force: false })
+        });
+        var planData = await planRes.json();
+        if (planRes.ok) {
+          _assmStatus('🎉 Assessment zapisany i plan wygenerowany! Przejdź do zakładki Trening.', 'ok');
+          // Re-load profile state to pick up new plan
+          if (typeof window.syncProfileFromBackend === 'function') window.syncProfileFromBackend();
+        } else {
+          _assmStatus('✅ Assessment zapisany. Nie udało się auto-wygenerować planu: ' + (planData.detail || 'Nieznany błąd') + '. Przejdź do Treningu i wygeneruj ręcznie.', 'info');
+        }
+      } catch (planErr) {
+        _assmStatus('✅ Assessment zapisany. Generowanie planu: ' + planErr.message, 'info');
+      }
+
+      // Refresh the summary banner
+      window.loadEvolveAssessment();
+    } catch (e) {
+      _assmStatus('⚠️ ' + e.message, 'err');
+    } finally {
+      if (btn) btn.disabled = false;
+      if (labelEl) labelEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Zapisz assessment i wygeneruj plan';
+    }
+  };
+})();
+</script>
+
 </body>
 
 
@@ -28049,7 +28434,127 @@ window.openDayItemSwap = openDayItemSwap;
     injectStartButton();
     setTimeout(injectStartButton, 800);
   });
-  var observer = new MutationObserver(injectStartButton);
+})();
+</script>
+
+<script id="evolve-shot-tracker-script">
+(function() {
+  var currentZone = 'Osobiste (Free Throws)';
+  var madeCount = 0;
+  var attemptsCount = 0;
+
+  function updateDisplay() {
+    var madeEl = document.getElementById('shotMadeDisplay');
+    var attEl = document.getElementById('shotAttemptsDisplay');
+    var accEl = document.getElementById('shotAccuracyDisplay');
+    var barEl = document.getElementById('shotAccuracyBar');
+
+    if (madeEl) madeEl.textContent = madeCount;
+    if (attEl) attEl.textContent = attemptsCount;
+    var pct = attemptsCount > 0 ? Math.round((madeCount / attemptsCount) * 100) : 0;
+    if (accEl) accEl.textContent = pct + '%';
+    if (barEl) barEl.style.width = Math.min(100, Math.max(0, pct)) + '%';
+  }
+
+  window.selectShotZone = function(zone) {
+    currentZone = zone;
+    document.querySelectorAll('#shotZoneSelector .shot-zone-btn').forEach(function(btn) {
+      var isCur = btn.textContent.indexOf(zone.split(' ')[0]) !== -1 || (btn.getAttribute('onclick') || '').indexOf(zone) !== -1;
+      btn.style.background = isCur ? 'rgba(0,229,255,0.15)' : 'rgba(255,255,255,0.05)';
+      btn.style.borderColor = isCur ? 'var(--cyan)' : 'var(--border)';
+      btn.style.color = isCur ? '#00e5ff' : 'var(--text)';
+    });
+  };
+
+  window.adjustShots = function(type, delta) {
+    if (type === 'made') {
+      madeCount = Math.max(0, madeCount + delta);
+      if (madeCount > attemptsCount) attemptsCount = madeCount;
+    } else {
+      attemptsCount = Math.max(0, attemptsCount + delta);
+      if (madeCount > attemptsCount) madeCount = attemptsCount;
+    }
+    updateDisplay();
+  };
+
+  window.setQuickBatch = function(attempts, made) {
+    attemptsCount = attempts;
+    madeCount = made;
+    updateDisplay();
+  };
+
+  window.resetShotTracker = function() {
+    madeCount = 0;
+    attemptsCount = 0;
+    updateDisplay();
+  };
+
+  window.saveShotSession = async function() {
+    var statusEl = document.getElementById('shotTrackerStatus');
+    var btn = document.getElementById('saveShotsBtn');
+    var token = localStorage.getItem('fitai_token');
+
+    if (!token) {
+      if (statusEl) {
+        statusEl.className = 'text-xs px-3 py-1 rounded-full font-bold text-red-400 bg-red-500/10 border border-red-500/30';
+        statusEl.textContent = 'Zaloguj się, aby zapisać serię';
+        statusEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (attemptsCount <= 0) {
+      if (statusEl) {
+        statusEl.className = 'text-xs px-3 py-1 rounded-full font-bold text-yellow-400 bg-yellow-500/10 border border-yellow-500/30';
+        statusEl.textContent = 'Wprowadź liczbę oddanych rzutów';
+        statusEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (btn) btn.disabled = true;
+    try {
+      var payload = {
+        drill_name: 'Sesja rzutowa: ' + currentZone,
+        drill_category: 'Rzut',
+        drill_sport: 'koszykówka',
+        session_date: new Date().toISOString().split('T')[0],
+        success_count: madeCount,
+        total_attempts: attemptsCount,
+        rpe: 6,
+        target_pct: 70,
+        notes: 'Zapisano przez Shot Tracker'
+      };
+
+      var res = await fetch((window.API_BASE || '') + '/app/drill-result', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify(payload)
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Błąd zapisu serii');
+
+      if (statusEl) {
+        statusEl.className = 'text-xs px-3 py-1 rounded-full font-bold text-green-400 bg-green-500/10 border border-green-500/30';
+        var pct = Math.round((madeCount / attemptsCount) * 100);
+        statusEl.textContent = '✓ Zapisano serię (' + madeCount + '/' + attemptsCount + ' = ' + pct + '%)';
+        statusEl.classList.remove('hidden');
+        setTimeout(function() { statusEl.classList.add('hidden'); }, 4000);
+      }
+      window.resetShotTracker();
+    } catch(err) {
+      if (statusEl) {
+        statusEl.className = 'text-xs px-3 py-1 rounded-full font-bold text-red-400 bg-red-500/10 border border-red-500/30';
+        statusEl.textContent = 'Błąd: ' + err.message;
+        statusEl.classList.remove('hidden');
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  };
 })();
 </script>
 </body>
