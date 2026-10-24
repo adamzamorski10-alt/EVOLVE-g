@@ -319,7 +319,7 @@ class DrillResultRequest(BaseModel):
     """Wynik sesji drilla sportowego z oceną RPE.
     
     Pola zależą od typu drilla:
-    - Rzuty: success_count + total_attempts
+    - Rzuty: success_count + total_attempts (aliasy: made / attempts)
     - Bieg/Sprint: time_seconds + distance_meters
     """
     drill_name: str
@@ -329,15 +329,27 @@ class DrillResultRequest(BaseModel):
     rpe: int = Field(ge=1, le=10, description="Rate of Perceived Exertion 1-10")
     notes: str = ""
     session_date: Optional[str] = None          # ISO date; jeśli brak → today
-    # Rzuty
-    success_count: int = 0
-    total_attempts: int = 0
+    # Rzuty — dwa zestawy aliasów dla wygody klienta
+    success_count: int = Field(default=0, alias=None)
+    total_attempts: int = Field(default=0, alias=None)
+    made: Optional[int] = Field(default=None, description="Alias success_count")
+    attempts: Optional[int] = Field(default=None, description="Alias total_attempts")
     # Bieg / Sprint
     time_seconds: Optional[float] = Field(default=None, gt=0, description="Czas w sekundach")
     distance_meters: Optional[float] = Field(default=None, gt=0, description="Dystans w metrach")
     # Ogólne
     duration_seconds: Optional[int] = Field(default=None, ge=0, description="Czas trwania [s]")
     weight_kg: Optional[float] = Field(default=None, ge=0, description="Obciążenie [kg]")
+
+    model_config = {"populate_by_name": True}
+
+    @property
+    def effective_success_count(self) -> int:
+        return self.made if self.made is not None else self.success_count
+
+    @property
+    def effective_total_attempts(self) -> int:
+        return self.attempts if self.attempts is not None else self.total_attempts
 
 
 class TrainingAvailabilityWindow(BaseModel):

@@ -40,7 +40,7 @@ from app.fitness.dashboard import (
     compute_streak_days_from_logs,
     get_user_logs,
 )
-from app.models import DailyLogDB, DrillResultDB, ExerciseResultDB, UserDB
+from app.models import AssessmentDB, DailyLogDB, DrillResultDB, ExerciseResultDB, GoalDB, TrainingSetResultDB, UserDB
 from app.schemas import (
     AppDailyCheckinRequest,
     AppOnboardingRequest,
@@ -49,6 +49,7 @@ from app.schemas import (
     DayItemToggleRequest,
     DrillResultRequest,
     ExerciseResultRequest,
+    GoalCreateRequest,
     NicknameChangeRequest,
     ProfileUpdateRequest,
     SportConfigRequest,
@@ -1352,7 +1353,9 @@ def log_drill_result(
 ):
     """Zaloguj wynik drilla sportowego — nazwa, sukces/próby, czas, dystans, RPE."""
     session_date = _resolve_session_date(req.session_date)
-    accuracy_pct = round(req.success_count / req.total_attempts * 100) if req.total_attempts > 0 else None
+    eff_success = req.effective_success_count
+    eff_attempts = req.effective_total_attempts
+    accuracy_pct = round(eff_success / eff_attempts * 100) if eff_attempts > 0 else None
     target_reached = bool(
         accuracy_pct is not None
         and req.target_pct is not None
@@ -1372,8 +1375,8 @@ def log_drill_result(
             drill_sport=req.drill_sport,
             target_pct=req.target_pct,
             session_date=session_date,
-            success_count=req.success_count,
-            total_attempts=req.total_attempts,
+            success_count=eff_success,
+            total_attempts=eff_attempts,
             rpe=req.rpe,
             notes=req.notes,
             time_seconds=req.time_seconds,
@@ -1560,3 +1563,218 @@ def configure_sport(
             "sport_training_days": db_user.get_list("sport_training_days_json"),
             "sport_training_windows": db_user.get_dict("sport_training_schedule_json").get("windows", {}),
         }
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Etap E — Postępy: Cele i agregacje statystyk
+# ────────────────────────────────────────────────────────────────────────────
+
+@router.post("/goals")
+def create_goal(
+    req: GoalCreateRequest,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Utwórz mierzalny cel (siła, wyskok, skuteczność rzutu, itp.)."""
+    try:
+        db_user = session.get(UserDB, user.id)
+        if not db_user:
+            raise HTTPException(status_code=404, detail="Użytkownik nie znaleziony")
+
+        goal = GoalDB(
+            user_id=db_user.id,
+            goal_type=req.goal_type,
+            title=req.title,
+            description=req.description,
+            priority=req.priority,
+            metric_key=req.metric_key,
+            baseline_value=req.baseline_value,
+            target_value=req.target_value,
+        )
+        session.add(goal)
+        session.commit()
+        session.refresh(goal)
+    except SQLAlchemyError as exc:
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Database error") from exc
+
+    return {
+        "status": "ok",
+        "goal": {
+            "id": goal.id,
+            "goal_type": goal.goal_type,
+            "title": goal.title,
+            "metric_key": goal.metric_key,
+            "baseline_value": goal.baseline_value,
+            "target_value": goal.target_value,
+            "priority": goal.priority,
+            "status": goal.status,
+        },
+    }
+
+
+def _estimate_1rm(weight_kg: float, reps: int) -> float:
+    """Epley formula: 1RM ≈ weight * (1 + reps/30)."""
+    if reps <= 0:
+        return weight_kg
+    return round(weight_kg * (1 + reps / 30), 1)
+
+
+@router.get("/stats")
+def get_progress_stats(
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Agregacje postępów użytkownika: siła, rzuty, assessments, cele."""
+    uid = user.id
+
+    # ── 1. Siła: agregacja po exercise_key z TrainingSetResultDB ─────────────
+    strength_raw = list(
+        session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.user_id == uid)
+            .where(TrainingSetResultDB.completed == True)  # noqa: E712
+            .order_by(TrainingSetResultDB.logged_at)
+        ).all()
+    )
+    strength_by_key: dict[str, dict] = {}
+    for row in strength_raw:
+        key = row.exercise_key
+        if key not in strength_by_key:
+            strength_by_key[key] = {
+                "exercise_key": key,
+                "exercise_name": getattr(row, "exercise_name", key),
+                "best_weight_kg": 0.0,
+                "best_reps": 0,
+                "estimated_1rm": 0.0,
+            }
+        entry = strength_by_key[key]
+        w = row.actual_weight_kg or 0.0
+        r = row.actual_reps or 0
+        if w > entry["best_weight_kg"] or (w == entry["best_weight_kg"] and r > entry["best_reps"]):
+            entry["best_weight_kg"] = w
+            entry["best_reps"] = r
+            entry["estimated_1rm"] = _estimate_1rm(w, r)
+
+    strength_progression = list(strength_by_key.values())
+
+    # ── 2. Rzuty: agregacja z DrillResultDB ──────────────────────────────────
+    drill_rows = list(
+        session.exec(
+            select(DrillResultDB)
+            .where(DrillResultDB.user_id == uid)
+            .where(DrillResultDB.total_attempts > 0)
+            .order_by(DrillResultDB.session_date)
+        ).all()
+    )
+    total_attempts = sum(r.total_attempts for r in drill_rows)
+    total_made = sum(r.success_count for r in drill_rows)
+    accuracy_pct = round(total_made / total_attempts * 100, 1) if total_attempts > 0 else 0.0
+    shooting_history = [
+        {
+            "date": r.session_date.isoformat(),
+            "drill_name": r.drill_name,
+            "attempts": r.total_attempts,
+            "made": r.success_count,
+            "accuracy_pct": round(r.success_count / r.total_attempts * 100, 1),
+        }
+        for r in drill_rows
+    ]
+    shooting_stats = {
+        "total_attempts": total_attempts,
+        "total_made": total_made,
+        "accuracy_pct": accuracy_pct,
+        "history": shooting_history,
+    }
+
+    # ── 3. Assessment history ─────────────────────────────────────────────────
+    assessment_rows = list(
+        session.exec(
+            select(AssessmentDB)
+            .where(AssessmentDB.user_id == uid)
+            .order_by(AssessmentDB.assessment_date)
+        ).all()
+    )
+    assessment_history = [
+        {
+            "id": a.id,
+            "version": a.assessment_version,
+            "date": a.assessment_date.isoformat(),
+            "training_level": a.training_level,
+            "vertical_jump_cm": a.vertical_jump_cm,
+            "sprint_30m_seconds": a.sprint_30m_seconds,
+            "shooting_pct": a.shooting_pct,
+            "free_throw_pct": a.free_throw_pct,
+            "recovery_score": a.recovery_score,
+        }
+        for a in assessment_rows
+    ]
+
+    # ── 4. Cele z obliczonym postępem ─────────────────────────────────────────
+    goal_rows = list(
+        session.exec(
+            select(GoalDB)
+            .where(GoalDB.user_id == uid)
+            .where(GoalDB.status == "active")
+            .order_by(GoalDB.priority.desc())
+        ).all()
+    )
+
+    def _current_value_for_goal(goal: GoalDB) -> Optional[float]:
+        """Wyciąga aktualną wartość metryki na podstawie metric_key."""
+        if not goal.metric_key:
+            return None
+        mk = goal.metric_key
+        # Szukaj w TrainingSetResultDB
+        if mk in ("best_weight_kg", "best_reps", "estimated_1rm"):
+            if not goal.goal_type:
+                return None
+            # Próbuj znaleźć rekord dla ćwiczenia pasującego do goal_type
+            matching = [e for e in strength_progression
+                        if goal.goal_type.lower() in e["exercise_key"].lower()
+                        or goal.goal_type.lower() in e["exercise_name"].lower()]
+            if not matching:
+                matching = strength_progression  # fallback: weź globalnie najlepszy
+            if not matching:
+                return None
+            vals = [e[mk] for e in matching if mk in e]
+            return max(vals) if vals else None
+        if mk == "accuracy_pct":
+            return accuracy_pct if total_attempts > 0 else None
+        if mk == "vertical_jump_cm":
+            last = next((a["vertical_jump_cm"] for a in reversed(assessment_history)
+                         if a["vertical_jump_cm"] is not None), None)
+            return last
+        return None
+
+    def _progress_pct(baseline: Optional[float], target: Optional[float], current: Optional[float]) -> Optional[float]:
+        if baseline is None or target is None or current is None:
+            return None
+        span = target - baseline
+        if span == 0:
+            return 100.0 if current >= target else 0.0
+        return round(min(max((current - baseline) / span * 100, 0), 100), 1)
+
+    goals_out = []
+    for g in goal_rows:
+        current = _current_value_for_goal(g)
+        progress = _progress_pct(g.baseline_value, g.target_value, current)
+        goals_out.append({
+            "id": g.id,
+            "goal_type": g.goal_type,
+            "title": g.title,
+            "metric_key": g.metric_key,
+            "baseline_value": g.baseline_value,
+            "target_value": g.target_value,
+            "current_value": current,
+            "progress_pct": progress,
+            "priority": g.priority,
+            "status": g.status,
+        })
+
+    return {
+        "strength_progression": strength_progression,
+        "shooting_stats": shooting_stats,
+        "assessment_history": assessment_history,
+        "goals": goals_out,
+    }
