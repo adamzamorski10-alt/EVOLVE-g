@@ -455,9 +455,9 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
 
   function injectProgressShell() {
     if (document.getElementById("progressSummary")) return;
-    var content = document.querySelector(".content");
+    var content = document.querySelector(".content") || document.getElementById("mainContent");
     if (!content) return;
-    var legacyPanel = document.getElementById("tab-progress");
+    var legacyPanel = document.getElementById("tab-progress") || document.getElementById("tab-postepy");
     if (legacyPanel) {
       legacyPanel.id = "tab-progress-legacy";
       legacyPanel.style.display = "none";
@@ -890,7 +890,14 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
       var result = originalShowTab.apply(this, arguments);
       if (tab === "my-day") {
         window.loadEvolveMyDay();
-      } else if (tab === "progress") {
+      } else if (tab === "progress" || tab === "postepy") {
+        if (tab === "postepy") {
+          injectProgressShell();
+          var legacyProgress = document.getElementById("tab-postepy");
+          var progressShell = document.getElementById("tab-progress");
+          if (legacyProgress) legacyProgress.style.display = "none";
+          if (progressShell) progressShell.style.display = "block";
+        }
         window.loadEvolveProgress();
       } else if (tab === "goals") {
         window.loadEvolveGoals();
