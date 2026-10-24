@@ -68,6 +68,16 @@ def test_frontend_has_fallback_when_generated_index_is_empty():
     assert 'STATIC_DIR / "fitai_dashboard.html"' in APP_INIT
 
 
+def test_service_worker_does_not_cache_same_origin_api_responses_as_shell_assets():
+    sw = (ROOT / "sw.js").read_text(encoding="utf-8")
+
+    assert "const CACHE_VERSION = 'fitai-v3.3.2';" in sw
+    assert "const isSameOriginApi = url.origin === self.location.origin" in sw
+    assert "request.mode !== 'navigate'" in sw
+    assert "(path.startsWith('/app/') || path.startsWith('/auth/'))" in sw
+    assert "const isApi = isLocalApi || isProductionApi || isSameOriginApi;" in sw
+
+
 def test_shared_shell_contains_native_recovery_integration():
     required = [
         'id="evolve-recovery-shell-integration"',

@@ -26,7 +26,7 @@
  */
 
 // ── Wersja — zmień przy każdym deploymencie ───────────────────────────────────
-const CACHE_VERSION = 'fitai-v3.3.1';
+const CACHE_VERSION = 'fitai-v3.3.2';
 const API_BASE = 'https://fitai-backend-l918.onrender.com';
 
 // ── Nazwy bucketów cache ───────────────────────────────────────────────────────
@@ -188,8 +188,11 @@ self.addEventListener('fetch', event => {
 
   const isLocalApi = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
   const isProductionApi = url.hostname === 'fitai-backend-l918.onrender.com' || url.hostname === 'fitai-api-v83w.onrender.com';
-  const isApi = isLocalApi || isProductionApi;
   const path = url.pathname;
+  const isSameOriginApi = url.origin === self.location.origin
+    && request.mode !== 'navigate'
+    && (path.startsWith('/app/') || path.startsWith('/auth/'));
+  const isApi = isLocalApi || isProductionApi || isSameOriginApi;
 
   // 1. Nigdy nie cache'uj (AI, eksport, logowanie)
   if (isApi && NEVER_CACHE.some(p => p.test(path))) {
