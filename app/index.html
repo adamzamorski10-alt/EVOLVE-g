@@ -3725,11 +3725,82 @@
             </div>
           </div>
 
+          <!-- ── Etap E: Siła — Progresja i Estymowane 1RM ─────────────────── -->
+          <div id="postepyStrengthWrap" class="glass p-5 rounded-2xl">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h2 class="font-extrabold text-white text-base" style="font-family:'Syne',sans-serif;">🏋️ Progresja Siły</h2>
+                <p class="text-xs mt-0.5" style="color:var(--muted);">Najlepszy wynik i estymowane 1RM (formuła Epley)</p>
+              </div>
+            </div>
+            <div id="postepyStrengthList" class="space-y-3">
+              <p class="text-sm text-center py-4" style="color:var(--muted);">Zaloguj trening siłowy, aby zobaczyć progresję 💪</p>
+            </div>
+          </div>
+
+          <!-- ── Etap E: Rzuty — Skuteczność rzutowa ───────────────────────── -->
+          <div id="postepyShootingWrap" class="glass p-5 rounded-2xl">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h2 class="font-extrabold text-white text-base" style="font-family:'Syne',sans-serif;">🏀 Skuteczność Rzutowa</h2>
+                <p class="text-xs mt-0.5" style="color:var(--muted);">Trafienia / próby i celność % w czasie</p>
+              </div>
+              <div id="postepyShootingBadge" class="hidden px-3 py-1 rounded-xl text-xs font-bold"
+                style="background:rgba(0,229,255,0.15);color:var(--cyan);">—%</div>
+            </div>
+            <div class="grid grid-cols-3 gap-3 mb-4">
+              <div class="rounded-xl p-3 text-center" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);">
+                <p class="text-xs" style="color:var(--muted);">Prób</p>
+                <p id="postepyShootingAttempts" class="text-xl font-extrabold text-white" style="font-family:'Syne',sans-serif;">—</p>
+              </div>
+              <div class="rounded-xl p-3 text-center" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);">
+                <p class="text-xs" style="color:var(--muted);">Trafień</p>
+                <p id="postepyShootingMade" class="text-xl font-extrabold text-white" style="font-family:'Syne',sans-serif;">—</p>
+              </div>
+              <div class="rounded-xl p-3 text-center" style="background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.25);">
+                <p class="text-xs" style="color:var(--muted);">Celność</p>
+                <p id="postepyShootingPct" class="text-xl font-extrabold" style="font-family:'Syne',sans-serif;color:var(--cyan);">—</p>
+              </div>
+            </div>
+            <div id="postepyShootingHistory" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <p class="text-sm text-center py-3" style="color:var(--muted);">Brak sesji rzutowych — zacznij Shooting Trackera 🎯</p>
+            </div>
+          </div>
+
+          <!-- ── Etap E: Assessment — Historia testów motorycznych ─────────── -->
+          <div id="postepyAssessmentWrap" class="glass p-5 rounded-2xl">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h2 class="font-extrabold text-white text-base" style="font-family:'Syne',sans-serif;">📋 Baza Testów Motorycznych</h2>
+                <p class="text-xs mt-0.5" style="color:var(--muted);">Historia assessmentów — wyskok, sprint, rzuty bazowe</p>
+              </div>
+            </div>
+            <div id="postepyAssessmentList" class="space-y-3">
+              <p class="text-sm text-center py-4" style="color:var(--muted);">Brak assessmentów — uzupełnij w zakładce Assessment 📊</p>
+            </div>
+          </div>
+
+          <!-- ── Etap E: Mierzalne Cele ─────────────────────────────────────── -->
+          <div id="postepyGoalsWrap" class="glass p-5 rounded-2xl">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h2 class="font-extrabold text-white text-base" style="font-family:'Syne',sans-serif;">🎯 Mierzalne Cele</h2>
+                <p class="text-xs mt-0.5" style="color:var(--muted);">Postęp od punktu bazowego do celu docelowego</p>
+              </div>
+              <button onclick="openGoalCreateModal()" class="btn-ghost px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5"
+                style="border:1px solid rgba(0,229,255,0.3);color:var(--cyan);">+ Dodaj cel</button>
+            </div>
+            <div id="postepyGoalsList" class="space-y-3">
+              <p class="text-sm text-center py-4" style="color:var(--muted);">Brak aktywnych celów — kliknij „+ Dodaj cel" 🎯</p>
+            </div>
+          </div>
+
         </div>
 
         <div id="subtab-weekly-analysis" class="subtab-panel hidden">
           <div id="subtab-weekly-analysis-content" class="space-y-6"></div>
         </div>
+
 
       </section>
 
@@ -6926,6 +6997,7 @@
       }
       if (tabId === 'postepy') {
         showSubTab('overview');
+        loadProgressStats();
       }
     }
 
