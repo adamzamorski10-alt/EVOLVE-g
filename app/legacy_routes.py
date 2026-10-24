@@ -3116,7 +3116,7 @@ def _compute_user_stats(user: UserDB, session: Session, days: int = 30) -> dict:
     drill_rows = list(session.exec(
         select(DrillResultDB)
         .where(DrillResultDB.user_id == user.id)
-        .order_by(DrillResultDB.session_date.desc(), DrillResultDB.created_at.desc())
+        .order_by(DrillResultDB.session_date.desc(), DrillResultDB.logged_at.desc())
     ).all())
     total_drill_attempts = sum(r.attempts or 0 for r in drill_rows)
     total_drill_made = sum(r.made or 0 for r in drill_rows)
