@@ -1172,24 +1172,47 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
 document.addEventListener('DOMContentLoaded', function () {
   // Deep links may identify a dashboard tab, but authentication still gates the app.
   var hasToken = Boolean(localStorage.getItem('fitai_token'));
-  document.documentElement.classList.toggle('evolve-dashboard-first', hasToken);
   var landing = document.getElementById('landingPage');
   var dashboard = document.getElementById('dashboardPage');
-  if (landing && !hasToken) {
-    landing.style.display = '';
-    landing.removeAttribute('aria-hidden');
-  } else if (landing) {
-    landing.style.display = 'none';
-    landing.setAttribute('aria-hidden', 'true');
+  function showAuthenticatedShell(authenticated) {
+    document.documentElement.classList.toggle('evolve-dashboard-first', authenticated);
+    if (landing && !authenticated) {
+      landing.style.display = '';
+      landing.removeAttribute('aria-hidden');
+    } else if (landing) {
+      landing.style.display = 'none';
+      landing.setAttribute('aria-hidden', 'true');
+    }
+    if (dashboard && authenticated) {
+      dashboard.style.display = 'flex';
+      dashboard.removeAttribute('aria-hidden');
+    } else if (dashboard) {
+      dashboard.style.display = 'none';
+      dashboard.setAttribute('aria-hidden', 'true');
+    }
   }
-  if (dashboard && hasToken) {
-    dashboard.style.display = 'flex';
-    dashboard.removeAttribute('aria-hidden');
-  } else if (dashboard) {
-    dashboard.style.display = 'none';
-    dashboard.setAttribute('aria-hidden', 'true');
+
+  if (!hasToken) {
+    showAuthenticatedShell(false);
+    return;
   }
-  if (hasToken && typeof initApp === 'function') initApp();
+
+  fetch('/app/profile', {
+    headers: { Authorization: 'Bearer ' + localStorage.getItem('fitai_token') },
+    cache: 'no-store'
+  }).then(function (response) {
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('fitai_token');
+      showAuthenticatedShell(false);
+      return;
+    }
+    showAuthenticatedShell(true);
+    if (typeof initApp === 'function') initApp();
+  }).catch(function () {
+    // Keep a valid-looking session during temporary network or offline failures.
+    showAuthenticatedShell(true);
+    if (typeof initApp === 'function') initApp();
+  });
 });
 </script>"""
     if 'id="evolve-dashboard-first-boot"' not in html:

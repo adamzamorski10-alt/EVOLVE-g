@@ -22,19 +22,20 @@ def test_dashboard_first_targets_actual_legacy_shell_ids():
     assert 'id="evolve-dashboard-first-style"' in APP_INIT
     assert "#landingPage { display: none !important; }" in APP_INIT
     assert "#dashboardPage { display: flex !important; }" in APP_INIT
-    assert "document.documentElement.classList.toggle('evolve-dashboard-first', hasToken);" in APP_INIT
+    assert "document.documentElement.classList.toggle('evolve-dashboard-first', authenticated);" in APP_INIT
     assert 'id="evolve-dashboard-first-boot"' in APP_INIT
     assert "var landing = document.getElementById('landingPage');" in APP_INIT
     assert "var dashboard = document.getElementById('dashboardPage');" in APP_INIT
     assert "landing.style.display = 'none';" in APP_INIT
     assert "landing.setAttribute('aria-hidden', 'true');" in APP_INIT
     assert "dashboard.style.display = 'flex';" in APP_INIT
-    assert "if (hasToken && typeof initApp === 'function') initApp();" in APP_INIT
 
 
 def test_dashboard_boot_does_not_bypass_authentication():
     assert "var hasToken = Boolean(localStorage.getItem('fitai_token'));" in APP_INIT
-    assert "if (hasToken && typeof initApp === 'function') initApp();" in APP_INIT
+    assert "fetch('/app/profile'" in APP_INIT
+    assert "if (response.status === 401 || response.status === 403)" in APP_INIT
+    assert "if (typeof initApp === 'function') initApp();" in APP_INIT
 
 
 def test_shared_shell_contains_native_my_day_injection():
