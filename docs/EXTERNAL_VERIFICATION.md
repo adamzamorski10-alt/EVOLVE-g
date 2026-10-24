@@ -180,6 +180,7 @@ For every future implementation stage:
 | EV-006 | 2 | Trends/records/consistency/history | PENDING |
 | EV-007 | 2 | Main-shell Progress navigation | PENDING |
 | EV-008 | 2+ | Local automated regression | PENDING |
+| EV-023 | 8E | Production Progress → Adaptation loop | PASS |
 
 
 ## Deferred verification note — 2026-10-03
@@ -187,6 +188,23 @@ For every future implementation stage:
 The user is currently unable to run external verification prompts. Do not block implementation on this. EV-001 through EV-008 remain **PENDING** and must be executed later when the user has access to Antygravity/Copilot/Kilo. Generate the copy-paste prompts from the scopes above at that time. Do not mark these checks PASS based on static review alone.
 
 Implementation may continue to subsequent stages while these checks remain pending, provided each new stage records its own required external verification items here.
+
+## EV-023 — Production Progress → Adaptation loop
+
+- **Status:** PASS
+- **Verified:** 2026-10-24
+- **Environment:** Render production (`https://evolve-d2h0.onrender.com`)
+- **Scope:** Register/login → completed training session → Progress evidence → adaptation preview → apply → next effective plan.
+- **Evidence:**
+  - A temporary authenticated test account was used.
+  - One training session was completed with 4 exercises and 15/15 completed sets.
+  - Recorded volume was `5126 kg`, with `100%` execution and final RPE `7`.
+  - Progress displayed one completed session, 15 sets, 5126 kg, 100% completion, history, records and consistency.
+  - Adaptation preview returned `progress: 4`.
+  - Applying the revision succeeded and created adaptation revision `38a973cd-2998-4a82-bc1a-1aa3a1e40b46`, version `1`.
+  - `GET /app/today` then returned `source: adaptive`, `version: 1` and `algorithm: deterministic-v2`.
+  - Adaptation history linked the revision to training session `6230d6ba-9bd8-4152-8d17-337333910cc3`.
+- **Notes:** Test data remained in the production database. This record verifies the functional loop; the broader visual and cross-user checks remain covered by their existing pending items.
 
 
 ## EV-009 — Stage 3 Goals API + Metrics + Progress
