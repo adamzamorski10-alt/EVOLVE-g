@@ -35,6 +35,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
+from sqlalchemy import inspect as _inspect
 from sqlalchemy import text as _text
 from sqlalchemy import func as _sa_func
 from sqlmodel import Field, Session, SQLModel, create_engine, select
@@ -591,7 +592,12 @@ def _ensure_users_columns():
 
 
 def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
+    required_tables = {"users", "daily_logs", "exercise_results", "drill_results"}
+    existing_tables = set(_inspect(engine).get_table_names())
+    for table_name in required_tables - existing_tables:
+        table = SQLModel.metadata.tables.get(table_name)
+        if table is not None:
+            table.create(engine, checkfirst=True)
     _ensure_daily_log_columns()
     _ensure_users_columns()
     _create_composite_indexes()
