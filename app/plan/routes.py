@@ -84,6 +84,10 @@ def _profile_inputs(user: UserDB) -> dict:
         "sport_training_days": user.get_list("sport_training_days_json"),
         "training_availability": user.get_dict("training_availability_json"),
         "sport_training_schedule": user.get_dict("sport_training_schedule_json"),
+        "basketball_position": user.basketball_position,
+        "training_experience": user.training_experience,
+        "equipment": user.equipment,
+        "health_limitations": user.health_limitations,
     }
 
 

@@ -850,6 +850,7 @@ def update_profile(
             "name", "age", "height", "weight", "target_weight", "gender",
             "goal", "frequency", "diet", "allergies", "meals_per_day", "notes",
             "sport_focus", "sport_specialization",
+            "basketball_position", "training_experience", "equipment", "health_limitations",
         )
         changed = False
         should_recalc_macros = False

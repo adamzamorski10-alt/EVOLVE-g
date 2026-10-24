@@ -145,7 +145,17 @@ def build_deterministic_plan(
     target_days = max(1, min(6, int(assessment_days or profile_days)))
 
     sport_focus = (user.sport_focus or "").lower().strip()
+    if not sport_focus and getattr(user, "basketball_position", None):
+        sport_focus = "koszykówka"
     sport_specialization = (user.sport_specialization or "").lower().strip()
+    if not sport_specialization and getattr(user, "basketball_position", None):
+        pos = str(getattr(user, "basketball_position", "") or "").upper()
+        if pos in ("PG", "SG"):
+            sport_specialization = "rzuty"
+        elif pos in ("SF", "PF"):
+            sport_specialization = "motoryka"
+        elif pos == "C":
+            sport_specialization = "rzuty"
     configured_sport_days = {
         day
         for value in user.get_list("sport_training_days_json")
@@ -322,8 +332,25 @@ def build_deterministic_plan(
         focus_sequence.append(preferred[index % len(preferred)])
     focus_iter = iter(focus_sequence)
 
-    equipment = _equipment_aliases(user.get_list("available_equipment_json"))
+    raw_equipment = user.get_list("available_equipment_json")
+    if not raw_equipment and getattr(user, "equipment", None):
+        preset_map = {
+            "gym_full": ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"],
+            "gym_free": ["sztanga", "hantle", "ławka", "poręcze"],
+            "dumbbells": ["hantle", "ławka"],
+            "bodyweight": [],
+            "court": ["piłka", "kosz"],
+            "hybrid": ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia", "piłka", "kosz"],
+        }
+        raw_equipment = preset_map.get(str(getattr(user, "equipment", "")), [])
+    equipment = _equipment_aliases(raw_equipment)
+
     avoid_exercises = _normalized_constraints(user.get_list("avoid_exercises_json"))
+    health_limitations = f"{getattr(user, 'health_limitations', '') or ''} {getattr(user, 'injuries', '') or ''}".lower()
+    if ("kolan" in health_limitations or "kolana" in health_limitations) and not any("kolan" in x for x in avoid_exercises):
+        avoid_exercises.append("przysiad ze sztangą")
+    if ("bark" in health_limitations or "barki" in health_limitations) and not any("bark" in x for x in avoid_exercises):
+        avoid_exercises.append("wyciskanie żołnierskie")
     preferred_foods = _normalized_constraints(user.get_list("preferred_foods_json"))
     avoid_foods = _normalized_constraints(user.get_list("avoid_foods_json"))
     allergies_raw = getattr(user, "allergies", "") or ""

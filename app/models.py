@@ -100,6 +100,11 @@ class UserDB(SQLModel, table=True):
     total_xp: int = 0                                  # łączne punkty XP
     injuries: str = ""                                 # przecinkowy string: "kolano lewe,bark"
     last_weight_change: float = 0.0                    # delta wagi wzgl. poprzedniego wpisu [kg]
+    # ─── Rozszerzony profil sportowy (v3.1) ─────────────────────────────────────
+    basketball_position: Optional[str] = None           # "PG", "SG", "SF", "PF", "C"
+    training_experience: Optional[str] = "intermediate" # "beginner"|"intermediate"|"advanced"|"elite"
+    equipment: Optional[str] = "gym_full"               # "gym_full"|"gym_free"|"dumbbells"|"bodyweight"|"court"|"hybrid"
+    health_limitations: Optional[str] = None            # pełen tekst ograniczeń zdrowotnych
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
@@ -192,6 +197,10 @@ class UserDB(SQLModel, table=True):
             "total_xp": self.total_xp,
             "level": _xp_to_level(self.total_xp),
             "injuries": [i.strip() for i in self.injuries.split(",") if i.strip()],
+            "health_limitations": self.health_limitations or "",
+            "basketball_position": self.basketball_position or "",
+            "training_experience": self.training_experience or "intermediate",
+            "equipment": self.equipment or "gym_full",
             "last_weight_change": self.last_weight_change,
             "created_at": self.created_at.isoformat(),  # Serialize datetime to ISO string
             "updated_at": self.updated_at.isoformat(),

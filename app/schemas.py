@@ -122,6 +122,11 @@ class ProfileUpdateRequest(BaseModel):
     sport_focus: Optional[str] = Field(default=None, max_length=80)
     sport_specialization: Optional[str] = Field(default=None, max_length=120)
     sport_training_days: Optional[list[str]] = None
+    # Rozszerzony profil sportowy (v3.1)
+    basketball_position: Optional[str] = Field(default=None, max_length=40)
+    training_experience: Optional[str] = Field(default=None, max_length=40)
+    equipment: Optional[str] = Field(default=None, max_length=60)
+    health_limitations: Optional[str] = Field(default=None, max_length=2000)
 
 
 class AssessmentRequest(BaseModel):

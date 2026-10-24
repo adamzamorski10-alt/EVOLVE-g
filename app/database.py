@@ -137,6 +137,10 @@ def _ensure_legacy_sqlite_columns():
             "reminder_time": "TEXT",
             "reminder_enabled": "INTEGER DEFAULT 0",
             "last_reminder_sent_date": "TEXT",
+            "basketball_position": "TEXT",
+            "training_experience": "TEXT",
+            "equipment": "TEXT",
+            "health_limitations": "TEXT",
         },
         "daily_logs": {
             "meals_json": "TEXT DEFAULT '[]'",
