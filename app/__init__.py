@@ -630,7 +630,7 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
       '<div class="tab-panel" id="tab-basketball">' +
         '<div class="sec-head">' +
           '<div>' +
-            '<div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:700;">Koszykówka & Skill Lab 🏀</div>' +
+            '<div style="font-family:\\'Syne\\',sans-serif;font-size:26px;font-weight:700;">Koszykówka & Skill Lab 🏀</div>' +
             '<div style="font-size:13px;color:var(--muted);margin-top:4px;">Rozwój rzutu, panowania nad piłką, gry w kontakcie i motoryki boiskowej.</div>' +
           '</div>' +
           '<button class="btn btn-primary btn-sm" onclick="openEvolveBasketballForm()">+ Zapisz sesję koszykarską</button>' +

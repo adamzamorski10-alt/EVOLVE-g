@@ -105,6 +105,10 @@ def test_progress_shell_exposes_explainable_adaptation():
         assert marker in APP_INIT, f"Missing Progress & Lab adaptation marker: {marker}"
 
 
+def test_injected_shell_escapes_quotes_inside_javascript_html_strings():
+    assert 'font-family:\\\\\'Syne\\\\\',sans-serif;font-size:26px;font-weight:700;">Koszykówka' in APP_INIT
+
+
 def test_frontend_script_injection_ignores_body_markup_inside_inline_javascript():
     import ast
     import re
