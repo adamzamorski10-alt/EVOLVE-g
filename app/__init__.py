@@ -173,7 +173,7 @@ def _frontend_index_response(index_path: Path):
     dashboard_first_bootstrap = """<style id="evolve-dashboard-first-style">
 html.evolve-dashboard-first #landingPage { display: none !important; }
 html.evolve-dashboard-first #dashboardPage { display: flex !important; }
-</style><script>document.documentElement.classList.add('evolve-dashboard-first');</script>"""
+</style>"""
 
     evolve_shell_integration = """<script id="evolve-my-day-shell-integration">
 (function () {
@@ -1126,19 +1126,26 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
 
     dashboard_boot = """<script id="evolve-dashboard-first-boot">
 document.addEventListener('DOMContentLoaded', function () {
-  // The landing page is legacy-only markup. The hosted EVOLVE experience is dashboard-first.
+  // Deep links may identify a dashboard tab, but authentication still gates the app.
+  var hasToken = Boolean(localStorage.getItem('fitai_token'));
+  document.documentElement.classList.toggle('evolve-dashboard-first', hasToken);
   var landing = document.getElementById('landingPage');
   var dashboard = document.getElementById('dashboardPage');
-  if (landing) {
+  if (landing && !hasToken) {
+    landing.style.display = '';
+    landing.removeAttribute('aria-hidden');
+  } else if (landing) {
     landing.style.display = 'none';
     landing.setAttribute('aria-hidden', 'true');
   }
-  if (dashboard) {
+  if (dashboard && hasToken) {
     dashboard.style.display = 'flex';
     dashboard.removeAttribute('aria-hidden');
+  } else if (dashboard) {
+    dashboard.style.display = 'none';
+    dashboard.setAttribute('aria-hidden', 'true');
   }
-  // Keep the legacy initializer when available, but dashboard visibility must not depend on it.
-  if (typeof initApp === 'function') initApp();
+  if (hasToken && typeof initApp === 'function') initApp();
 });
 </script>"""
     if 'id="evolve-dashboard-first-boot"' not in html:
@@ -1147,7 +1154,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return HTMLResponse(html, media_type="text/html")
 
 # Root route — serve index.html for SPA
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
 async def serve_root():
     """Serve main index.html for single-page app."""
     index_path = STATIC_DIR / "index.html"
@@ -1157,7 +1164,7 @@ async def serve_root():
 
 
 # Catch-all for SPA routing — serve index.html for any unmatched path
-@app.get("/{path:path}")
+@app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
 async def serve_spa(path: str):
     """
     Fallback route for SPA routing. Serves static files if found in STATIC_DIR,

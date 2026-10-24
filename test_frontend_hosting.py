@@ -9,19 +9,28 @@ def test_hosted_frontend_uses_same_origin_backend_on_render():
     assert 'fetch("/app/today"' in APP_INIT
 
 
+def test_spa_routes_accept_head_requests_for_hosting_probes():
+    assert '@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)' in APP_INIT
+    assert '@app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)' in APP_INIT
+
+
 def test_dashboard_first_targets_actual_legacy_shell_ids():
     assert 'id="evolve-dashboard-first-style"' in APP_INIT
     assert "#landingPage { display: none !important; }" in APP_INIT
     assert "#dashboardPage { display: flex !important; }" in APP_INIT
-    assert "document.documentElement.classList.add('evolve-dashboard-first')" in APP_INIT
+    assert "document.documentElement.classList.toggle('evolve-dashboard-first', hasToken);" in APP_INIT
     assert 'id="evolve-dashboard-first-boot"' in APP_INIT
     assert "var landing = document.getElementById('landingPage');" in APP_INIT
     assert "var dashboard = document.getElementById('dashboardPage');" in APP_INIT
     assert "landing.style.display = 'none';" in APP_INIT
     assert "landing.setAttribute('aria-hidden', 'true');" in APP_INIT
     assert "dashboard.style.display = 'flex';" in APP_INIT
-    assert "if (typeof initApp === 'function') initApp();" in APP_INIT
-    assert "dashboard visibility must not depend on it" in APP_INIT
+    assert "if (hasToken && typeof initApp === 'function') initApp();" in APP_INIT
+
+
+def test_dashboard_boot_does_not_bypass_authentication():
+    assert "var hasToken = Boolean(localStorage.getItem('fitai_token'));" in APP_INIT
+    assert "if (hasToken && typeof initApp === 'function') initApp();" in APP_INIT
 
 
 def test_shared_shell_contains_native_my_day_injection():
@@ -116,5 +125,3 @@ def test_shared_shell_contains_native_basketball_integration():
     ]
     for marker in required:
         assert marker in APP_INIT, f"Missing Basketball shell marker: {marker}"
-
-
