@@ -649,11 +649,11 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
           '<div class="sec-head" style="margin-bottom:12px;">' +
             '<div style="font-weight:700;font-size:16px;">🏀 Rekomendowane drille EVOLVE</div>' +
             '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
-              '<button class="btn btn-outline btn-sm" onclick="renderBasketballCatalog(\'all\')">Wszystkie</button>' +
-              '<button class="btn btn-ghost btn-sm" onclick="renderBasketballCatalog(\'rzuty\')">Rzut</button>' +
-              '<button class="btn btn-ghost btn-sm" onclick="renderBasketballCatalog(\'drybling\')">Drybling</button>' +
-              '<button class="btn btn-ghost btn-sm" onclick="renderBasketballCatalog(\'obrona\')">Obrona</button>' +
-              '<button class="btn btn-ghost btn-sm" onclick="renderBasketballCatalog(\'kondycja\')">Motoryka</button>' +
+              '<button class="btn btn-outline btn-sm" onclick="renderBasketballCatalog(\\'all\\')">Wszystkie</button>' +
+              '<button class="btn btn-ghost btn-sm" onclick="renderBasketballCatalog(\\'rzuty\\')">Rzut</button>' +
+              '<button class="btn btn-ghost btn-sm" onclick="renderBasketballCatalog(\\'drybling\\')">Drybling</button>' +
+              '<button class="btn btn-ghost btn-sm" onclick="renderBasketballCatalog(\\'obrona\\')">Obrona</button>' +
+              '<button class="btn btn-ghost btn-sm" onclick="renderBasketballCatalog(\\'kondycja\\')">Motoryka</button>' +
             '</div>' +
           '</div>' +
           '<div id="basketballDrillsCatalog"></div>' +
