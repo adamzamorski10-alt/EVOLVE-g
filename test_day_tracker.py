@@ -337,3 +337,38 @@ def test_swap_workout_updates_sets_reps_weight(day_tracker_context):
     assert updated["reps"] == 4
     assert updated["weight_kg"] == 95
     assert updated["rpe"] == 8
+
+
+def test_day_tracker_macro_carbs_and_fat(day_tracker_context):
+    token = day_tracker_context["token"]
+    add_resp = client.post(
+        "/app/day/item/add",
+        json={
+            "item_type": "meal",
+            "name": "Owsianka z masłem orzechowym",
+            "kcal": 550,
+            "protein": 25.0,
+            "carbs": 65.0,
+            "fat": 18.0,
+        },
+        headers=_auth_headers(token),
+    )
+    assert add_resp.status_code == 200
+    data = add_resp.json()
+    assert "carbs_consumed" in data
+    assert "fat_consumed" in data
+    assert data["carbs_consumed"] == 0
+
+    meal_id = data["log"]["custom_meals"][-1]["item_id"]
+
+    toggle_resp = client.post(
+        "/app/day/item/toggle",
+        json={"item_id": meal_id, "item_type": "meal", "checked": True},
+        headers=_auth_headers(token),
+    )
+    assert toggle_resp.status_code == 200
+    toggled = toggle_resp.json()
+    assert toggled["kcal_consumed"] >= 550
+    assert toggled["protein_consumed"] >= 25.0
+    assert toggled["carbs_consumed"] >= 65.0
+    assert toggled["fat_consumed"] >= 18.0

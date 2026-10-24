@@ -277,6 +277,8 @@ class DayItemAddRequest(BaseModel):
     source: str = "custom"
     kcal: Optional[int] = None
     protein: Optional[float] = None
+    carbs: Optional[float] = None
+    fat: Optional[float] = None
     sets: Optional[int] = None
     reps: Optional[int] = None
     weight_kg: Optional[float] = None
@@ -291,6 +293,8 @@ class DayItemSwapRequest(BaseModel):
     new_name: str
     new_kcal: Optional[int] = None
     new_protein: Optional[float] = None
+    new_carbs: Optional[float] = None
+    new_fat: Optional[float] = None
     sets: Optional[int] = None
     reps: Optional[int] = None
     weight_kg: Optional[float] = None

@@ -261,6 +261,8 @@ def _normalize_day_meal(item: dict[str, Any], source: str = "custom") -> dict[st
         "source": str(item.get("source") or source or "custom"),
         "kcal": int(item.get("kcal") or 0),
         "protein": float(item.get("protein") or 0),
+        "carbs": float(item.get("carbs") or 0),
+        "fat": float(item.get("fat") or 0),
         "meal_type": meal_type,
         "checked": bool(item.get("checked") or item.get("done") or item.get("status") == "done"),
         "notes": item.get("notes"),
@@ -358,7 +360,7 @@ def _set_day_items(log: DailyLogDB, field_name: str, items: list[dict[str, Any]]
         log.set_workouts(items)
 
 
-def _sync_day_log_fields(log: DailyLogDB) -> tuple[int, float]:
+def _sync_day_log_fields(log: DailyLogDB) -> tuple[int, float, float, float]:
     meals = [*log.get_meals(), *log.get_custom_meals()]
     workouts = log.get_workouts()
 
@@ -367,13 +369,15 @@ def _sync_day_log_fields(log: DailyLogDB) -> tuple[int, float]:
 
     kcal_consumed = int(sum(float(item.get("kcal") or 0) for item in checked_meals))
     protein_consumed = round(sum(float(item.get("protein") or 0) for item in checked_meals), 1)
+    carbs_consumed = round(sum(float(item.get("carbs") or 0) for item in checked_meals), 1)
+    fat_consumed = round(sum(float(item.get("fat") or 0) for item in checked_meals), 1)
 
     log.food = " | ".join(item.get("name", "") for item in checked_meals if item.get("name"))
     log.workout = " | ".join(item.get("name", "") for item in checked_workouts if item.get("name"))
     log.meals_eaten = len(checked_meals)
     log.workouts_done = len(checked_workouts)
 
-    return kcal_consumed, protein_consumed
+    return kcal_consumed, protein_consumed, carbs_consumed, fat_consumed
 
 
 def _log_workout_result(user: UserDB, target_date: date, workout_item: dict[str, Any], session: Session) -> ExerciseResultDB:
@@ -409,7 +413,7 @@ def get_today_day_tracker(
     if plan_workouts_raw:
         log.set_workouts(_append_missing_plan_items(log.get_workouts(), plan_workouts_raw, _normalize_day_workout))
 
-    kcal_consumed, protein_consumed = _sync_day_log_fields(log)
+    kcal_consumed, protein_consumed, carbs_consumed, fat_consumed = _sync_day_log_fields(log)
     session.add(log)
     session.commit()
     session.refresh(log)
@@ -420,6 +424,8 @@ def get_today_day_tracker(
         "plan_workouts": [_normalize_day_workout(item, source="plan") for item in plan_workouts_raw],
         "kcal_consumed": kcal_consumed,
         "protein_consumed": protein_consumed,
+        "carbs_consumed": carbs_consumed,
+        "fat_consumed": fat_consumed,
     }
 
 
@@ -465,7 +471,7 @@ def toggle_day_item(
             xp_earned = 20
             _log_workout_result(user, target_date, item, session)
 
-    kcal_consumed, protein_consumed = _sync_day_log_fields(log)
+    kcal_consumed, protein_consumed, carbs_consumed, fat_consumed = _sync_day_log_fields(log)
     session.add(log)
 
     if xp_earned:
@@ -482,6 +488,8 @@ def toggle_day_item(
         "status": "ok",
         "kcal_consumed": kcal_consumed,
         "protein_consumed": protein_consumed,
+        "carbs_consumed": carbs_consumed,
+        "fat_consumed": fat_consumed,
         "xp_earned": xp_earned,
     }
 
@@ -510,6 +518,8 @@ def add_day_item(
             "source": source,
             "kcal": int(payload.kcal or 0),
             "protein": float(payload.protein or 0),
+            "carbs": float(payload.carbs or 0),
+            "fat": float(payload.fat or 0),
             "meal_type": payload.meal_type or "inne",
             "checked": False,
         }
@@ -537,7 +547,7 @@ def add_day_item(
         items.append(item)
         log.set_workouts(items)
 
-    kcal_consumed, protein_consumed = _sync_day_log_fields(log)
+    kcal_consumed, protein_consumed, carbs_consumed, fat_consumed = _sync_day_log_fields(log)
     session.add(log)
     session.commit()
     session.refresh(log)
@@ -547,6 +557,8 @@ def add_day_item(
         "log": log.to_dict(),
         "kcal_consumed": kcal_consumed,
         "protein_consumed": protein_consumed,
+        "carbs_consumed": carbs_consumed,
+        "fat_consumed": fat_consumed,
     }
 
 
@@ -569,6 +581,10 @@ def swap_day_item(
             item["kcal"] = int(payload.new_kcal)
         if payload.new_protein is not None:
             item["protein"] = float(payload.new_protein)
+        if payload.new_carbs is not None:
+            item["carbs"] = float(payload.new_carbs)
+        if payload.new_fat is not None:
+            item["fat"] = float(payload.new_fat)
     else:
         if payload.new_kcal is not None:
             item["kcal"] = int(payload.new_kcal)
@@ -588,7 +604,7 @@ def swap_day_item(
     items[index] = item
     _set_day_items(log, field_name, items)
 
-    kcal_consumed, protein_consumed = _sync_day_log_fields(log)
+    kcal_consumed, protein_consumed, carbs_consumed, fat_consumed = _sync_day_log_fields(log)
     session.add(log)
     session.commit()
     session.refresh(log)
@@ -598,6 +614,8 @@ def swap_day_item(
         "log": log.to_dict(),
         "kcal_consumed": kcal_consumed,
         "protein_consumed": protein_consumed,
+        "carbs_consumed": carbs_consumed,
+        "fat_consumed": fat_consumed,
     }
 
 
