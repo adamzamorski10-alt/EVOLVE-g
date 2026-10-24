@@ -890,14 +890,14 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
       var result = originalShowTab.apply(this, arguments);
       if (tab === "my-day") {
         window.loadEvolveMyDay();
-      } else if (tab === "progress" || tab === "postepy") {
-        if (tab === "postepy") {
-          injectProgressShell();
-          var legacyProgress = document.getElementById("tab-postepy");
-          var progressShell = document.getElementById("tab-progress");
-          if (legacyProgress) legacyProgress.style.display = "none";
-          if (progressShell) progressShell.style.display = "block";
-        }
+      } else if (tab === "progress") {
+        window.loadEvolveProgress();
+      } else if (tab === "postepy") {
+        injectProgressShell();
+        var legacyProgress = document.getElementById("tab-postepy");
+        var progressShell = document.getElementById("tab-progress");
+        if (legacyProgress) legacyProgress.style.display = "none";
+        if (progressShell) progressShell.style.display = "block";
         window.loadEvolveProgress();
       } else if (tab === "goals") {
         window.loadEvolveGoals();

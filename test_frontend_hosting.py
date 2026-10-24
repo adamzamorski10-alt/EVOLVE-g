@@ -104,7 +104,8 @@ def test_progress_shell_exposes_explainable_adaptation():
     for marker in required:
         assert marker in APP_INIT, f"Missing Progress & Lab adaptation marker: {marker}"
     assert 'document.querySelector(".content") || document.getElementById("mainContent")' in APP_INIT
-    assert 'tab === "progress" || tab === "postepy"' in APP_INIT
+    assert 'tab === "progress"' in APP_INIT
+    assert 'tab === "postepy"' in APP_INIT
 
 
 def test_injected_shell_escapes_quotes_inside_javascript_html_strings():
