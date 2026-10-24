@@ -690,7 +690,7 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
             '<div class="item-card-title">' + escapeHtml(d.name) + '</div>' +
             '<div class="item-card-meta">' + escapeHtml(d.sets) + ' · cel: ' + d.target + '%</div>' +
           '</div>' +
-          '<button class="btn btn-outline btn-sm" onclick="openEvolveBasketballForm(\'' + escapeHtml(d.name).replace(/'/g, "\\'") + '\', \'' + escapeHtml(d.cat) + '\', ' + d.target + ')">+ Zapisz ten drill</button>' +
+          '<button class="btn btn-outline btn-sm" onclick="openEvolveBasketballForm(\\'' + escapeHtml(d.name).replace(/'/g, "\\'") + '\\', \\'' + escapeHtml(d.cat) + '\\', ' + d.target + ')">+ Zapisz ten drill</button>' +
         '</div>' +
         '<div style="font-size:12px;color:var(--muted);margin-top:6px;">' + escapeHtml(d.desc) + '</div>' +
       '</div>';
