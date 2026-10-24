@@ -468,6 +468,7 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
         '<div id="progressStatus" class="alert alert-hidden" style="margin-bottom:16px;"></div>' +
         '<div id="progressSummary" class="grid-2" style="margin-bottom:16px;"></div>' +
         '<div class="grid-2" style="margin-bottom:16px;"><div class="card" style="padding:20px;"><div class="sec-head" style="margin-bottom:12px;"><div style="font-weight:700;">📈 Trendy</div><div style="font-size:12px;color:var(--muted);">ostatnia sesja vs baza</div></div><div id="progressTrends"></div></div><div class="card" style="padding:20px;"><div class="sec-head" style="margin-bottom:12px;"><div style="font-weight:700;">🏆 Rekordy</div></div><div id="progressRecords"></div></div></div>' +
+        '<div class="card" style="padding:20px;margin-bottom:16px;"><div class="sec-head" style="margin-bottom:12px;"><div><div style="font-weight:700;">🔄 Następny krok planu</div><div style="font-size:12px;color:var(--muted);">Propozycja oparta na ukończonych sesjach</div></div><div id="progressAdaptationVersion" style="font-size:12px;color:var(--muted);">—</div></div><div id="progressAdaptation"></div></div>' +
         '<div class="card" style="padding:20px;margin-bottom:16px;"><div class="sec-head" style="margin-bottom:12px;"><div style="font-weight:700;">🏋️ Ćwiczenia</div><div style="font-size:12px;color:var(--muted);">kliknij, aby zobaczyć drill-down</div></div><div id="progressExercises"></div><div id="progressExerciseDetail" style="margin-top:16px;"></div></div>' +
         '<div class="grid-2" style="margin-bottom:16px;"><div class="card" style="padding:20px;"><div class="sec-head" style="margin-bottom:12px;"><div style="font-weight:700;">📅 Regularność</div></div><div id="progressConsistency"></div></div><div class="card" style="padding:20px;"><div class="sec-head" style="margin-bottom:12px;"><div style="font-weight:700;">🗂️ Historia sesji</div></div><div id="progressHistory"></div></div></div>' +
         '<div id="progressSessionDetail"></div>' +
@@ -507,7 +508,7 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
       if (status) { status.className = "alert alert-warn"; status.textContent = "Zaloguj się, aby zobaczyć swoje postępy."; }
       return;
     }
-    ["progressSummary","progressTrends","progressRecords","progressExercises","progressConsistency","progressHistory"].forEach(function(id) {
+    ["progressSummary","progressTrends","progressRecords","progressAdaptation","progressExercises","progressConsistency","progressHistory"].forEach(function(id) {
       var el=document.getElementById(id); if(el) el.innerHTML='<div class="spinner"></div>';
     });
     try {
@@ -517,13 +518,14 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
         fetch("/app/training/progress/trends?limit=12", {headers:headers, cache:"no-store"}),
         fetch("/app/training/progress/records?limit=52", {headers:headers, cache:"no-store"}),
         fetch("/app/training/progress/consistency?limit=52", {headers:headers, cache:"no-store"}),
-        fetch("/app/training/sessions/history?limit=12", {headers:headers, cache:"no-store"})
+        fetch("/app/training/sessions/history?limit=12", {headers:headers, cache:"no-store"}),
+        fetch("/app/training/adaptive/next-effective-preview", {headers:headers, cache:"no-store"})
       ]);
       var data = await Promise.all(results.map(function(response) { return response.json().then(function(body){ return {response:response, body:body}; }); }));
       if (requestId !== progressLoadSequence) return;
       var failed = data.find(function(item){ return !item.response.ok; });
       if (failed) throw new Error(failed.body.detail || "Nie udało się pobrać danych postępów");
-      var progress=data[0].body, trends=data[1].body, records=data[2].body, consistency=data[3].body, history=data[4].body;
+      var progress=data[0].body, trends=data[1].body, records=data[2].body, consistency=data[3].body, history=data[4].body, adaptation=data[5].body;
       document.getElementById("progressUpdatedAt").textContent = new Date().toLocaleTimeString("pl-PL",{hour:"2-digit",minute:"2-digit"});
       document.getElementById("progressSummary").innerHTML =
         progressMetricCard("SESJE", progress.period_sessions, "ukończone") +
@@ -539,6 +541,16 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
       document.getElementById("progressRecords").innerHTML = (records.exercises || []).map(function(item) {
         return '<div class="item-card" style="cursor:default;"><div class="item-card-head"><div class="item-card-title">' + escapeHtml(item.exercise_name) + '</div></div><div class="item-card-meta">🏋️ ' + item.best_weight.value_kg + ' kg · 🔁 ' + item.best_reps.value + ' powt. przy ' + item.best_reps.weight_kg + ' kg · 📦 ' + item.best_session_volume.value_kg + ' kg/sesję</div></div>';
       }).join("") || '<div style="color:var(--muted);">Brak rekordów.</div>';
+
+      var adaptationSummary = adaptation.summary || {};
+      var adaptationCounts = Object.keys(adaptationSummary).map(function(key) {
+        return escapeHtml(key) + ": " + escapeHtml(adaptationSummary[key]);
+      }).join(" · ");
+      var adaptationAction = !adaptation.has_data
+        ? '<div style="color:var(--muted);">Ukończ trening, aby EVOLVE mógł zaproponować kolejny krok.</div>'
+        : '<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;"><div><div style="font-weight:700;">' + (adaptation.unchanged ? "Brak nowej zmiany planu" : "Gotowa propozycja adaptacji") + '</div><div style="font-size:12px;color:var(--muted);margin-top:4px;">' + adaptationCounts + '</div></div><button class="btn btn-primary btn-sm" onclick="applyEvolveAdaptation()" ' + (adaptation.unchanged ? 'disabled' : '') + '>' + (adaptation.unchanged ? "Już zastosowano" : "Zastosuj zmianę") + '</button></div>';
+      document.getElementById("progressAdaptationVersion").textContent = adaptation.has_data ? "wersja " + adaptation.proposed_version : "brak propozycji";
+      document.getElementById("progressAdaptation").innerHTML = adaptationAction + (adaptation.source_session_ids && adaptation.source_session_ids.length ? '<div style="font-size:11px;color:var(--muted);margin-top:10px;">Źródłowe sesje: ' + adaptation.source_session_ids.map(escapeHtml).join(", ") + '</div>' : '');
 
       document.getElementById("progressExercises").innerHTML = (progress.exercises || []).map(function(item) {
         return '<button class="item-card" style="width:100%;text-align:left;" onclick="loadEvolveProgressExercise(\\'' + encodeURIComponent(item.exercise_key) + '\\')"><div class="item-card-head"><div class="item-card-title">' + escapeHtml(item.exercise_name) + '</div><div class="tag">' + item.sessions + ' sesji</div></div><div class="item-card-meta">' + item.total_volume_kg + ' kg wolumenu · rekord ' + item.best_weight_kg + ' kg · śr. RPE ' + (item.average_rpe == null ? '—' : item.average_rpe) + '</div></button>';
@@ -557,6 +569,25 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
     } catch (error) {
       if (requestId !== progressLoadSequence) return;
       if (status) { status.className = "alert alert-warn"; status.textContent = "⚠️ " + error.message; }
+    }
+  };
+
+  window.applyEvolveAdaptation = async function () {
+    var token = localStorage.getItem("fitai_token");
+    var target = document.getElementById("progressAdaptation");
+    if (!token || !target) return;
+    target.innerHTML = '<div class="spinner"></div>';
+    try {
+      var response = await fetch("/app/training/adaptive/apply", {
+        method: "POST",
+        headers: {Authorization: "Bearer " + token, "Content-Type": "application/json"}
+      });
+      var data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Nie udało się zastosować adaptacji");
+      target.innerHTML = '<div class="alert alert-success">' + escapeHtml(data.status === "unchanged" ? data.message : "Zapisano wersję planu v" + data.version + ".") + '</div>';
+      window.loadEvolveProgress();
+    } catch (error) {
+      target.innerHTML = '<div class="alert alert-warn">' + escapeHtml(error.message) + '</div>';
     }
   };
 

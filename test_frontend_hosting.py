@@ -93,6 +93,18 @@ def test_shared_shell_contains_native_recovery_integration():
         assert marker in APP_INIT, f"Missing Recovery shell marker: {marker}"
 
 
+def test_progress_shell_exposes_explainable_adaptation():
+    required = [
+        'id="progressAdaptation"',
+        'fetch("/app/training/adaptive/next-effective-preview"',
+        "window.applyEvolveAdaptation",
+        'fetch("/app/training/adaptive/apply"',
+        "Zastosuj zmianę",
+    ]
+    for marker in required:
+        assert marker in APP_INIT, f"Missing Progress & Lab adaptation marker: {marker}"
+
+
 def test_frontend_script_injection_ignores_body_markup_inside_inline_javascript():
     import ast
     import re
