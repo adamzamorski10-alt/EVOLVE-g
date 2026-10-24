@@ -31,7 +31,16 @@ from sqlmodel import Session, select
 from app.auth import _rate_limit_key, get_current_user
 from app.config import AI_RATE_PER_HOUR, AI_RATE_PER_MINUTE, JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET_KEY
 from app.database import engine
-from app.models import DailyLogDB, DrillResultDB, ExerciseResultDB, UserDB
+from app.models import (
+    AssessmentDB,
+    DailyLogDB,
+    DrillResultDB,
+    ExerciseResultDB,
+    GoalDB,
+    TrainingSessionDB,
+    TrainingSetResultDB,
+    UserDB,
+)
 from app.schemas import (
     AIRequest,
     AppDailyCheckinRequest,
@@ -2867,6 +2876,16 @@ def _empty_user_stats() -> dict:
         "overload": {"overload_detected": False},
         "injuries": [],
         "last_weight_change": None,
+        "strength_progression": [],
+        "shooting_stats": {
+            "total_attempts": 0,
+            "total_made": 0,
+            "accuracy_pct": 0.0,
+            "total_sessions": 0,
+            "history": [],
+        },
+        "assessment_history": [],
+        "goals": [],
     }
 
 
@@ -2901,12 +2920,13 @@ def _compute_user_stats(user: UserDB, session: Session, days: int = 30) -> dict:
 
     volume_by_day: dict = {}
     for r in ex_results:
-        vol = r.sets * r.reps * r.weight_kg
-        volume_by_day[r.session_date] = volume_by_day.get(r.session_date, 0) + vol
+        vol = (r.sets or 1) * (r.reps or 1) * (r.weight_kg or 0)
+        d_key = r.session_date.isoformat() if hasattr(r.session_date, "isoformat") else str(r.session_date)
+        volume_by_day[d_key] = volume_by_day.get(d_key, 0) + vol
 
     training_volume = [
         {"date": d, "volume": round(v)}
-        for d, v in sorted(volume_by_day.items())
+        for d, v in sorted(volume_by_day.items(), key=lambda x: str(x[0]))
     ][-days:]
 
     # ── KPI calculations ──────────────────────────────────────────────────
@@ -2920,10 +2940,17 @@ def _compute_user_stats(user: UserDB, session: Session, days: int = 30) -> dict:
 
     # 2. Average RPE last 7 days
     cutoff_7d = (date.today().toordinal() - 7)
-    recent_rpe = [
-        r.rpe for r in ex_results
-        if r.session_date and date.fromisoformat(r.session_date).toordinal() >= cutoff_7d
-    ]
+    recent_rpe = []
+    for r in ex_results:
+        s_date = r.session_date
+        if not s_date or not r.rpe:
+            continue
+        try:
+            parsed = s_date if isinstance(s_date, date) else date.fromisoformat(str(s_date)[:10])
+            if parsed.toordinal() >= cutoff_7d:
+                recent_rpe.append(r.rpe)
+        except (ValueError, TypeError):
+            pass
     avg_rpe_7d = round(sum(recent_rpe) / len(recent_rpe), 1) if recent_rpe else None
 
     # 3. Projected goal date based on weight trend
@@ -2997,6 +3024,194 @@ def _compute_user_stats(user: UserDB, session: Session, days: int = 30) -> dict:
             user.last_weight_change = new_delta
             session.commit()
 
+    # ── Strength progression ──────────────────────────────────────────────
+    strength_map: dict[str, dict] = {}
+    session_rows = list(session.exec(
+        select(TrainingSessionDB).where(TrainingSessionDB.user_id == user.id)
+    ).all())
+    session_date_map = {
+        s.id: (s.session_date.isoformat() if hasattr(s.session_date, "isoformat") else str(s.session_date))
+        for s in session_rows
+    }
+    session_ids = list(session_date_map.keys())
+
+    if session_ids:
+        set_rows = list(session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id.in_(session_ids))  # type: ignore
+            .where(TrainingSetResultDB.completed == True)
+        ).all())
+        for st in set_rows:
+            if not st.actual_weight_kg or st.actual_weight_kg <= 0:
+                continue
+            ex_key = st.exercise_key or "cwiczenie"
+            ex_date = session_date_map.get(st.session_id, date.today().isoformat())
+            reps = st.actual_reps or 1
+            weight = round(float(st.actual_weight_kg), 1)
+            e1rm = round(weight * (1.0 + reps / 30.0), 1)
+
+            if ex_key not in strength_map:
+                strength_map[ex_key] = {
+                    "exercise_key": ex_key,
+                    "exercise_name": ex_key.replace("-", " ").title(),
+                    "best_weight_kg": weight,
+                    "best_reps": reps,
+                    "estimated_1rm": e1rm,
+                    "latest_date": ex_date,
+                    "history": [],
+                }
+            entry = strength_map[ex_key]
+            if weight > entry["best_weight_kg"] or (weight == entry["best_weight_kg"] and reps > entry["best_reps"]):
+                entry["best_weight_kg"] = weight
+                entry["best_reps"] = reps
+            if e1rm > entry["estimated_1rm"]:
+                entry["estimated_1rm"] = e1rm
+            if ex_date > entry["latest_date"]:
+                entry["latest_date"] = ex_date
+            entry["history"].append({
+                "date": ex_date,
+                "weight_kg": weight,
+                "reps": reps,
+                "estimated_1rm": e1rm,
+            })
+
+    for er in ex_results:
+        if not er.weight_kg or er.weight_kg <= 0:
+            continue
+        ex_name = er.exercise_name or "Cwiczenie"
+        reps = er.reps or 1
+        weight = round(float(er.weight_kg), 1)
+        e1rm = round(weight * (1.0 + reps / 30.0), 1)
+        ex_date = er.session_date or date.today().isoformat()
+        if ex_name not in strength_map:
+            strength_map[ex_name] = {
+                "exercise_key": ex_name.lower().replace(" ", "-"),
+                "exercise_name": ex_name,
+                "best_weight_kg": weight,
+                "best_reps": reps,
+                "estimated_1rm": e1rm,
+                "latest_date": ex_date,
+                "history": [],
+            }
+        entry = strength_map[ex_name]
+        if weight > entry["best_weight_kg"] or (weight == entry["best_weight_kg"] and reps > entry["best_reps"]):
+            entry["best_weight_kg"] = weight
+            entry["best_reps"] = reps
+        if e1rm > entry["estimated_1rm"]:
+            entry["estimated_1rm"] = e1rm
+        if ex_date > entry["latest_date"]:
+            entry["latest_date"] = ex_date
+        entry["history"].append({
+            "date": ex_date,
+            "weight_kg": weight,
+            "reps": reps,
+            "estimated_1rm": e1rm,
+        })
+
+    for item in strength_map.values():
+        item["history"] = sorted(item["history"], key=lambda h: h["date"])[-15:]
+    strength_progression = sorted(strength_map.values(), key=lambda x: x["best_weight_kg"], reverse=True)
+
+    # ── Drill / Basketball Shooting Stats ─────────────────────────────────
+    drill_rows = list(session.exec(
+        select(DrillResultDB)
+        .where(DrillResultDB.user_id == user.id)
+        .order_by(DrillResultDB.session_date.desc(), DrillResultDB.created_at.desc())
+    ).all())
+    total_drill_attempts = sum(r.attempts or 0 for r in drill_rows)
+    total_drill_made = sum(r.made or 0 for r in drill_rows)
+    overall_shooting_pct = round((total_drill_made / total_drill_attempts) * 100, 1) if total_drill_attempts > 0 else 0.0
+
+    drill_history = [
+        {
+            "id": r.id,
+            "date": r.session_date,
+            "drill_name": r.drill_name,
+            "attempts": r.attempts,
+            "made": r.made,
+            "accuracy_pct": round((r.made / r.attempts) * 100, 1) if r.attempts else 0.0,
+            "rpe": r.rpe,
+            "notes": r.notes,
+        }
+        for r in drill_rows[:30]
+    ]
+    shooting_stats = {
+        "total_attempts": total_drill_attempts,
+        "total_made": total_drill_made,
+        "accuracy_pct": overall_shooting_pct,
+        "total_sessions": len(drill_rows),
+        "history": drill_history,
+    }
+
+    # ── Assessment history ────────────────────────────────────────────────
+    assm_rows = list(session.exec(
+        select(AssessmentDB)
+        .where(AssessmentDB.user_id == user.id)
+        .order_by(AssessmentDB.assessment_version.asc())
+    ).all())
+    assessment_history = [
+        {
+            "id": a.id,
+            "version": a.assessment_version,
+            "date": a.assessment_date.isoformat() if hasattr(a.assessment_date, "isoformat") else str(a.assessment_date),
+            "training_level": a.training_level,
+            "vertical_jump_cm": a.vertical_jump_cm,
+            "sprint_30m_seconds": a.sprint_30m_seconds,
+            "shooting_pct": a.shooting_pct,
+            "free_throw_pct": a.free_throw_pct,
+            "recovery_score": a.recovery_score,
+            "notes": a.notes,
+        }
+        for a in assm_rows
+    ]
+
+    # ── Goals ─────────────────────────────────────────────────────────────
+    goal_rows = list(session.exec(
+        select(GoalDB)
+        .where(GoalDB.user_id == user.id)
+        .where(GoalDB.status == "active")
+        .order_by(GoalDB.priority.desc(), GoalDB.created_at.asc())
+    ).all())
+    goals_list = []
+    for g in goal_rows:
+        baseline = g.baseline_value
+        target = g.target_value
+        metric = g.metric_key
+        current_val = None
+
+        if metric == "best_weight_kg" and strength_map:
+            matched = next((item["best_weight_kg"] for item in strength_map.values() if item["exercise_name"].lower() in g.title.lower()), None)
+            current_val = matched or (strength_progression[0]["best_weight_kg"] if strength_progression else None)
+        elif metric == "weight_kg" or g.goal_type in ("body", "body_composition"):
+            current_val = (all_logs[-1].weight if all_logs and all_logs[-1].weight else user.weight)
+        elif metric == "shooting_pct" or g.goal_type == "basketball":
+            current_val = overall_shooting_pct if total_drill_attempts > 0 else None
+        elif metric == "sessions":
+            current_val = len(session_rows)
+        elif metric == "total_volume_kg":
+            current_val = sum(v["volume"] for v in training_volume)
+
+        progress_pct = None
+        if target is not None and current_val is not None:
+            if baseline is not None and target != baseline:
+                progress_pct = round(max(0.0, min(100.0, ((current_val - baseline) / (target - baseline)) * 100)), 1)
+            elif target > 0:
+                progress_pct = round(max(0.0, min(100.0, (current_val / target) * 100)), 1)
+
+        goals_list.append({
+            "id": g.id,
+            "title": g.title,
+            "goal_type": g.goal_type,
+            "metric_key": g.metric_key,
+            "baseline_value": baseline,
+            "target_value": target,
+            "current_value": current_val,
+            "progress_pct": progress_pct,
+            "target_date": g.target_date.isoformat() if g.target_date else None,
+            "priority": g.priority,
+            "status": g.status,
+        })
+
     return {
         "weight_entries": weight_entries,
         "training_volume": training_volume,
@@ -3014,6 +3229,10 @@ def _compute_user_stats(user: UserDB, session: Session, days: int = 30) -> dict:
         "overload": overload,
         "injuries": injuries_list,
         "last_weight_change": user.last_weight_change,
+        "strength_progression": strength_progression,
+        "shooting_stats": shooting_stats,
+        "assessment_history": assessment_history,
+        "goals": goals_list,
     }
 
 
