@@ -9,6 +9,10 @@ def test_hosted_frontend_uses_same_origin_backend_on_render():
     assert 'fetch("/app/today"' in APP_INIT
 
 
+def test_legacy_stats_error_handler_is_defined_before_stats_bootstrap():
+    assert "window.apiErrorToast = window.apiErrorToast || function" in APP_INIT
+
+
 def test_spa_routes_accept_head_requests_for_hosting_probes():
     assert '@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)' in APP_INIT
     assert '@app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)' in APP_INIT

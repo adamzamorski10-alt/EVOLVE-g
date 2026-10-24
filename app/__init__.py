@@ -177,6 +177,12 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
 
     evolve_shell_integration = """<script id="evolve-my-day-shell-integration">
 (function () {
+  window.apiErrorToast = window.apiErrorToast || function (error, context) {
+    var status = error && error.status ? " (" + error.status + ")" : "";
+    var message = error && error.message ? error.message : "Nie udało się pobrać danych.";
+    console.warn("[EVOLVE] " + (context || "API") + status + ": " + message);
+  };
+
   function escapeHtml(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
       return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}[char];
