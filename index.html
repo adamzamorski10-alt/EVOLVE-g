@@ -8473,8 +8473,11 @@
     function showTabFromHash() {
       const tabId = decodeURIComponent(window.location.hash.replace(/^#/, ''));
       if (!tabId || !document.getElementById('tab-' + tabId)) return;
-      // Deep links such as /app#my-day must enter the authenticated dashboard,
-      // not leave the user on the public landing page.
+      // Deep links must not bypass authentication.
+      if (!localStorage.getItem('fitai_token')) {
+        if (typeof openAuthModal === 'function') openAuthModal('login');
+        return;
+      }
       if (typeof enterDashboard === 'function') {
         enterDashboard();
         showTab(tabId);
