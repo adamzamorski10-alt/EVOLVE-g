@@ -35,10 +35,9 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
-from sqlalchemy.orm import relationship
 from sqlalchemy import text as _text
 from sqlalchemy import func as _sa_func
-from sqlmodel import Field, Relationship, Session, SQLModel, create_engine, select
+from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 logger = logging.getLogger(__name__)
 
@@ -294,6 +293,7 @@ def get_session():
 
 class UserDB(SQLModel, table=True):
     __tablename__ = "users"
+    __table_args__ = {"extend_existing": True}
 
     id: Optional[str] = Field(
         default_factory=lambda: str(_uuid_mod.uuid4()),
@@ -344,24 +344,13 @@ class UserDB(SQLModel, table=True):
     total_xp: int = 0                                  # łączne punkty XP
     injuries: str = ""                                 # przecinkowy string: "kolano lewe,bark"
     last_weight_change: float = 0.0                    # delta wagi wzgl. poprzedniego wpisu [kg]
+    # ─── Rozszerzony profil sportowy (v3.1) ─────────────────────────────────────
+    basketball_position: Optional[str] = None           # "PG", "SG", "SF", "PF", "C"
+    training_experience: Optional[str] = "intermediate" # "beginner"|"intermediate"|"advanced"|"elite"
+    equipment: Optional[str] = "gym_full"               # "gym_full"|"gym_free"|"dumbbells"|"bodyweight"|"court"|"hybrid"
+    health_limitations: Optional[str] = None            # pełen tekst ograniczeń zdrowotnych
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
-
-    # ── Relacje ──────────────────────────────────────────────────────────────────
-    logs: list["DailyLogDB"] = Relationship(
-        sa_relationship=relationship(
-            "DailyLogDB",
-            back_populates="user",
-            lazy="select",
-        )
-    )
-    exercise_results: list["ExerciseResultDB"] = Relationship(
-        sa_relationship=relationship(
-            "ExerciseResultDB",
-            back_populates="user",
-            lazy="select",
-        )
-    )
 
     # Helpers
     def get_list(self, field: str) -> list:
@@ -424,6 +413,10 @@ class UserDB(SQLModel, table=True):
             "total_xp": self.total_xp,
             "level": _xp_to_level(self.total_xp),
             "injuries": [i.strip() for i in self.injuries.split(",") if i.strip()],
+            "health_limitations": self.health_limitations or "",
+            "basketball_position": self.basketball_position or "",
+            "training_experience": self.training_experience or "intermediate",
+            "equipment": self.equipment or "gym_full",
             "last_weight_change": self.last_weight_change,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
@@ -432,6 +425,7 @@ class UserDB(SQLModel, table=True):
 
 class DailyLogDB(SQLModel, table=True):
     __tablename__ = "daily_logs"
+    __table_args__ = {"extend_existing": True}
 
     id: Optional[str] = Field(
         default_factory=lambda: str(_uuid_mod.uuid4()),
@@ -457,14 +451,6 @@ class DailyLogDB(SQLModel, table=True):
     photo_path: Optional[str] = None
     eaten_meals_json: str = "[]"
     logged_at: str = Field(default_factory=lambda: datetime.now().isoformat())
-
-    user: "UserDB" = Relationship(
-        sa_relationship=relationship(
-            "UserDB",
-            back_populates="logs",
-            lazy="select",
-        )
-    )
 
     def to_dict(self) -> dict:
         return {
@@ -503,6 +489,7 @@ class DailyLogDB(SQLModel, table=True):
 class ExerciseResultDB(SQLModel, table=True):
     """Historyczne wyniki ćwiczeń – serce systemu progresji."""
     __tablename__ = "exercise_results"
+    __table_args__ = {"extend_existing": True}
 
     id: Optional[str] = Field(
         default_factory=lambda: str(_uuid_mod.uuid4()),
@@ -517,14 +504,6 @@ class ExerciseResultDB(SQLModel, table=True):
     rpe: int = Field(ge=1, le=10)               # 1 = bardzo lekko, 10 = maksymalny wysiłek
     notes: str = ""
     logged_at: str = Field(default_factory=lambda: datetime.now().isoformat())
-
-    user: Optional["UserDB"] = Relationship(
-        sa_relationship=relationship(
-            "UserDB",
-            back_populates="exercise_results",
-            lazy="select",
-        )
-    )
 
     def to_dict(self) -> dict:
         return {
@@ -543,6 +522,7 @@ class ExerciseResultDB(SQLModel, table=True):
 class DrillResultDB(SQLModel, table=True):
     """Wyniki sesji drilli sportowych – serce systemu progresji sportowej."""
     __tablename__ = "drill_results"
+    __table_args__ = {"extend_existing": True}
 
     id: Optional[str] = Field(
         default_factory=lambda: str(_uuid_mod.uuid4()),
@@ -1036,6 +1016,11 @@ class ProfileUpdateRequest(BaseModel):
     allergies: Optional[str] = None
     meals_per_day: Optional[int] = None
     notes: Optional[str] = None
+    # Rozszerzony profil sportowy
+    basketball_position: Optional[str] = None
+    training_experience: Optional[str] = None
+    equipment: Optional[str] = None
+    health_limitations: Optional[str] = None
 
 
 class AppOnboardingRequest(BaseModel):
@@ -3017,6 +3002,15 @@ def app_update_profile(payload: ProfileUpdateRequest, user: UserDB = Depends(get
             db_user.meals_per_day = payload.meals_per_day
         if payload.notes is not None:
             db_user.notes = payload.notes
+        # Rozszerzony profil sportowy
+        if payload.basketball_position is not None:
+            db_user.basketball_position = payload.basketball_position
+        if payload.training_experience is not None:
+            db_user.training_experience = payload.training_experience
+        if payload.equipment is not None:
+            db_user.equipment = payload.equipment
+        if payload.health_limitations is not None:
+            db_user.health_limitations = payload.health_limitations
         
         # Przelicz kalorie i białko jeśli którýkolwiek z parametrów się zmienił
         if should_recalc_macros:

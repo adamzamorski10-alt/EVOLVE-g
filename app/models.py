@@ -109,16 +109,16 @@ class UserDB(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.now)
 
     # ── Relacje ──────────────────────────────────────────────────────────────────
-    logs: list["DailyLogDB"] = Relationship(
+    logs: list["app.models.DailyLogDB"] = Relationship(
         sa_relationship=relationship(
-            "DailyLogDB",
+            "app.models.DailyLogDB",
             back_populates="user",
             lazy="select",
         )
     )
-    exercise_results: list["ExerciseResultDB"] = Relationship(
+    exercise_results: list["app.models.ExerciseResultDB"] = Relationship(
         sa_relationship=relationship(
-            "ExerciseResultDB",
+            "app.models.ExerciseResultDB",
             back_populates="user",
             lazy="select",
         )
@@ -251,9 +251,9 @@ class DailyLogDB(SQLModel, table=True):
     notes: Optional[str] = None              # notatka do dnia
     logged_at: datetime = Field(default_factory=datetime.now)  # Rzeczywisty datetime
 
-    user: "UserDB" = Relationship(
+    user: "app.models.UserDB" = Relationship(
         sa_relationship=relationship(
-            "UserDB",
+            "app.models.UserDB",
             back_populates="logs",
             lazy="select",
         )
@@ -449,9 +449,9 @@ class ExerciseResultDB(SQLModel, table=True):
     notes: str = ""
     logged_at: datetime = Field(default_factory=datetime.now)  # Rzeczywisty datetime
 
-    user: Optional["UserDB"] = Relationship(
+    user: Optional["app.models.UserDB"] = Relationship(
         sa_relationship=relationship(
-            "UserDB",
+            "app.models.UserDB",
             back_populates="exercise_results",
             lazy="select",
         )
@@ -500,9 +500,9 @@ class GoalDB(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.now, index=True)
     updated_at: datetime = Field(default_factory=datetime.now, index=True)
 
-    user: "UserDB" = Relationship(
+    user: "app.models.UserDB" = Relationship(
         sa_relationship=relationship(
-            "UserDB",
+            "app.models.UserDB",
             lazy="select",
         )
     )
@@ -513,6 +513,7 @@ class GoalDB(SQLModel, table=True):
             return value if isinstance(value, dict) else {}
         except (TypeError, json.JSONDecodeError):
             return {}
+
 
 class AdaptivePlanRevisionDB(SQLModel, table=True):
     """Audit trail for user-owned adaptive plan revisions."""
@@ -630,4 +631,3 @@ class AssessmentDB(SQLModel, table=True):
             return value if isinstance(value, dict) else {}
         except (TypeError, json.JSONDecodeError):
             return {}
-
