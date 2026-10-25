@@ -25,7 +25,9 @@ Legenda statusów:
 - [x] **Wykresy nie działają (`initCharts` error)** — Naprawiono: backend obsługuje teraz endpoint `GET /app/stats/{identity_id}`, a catch-all SPA w `app/__init__.py` nie serwuje już HTML dla tras API; frontend sprawdza poprawność Content-Type i przekazuje Bearer token.
 - [ ] **Tailwind CDN w produkcji** — ostrzeżenie w konsoli; docelowo do zastąpienia zbudowanym CSS.
 - [ ] **Uwierzytelnianie** — aplikacja domyślnie pokazuje "Witaj, Użytkowniku!" (mock user). Wymaga weryfikacji flow logowania end-to-end.
+- [~] **Brak tokenu JWT na deep linku `/app#my-day`** — wykryto na produkcji: UI pokazywał dashboard z lokalnym profilem mimo odpowiedzi `401` z chronionych endpointów. Lokalnie dodano blokadę dashboardu i wymuszenie logowania; wymaga wdrożenia oraz ponownej weryfikacji na Renderze.
 - [x] **19 wpisów ćwiczeń usuniętych (`validateVideos`)** — Zweryfikowano: jest to zamierzony filtr wideo atlasu (prunuje wpisy bez adresu wideo do odtwarzacza instruktażowego), a nie błąd bazy ćwiczeń.
+- [x] **Obsługa `HEAD /app`** — routing SPA obsługuje teraz żądania `HEAD`, wymagane przez monitoring, proxy i narzędzia weryfikujące dostępność aplikacji.
 
 ---
 
@@ -75,20 +77,20 @@ Legenda statusów:
 ## 🟡 MODUŁY — Stan vs zamysł
 
 ### Dashboard / TODAY 2.0 (§5.1)
-- [~] **Istnieje** — pokazuje: nagłówek dnia, spójność, wagę, plan, postęp kcal/białko, checklistę zadań
-- [ ] **Karta Trening na dziś**: dynamiczny start treningu bez konieczności szukania w menu
-- [ ] **Karta Koszykówka na dziś**: zastąpienie tekstu *"Brak osobnej sesji na dziś. Domena zostanie podłączona"* rzeczywistym zadaniem koszykarskim (np. 100 rzutów / ball handling)
-- [ ] **Karta Dieta na dziś**: zastąpienie tekstu *"Dane w przygotowaniu"* podsumowaniem zaplanowanych posiłków i makro
-- [ ] **Karta Recovery na dziś**: zastąpienie tekstu *"Brak check-inu"* formularzem szybkiego zapisu snu (godziny) i samopoczucia (1-5) wraz z wyliczoną gotowością (Readiness Score)
-- [ ] Rzeczywisty wskaźnik spójności dnia (Consistency %) wyliczany z wykonanych zadań
+- [x] **Karta Trening na dziś**: dynamiczny start treningu bez konieczności szukania w menu, dynamiczny podgląd zaplanowanych ćwiczeń i statusów (Zaplanowany / W trakcie / Wykonany).
+- [x] **Karta Koszykówka na dziś**: zintegrowany cel rzutowy (50 rzutów), podgląd bilansu oddanych i trafionych rzutów z danego dnia oraz przycisk Szybkiego Shot Trackera (modal Tech Noir).
+- [x] **Karta Dieta na dziś**: podsumowanie kcal i makroskładników (białko, węglowodany, tłuszcze) z paskami postępu live, synchronizacją zaznaczania posiłków w Mój Dzień i backendem `/app/day/today`.
+- [x] **Karta Recovery na dziś**: pełny poranny check-in (5 sygnałów: sen, jakość, energia, zmęczenie, nastrój) zapisywany bezpośrednio do `/app/checkin` z automatycznym przeliczaniem Readiness Score.
+- [x] **Rzeczywisty wskaźnik spójności dnia (Consistency %)**: wyliczany reaktywnie w `updateDayConsistencyScore()` z 4 filarów (dieta, trening siłowy, check-in regeneracji, sesje rzutowe).
+
 
 ### Koszykówka i Rozwój Umiejętności (§5.6)
 - [~] **Katalog drilli istnieje** (wspólny atlas dla wielu sportów)
-- [ ] **Wydzielenie Koszykówki jako priorytetowego modułu sportowego**:
-  - **Moduł Rzutu**: rejestrator prób i trafień (osobiste, 3-point, pull-up jump shot, spot-up) z wyliczaniem % celności
-  - **Moduł Prowadzenia piłki & Finiszu**: drille kontroli piłki, wejścia pod kosz i wykończenia akcji w kontakcie
-  - **Przygotowanie motoryczne pod koszykówkę**: wyskok, pierwszy krok, zmiana kierunku, prewencja urazów kolana/kostki
-  - **Zapis sesji rzutowej do historii**
+- [~] **Wydzielenie Koszykówki jako priorytetowego modułu sportowego**:
+  - [x] **Moduł Rzutu**: szybki rejestrator prób i trafień (osobiste, 3-point, pull-up jump shot, spot-up, mid-range) z wyliczaniem % celności na żywo
+  - [ ] **Moduł Prowadzenia piłki & Finiszu**: drille kontroli piłki, wejścia pod kosz i wykończenia akcji w kontakcie
+  - [ ] **Przygotowanie motoryczne pod koszykówkę**: wyskok, pierwszy krok, zmiana kierunku, prewencja urazów kolana/kostki
+  - [x] **Zapis sesji rzutowej do historii**: bezpośredni zapis do `/app/drill-result` i integracja z historią wyników drilli `/app/drill-history`
 
 ### Odżywianie / Dieta (§5.10)
 - [~] **Istnieje** — biblioteka posiłków, jadłospis, Kuchnia AI
@@ -138,8 +140,8 @@ Legenda statusów:
 - [ ] **Potwierdzić** czy Render deployuje automatycznie z `main`
 - [ ] **Potwierdzić** czy baza danych PostgreSQL jest poprawnie skonfigurowana na Render
 - [ ] **Potwierdzić** trwałość danych — czy dane przeżywają restart serwisu
-- [ ] **Sprawdzić** `render.yaml` — CORS origins nie zawiera `evolve-d2h0.onrender.com`
-- [ ] Naprawić API endpoints które zwracają HTML zamiast JSON
+- [x] **Sprawdzić** `render.yaml` — CORS origins zweryfikowane: zawiera `https://evolve-d2h0.onrender.com` oraz domeny produkcyjne.
+- [x] Naprawić API endpoints które zwracają HTML zamiast JSON — routing w `app/__init__.py` zwraca 404 JSON dla nieistniejących tras API i `/app/stats/{identity_id}` obsługuje poprawnie endpointy statystyk.
 
 ---
 
@@ -153,21 +155,21 @@ Legenda statusów:
 
 ### Etap B — Domknięcie głównego cyklu
 - [ ] Naprawienie błędów JS blokujących inicjalizację
-- [ ] Naprawienie API endpoints (JSON zamiast HTML)
-- [ ] Weryfikacja i naprawa zapisu danych do bazy
-- [ ] Pełny flow treningu: start → seria → zakończenie → historia
-- [ ] Powiązanie dashboardu z rzeczywistymi danymi użytkownika
+- [x] Naprawienie API endpoints (JSON zamiast HTML dla błędnych ścieżek i statystyk)
+- [x] Weryfikacja i naprawa zapisu danych do bazy
+- [x] **Pełny flow treningu: start → seria → zakończenie → historia**: zintegrowany Live Workout Runner w UI (`openLiveWorkoutModal`, stoper odpoczynku, zapis serii w czasie rzeczywistym, finalizacja z RPE i przyznaniem +100 XP) oraz pełna ścieżka API `/app/training/sessions`.
+- [x] Powiązanie dashboardu z rzeczywistymi danymi użytkownika (Today Hub)
 
 ### Etap C — TODAY 2.0
-- [ ] Dashboard pokazuje dzisiejszy zaplanowany trening
-- [ ] Przycisk "Rozpocznij trening" na dashboardzie
-- [ ] Status wykonania planu dnia (rzeczywisty)
-- [ ] Gotowość do treningu na podstawie danych
+- [x] Dashboard pokazuje dzisiejszy zaplanowany trening (pobierany z Decision Engine i planu)
+- [x] Przycisk "Rozpocznij trening" na dashboardzie (`window.evolveStartTraining`) uruchamiający sesję live
+- [x] Status wykonania planu dnia (rzeczywisty — dieta, siłownia, rzuty, check-in)
+- [x] Gotowość do treningu na podstawie danych (Readiness Score)
 
 ### Etap D — Profil i planowanie
-- [ ] Uzupełnienie profilu (sprzęt, harmonogram, ograniczenia, doświadczenie)
-- [ ] Ocena początkowa (Assessment) jako osobny moduł
-- [ ] Plan kroczący powiązany z profilem
+- [x] **Uzupełnienie profilu** (sprzęt, pozycja koszykarska, ograniczenia zdrowotne, doświadczenie treningowe): zintegrowane w zakładce Profil (Dane) w UI, obsłużone w API (`PUT /app/profile`, `GET /app/profile`), zmigrowana baza (`evolve26sportprofile`) i dodane automatyczne testy E2E.
+- [x] **Ocena początkowa (Assessment) jako osobny moduł**: zintegrowana dedykowana zakładka `#tab-assessment` w SPA (`Performance OS -> 7. Assessment & Baza`), weryfikacja gotowości przed generowaniem planu, wersjonowanie bazy wyjściowej (v1, v2...) i pełny audit trail w API `/app/assessment`.
+- [x] **Plan kroczący powiązany z profilem**: plan deterministyczny i 7–14 dniowy horyzont kroczący (`rolling_plan`) uwzględniający profil sprzętowy (`equipment`), ograniczenia zdrowotne (`health_limitations`) oraz specjalizację pozycji koszykarskiej (`basketball_position`), z automatyczną detekcją zmian profilu (`profile_stale`) w `/app/plan/readiness`.
 
 ### Etap E — Postępy
 - [ ] Naprawienie wykresów (API JSON)
