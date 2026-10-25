@@ -182,6 +182,16 @@ For every future implementation stage:
 | EV-008 | 2+ | Local automated regression | PENDING |
 | EV-023 | 8E | Production Progress → Adaptation loop | PASS |
 
+## EV-024 — Shared shell accessibility and responsive smoke check
+
+- **Status:** PENDING
+- **Owner:** External browser verification
+- **Verified code scope:** visible keyboard focus states, reduced-motion handling
+  and accessible labels for icon-only close controls.
+- **Required evidence:** desktop and mobile screenshots, keyboard Tab traversal,
+  modal close interaction, and a reduced-motion browser preference check.
+- **Do not mark PASS from static inspection or local tests alone.**
+
 
 ## Deferred verification note — 2026-10-03
 

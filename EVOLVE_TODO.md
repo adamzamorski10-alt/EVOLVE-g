@@ -1,6 +1,6 @@
 # EVOLVE — Lista zadań i śledzenie postępów
 
-**Ostatni audyt:** 2026-10-22 (audyt fizyczny live potwierdzony — instancja Render działa, baza connected)  
+**Ostatni audyt:** 2026-10-25 (stan repozytorium po audycie funkcjonalnym i poprawkach dostępności)
 **Wdrożona koncepcja:** 7 Filarów Performance OS (ZAMYSŁ_EVOLVE §6.2)  
 **Aplikacja:** https://evolve-d2h0.onrender.com/app#my-day  
 **Repozytorium:** https://github.com/adamzamorski10-alt/EVOLVE-g  
@@ -15,17 +15,15 @@ Legenda statusów:
 
 ## 🔴 KRYTYCZNE — Błędy blokujące lub psujące działanie
 
-> **Potwierdzone błędy konsoli z audytu 2026-10-21:**
-> 1. `Tailwind CDN warning` — CDN użyty w produkcji zamiast zbudowanego CSS
-> 2. `loadInitialData fetch error: Cannot read properties of undefined (reading 'name')` — aplikacja odpada na embedded fallback data
-> 3. `initCharts error: SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON` — API endpoint zwraca HTML (404/500) zamiast JSON
+> **Stan po audycie 2026-10-25:** błędy inicjalizacji danych i tras API są naprawione.
+> Pozostało zastąpienie Tailwind CDN zbudowanym CSS oraz ponowna weryfikacja
+> produkcyjna w przeglądarce.
 
 - [x] **Backend API nie odpowiada poprawnie** — Naprawiono: `API_BASE` w `index.html` skierowany na właściwy backend na tym samym originie (zamiast starego wygasłego URL).
 - [x] **loadInitialData naprawione** — Usunięto błąd składni (pusty slot przez podwójny przecinek) w `fitai_seed_data.js`, dodano defensywne sprawdzanie obiektów w `_deduplicateByName` i `_preScanInline` oraz absolutną ścieżkę `/fitai_seed_data.js`.
 - [x] **Wykresy nie działają (`initCharts` error)** — Naprawiono: backend obsługuje teraz endpoint `GET /app/stats/{identity_id}`, a catch-all SPA w `app/__init__.py` nie serwuje już HTML dla tras API; frontend sprawdza poprawność Content-Type i przekazuje Bearer token.
 - [ ] **Tailwind CDN w produkcji** — ostrzeżenie w konsoli; docelowo do zastąpienia zbudowanym CSS.
-- [ ] **Uwierzytelnianie** — aplikacja domyślnie pokazuje "Witaj, Użytkowniku!" (mock user). Wymaga weryfikacji flow logowania end-to-end.
-- [~] **Brak tokenu JWT na deep linku `/app#my-day`** — wykryto na produkcji: UI pokazywał dashboard z lokalnym profilem mimo odpowiedzi `401` z chronionych endpointów. Lokalnie dodano blokadę dashboardu i wymuszenie logowania; wymaga wdrożenia oraz ponownej weryfikacji na Renderze.
+- [x] **Uwierzytelnianie i deep linki** — dashboard respektuje JWT, odrzuca nieaktualne tokeny i nie renderuje chronionych danych po odpowiedzi `401`.
 - [x] **19 wpisów ćwiczeń usuniętych (`validateVideos`)** — Zweryfikowano: jest to zamierzony filtr wideo atlasu (prunuje wpisy bez adresu wideo do odtwarzacza instruktażowego), a nie błąd bazy ćwiczeń.
 - [x] **Obsługa `HEAD /app`** — routing SPA obsługuje teraz żądania `HEAD`, wymagane przez monitoring, proxy i narzędzia weryfikujące dostępność aplikacji.
 
@@ -34,27 +32,23 @@ Legenda statusów:
 ## 🟠 GŁÓWNY CYKL — Profil → Ocena → Plan → Realizacja → Historia → Analiza (Etap B zamysłu)
 
 ### Profil użytkownika (§5.2, §5.3)
-- [~] Ekran Profil **istnieje** — pokazuje edycję danych, kalkulator makro (BMR, TDEE), cele kaloryczne
-- [ ] Dodać pole: **Dostępny sprzęt** (Pełna siłownia, Hantle/Kettle, Drążek, Piłka do koszykówki, Dostęp do kosza)
-- [ ] Dodać pole: **Dostępność w tygodniu / Harmonogram** (dni na siłownię, dni na koszykówkę, czas trwania sesji)
-- [ ] Dodać pole: **Pozycja sportowa w koszykówce** (PG - Rozgrywający, SG - Rzucający, SF - Niski skrzydłowy, PF - Silny skrzydłowy, C - Środkowy)
-- [ ] Dodać pole: **Ograniczenia zdrowotne / kontuzje** (kolana, stawy skokowe, bark, plecy)
-- [ ] Dodać pole: **Doświadczenie treningowe** (początkujący, średniozaawansowany, zaawansowany)
-- [ ] Weryfikacja zapisu i odczytu rozszerzonego profilu z bazy PostgreSQL
+- [x] Ekran Profil — edycja danych, kalkulator makro (BMR, TDEE) i cele kaloryczne
+- [x] Profil planistyczny — sprzęt, harmonogram, pozycja koszykarska, ograniczenia zdrowotne i doświadczenie
+- [x] Serializacja, `GET/PUT /app/profile`, migracja `evolve26sportprofile` i testy workflow
 
 ### Ocena początkowa (Initial Assessment / Baseline) (§5.2)
-- [ ] **Dodać moduł „Ocena początkowa” do nawigacji bocznej** (brak w obecnym UI)
+- [x] **Moduł „Ocena początkowa”** — dedykowana zakładka, wersjonowanie i audit trail
 - [ ] Formularz testów bazowych:
   - **Skuteczność rzutu**: próby i trafienia (rzuty osobiste, rzuty z dystansu z 5 pozycji)
   - **Wyskok dosiężny (Vertical Jump)**: wynik w cm (z miejsca i z nabiegu)
   - **Szybkość i zmiana kierunku**: test wahadłowy / lane agility
   - **Siła bazowa**: test wyciskania / przysiadu / podciągania
-- [ ] Zapis wyników oceny początkowej w bazie jako punkt odniesienia do późniejszej analizy postępów
+- [x] Zapis wyników oceny początkowej w bazie jako punkt odniesienia do późniejszej analizy postępów
 
 ### Plan treningowy i adaptacja (§5.4)
-- [~] Ekran Trening pokazuje tygodniowy harmonogram i listę ćwiczeń
-- [ ] Dynamiczne powiązanie planu z wybranym sprzętem i dniami z Profilu
-- [ ] Mechanizm "plan kroczący na 1–2 tygodnie"
+- [x] Ekran Trening pokazuje tygodniowy harmonogram i listę ćwiczeń
+- [x] Plan uwzględnia sprzęt, ograniczenia zdrowotne, dni treningowe i pozycję koszykarską
+- [x] Mechanizm planu kroczącego na 7–14 dni z readiness/provenance i `profile_stale`
 - [ ] Bezpieczna progresja obciążeń (sugestia ciężaru na bazie poprzedniej sesji i RPE)
 - [ ] Możliwość adaptacji planu (zmęczenie po meczu koszykarskim, brak czasu -> wersja skrócona)
 

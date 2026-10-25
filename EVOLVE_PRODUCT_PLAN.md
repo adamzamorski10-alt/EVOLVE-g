@@ -503,6 +503,34 @@ PROFILE → ASSESSMENT → PLAN → TODAY → TRAINING EXECUTION.
 - **Core Loop hardening:** connect assessment/profile constraints more deeply to plan selection (availability, equipment and basketball specialization) without breaking the existing deterministic generator.
 - Then continue with **History + Progress → rolling 1–2 week planning → basketball development → recovery → nutrition**.
 
+## 15. Current Delivery Checkpoint — 2026-10-25
+
+### DONE SINCE THE PREVIOUS CHECKPOINT
+- Profile planning inputs are complete: equipment, health limitations, basketball
+  position, training experience and schedule are persisted and serialized.
+- Assessment is a versioned, user-scoped baseline with readiness gating and audit
+  history.
+- Deterministic rolling planning consumes profile constraints and exposes
+  provenance; profile changes are detected through `profile_stale`.
+- Today Hub, live training execution, Progress aggregations and the
+  Progress → adaptation → next-plan loop are covered by automated regression and
+  production verification.
+- Dashboard authentication now blocks unauthenticated deep links and rejects
+  stale JWT sessions.
+- The shared shell has baseline keyboard focus states and reduced-motion support.
+
+### CURRENT FOCUS
+- Replace the production Tailwind CDN with a built CSS pipeline.
+- Complete real-browser verification for the remaining external verification
+  queue, especially responsive Today, Training and Progress flows.
+- Improve History and measurable Goals as the next product-facing scope.
+
+### NEXT IMPLEMENTATION ORDER
+1. Finish the frontend delivery audit without mixing unrelated legacy changes.
+2. Add built CSS and verify production asset loading.
+3. Close external browser/runtime verification items.
+4. Implement measurable Goals and richer History views.
+
 
 ## Stage 5A — Nutrition Foundation Checkpoint — 2026-10-03
 
