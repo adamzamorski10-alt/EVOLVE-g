@@ -56,6 +56,18 @@ def test_shared_shell_contains_native_my_day_injection():
         assert marker in APP_INIT, f"Missing Mój dzień shell marker: {marker}"
 
 
+def test_my_day_loader_supports_legacy_shell_identifiers():
+    required = [
+        'var get = function (primary, fallback)',
+        'get("myDayWorkout", "myDayTrainingTitle")',
+        'get("myDayPlanMeta", "myDayTrainingMeta")',
+        'get("myDayStartLink", "myDayStart")',
+        'get("myDaySessionBar", "myDaySessionProgressBar")',
+    ]
+    for marker in required:
+        assert marker in APP_INIT, f"Missing legacy Today Hub compatibility marker: {marker}"
+
+
 def test_my_day_removes_standalone_today_dependency_from_navigation():
     assert "id=\"nav-my-day\"" in APP_INIT
     assert "/app/training/today-ui" not in APP_INIT
