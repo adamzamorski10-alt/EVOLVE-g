@@ -260,6 +260,9 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
   var myDayLoadSequence = 0;
 
   window.loadEvolveMyDay = async function () {
+    var get = function (primary, fallback) {
+      return document.getElementById(primary) || (fallback ? document.getElementById(fallback) : null);
+    };
     var exercisesEl = document.getElementById("myDayExercises");
     if (!exercisesEl) return;
     var requestId = ++myDayLoadSequence;
@@ -272,8 +275,10 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
 
     var token = localStorage.getItem("fitai_token");
     if (!token) {
-      document.getElementById("myDayWorkout").textContent = "Zaloguj się, aby zobaczyć dzisiejszy plan";
-      document.getElementById("myDayPlanMeta").textContent = "Dane treningowe są chronione przez uwierzytelnienie.";
+      var unauthWorkout = get("myDayWorkout", "myDayTrainingTitle");
+      var unauthMeta = get("myDayPlanMeta", "myDayTrainingMeta");
+      if (unauthWorkout) unauthWorkout.textContent = "Zaloguj się, aby zobaczyć dzisiejszy plan";
+      if (unauthMeta) unauthMeta.textContent = "Dane treningowe są chronione przez uwierzytelnienie.";
       exercisesEl.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center;">Brak aktywnej sesji użytkownika.</div>';
       return;
     }
@@ -287,40 +292,54 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
       if (requestId !== myDayLoadSequence) return;
       if (!response.ok) throw new Error(data.detail || "Nie udało się pobrać danych Mój dzień");
 
-      document.getElementById("myDayDate").textContent = data.workout && data.workout.day_label ? data.workout.day_label + ", " + data.date : (data.date || "—");
+      var dateEl = document.getElementById("myDayDate");
+      if (dateEl) dateEl.textContent = data.workout && data.workout.day_label ? data.workout.day_label + ", " + data.date : (data.date || "—");
       var action = data.primary_action || {};
       var explanation = data.explanation || {};
-      document.getElementById("myDayActionTitle").textContent = action.title || data.status || "—";
-      document.getElementById("myDayActionText").textContent = action.instruction || "—";
-      document.getElementById("myDayActionWhy").textContent = explanation.text || "—";
+      var actionTitle = document.getElementById("myDayActionTitle");
+      var actionText = document.getElementById("myDayActionText");
+      var actionWhy = document.getElementById("myDayActionWhy");
+      if (actionTitle) actionTitle.textContent = action.title || data.status || "—";
+      if (actionText) actionText.textContent = action.instruction || "—";
+      if (actionWhy) actionWhy.textContent = explanation.text || "—";
       var workout = data.workout || {};
-      document.getElementById("myDayWorkout").textContent = workout.has_workout ? "Trening zaplanowany" : "Dzień bez treningu";
-      document.getElementById("myDayPlanMeta").textContent = workout.plan
+      var workoutTitle = get("myDayWorkout", "myDayTrainingTitle");
+      var planMeta = get("myDayPlanMeta", "myDayTrainingMeta");
+      if (workoutTitle) workoutTitle.textContent = workout.has_workout ? "Trening zaplanowany" : "Dzień bez treningu";
+      if (planMeta) planMeta.textContent = workout.plan
         ? ((workout.plan.source === "adaptive" ? "Plan adaptacyjny" : "Plan bazowy") + (workout.plan.version ? " · wersja " + workout.plan.version : ""))
         : (workout.message || "Brak metadanych planu");
 
       var session = workout.session || {};
       var pct = Math.max(0, Math.min(100, Number(session.completion_pct || 0)));
-      document.getElementById("myDaySessionProgress").textContent = Math.round(pct) + "%";
-      document.getElementById("myDaySessionMeta").textContent = session.id
+      var sessionProgress = get("myDaySessionProgress", "myDaySessionStatus");
+      var sessionMeta = get("myDaySessionMeta", "myDaySessionFraction");
+      var sessionBar = get("myDaySessionBar", "myDaySessionProgressBar");
+      if (sessionProgress && sessionProgress.id === "myDaySessionProgress" && sessionProgress.querySelector) {
+        sessionProgress.classList.remove("hidden");
+      } else if (sessionProgress) {
+        sessionProgress.textContent = Math.round(pct) + "%";
+      }
+      if (sessionMeta) sessionMeta.textContent = session.id
         ? (session.completed_sets || 0) + " / " + (session.planned_sets || 0) + " serii"
         : "Brak aktywnej sesji";
-      document.getElementById("myDaySessionBar").style.width = pct + "%";
+      if (sessionBar) sessionBar.style.width = pct + "%";
 
-      var startLink = document.getElementById("myDayStartLink");
+      var startLink = get("myDayStartLink", "myDayStart");
       var canStartTraining = Boolean((data.primary_action || {}).can_start || session.id);
-      startLink.textContent = session.id ? "Wznów trening" : (workout.has_workout ? "Rozpocznij trening" : "Brak treningu");
-      if (canStartTraining) {
+      if (startLink) startLink.textContent = session.id ? "Wznów trening" : (workout.has_workout ? "Rozpocznij trening" : "Brak treningu");
+      if (startLink && canStartTraining) {
         startLink.href = "/app/training/session-ui";
         startLink.removeAttribute("aria-disabled");
         startLink.classList.remove("btn-ghost");
-      } else {
+      } else if (startLink) {
         startLink.removeAttribute("href");
         startLink.setAttribute("aria-disabled", "true");
         startLink.classList.add("btn-ghost");
       }
 
-      document.getElementById("myDayExerciseCount").textContent = (workout.exercises || []).length + " ćwiczeń";
+      var exerciseCount = document.getElementById("myDayExerciseCount");
+      if (exerciseCount) exerciseCount.textContent = (workout.exercises || []).length + " ćwiczeń";
       if (!workout.has_workout) {
         exercisesEl.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center;">Brak zaplanowanego treningu na dziś.</div>';
         return;
@@ -338,10 +357,14 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
     } catch (error) {
       if (requestId !== myDayLoadSequence) return;
       var statusEl = document.getElementById("myDayStatus");
-      statusEl.className = "alert alert-warn";
-      statusEl.textContent = "⚠️ " + error.message;
-      document.getElementById("myDayWorkout").textContent = "Nie udało się pobrać planu";
-      document.getElementById("myDayPlanMeta").textContent = "Spróbuj ponownie po chwili.";
+      if (statusEl) {
+        statusEl.className = "alert alert-warn";
+        statusEl.textContent = "⚠️ " + error.message;
+      }
+      var errorWorkout = get("myDayWorkout", "myDayTrainingTitle");
+      var errorMeta = get("myDayPlanMeta", "myDayTrainingMeta");
+      if (errorWorkout) errorWorkout.textContent = "Nie udało się pobrać planu";
+      if (errorMeta) errorMeta.textContent = "Spróbuj ponownie po chwili.";
       exercisesEl.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center;">Błąd ładowania danych.</div>';
     }
   };
