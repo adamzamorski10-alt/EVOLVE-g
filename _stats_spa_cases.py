@@ -505,5 +505,3 @@ def test_progress_hub_strength_shooting_goals_and_tests():
     assert goal["target_value"] == 100.0
     assert goal["current_value"] == 90.0
     assert goal["progress_pct"] == 50.0
-
-
