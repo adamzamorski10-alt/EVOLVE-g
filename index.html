@@ -5519,8 +5519,29 @@
               </div>
             </div>
             <div id="postepyStrengthGrid" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div class="p-4 rounded-xl text-xs text-gray-500 italic" style="background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.08);">
+              <div class="p-4 rounded-xl text-xs text-gray-500 italic col-span-full" style="background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.08);">
                 Zaloguj serie treningowe w Live Workout Runnerze, aby zobaczyć progresję siły.
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Historia Ukończonych Treningów (Live Sessions Log) ── -->
+          <div class="glass p-5 rounded-2xl" id="postepyTrainingHistoryWrap">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2.5">
+                <span class="text-xl">📜</span>
+                <div>
+                  <h2 class="font-extrabold text-white text-base" style="font-family:'Syne',sans-serif;">Historia Ukończonych Treningów</h2>
+                  <p class="text-xs mt-0.5" style="color:var(--muted);">Rejestr sesji z Live Workout Runnera, serie, obciążenia i RPE</p>
+                </div>
+              </div>
+              <span id="postepySessionsCountBadge" class="px-2.5 py-1 rounded-xl text-xs font-bold" style="background:rgba(124,58,237,0.15);color:#a78bfa;border:1px solid rgba(124,58,237,0.3);">
+                0 sesji
+              </span>
+            </div>
+            <div id="postepyTrainingSessionsList" class="space-y-3">
+              <div class="p-4 rounded-xl text-xs text-gray-500 italic" style="background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.08);">
+                Brak zarejestrowanych sesji. Ukończ trening w Live Workout Runnerze na dashboardzie.
               </div>
             </div>
           </div>
@@ -24868,6 +24889,7 @@
       _pcRenderShootingStats(data);
       _pcRenderGoals(data);
       _pcRenderAssessmentHistory(data);
+      _pcRenderTrainingSessionHistory();
     }
 
     function _pcRenderWeight(data) {
@@ -25263,6 +25285,141 @@
         card.appendChild(metrics);
         container.appendChild(card);
       });
+    }
+
+    async function _pcRenderTrainingSessionHistory() {
+      const container = document.getElementById('postepyTrainingSessionsList');
+      const badge = document.getElementById('postepySessionsCountBadge');
+      if (!container) return;
+      const token = localStorage.getItem('fitai_token');
+      if (!token) return;
+
+      try {
+        const base = (typeof API_BASE !== 'undefined') ? API_BASE : '';
+        const res = await fetch(base + '/app/training/sessions/history?limit=20', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const sessions = data.sessions || [];
+
+        if (badge) badge.textContent = sessions.length + ' sesji';
+
+        if (!sessions.length) {
+          container.innerHTML = '<div class="p-4 rounded-xl text-xs text-gray-500 italic" style="background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.08);">'
+            + 'Brak zarejestrowanych sesji. Ukończ trening w Live Workout Runnerze na dashboardzie.'
+            + '</div>';
+          return;
+        }
+
+        container.innerHTML = '';
+        sessions.forEach(sess => {
+          const card = document.createElement('div');
+          card.className = 'p-4 rounded-xl transition-all border border-white/5 hover:border-cyan-500/30';
+          card.style.background = 'rgba(255,255,255,0.03)';
+
+          const header = document.createElement('div');
+          header.className = 'flex items-center justify-between flex-wrap gap-2 mb-2';
+
+          const titleBox = document.createElement('div');
+          titleBox.className = 'flex items-center gap-2';
+          const icon = document.createElement('span');
+          icon.textContent = '🏋️';
+          const title = document.createElement('h4');
+          title.className = 'font-bold text-white text-sm';
+          title.style.fontFamily = "'Syne',sans-serif";
+          title.textContent = sess.session_date || 'Trening';
+          titleBox.appendChild(icon);
+          titleBox.appendChild(title);
+
+          const badgeBox = document.createElement('div');
+          badgeBox.className = 'flex items-center gap-2 text-xs';
+          const rpeBadge = document.createElement('span');
+          rpeBadge.className = 'px-2 py-0.5 rounded-lg font-bold';
+          rpeBadge.style.cssText = 'background:rgba(124,58,237,0.15);color:#a78bfa;border:1px solid rgba(124,58,237,0.3);';
+          rpeBadge.textContent = 'RPE ' + (sess.final_rpe || 7);
+
+          const complBadge = document.createElement('span');
+          complBadge.className = 'px-2 py-0.5 rounded-lg font-bold';
+          complBadge.style.cssText = 'background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.25);';
+          complBadge.textContent = (sess.completed_sets || 0) + '/' + (sess.planned_sets || sess.completed_sets || 0) + ' serii (' + (sess.completion_pct || 100) + '%)';
+
+          const toggleBtn = document.createElement('button');
+          toggleBtn.type = 'button';
+          toggleBtn.className = 'px-2 py-0.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-cyan-400 transition-colors';
+          toggleBtn.style.cssText = 'background:rgba(255,255,255,0.05);';
+          toggleBtn.textContent = 'Rozwiń ▼';
+
+          badgeBox.appendChild(rpeBadge);
+          badgeBox.appendChild(complBadge);
+          badgeBox.appendChild(toggleBtn);
+          header.appendChild(titleBox);
+          header.appendChild(badgeBox);
+
+          const details = document.createElement('div');
+          details.className = 'text-xs text-gray-400 mt-1';
+          const exList = (sess.exercises || []).join(', ') || 'Ćwiczenia ogólnorozwojowe';
+          details.textContent = 'Ćwiczenia: ' + exList;
+
+          if (sess.notes) {
+            const notesEl = document.createElement('p');
+            notesEl.className = 'text-xs text-gray-500 italic mt-1';
+            notesEl.textContent = 'Notatki: ' + sess.notes;
+            details.appendChild(notesEl);
+          }
+
+          const setsWrap = document.createElement('div');
+          setsWrap.className = 'mt-3 pt-3 border-t border-white/5 hidden space-y-1.5';
+
+          toggleBtn.addEventListener('click', async () => {
+            if (!setsWrap.classList.contains('hidden')) {
+              setsWrap.classList.add('hidden');
+              toggleBtn.textContent = 'Rozwiń ▼';
+              return;
+            }
+            toggleBtn.textContent = 'Zwiń ▲';
+            setsWrap.classList.remove('hidden');
+            if (setsWrap.dataset.loaded) return;
+
+            setsWrap.innerHTML = '<span class="text-xs text-gray-500">Ładowanie serii…</span>';
+            try {
+              const dRes = await fetch(base + '/app/training/sessions/history/' + encodeURIComponent(sess.session_id), {
+                headers: { 'Authorization': 'Bearer ' + token }
+              });
+              if (!dRes.ok) throw new Error('Błąd szczegółów');
+              const dData = await dRes.json();
+              const sets = dData.sets || [];
+              if (!sets.length) {
+                setsWrap.innerHTML = '<span class="text-xs text-gray-500 italic">Brak zapisanych pojedynczych serii dla tej sesji.</span>';
+                return;
+              }
+              setsWrap.innerHTML = '';
+              const grid = document.createElement('div');
+              grid.className = 'grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs';
+              sets.forEach(s => {
+                const sBox = document.createElement('div');
+                sBox.className = 'p-2 rounded-lg';
+                sBox.style.cssText = 'background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);';
+                sBox.innerHTML = '<span class="font-bold text-gray-300 block truncate">' + (s.exercise_name || s.exercise_key) + '</span>'
+                  + '<span class="text-cyan-400 font-extrabold">S' + s.set_number + ': ' + s.actual_weight_kg + 'kg × ' + s.actual_reps + '</span>'
+                  + '<span class="text-gray-500 block text-[10px]">RPE ' + (s.actual_rpe || 7) + '</span>';
+                grid.appendChild(sBox);
+              });
+              setsWrap.appendChild(grid);
+              setsWrap.dataset.loaded = 'true';
+            } catch (err) {
+              setsWrap.innerHTML = '<span class="text-xs text-red-400">Nie udało się pobrać szczegółów.</span>';
+            }
+          });
+
+          card.appendChild(header);
+          card.appendChild(details);
+          card.appendChild(setsWrap);
+          container.appendChild(card);
+        });
+      } catch (err) {
+        console.warn('[FitAI] Błąd pobierania historii sesji', err);
+      }
     }
 
     // Monkey-patch initCharts() żeby zawsze wywoływać renderProgressCharts

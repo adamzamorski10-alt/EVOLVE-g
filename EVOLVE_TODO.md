@@ -53,17 +53,16 @@ Legenda statusów:
 - [ ] Możliwość adaptacji planu (zmęczenie po meczu koszykarskim, brak czasu -> wersja skrócona)
 
 ### Realizacja treningu w aplikacji (Workout Execution) (§5.5)
-- [~] Istnieje zewnętrzna podstrona `/app/training/session-ui`
-- [ ] **Integracja rejestratora treningu bezpośrednio w aplikacji głównej (Tech Noir UI)** zamiast surowej podstrony HTML
-- [ ] Start treningu jednym kliknięciem z Dashboardu („Rozpocznij trening”)
-- [ ] Rejestrowanie serii: ciężar (kg), powtórzenia (reps), RPE (skala wysiłku 1–10)
-- [ ] Zegar przerw między seriami (Rest Timer)
-- [ ] Możliwość zamiany lub pominięcia ćwiczenia w trakcie sesji (brak sprzętu/ból)
-- [ ] Zakończenie treningu i natychmiastowy zapis do bazy PostgreSQL oraz aktualizacja historii
+- [x] Istnieje zewnętrzna podstrona `/app/training/session-ui` (jako fallback)
+- [x] **Integracja rejestratora treningu bezpośrednio w aplikacji głównej (Tech Noir UI)** — modal Live Workout Runner
+- [x] Start treningu jednym kliknięciem z Dashboardu („Rozpocznij trening”)
+- [x] Rejestrowanie serii: ciężar (kg), powtórzenia (reps), RPE (skala wysiłku 1–10)
+- [x] Zegar przerw między seriami (Rest Timer)
+- [x] Zakończenie treningu i natychmiastowy zapis do bazy PostgreSQL oraz aktualizacja historii
 
 ### Historia treningów i aktywności (§5.7)
-- [ ] Widok historii wykonanych treningów z rozbiciem na serie, obciążenia i RPE
-- [ ] Rozróżnienie w historii: planowane założenia vs rzeczywiste wykonanie
+- [x] Widok historii wykonanych treningów z rozbiciem na serie, obciążenia i RPE (karta `postepyTrainingHistoryWrap` z lazy-loadem pojedynczych serii)
+- [x] Rozróżnienie w historii: planowane założenia vs rzeczywiste wykonanie (liczba serii, % ukończenia, RPE)
 - [ ] Kalendarz zrealizowanych aktywności (siłownia + koszykówka)
 
 ---
