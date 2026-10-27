@@ -93,10 +93,10 @@ Legenda statusów:
 - [ ] Zapis i synchronizacja dziennika posiłków z bazą danych użytkownika
 
 ### Recovery & Gotowość do treningu (§5.9)
-- [~] **Istnieje** — ekran Recovery
-- [ ] Formularz porannego check-inu: sen (h), jakość snu (1-5), bolesność mięśni (DOMS), poziom stresu
-- [ ] Algorytm wyliczania gotowości do treningu (Readiness Score 0-100%)
-- [ ] Połączenie wyniku gotowości z rekomendacją treningową na dany dzień (np. przy dużym zmęczeniu sugestia lżejszej sesji)
+- [x] **Dedykowany ekran Recovery (Filar 5)** — zintegrowany z API `/app/recovery/today` oraz `/app/recovery/history`
+- [x] Formularz porannego check-inu: sen (h), jakość snu (1–10), energia, zmęczenie, bolesność mięśni (DOMS), poziom stresu, waga
+- [x] Algorytm wyliczania gotowości do treningu (Readiness Score 0–100%, pierścień SVG, rozbicie sygnałów)
+- [x] Połączenie wyniku gotowości z rekomendacją treningową na dany dzień (Decision Engine z ograniczeniami `reduce_volume_25`, `reduce_volume_50` i blokadą sesji przy stanie regeneracji)
 
 ### Postępy i Cele (§5.8)
 - [x] Naprawiono błąd JSON (`initCharts`) — wykresy renderują się stabilnie

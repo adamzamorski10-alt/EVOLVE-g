@@ -5222,22 +5222,154 @@
       </section>
 
       <!-- ====== TAB: KUCHNIA AI ====== -->
-      <!-- ====== TAB: RECOVERY ====== -->
+      <!-- ====== TAB: RECOVERY (5. Filar Performance OS) ====== -->
       <section id="tab-recovery" class="hidden space-y-6" data-domain="recovery">
-        <div class="glass rounded-3xl p-6 md:p-8">
-          <p class="text-xs font-bold uppercase tracking-[0.18em] mb-2" style="color:var(--cyan);">Daily state</p>
-          <div class="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <h3 class="text-3xl font-extrabold text-white" style="font-family:'Syne',sans-serif;">Recovery 😴</h3>
-              <p class="text-sm text-gray-400 mt-2 max-w-2xl">Centrum regeneracji EVOLVE. Docelowo tutaj będą sen, zmęczenie, soreness, stres, readiness oraz trendy, które wpływają na decyzje treningowe.</p>
+        <!-- Hero card z Readiness Score i statusem -->
+        <div class="glass rounded-3xl p-6 md:p-8 relative overflow-hidden" style="border-color:rgba(124,58,237,0.3);background:radial-gradient(ellipse at top right,rgba(124,58,237,0.12),rgba(10,11,16,0.95));">
+          <div class="flex items-start justify-between gap-6 flex-wrap">
+            <div class="max-w-xl">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs uppercase font-extrabold tracking-wider" style="color:var(--cyan);">Filar 5 · Performance OS</span>
+                <span id="tabRecStatusBadge" class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30">Ładowanie…</span>
+              </div>
+              <h2 class="text-3xl md:text-4xl font-extrabold text-white" style="font-family:'Syne',sans-serif;">Regeneracja & Gotowość</h2>
+              <p id="tabRecMessage" class="text-sm text-gray-300 mt-2 leading-relaxed">
+                Sprawdź stan gotowości układu nerwowo-mięśniowego i dowiedz się, jak Twoja regeneracja wpływa na dzisiejszy trening.
+              </p>
+              <div id="tabRecPlanEffect" class="mt-4 p-3 rounded-xl text-xs font-semibold flex items-center gap-2" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#94a3b8;">
+                <span>💡 Wpływ na plan:</span>
+                <span id="tabRecPlanEffectText" class="text-white">—</span>
+              </div>
             </div>
-            <a href="/app/training/today-ui" class="btn-neon px-5 py-3 rounded-xl text-sm font-bold no-underline">Otwórz Mój dzień →</a>
+
+            <!-- Readiness Ring -->
+            <div class="flex flex-col items-center justify-center p-4 rounded-2xl glass" style="min-width:160px;background:rgba(255,255,255,0.02);border-color:rgba(255,255,255,0.08);">
+              <div class="relative w-28 h-28 flex items-center justify-center">
+                <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8" />
+                  <circle id="tabRecScoreRing" cx="50" cy="50" r="42" fill="none" stroke="url(#recGradTab)" stroke-width="8" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="264" style="transition:stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1);" />
+                  <defs>
+                    <linearGradient id="recGradTab" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#00e5ff" />
+                      <stop offset="100%" stop-color="#a78bfa" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                  <span id="tabRecScoreVal" class="text-3xl font-extrabold text-white" style="font-family:'Syne',sans-serif;">—</span>
+                  <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Readiness</span>
+                </div>
+              </div>
+              <span id="tabRecSignalsCount" class="text-xs text-gray-500 mt-2 font-medium">0/6 sygnałów</span>
+            </div>
           </div>
         </div>
-        <div class="grid md:grid-cols-3 gap-4">
-          <div class="glass rounded-2xl p-5"><p class="text-xs text-gray-500 uppercase tracking-wider">Sen</p><p class="text-2xl font-bold text-white mt-2">—</p><p class="text-xs text-gray-500 mt-1">Źródło danych zostanie podłączone w kolejnym etapie.</p></div>
-          <div class="glass rounded-2xl p-5"><p class="text-xs text-gray-500 uppercase tracking-wider">Gotowość</p><p class="text-2xl font-bold text-white mt-2">—</p><p class="text-xs text-gray-500 mt-1">Będzie zasilać Decision Engine.</p></div>
-          <div class="glass rounded-2xl p-5"><p class="text-xs text-gray-500 uppercase tracking-wider">Trend</p><p class="text-2xl font-bold text-white mt-2">—</p><p class="text-xs text-gray-500 mt-1">Historia pojawi się po wdrożeniu domeny Recovery.</p></div>
+
+        <!-- Główna siatka: Formularz Check-inu + Sygnały -->
+        <div class="grid md:grid-cols-2 gap-6">
+          <!-- Formularz Check-inu -->
+          <div class="glass rounded-3xl p-6" style="border-color:rgba(255,255,255,0.08);">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2">
+                <span class="text-xl">☀️</span>
+                <h3 class="text-lg font-bold text-white" style="font-family:'Syne',sans-serif;">Dzisiejszy Check-in</h3>
+              </div>
+              <span id="tabRecCheckinDate" class="text-xs text-gray-400 font-mono">Dzisiaj</span>
+            </div>
+
+            <form id="tabRecCheckinForm" onsubmit="window.submitEvolveRecoveryTabCheckin(event)" class="space-y-4">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="text-xs text-gray-400 block mb-1 font-semibold">🛌 Sen (godziny)</label>
+                  <input type="number" id="recInpSleep" min="0" max="24" step="0.5" placeholder="np. 7.5"
+                    class="w-full px-3 py-2 rounded-xl text-sm text-white"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);">
+                </div>
+                <div>
+                  <label class="text-xs text-gray-400 block mb-1 font-semibold">⭐ Jakość snu (1–10)</label>
+                  <input type="number" id="recInpSleepQuality" min="1" max="10" placeholder="1-10"
+                    class="w-full px-3 py-2 rounded-xl text-sm text-white"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="text-xs text-gray-400 block mb-1 font-semibold">⚡ Energia (1–10)</label>
+                  <input type="number" id="recInpEnergy" min="1" max="10" placeholder="1-10"
+                    class="w-full px-3 py-2 rounded-xl text-sm text-white"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);">
+                </div>
+                <div>
+                  <label class="text-xs text-gray-400 block mb-1 font-semibold">😫 Zmęczenie (1–10)</label>
+                  <input type="number" id="recInpFatigue" min="1" max="10" placeholder="1-10"
+                    class="w-full px-3 py-2 rounded-xl text-sm text-white"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="text-xs text-gray-400 block mb-1 font-semibold">🧘 Stres (1–10)</label>
+                  <input type="number" id="recInpStress" min="1" max="10" placeholder="1-10"
+                    class="w-full px-3 py-2 rounded-xl text-sm text-white"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);">
+                </div>
+                <div>
+                  <label class="text-xs text-gray-400 block mb-1 font-semibold">💥 Bolesność / DOMS (1–10)</label>
+                  <input type="number" id="recInpSoreness" min="1" max="10" placeholder="1-10"
+                    class="w-full px-3 py-2 rounded-xl text-sm text-white"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);">
+                </div>
+              </div>
+
+              <div>
+                <label class="text-xs text-gray-400 block mb-1 font-semibold">⚖️ Waga poranna (opcjonalnie kg)</label>
+                <input type="number" id="recInpWeight" min="30" max="300" step="0.1" placeholder="np. 78.5"
+                  class="w-full px-3 py-2 rounded-xl text-sm text-white"
+                  style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);">
+              </div>
+
+              <div id="tabRecFeedback" class="hidden text-xs text-center p-2 rounded-xl"></div>
+
+              <button type="submit" id="btnSaveRecCheckin" class="btn-neon w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2">
+                <span>💾 Zapisz Check-in i przelicz gotowość</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Sygnały i Podsumowanie 14-dniowe -->
+          <div class="space-y-4">
+            <!-- Sygnały gotowości live -->
+            <div class="glass rounded-3xl p-6" style="border-color:rgba(255,255,255,0.08);">
+              <h3 class="text-base font-bold text-white mb-3" style="font-family:'Syne',sans-serif;">Rozbicie sygnałów gotowości</h3>
+              <div id="tabRecSignalsBars" class="space-y-2.5">
+                <p class="text-xs text-gray-500 italic">Brak zapisanych sygnałów na dziś. Uzupełnij check-in.</p>
+              </div>
+            </div>
+
+            <!-- Podsumowanie 14 dni -->
+            <div class="glass rounded-3xl p-6" style="border-color:rgba(255,255,255,0.08);">
+              <h3 class="text-base font-bold text-white mb-3" style="font-family:'Syne',sans-serif;">Historia regeneracji (ostatnie 14 dni)</h3>
+              <div class="grid grid-cols-3 gap-2 mb-4">
+                <div class="p-3 rounded-xl text-center" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
+                  <span class="text-[10px] text-gray-400 block uppercase">Śr. gotowość</span>
+                  <span id="tabRecAvgReadiness" class="text-lg font-bold text-cyan-400 font-mono">—</span>
+                </div>
+                <div class="p-3 rounded-xl text-center" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
+                  <span class="text-[10px] text-gray-400 block uppercase">Dni z check-inem</span>
+                  <span id="tabRecDaysWithData" class="text-lg font-bold text-white font-mono">—</span>
+                </div>
+                <div class="p-3 rounded-xl text-center" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
+                  <span class="text-[10px] text-gray-400 block uppercase">Dni redukcji</span>
+                  <span id="tabRecConstrainedDays" class="text-lg font-bold text-amber-400 font-mono">—</span>
+                </div>
+              </div>
+              <div id="tabRecHistoryList" class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                <p class="text-xs text-gray-500 italic">Ładowanie historii…</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -10563,6 +10695,7 @@
       if (tabId === 'postepy') initCharts();
       if (tabId === 'kuchnia') { kitchenInit(); }
       if (tabId === 'assessment') { if (typeof window.loadEvolveAssessment === 'function') window.loadEvolveAssessment(); }
+      if (tabId === 'recovery') { if (typeof window.loadEvolveRecoveryTab === 'function') window.loadEvolveRecoveryTab(); }
       if (tabId === 'my-day') {
         // Jeśli profil nie ma planu — najpierw zsynchronizuj z backendu
         var _p = (typeof getCurrentProfile === 'function') ? getCurrentProfile() : null;
@@ -30621,6 +30754,204 @@ window.openDayItemSwap = openDayItemSwap;
 
     renderExercises();
     updateProgress();
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Filar 5: Recovery & Gotowość Tab Controller
+  // ─────────────────────────────────────────────────────────────────────────────
+  window.loadEvolveRecoveryTab = async function() {
+    const token = localStorage.getItem('fitai_token');
+    if (!token) return;
+    const base = window.API_BASE || '';
+
+    try {
+      // 1. Pobierz dzisiejszy stan recovery
+      const res = await fetch(base + '/app/recovery/today', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const score = data.readiness_score != null ? Math.round(data.readiness_score) : null;
+        const status = data.status || 'insufficient_data';
+        const msg = data.message || 'Brak danych.';
+        const effect = data.plan_effect || 'Brak modyfikacji planu.';
+        const signals = data.signals || {};
+        const labels = data.signal_labels || {};
+
+        // Score Ring
+        const ring = document.getElementById('tabRecScoreRing');
+        const scoreVal = document.getElementById('tabRecScoreVal');
+        const badge = document.getElementById('tabRecStatusBadge');
+        const msgEl = document.getElementById('tabRecMessage');
+        const effEl = document.getElementById('tabRecPlanEffectText');
+        const cntEl = document.getElementById('tabRecSignalsCount');
+
+        if (scoreVal) scoreVal.textContent = score != null ? score + '%' : '—';
+        if (ring) {
+          const circumference = 2 * Math.PI * 42; // ~264
+          if (score != null) {
+            const offset = circumference - (score / 100) * circumference;
+            ring.style.strokeDashoffset = offset;
+          } else {
+            ring.style.strokeDashoffset = circumference;
+          }
+        }
+
+        if (badge) {
+          if (status === 'ready') {
+            badge.textContent = '🟢 Gotowy do pełnego treningu';
+            badge.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-green-500/20 text-green-300 border border-green-500/30';
+          } else if (status === 'caution') {
+            badge.textContent = '🟡 Ostrożnie · -25% objętości';
+            badge.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30';
+          } else if (status === 'recovery') {
+            badge.textContent = '🔴 Regeneracja · -50% objętości';
+            badge.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-red-500/20 text-red-300 border border-red-500/30';
+          } else {
+            badge.textContent = '⚪ Wymaga check-inu';
+            badge.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-gray-500/20 text-gray-300 border border-gray-500/30';
+          }
+        }
+
+        if (msgEl) msgEl.textContent = msg;
+        if (effEl) effEl.textContent = effect;
+        if (cntEl) cntEl.textContent = (data.signal_count || 0) + '/6 sygnałów';
+
+        // Paski sygnałów
+        const barsEl = document.getElementById('tabRecSignalsBars');
+        if (barsEl) {
+          const sigKeys = Object.keys(signals);
+          if (!sigKeys.length) {
+            barsEl.innerHTML = '<p class="text-xs text-gray-500 italic">Brak zapisanych sygnałów na dziś. Uzupełnij formularz po lewej.</p>';
+          } else {
+            barsEl.innerHTML = sigKeys.map(k => {
+              const val = Math.round(signals[k]);
+              const lbl = labels[k] || k;
+              const color = val >= 70 ? '#4ade80' : (val >= 50 ? '#fbbf24' : '#f87171');
+              return `<div class="text-xs">
+                <div class="flex justify-between mb-1 font-semibold">
+                  <span class="text-gray-300 capitalize">${lbl}</span>
+                  <span style="color:${color};" class="font-bold">${val}%</span>
+                </div>
+                <div class="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+                  <div class="h-1.5 rounded-full transition-all duration-500" style="width:${val}%;background:${color};"></div>
+                </div>
+              </div>`;
+            }).join('');
+          }
+        }
+      }
+
+      // 2. Pobierz 14-dniową historię recovery
+      const hRes = await fetch(base + '/app/recovery/history?days=14', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (hRes.ok) {
+        const hData = await hRes.json();
+        const sum = hData.summary || {};
+        const avgEl = document.getElementById('tabRecAvgReadiness');
+        const daysEl = document.getElementById('tabRecDaysWithData');
+        const constEl = document.getElementById('tabRecConstrainedDays');
+        const listEl = document.getElementById('tabRecHistoryList');
+
+        if (avgEl) avgEl.textContent = sum.average_readiness != null ? sum.average_readiness + '%' : '—';
+        if (daysEl) daysEl.textContent = (sum.days_with_data || 0) + ' / 14 dni';
+        if (constEl) constEl.textContent = (sum.constrained_days || 0) + ' dni';
+
+        if (listEl) {
+          const items = hData.history || [];
+          if (!items.length) {
+            listEl.innerHTML = '<p class="text-xs text-gray-500 italic">Brak historii.</p>';
+          } else {
+            listEl.innerHTML = items.map(it => {
+              const sc = it.readiness_score != null ? Math.round(it.readiness_score) : null;
+              const color = sc == null ? '#64748b' : (sc >= 75 ? '#4ade80' : (sc >= 55 ? '#fbbf24' : '#f87171'));
+              const badgeTxt = it.status === 'missing' ? 'brak' : (it.constraint === 'none' ? 'Ready' : (it.constraint === 'reduce_volume_25' ? 'Caution' : 'Recovery'));
+              return `<div class="p-2 rounded-xl flex items-center justify-between text-xs" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-gray-400">${it.date}</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded font-bold" style="background:rgba(255,255,255,0.05);color:${color};">${badgeTxt}</span>
+                </div>
+                <span class="font-bold font-mono" style="color:${color};">${sc != null ? sc + '%' : '—'}</span>
+              </div>`;
+            }).join('');
+          }
+        }
+      }
+    } catch(err) {
+      console.warn('[FitAI Recovery Tab]', err);
+    }
+  };
+
+  window.submitEvolveRecoveryTabCheckin = async function(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const token = localStorage.getItem('fitai_token');
+    const fb = document.getElementById('tabRecFeedback');
+    const btn = document.getElementById('btnSaveRecCheckin');
+    if (!token) return;
+
+    const sleepH = parseFloat(document.getElementById('recInpSleep')?.value);
+    const sleepQ = parseInt(document.getElementById('recInpSleepQuality')?.value);
+    const energy = parseInt(document.getElementById('recInpEnergy')?.value);
+    const fatigue = parseInt(document.getElementById('recInpFatigue')?.value);
+    const stress = parseInt(document.getElementById('recInpStress')?.value);
+    const soreness = parseInt(document.getElementById('recInpSoreness')?.value);
+    const weight = parseFloat(document.getElementById('recInpWeight')?.value);
+
+    const payload = {};
+    if (!isNaN(sleepH)) payload.sleep_hours = sleepH;
+    if (!isNaN(sleepQ)) payload.sleep_quality = sleepQ;
+    if (!isNaN(energy)) payload.energy_level = energy;
+    if (!isNaN(fatigue)) payload.fatigue_score = fatigue;
+    if (!isNaN(stress)) payload.stress_level = stress;
+    if (!isNaN(soreness)) payload.soreness_level = soreness;
+    if (!isNaN(weight)) payload.weight = weight;
+
+    if (Object.keys(payload).length === 0) {
+      if (fb) {
+        fb.className = 'text-xs text-yellow-400 p-2 rounded-xl block';
+        fb.textContent = 'Uzupełnij przynajmniej jedno pole check-inu.';
+      }
+      return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Zapisywanie…'; }
+
+    try {
+      const base = window.API_BASE || '';
+      const res = await fetch(base + '/app/checkin', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Błąd zapisu check-inu');
+
+      if (fb) {
+        fb.className = 'text-xs text-green-400 p-2 rounded-xl block';
+        fb.textContent = '✓ Check-in zapisany! Gotowość została przeliczona.';
+        setTimeout(() => { if (fb) fb.className = 'hidden'; }, 3000);
+      }
+      if (typeof showToast === 'function') {
+        showToast('✓ Check-in zapisany! Przeliczono Readiness Score 🔥', 'success');
+      }
+
+      // Odśwież dane zakładki Recovery oraz Today Hub
+      window.loadEvolveRecoveryTab();
+      if (typeof window.loadEvolveTodayHub === 'function') {
+        window.loadEvolveTodayHub();
+      }
+    } catch(err) {
+      if (fb) {
+        fb.className = 'text-xs text-red-400 p-2 rounded-xl block';
+        fb.textContent = 'Błąd: ' + err.message;
+      }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '💾 Zapisz Check-in i przelicz gotowość'; }
+    }
   };
 
   document.addEventListener('DOMContentLoaded', function() {
