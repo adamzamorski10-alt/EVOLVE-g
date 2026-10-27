@@ -78,11 +78,11 @@ Legenda statusów:
 
 
 ### Koszykówka i Rozwój Umiejętności (§5.6)
-- [~] **Katalog drilli istnieje** (wspólny atlas dla wielu sportów)
-- [~] **Wydzielenie Koszykówki jako priorytetowego modułu sportowego**:
+- [x] **Katalog drilli istnieje** (wspólny atlas dla wielu sportów z wyróżnieniem koszykówki)
+- [x] **Wydzielenie Koszykówki jako priorytetowego modułu sportowego**:
   - [x] **Moduł Rzutu**: szybki rejestrator prób i trafień (osobiste, 3-point, pull-up jump shot, spot-up, mid-range) z wyliczaniem % celności na żywo
-  - [ ] **Moduł Prowadzenia piłki & Finiszu**: drille kontroli piłki, wejścia pod kosz i wykończenia akcji w kontakcie
-  - [ ] **Przygotowanie motoryczne pod koszykówkę**: wyskok, pierwszy krok, zmiana kierunku, prewencja urazów kolana/kostki
+  - [x] **Moduł Prowadzenia piłki & Finiszu**: drille kontroli piłki, wejścia pod kosz i wykończenia akcji w kontakcie (Finishing & Kontakt)
+  - [x] **Przygotowanie motoryczne pod koszykówkę**: wyskok (max vertical, penultimate step), pierwszy krok, zmiana kierunku (lane agility), prewencja urazów kolana/kostki (drop-landings)
   - [x] **Zapis sesji rzutowej do historii**: bezpośredni zapis do `/app/drill-result` i integracja z historią wyników drilli `/app/drill-history`
 
 ### Odżywianie / Dieta (§5.10)
