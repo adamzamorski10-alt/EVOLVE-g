@@ -2244,37 +2244,178 @@
               <div>
                 <div class="flex items-center justify-between mb-2">
                   <span class="text-xs uppercase font-bold text-cyan-400">🏀 Koszykówka & Motoryka</span>
-                  <span class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">Dzisiejsza sesja</span>
+                  <span id="todayBasketballBadge" class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">Dzisiejsza sesja</span>
                 </div>
                 <h4 class="text-lg font-bold text-white mb-1" style="font-family:'Syne',sans-serif;">Trening rzutowy & handle</h4>
-                <p class="text-xs text-gray-400 mb-4">50 rzutów (osobiste + 3PT) oraz drille prowadzenia piłki</p>
+                <p id="todayBasketballDesc" class="text-xs text-gray-400 mb-2">Cel: 50 rzutów (osobiste + 3PT) oraz drille kontroli piłki</p>
+
+                <!-- Pasek postępu dzisiejszych rzutów -->
+                <div class="mb-4">
+                  <div class="flex justify-between text-xs mb-1">
+                    <span style="color:#94a3b8;">Zalogowano dzisiaj:</span>
+                    <span id="todayBasketballStats" class="font-extrabold text-cyan-400 font-mono">0 / 50 (0%)</span>
+                  </div>
+                  <div class="w-full bg-white/5 rounded-full h-2 overflow-hidden">
+                    <div id="todayBasketballBar" class="h-2 rounded-full transition-all duration-500" style="width:0%;background:linear-gradient(90deg,#00e5ff,#a78bfa);"></div>
+                  </div>
+                </div>
               </div>
-              <button type="button" onclick="showTab('plan'); switchPlanCategory('sport');" class="btn-outline-cyan w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2">
-                <span>🎯 Otwórz Shot Tracker</span>
-              </button>
+
+              <div class="grid grid-cols-2 gap-2 mt-1">
+                <button type="button" onclick="window.openTodayShotTrackerModal()" id="todayOpenShotModalBtn" class="btn-neon py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5">
+                  <span>🎯 Szybki Shot Tracker</span>
+                </button>
+                <button type="button" onclick="showTab('plan'); switchPlanCategory('sport');" class="btn-outline-cyan py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5">
+                  <span>📖 Atlas Drilli</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- Szybki check-in regeneracji (Quick Recovery Pulse) -->
+          <!-- Karta Dieta na dziś -->
+          <div class="glass mt-4 p-5 rounded-2xl" style="border-color:rgba(34,197,94,0.2);background:rgba(34,197,94,0.03);">
+            <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div class="flex items-center gap-2">
+                <span class="text-xs uppercase font-bold text-green-400">🥗 Dieta na dziś</span>
+                <span id="todayDietStatus" class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-green-500/10 text-green-300 border border-green-500/20">Dziennik</span>
+              </div>
+              <button type="button" onclick="showTab('dieta')" class="text-xs text-gray-500 hover:text-green-400 transition-colors font-semibold">→ Otwórz dziennik</button>
+            </div>
+            <!-- Kcal pasek główny -->
+            <div class="mb-3">
+              <div class="flex items-end justify-between mb-1.5">
+                <span class="text-xs text-gray-400 font-semibold">Kalorie</span>
+                <div class="text-right">
+                  <span id="todayHubKcalConsumed" class="text-lg font-black text-white" style="font-family:'Syne',sans-serif;">—</span>
+                  <span id="todayHubKcalTarget" class="text-xs text-gray-500"> / — kcal</span>
+                </div>
+              </div>
+              <div class="w-full rounded-full overflow-hidden" style="height:7px;background:rgba(255,255,255,0.06);">
+                <div id="todayHubKcalBar" class="h-full rounded-full transition-all duration-700" style="width:0%;background:linear-gradient(90deg,#4ade80,#22c55e);"></div>
+              </div>
+            </div>
+            <!-- Makro: białko, węgle, tłuszcz -->
+            <div class="grid grid-cols-3 gap-3 text-xs">
+              <div>
+                <div class="flex justify-between mb-1 font-semibold text-blue-300">
+                  <span>💪 Białko</span>
+                  <span id="todayHubProteinVal">—</span>
+                </div>
+                <div class="w-full rounded-full overflow-hidden" style="height:5px;background:rgba(255,255,255,0.06);">
+                  <div id="todayHubProteinBar" class="h-full rounded-full transition-all duration-700" style="width:0%;background:#60a5fa;"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1 font-semibold text-yellow-300">
+                  <span>⚡ Węgle</span>
+                  <span id="todayHubCarbsVal">—</span>
+                </div>
+                <div class="w-full rounded-full overflow-hidden" style="height:5px;background:rgba(255,255,255,0.06);">
+                  <div id="todayHubCarbsBar" class="h-full rounded-full transition-all duration-700" style="width:0%;background:#fbbf24;"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1 font-semibold text-orange-300">
+                  <span>🧈 Tłuszcz</span>
+                  <span id="todayHubFatVal">—</span>
+                </div>
+                <div class="w-full rounded-full overflow-hidden" style="height:5px;background:rgba(255,255,255,0.06);">
+                  <div id="todayHubFatBar" class="h-full rounded-full transition-all duration-700" style="width:0%;background:#fb923c;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Poranny Check-in Regeneracji (pełny — 5 sygnałów) -->
           <div class="mt-4 pt-4 border-t" style="border-color:rgba(255,255,255,0.06);">
-            <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
-              <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Poranny Check-in Regeneracji</span>
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+              <div>
+                <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">⚡ Poranny Check-in</span>
+                <p class="text-xs text-gray-600 mt-0.5">Wypełnij rano — zasila Readiness Score i Decision Engine</p>
+              </div>
               <span id="quickCheckinStatus" class="text-xs font-semibold text-green-400 hidden"></span>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-              <div>
-                <label class="text-gray-400 block mb-1">Sen (godziny): <span id="quickSleepLabel" class="text-cyan-400 font-bold">7.5h</span></label>
-                <input type="range" id="quickSleepHours" min="4" max="11" step="0.5" value="7.5" oninput="document.getElementById('quickSleepLabel').textContent=this.value+'h'" class="w-full">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+
+              <!-- Sen: godziny -->
+              <div class="glass p-3 rounded-xl" style="border-color:rgba(0,229,255,0.15);">
+                <label class="flex items-center justify-between text-gray-400 mb-2 font-semibold">
+                  <span>🌙 Sen</span>
+                  <span id="quickSleepLabel" class="text-cyan-400 font-black text-sm">7.5h</span>
+                </label>
+                <input type="range" id="quickSleepHours" min="4" max="11" step="0.5" value="7.5"
+                  oninput="document.getElementById('quickSleepLabel').textContent=this.value+'h'"
+                  class="w-full accent-cyan-400">
+                <div class="flex justify-between text-gray-600 mt-1" style="font-size:10px;"><span>4h</span><span>11h</span></div>
               </div>
-              <div>
-                <label class="text-gray-400 block mb-1">Jakość snu (1–10): <span id="quickSleepQualLabel" class="text-violet-400 font-bold">8/10</span></label>
-                <input type="range" id="quickSleepQuality" min="1" max="10" step="1" value="8" oninput="document.getElementById('quickSleepQualLabel').textContent=this.value+'/10'" class="w-full">
+
+              <!-- Jakość snu -->
+              <div class="glass p-3 rounded-xl" style="border-color:rgba(167,139,250,0.15);">
+                <label class="flex items-center justify-between text-gray-400 mb-2 font-semibold">
+                  <span>💤 Jakość snu</span>
+                  <span id="quickSleepQualLabel" class="text-violet-400 font-black text-sm">8/10</span>
+                </label>
+                <input type="range" id="quickSleepQuality" min="1" max="10" step="1" value="8"
+                  oninput="document.getElementById('quickSleepQualLabel').textContent=this.value+'/10'"
+                  class="w-full accent-violet-400">
+                <div class="flex justify-between text-gray-600 mt-1" style="font-size:10px;"><span>słaba</span><span>idealna</span></div>
               </div>
-              <div class="flex items-end">
-                <button type="button" onclick="submitQuickRecoveryCheckin()" class="w-full py-2 px-3 rounded-xl font-bold text-xs btn-ghost hover:border-cyan-500/40 text-cyan-400">
-                  ⚡ Zapisz poranny stan
+
+              <!-- Energia -->
+              <div class="glass p-3 rounded-xl" style="border-color:rgba(251,191,36,0.15);">
+                <label class="flex items-center justify-between text-gray-400 mb-2 font-semibold">
+                  <span>⚡ Energia</span>
+                  <span id="quickEnergyLabel" class="text-yellow-400 font-black text-sm">7/10</span>
+                </label>
+                <input type="range" id="quickEnergyLevel" min="1" max="10" step="1" value="7"
+                  oninput="document.getElementById('quickEnergyLabel').textContent=this.value+'/10'"
+                  class="w-full accent-yellow-400">
+                <div class="flex justify-between text-gray-600 mt-1" style="font-size:10px;"><span>brak</span><span>pełna</span></div>
+              </div>
+
+              <!-- DOMS / Bolesność mięśni -->
+              <div class="glass p-3 rounded-xl" style="border-color:rgba(239,68,68,0.15);">
+                <label class="flex items-center justify-between text-gray-400 mb-2 font-semibold">
+                  <span>💪 DOMS (bolesność)</span>
+                  <span id="quickDomsLabel" class="text-red-400 font-black text-sm">3/10</span>
+                </label>
+                <input type="range" id="quickFatigue" min="1" max="10" step="1" value="3"
+                  oninput="document.getElementById('quickDomsLabel').textContent=this.value+'/10'"
+                  class="w-full accent-red-400">
+                <div class="flex justify-between text-gray-600 mt-1" style="font-size:10px;"><span>brak</span><span>silna</span></div>
+              </div>
+
+              <!-- Stres -->
+              <div class="glass p-3 rounded-xl" style="border-color:rgba(99,102,241,0.15);">
+                <label class="flex items-center justify-between text-gray-400 mb-2 font-semibold">
+                  <span>🧠 Stres</span>
+                  <span id="quickStressLabel" class="text-indigo-400 font-black text-sm">3/10</span>
+                </label>
+                <input type="range" id="quickStressLevel" min="1" max="10" step="1" value="3"
+                  oninput="document.getElementById('quickStressLabel').textContent=this.value+'/10'"
+                  class="w-full accent-indigo-400">
+                <div class="flex justify-between text-gray-600 mt-1" style="font-size:10px;"><span>brak</span><span>wysoki</span></div>
+              </div>
+
+              <!-- Nastrój + przycisk zapisu -->
+              <div class="glass p-3 rounded-xl flex flex-col justify-between" style="border-color:rgba(34,197,94,0.15);">
+                <div>
+                  <label class="flex items-center justify-between text-gray-400 mb-2 font-semibold">
+                    <span>😊 Nastrój</span>
+                    <span id="quickMoodLabel" class="text-green-400 font-black text-sm">4/5</span>
+                  </label>
+                  <input type="range" id="quickMoodScore" min="1" max="5" step="1" value="4"
+                    oninput="document.getElementById('quickMoodLabel').textContent=this.value+'/5'"
+                    class="w-full accent-green-400">
+                  <div class="flex justify-between text-gray-600 mt-1" style="font-size:10px;"><span>fatalny</span><span>świetny</span></div>
+                </div>
+                <button type="button" onclick="submitQuickRecoveryCheckin()"
+                  class="mt-3 w-full py-2.5 px-3 rounded-xl font-bold text-xs btn-neon flex items-center justify-center gap-1.5">
+                  ⚡ Zapisz check-in
                 </button>
               </div>
+
             </div>
           </div>
         </div>
@@ -2416,7 +2557,7 @@
               <h3 class="text-base font-bold text-white" style="font-family:'Syne',sans-serif;">
                 🍽️ Dodaj posiłek do dnia
               </h3>
-              <button onclick="closeAddMealToDay()" class="text-gray-500 hover:text-white text-2xl">×</button>
+              <button type="button" aria-label="Zamknij" onclick="closeAddMealToDay()" class="text-gray-500 hover:text-white text-2xl">×</button>
             </div>
             <div class="flex-1 overflow-y-auto p-5 space-y-4">
               <!-- Wyszukiwarka -->
@@ -2489,7 +2630,7 @@
               <h3 class="text-base font-bold text-white" style="font-family:'Syne',sans-serif;">
                 💪 Dodaj ćwiczenie do dnia
               </h3>
-              <button onclick="closeAddExerciseToDay()" class="text-gray-500 hover:text-white text-2xl">×</button>
+              <button type="button" aria-label="Zamknij" onclick="closeAddExerciseToDay()" class="text-gray-500 hover:text-white text-2xl">×</button>
             </div>
             <div class="flex-1 overflow-y-auto p-5 space-y-4">
               <input type="text" id="addExerciseSearch" placeholder="🔍 Szukaj ćwiczenia lub drilla..."
@@ -4180,6 +4321,86 @@
               </div>
             </div>
 
+            <!-- ── PRAWA UZUPEŁNIENIE: Profil sportowy ── -->
+            <div class="col-span-full rounded-2xl overflow-hidden transition-all duration-300"
+              style="background:rgba(0,229,255,0.03);backdrop-filter:blur(12px);border:1px solid rgba(0,229,255,0.12);">
+
+              <!-- Card header -->
+              <div class="px-6 py-4 flex items-center gap-3" style="border-bottom:1px solid rgba(0,229,255,0.1);">
+                <div class="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style="background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.2);">
+                  <span style="font-size:16px;">🏀</span>
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-white" style="font-family:'Syne',sans-serif;">Profil sportowy</h4>
+                  <p class="text-xs text-gray-600">Koszykówka, sprzęt i doświadczenie</p>
+                </div>
+              </div>
+
+              <div class="p-6 grid md:grid-cols-2 gap-5">
+
+                <!-- Pozycja w koszykówce -->
+                <div class="space-y-2">
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest">Pozycja (koszykówka)</label>
+                  <select id="pBasketballPosition"
+                    class="profile-input w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all duration-300"
+                    style="background:rgba(12,13,20,0.98);border:1px solid rgba(255,255,255,0.09);"
+                    onfocus="this.style.borderColor='rgba(0,229,255,0.45)'"
+                    onblur="this.style.borderColor='rgba(255,255,255,0.09)'">
+                    <option value="">Nie grasz lub nie wiesz</option>
+                    <option value="PG">PG — Rozgrywający</option>
+                    <option value="SG">SG — Rzucający obrońca</option>
+                    <option value="SF">SF — Niski skrzydłowy</option>
+                    <option value="PF">PF — Silny skrzydłowy</option>
+                    <option value="C">C — Środkowy</option>
+                  </select>
+                </div>
+
+                <!-- Doświadczenie treningowe -->
+                <div class="space-y-2">
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest">Doświadczenie treningowe</label>
+                  <select id="pTrainingExperience"
+                    class="profile-input w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all duration-300"
+                    style="background:rgba(12,13,20,0.98);border:1px solid rgba(255,255,255,0.09);"
+                    onfocus="this.style.borderColor='rgba(0,229,255,0.45)'"
+                    onblur="this.style.borderColor='rgba(255,255,255,0.09)'">
+                    <option value="beginner">Początkujący (&lt; 1 rok)</option>
+                    <option value="intermediate" selected>Średniozaawansowany (1–3 lata)</option>
+                    <option value="advanced">Zaawansowany (3–6 lat)</option>
+                    <option value="elite">Elita / Zawodowy (6+ lat)</option>
+                  </select>
+                </div>
+
+                <!-- Ograniczenia zdrowotne -->
+                <div class="space-y-2">
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest">Ograniczenia zdrowotne</label>
+                  <input type="text" id="pHealthLimitations" placeholder="np. kolano, bark, plecy — zostaw puste jeśli brak"
+                    class="profile-input w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all duration-300"
+                    style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);"
+                    onfocus="this.style.borderColor='rgba(0,229,255,0.45)';this.style.background='rgba(0,229,255,0.04)'"
+                    onblur="this.style.borderColor='rgba(255,255,255,0.09)';this.style.background='rgba(255,255,255,0.05)'">
+                </div>
+
+                <!-- Dostępny sprzęt -->
+                <div class="space-y-2">
+                  <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest">Dostępny sprzęt</label>
+                  <select id="pEquipment"
+                    class="profile-input w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all duration-300"
+                    style="background:rgba(12,13,20,0.98);border:1px solid rgba(255,255,255,0.09);"
+                    onfocus="this.style.borderColor='rgba(0,229,255,0.45)'"
+                    onblur="this.style.borderColor='rgba(255,255,255,0.09)'">
+                    <option value="gym_full">Pełna siłownia (wolne ciężary + maszyny)</option>
+                    <option value="gym_free">Siłownia — tylko wolne ciężary</option>
+                    <option value="dumbbells">Hantle / Kettlebell w domu</option>
+                    <option value="bodyweight">Tylko masa własna + drążek</option>
+                    <option value="court">Kosz + boisko (tylko koszykówka)</option>
+                    <option value="hybrid">Siłownia + boisko</option>
+                  </select>
+                </div>
+
+              </div>
+            </div>
+
             <!-- ── PRAWA: Kalkulator makro + Aktywność + Akcje ── -->
             <div class="space-y-5">
 
@@ -4763,7 +4984,7 @@
         <div class="glass rounded-3xl w-full max-w-sm p-6 space-y-5" style="border-color:var(--border-cyan)!important;">
           <div class="flex justify-between items-center">
             <h5 class="text-lg font-bold text-white" style="font-family:'Syne',sans-serif;">📅 Dodaj do planu</h5>
-            <button onclick="closeAddToPlanModal()" class="text-gray-500 hover:text-white text-xl">✕</button>
+            <button type="button" aria-label="Zamknij" onclick="closeAddToPlanModal()" class="text-gray-500 hover:text-white text-xl">✕</button>
           </div>
           <div id="addToPlanDrillName" class="text-sm text-cyan-400 font-semibold"></div>
           <!-- AI sugestia najlżejszego dnia -->
@@ -4843,17 +5064,44 @@
 
         <!-- Current assessment summary (shown if exists) -->
         <div id="assessmentSummaryCard" class="hidden">
-          <div style="background:rgba(74,222,128,0.07);border:1px solid rgba(74,222,128,0.25);border-radius:20px;padding:20px;">
-            <div class="flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <p class="text-xs font-bold uppercase tracking-widest mb-1" style="color:#4ade80;">Aktywna ocena bazowa</p>
-                <p id="assessmentSummaryText" class="text-sm text-gray-300 mt-1">—</p>
+          <div style="background:rgba(124,58,237,0.06);border:1px solid rgba(124,58,237,0.25);border-radius:24px;padding:24px;">
+            <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+              <div class="flex items-center gap-3">
+                <span style="font-size:24px;">📋</span>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-lg font-bold text-white" style="font-family:'Syne',sans-serif;">Aktywna ocena wyjściowa (Baseline)</h3>
+                    <span id="assmVersionBadge" class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-green-500/20 text-green-300 border border-green-500/40">v1</span>
+                  </div>
+                  <p id="assmDateBadge" class="text-xs text-gray-400 mt-0.5">—</p>
+                </div>
               </div>
-              <button onclick="document.getElementById('assessmentFormCard').classList.toggle('hidden')"
-                class="px-4 py-2 rounded-xl text-xs font-bold transition-all"
-                style="background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.3);color:#00e5ff;">
-                Aktualizuj
-              </button>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button type="button" onclick="window.generatePlanFromAssessment()" id="assmGeneratePlanBtn"
+                  class="btn-neon px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                  <span>⚡ Wygeneruj plan treningowy</span>
+                </button>
+                <button type="button" onclick="document.getElementById('assessmentFormCard').classList.toggle('hidden')"
+                  class="btn-outline-cyan px-4 py-2 rounded-xl text-xs font-bold transition-all">
+                  ✏️ Edytuj / Nowa wersja
+                </button>
+              </div>
+            </div>
+
+            <!-- Parametry w siatce -->
+            <div id="assmMetricsGrid" class="grid sm:grid-cols-2 md:grid-cols-4 gap-3 my-4">
+              <!-- Renderowane dynamicznie przez loadEvolveAssessment -->
+            </div>
+
+            <div id="assmNotesDisplay" class="text-xs text-gray-400 bg-white/5 p-3 rounded-xl border border-white/5 mt-3 hidden"></div>
+
+            <!-- Historia wersji -->
+            <div class="mt-5 pt-4 border-t border-white/10">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Historia wersji oceny (Audit Trail)</span>
+                <span id="assmHistoryCount" class="text-xs text-cyan-400 font-bold">1 wersja</span>
+              </div>
+              <div id="assmHistoryList" class="flex gap-2 flex-wrap"></div>
             </div>
           </div>
         </div>
@@ -5241,6 +5489,87 @@
             <div id="activityHeatmap" style="min-height:80px;"></div>
           </div>
 
+          <!-- ── Cele z mierzalnym postępem ── -->
+          <div class="glass p-5 rounded-2xl" id="postepyGoalsWrap">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2.5">
+                <span class="text-xl">🎯</span>
+                <div>
+                  <h2 class="font-extrabold text-white text-base" style="font-family:'Syne',sans-serif;">Cele z mierzalnym postępem</h2>
+                  <p class="text-xs mt-0.5" style="color:var(--muted);">Śledzenie realizacji celów siłowych, wagowych i koszykarskich</p>
+                </div>
+              </div>
+            </div>
+            <div id="postepyGoalsList" class="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <div class="p-4 rounded-xl text-xs text-gray-500 italic" style="background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.08);">
+                Brak aktywnych celów — wyznacz cel w profilu lub przez API.
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Historia Siły & Progresji Ciężarów ── -->
+          <div class="glass p-5 rounded-2xl" id="postepyStrengthWrap">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2.5">
+                <span class="text-xl">🏋️</span>
+                <div>
+                  <h2 class="font-extrabold text-white text-base" style="font-family:'Syne',sans-serif;">Historia Siły i Rekordy (PR)</h2>
+                  <p class="text-xs mt-0.5" style="color:var(--muted);">Najlepsze serie, progres ciężarów i szacowany 1RM</p>
+                </div>
+              </div>
+            </div>
+            <div id="postepyStrengthGrid" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div class="p-4 rounded-xl text-xs text-gray-500 italic" style="background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.08);">
+                Zaloguj serie treningowe w Live Workout Runnerze, aby zobaczyć progresję siły.
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Skuteczność Rzutów Koszykarskich ── -->
+          <div class="glass p-5 rounded-2xl" id="postepyShootingWrap">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2.5">
+                <span class="text-xl">🏀</span>
+                <div>
+                  <h2 class="font-extrabold text-white text-base" style="font-family:'Syne',sans-serif;">Skuteczność Rzutów Koszykarskich</h2>
+                  <p class="text-xs mt-0.5" style="color:var(--muted);">Bilans trafień z sesji rzutowych i drilli</p>
+                </div>
+              </div>
+              <div id="postepyShootingBadge" class="px-3 py-1 rounded-xl text-xs font-bold" style="background:rgba(0,229,255,0.1);color:var(--cyan);border:1px solid rgba(0,229,255,0.25);">
+                0% celności
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3 mb-4">
+              <div class="p-3 rounded-xl" style="background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.1);">
+                <p class="text-xs text-gray-500">Oddane rzuty</p>
+                <p id="postepyShootingAttempts" class="text-xl font-extrabold text-white" style="font-family:'Syne',sans-serif;">0</p>
+              </div>
+              <div class="p-3 rounded-xl" style="background:rgba(124,58,237,0.04);border:1px solid rgba(124,58,237,0.15);">
+                <p class="text-xs text-gray-500">Trafione</p>
+                <p id="postepyShootingMade" class="text-xl font-extrabold text-cyan-400" style="font-family:'Syne',sans-serif;">0</p>
+              </div>
+              <div class="p-3 rounded-xl" style="background:rgba(251,191,36,0.04);border:1px solid rgba(251,191,36,0.15);">
+                <p class="text-xs text-gray-500">Sesje rzutowe</p>
+                <p id="postepyShootingSessions" class="text-xl font-extrabold text-amber-400" style="font-family:'Syne',sans-serif;">0</p>
+              </div>
+            </div>
+            <div id="postepyShootingHistoryList" class="space-y-2"></div>
+          </div>
+
+          <!-- ── Historia Testów Motorycznych & Assessment ── -->
+          <div class="glass p-5 rounded-2xl" id="postepyAssessmentWrap">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2.5">
+                <span class="text-xl">📋</span>
+                <div>
+                  <h2 class="font-extrabold text-white text-base" style="font-family:'Syne',sans-serif;">Historia Testów Motorycznych</h2>
+                  <p class="text-xs mt-0.5" style="color:var(--muted);">Progresja wyników z kolejnych assessmentów</p>
+                </div>
+              </div>
+            </div>
+            <div id="postepyAssessmentList" class="space-y-2"></div>
+          </div>
+
           <!-- ── AI Insights ── -->
           <div class="glass p-5 rounded-2xl">
             <div class="flex items-center gap-3 mb-4">
@@ -5292,7 +5621,7 @@
       style="border-color:var(--border-cyan)!important;">
       <div class="flex justify-between items-start">
         <h5 class="text-xl font-bold text-white" id="expandTitle" style="font-family:'Syne',sans-serif;">—</h5>
-        <button onclick="closeExpandModal()" class="text-gray-500 hover:text-white text-xl">✕</button>
+        <button type="button" aria-label="Zamknij" onclick="closeExpandModal()" class="text-gray-500 hover:text-white text-xl">✕</button>
       </div>
       <div id="expandContent" class="space-y-4"></div>
       <div class="flex gap-3 pt-2">
@@ -5337,7 +5666,7 @@
         <div class="flex items-center gap-2"><span class="text-lg">🤖</span><span class="font-bold text-white text-sm"
             style="font-family:'Syne',sans-serif;">FitAI Coach</span><span
             class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span></div>
-        <button onclick="toggleAIChat()" class="text-gray-500 hover:text-white">✕</button>
+        <button type="button" aria-label="Zamknij czat AI" onclick="toggleAIChat()" class="text-gray-500 hover:text-white">✕</button>
       </div>
       <div id="aiChatMessages" class="p-4 max-h-72 overflow-y-auto space-y-2">
         <div class="msg-ai">👋 Cześć! Jestem Twoim trenerem AI. Pytaj o plan, makro, ćwiczenia — odpowiem w chwilę!
@@ -9126,6 +9455,15 @@
       const dEl = document.getElementById('pDietType');
       if (dEl && p.diet) dEl.value = p.diet;
 
+      // Pola sportowe
+      sv('pHealthLimitations', p.health_limitations ?? '');
+      const bpEl = document.getElementById('pBasketballPosition');
+      if (bpEl && p.basketball_position) bpEl.value = p.basketball_position;
+      const expEl = document.getElementById('pTrainingExperience');
+      if (expEl && p.training_experience) expEl.value = p.training_experience;
+      const eqEl = document.getElementById('pEquipment');
+      if (eqEl && p.equipment) eqEl.value = p.equipment;
+
       _recalcMacro();
     }
 
@@ -9172,7 +9510,11 @@
       p.diet = document.getElementById('pDietType')?.value || p.diet;
       p.goal = document.getElementById('pGoal')?.value?.trim() || p.goal;
       p.meals_per_day = parseInt(document.getElementById('pMealsPerDay')?.value) || p.meals_per_day;
-      p.allergies = document.getElementById('pAllergies')?.value?.trim() || '';
+      p.allergies             = document.getElementById('pAllergies')?.value?.trim() || '';
+      p.health_limitations    = document.getElementById('pHealthLimitations')?.value?.trim() || '';
+      p.basketball_position   = document.getElementById('pBasketballPosition')?.value || '';
+      p.training_experience   = document.getElementById('pTrainingExperience')?.value || 'intermediate';
+      p.equipment             = document.getElementById('pEquipment')?.value || 'gym_full';
 
       if (typeof saveState === 'function') saveState();
       localStorage.setItem('fitai_profile_cache', JSON.stringify(p));
@@ -9186,6 +9528,10 @@
             age: p.age, weight: p.weight, target_weight: p.target_weight,
             gender: p.gender, frequency: p.frequency, diet: p.diet,
             goal: p.goal, meals_per_day: p.meals_per_day,
+            health_limitations: p.health_limitations,
+            basketball_position: p.basketball_position,
+            training_experience: p.training_experience,
+            equipment: p.equipment,
           }),
         }).catch(() => { });
       }
@@ -24518,6 +24864,10 @@
       _pcRenderXPBar(data);
       _pcRenderStagnation(data);
       _pcRenderOverload(data);
+      _pcRenderStrengthProgression(data);
+      _pcRenderShootingStats(data);
+      _pcRenderGoals(data);
+      _pcRenderAssessmentHistory(data);
     }
 
     function _pcRenderWeight(data) {
@@ -24695,6 +25045,224 @@
         el.appendChild(_oIcon); el.appendChild(_oFlex);
         el.classList.remove('hidden');
       } else { el.classList.add('hidden'); }
+    }
+
+    function _pcRenderStrengthProgression(data) {
+      const container = document.getElementById('postepyStrengthGrid');
+      if (!container) return;
+      const list = data.strength_progression || [];
+      if (!list.length) {
+        container.innerHTML = '<div class="p-4 rounded-xl text-xs text-gray-500 italic col-span-full" style="background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.08);">'
+          + 'Zaloguj serie treningowe w Live Workout Runnerze, aby zobaczyć progresję siły.'
+          + '</div>';
+        return;
+      }
+      container.innerHTML = '';
+      list.slice(0, 8).forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'p-4 rounded-xl flex flex-col justify-between transition-all hover:border-cyan-500/40';
+        card.style.cssText = 'background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);';
+
+        const top = document.createElement('div');
+        const name = document.createElement('p');
+        name.className = 'text-xs font-bold text-white truncate mb-1';
+        name.textContent = item.exercise_name || item.exercise_key;
+        const pr = document.createElement('p');
+        pr.className = 'text-xl font-extrabold text-cyan-400';
+        pr.style.fontFamily = "'Syne',sans-serif";
+        pr.textContent = item.best_weight_kg + ' kg';
+        const reps = document.createElement('p');
+        reps.className = 'text-xs text-gray-400 mt-0.5';
+        reps.textContent = item.best_reps + ' powt. · 1RM: ~' + item.estimated_1rm + ' kg';
+
+        top.appendChild(name);
+        top.appendChild(pr);
+        top.appendChild(reps);
+
+        const bot = document.createElement('div');
+        bot.className = 'mt-3 pt-2 flex items-center justify-between text-xs text-gray-500 border-t border-white/5';
+        const dateEl = document.createElement('span');
+        dateEl.textContent = item.latest_date || '—';
+        const countEl = document.createElement('span');
+        countEl.textContent = (item.history || []).length + ' wpisów';
+        bot.appendChild(dateEl);
+        bot.appendChild(countEl);
+
+        card.appendChild(top);
+        card.appendChild(bot);
+        container.appendChild(card);
+      });
+    }
+
+    function _pcRenderShootingStats(data) {
+      const sh = data.shooting_stats || {};
+      const badge = document.getElementById('postepyShootingBadge');
+      const attEl = document.getElementById('postepyShootingAttempts');
+      const madeEl = document.getElementById('postepyShootingMade');
+      const sessEl = document.getElementById('postepyShootingSessions');
+      const listEl = document.getElementById('postepyShootingHistoryList');
+
+      const pct = sh.accuracy_pct != null ? sh.accuracy_pct : 0.0;
+      if (badge) badge.textContent = pct + '% celności';
+      if (attEl) attEl.textContent = sh.total_attempts || 0;
+      if (madeEl) madeEl.textContent = sh.total_made || 0;
+      if (sessEl) sessEl.textContent = sh.total_sessions || 0;
+
+      if (!listEl) return;
+      const history = sh.history || [];
+      if (!history.length) {
+        listEl.innerHTML = '<p class="text-xs text-gray-500 italic p-3 rounded-xl" style="background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.08);">Brak sesji rzutowych. Skorzystaj ze Szybkiego Shot Trackera na dashboardzie.</p>';
+        return;
+      }
+      listEl.innerHTML = '';
+      history.slice(0, 5).forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-xl flex items-center justify-between text-xs transition-all';
+        row.style.cssText = 'background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);';
+
+        const left = document.createElement('div');
+        const title = document.createElement('p');
+        title.className = 'font-bold text-white';
+        title.textContent = item.drill_name;
+        const sub = document.createElement('p');
+        sub.className = 'text-gray-500 text-xs mt-0.5';
+        sub.textContent = item.date + (item.rpe ? ' · RPE ' + item.rpe : '');
+        left.appendChild(title);
+        left.appendChild(sub);
+
+        const right = document.createElement('div');
+        right.className = 'text-right';
+        const frac = document.createElement('p');
+        frac.className = 'font-bold text-cyan-400';
+        frac.style.fontFamily = "'Syne',sans-serif";
+        frac.textContent = item.made + ' / ' + item.attempts + ' (' + item.accuracy_pct + '%)';
+        right.appendChild(frac);
+
+        row.appendChild(left);
+        row.appendChild(right);
+        listEl.appendChild(row);
+      });
+    }
+
+    function _pcRenderGoals(data) {
+      const container = document.getElementById('postepyGoalsList');
+      if (!container) return;
+      const goals = data.goals || [];
+      if (!goals.length) {
+        container.innerHTML = '<div class="p-4 rounded-xl text-xs text-gray-500 italic col-span-full" style="background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.08);">'
+          + 'Brak aktywnych celów — dodaj cel siłowy, wagowy lub sportowy.'
+          + '</div>';
+        return;
+      }
+      container.innerHTML = '';
+      goals.forEach(g => {
+        const card = document.createElement('div');
+        card.className = 'p-4 rounded-xl space-y-3';
+        card.style.cssText = 'background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);';
+
+        const head = document.createElement('div');
+        head.className = 'flex items-center justify-between';
+        const title = document.createElement('p');
+        title.className = 'text-xs font-bold text-white';
+        title.textContent = g.title;
+        const typeBadge = document.createElement('span');
+        typeBadge.className = 'text-[10px] uppercase font-bold px-2 py-0.5 rounded-full';
+        typeBadge.style.cssText = 'background:rgba(124,58,237,0.15);color:#a78bfa;border:1px solid rgba(124,58,237,0.3);';
+        typeBadge.textContent = g.goal_type;
+        head.appendChild(title);
+        head.appendChild(typeBadge);
+
+        const mid = document.createElement('div');
+        const vals = document.createElement('div');
+        vals.className = 'flex justify-between text-xs text-gray-400 mb-1.5';
+        const cur = document.createElement('span');
+        cur.textContent = 'Aktualnie: ' + (g.current_value != null ? g.current_value : '—');
+        const tar = document.createElement('span');
+        tar.className = 'font-bold text-white';
+        tar.textContent = 'Cel: ' + (g.target_value != null ? g.target_value : '—');
+        vals.appendChild(cur);
+        vals.appendChild(tar);
+
+        const barWrap = document.createElement('div');
+        barWrap.className = 'w-full h-2 rounded-full overflow-hidden';
+        barWrap.style.background = 'rgba(255,255,255,0.08)';
+        const barFill = document.createElement('div');
+        const pct = g.progress_pct != null ? g.progress_pct : 0;
+        barFill.className = 'h-full rounded-full transition-all duration-500';
+        barFill.style.cssText = 'width:' + pct + '%;background:linear-gradient(90deg,#00e5ff,#7c3aed);';
+        barWrap.appendChild(barFill);
+
+        mid.appendChild(vals);
+        mid.appendChild(barWrap);
+
+        const foot = document.createElement('div');
+        foot.className = 'flex justify-between items-center text-xs text-gray-500 pt-1';
+        const pctEl = document.createElement('span');
+        pctEl.className = 'font-bold text-cyan-400';
+        pctEl.textContent = pct + '% zrealizowano';
+        const dateEl = document.createElement('span');
+        dateEl.textContent = g.target_date ? ('Termin: ' + g.target_date) : '';
+        foot.appendChild(pctEl);
+        foot.appendChild(dateEl);
+
+        card.appendChild(head);
+        card.appendChild(mid);
+        card.appendChild(foot);
+        container.appendChild(card);
+      });
+    }
+
+    function _pcRenderAssessmentHistory(data) {
+      const container = document.getElementById('postepyAssessmentList');
+      if (!container) return;
+      const assessments = data.assessment_history || [];
+      if (!assessments.length) {
+        container.innerHTML = '<p class="text-xs text-gray-500 italic p-3 rounded-xl" style="background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.08);">Brak zapisanych wersji assessmentu. Uzupełnij dane w zakładce Assessment & Baza.</p>';
+        return;
+      }
+      container.innerHTML = '';
+      assessments.forEach(a => {
+        const card = document.createElement('div');
+        card.className = 'p-3 rounded-xl flex items-center justify-between text-xs flex-wrap gap-2';
+        card.style.cssText = 'background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);';
+
+        const left = document.createElement('div');
+        const v = document.createElement('span');
+        v.className = 'font-extrabold text-cyan-400 mr-2';
+        v.textContent = 'v' + a.version;
+        const d = document.createElement('span');
+        d.className = 'text-gray-400';
+        d.textContent = a.date + (a.training_level ? ' (' + a.training_level + ')' : '');
+        left.appendChild(v);
+        left.appendChild(d);
+
+        const metrics = document.createElement('div');
+        metrics.className = 'flex gap-3 text-xs text-gray-300 flex-wrap';
+        if (a.vertical_jump_cm) {
+          const m = document.createElement('span');
+          m.textContent = '⚡ Wyskok: ' + a.vertical_jump_cm + ' cm';
+          metrics.appendChild(m);
+        }
+        if (a.sprint_30m_seconds) {
+          const m = document.createElement('span');
+          m.textContent = '🏃 Sprint 30m: ' + a.sprint_30m_seconds + ' s';
+          metrics.appendChild(m);
+        }
+        if (a.shooting_pct != null) {
+          const m = document.createElement('span');
+          m.textContent = '🏀 FG: ' + a.shooting_pct + '%';
+          metrics.appendChild(m);
+        }
+        if (a.recovery_score != null) {
+          const m = document.createElement('span');
+          m.textContent = '🔋 Recovery: ' + a.recovery_score + '/10';
+          metrics.appendChild(m);
+        }
+
+        card.appendChild(left);
+        card.appendChild(metrics);
+        container.appendChild(card);
+      });
     }
 
     // Monkey-patch initCharts() żeby zawsze wywoływać renderProgressCharts
@@ -27268,7 +27836,7 @@ window.syncProfileFromBackend = syncProfileFromBackend;
       return;
     }
     try {
-      var res = await fetch('/app/assessment/latest', {
+      var res = await fetch((window.API_BASE || '') + '/app/assessment/latest', {
         headers: { Authorization: 'Bearer ' + token },
         cache: 'no-store'
       });
@@ -27293,23 +27861,130 @@ window.syncProfileFromBackend = syncProfileFromBackend;
         var notes = document.getElementById('assmNotes');
         if (notes && a.notes) notes.value = a.notes;
 
-        // Show summary banner
+        // Render rich summary card
         var summaryCard = document.getElementById('assessmentSummaryCard');
-        var summaryText = document.getElementById('assessmentSummaryText');
         var formCard = document.getElementById('assessmentFormCard');
-        if (summaryCard) summaryCard.classList.remove('hidden');
-        if (summaryText) {
-          summaryText.textContent = 'v' + a.version + ' · ' + a.assessment_date + ' · Poziom: ' + _esc(a.training_level) +
-            ' · ' + (a.sessions_per_week || '?') + ' treningów/tydzień' +
-            (a.basketball_level ? ' · Koszykówka: ' + a.basketball_level + '/10' : '');
+        var vBadge = document.getElementById('assmVersionBadge');
+        var dBadge = document.getElementById('assmDateBadge');
+        var grid = document.getElementById('assmMetricsGrid');
+        var notesDisplay = document.getElementById('assmNotesDisplay');
+
+        if (vBadge) vBadge.textContent = 'v' + a.version + ' · Aktywny';
+        if (dBadge) dBadge.textContent = 'Zapisano: ' + a.assessment_date;
+
+        if (grid) {
+          var levelMap = { 'beginner': 'Początkujący', 'intermediate': 'Średniozaawansowany', 'advanced': 'Zaawansowany' };
+          var chips = [
+            { icon: '🏋️', label: 'Poziom', val: levelMap[a.training_level] || a.training_level || '—', sub: (a.training_experience_years != null ? (a.training_experience_years + ' lat stażu') : null) },
+            { icon: '📅', label: 'Dostępność', val: (a.sessions_per_week || '—') + ' sesji/tydz', sub: (a.availability_hours_per_week != null ? (a.availability_hours_per_week + ' h tygodniowo') : null) },
+            { icon: '🏀', label: 'Koszykówka', val: a.basketball_level ? (a.basketball_level + '/10') : '—', sub: (a.shooting_pct != null ? ('FG: ' + a.shooting_pct + '% · FT: ' + (a.free_throw_pct || '—') + '%') : null) },
+            { icon: '⚡', label: 'Motoryka', val: (a.vertical_jump_cm != null ? (a.vertical_jump_cm + ' cm wyskok') : '—'), sub: (a.sprint_30m_seconds != null ? ('Sprint 30m: ' + a.sprint_30m_seconds + 's') : null) },
+            { icon: '🔋', label: 'Recovery score', val: (a.recovery_score != null ? (a.recovery_score + '/10') : '—'), sub: 'Gotowość wyjściowa' }
+          ];
+
+          grid.innerHTML = chips.map(function(c) {
+            return '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:12px;">' +
+              '<div style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:3px;">' +
+                '<span>' + c.icon + '</span><span>' + c.label + '</span>' +
+              '</div>' +
+              '<div style="font-family:\'Syne\',sans-serif;font-size:14px;font-weight:800;color:#fff;">' + _esc(c.val) + '</div>' +
+              (c.sub ? ('<div style="font-size:10px;color:#00e5ff;margin-top:2px;">' + _esc(c.sub) + '</div>') : '') +
+            '</div>';
+          }).join('');
         }
+
+        if (notesDisplay) {
+          if (a.notes) {
+            notesDisplay.textContent = 'Notatki: ' + a.notes;
+            notesDisplay.classList.remove('hidden');
+          } else {
+            notesDisplay.classList.add('hidden');
+          }
+        }
+
+        if (summaryCard) summaryCard.classList.remove('hidden');
         if (formCard) formCard.classList.add('hidden');
-        _assmStatus('✅ Wczytano assessment v' + a.version + ' z dnia ' + a.assessment_date, 'ok');
+        _assmStatus('✅ Wczytano aktywny assessment v' + a.version + ' (' + a.assessment_date + ')', 'ok');
+
+        // Fetch history
+        _loadAssessmentHistory();
       } else {
-        _assmStatus('Brak zapisanego assessmentu — wypełnij formularz poniżej.', 'info');
+        var summaryCardNo = document.getElementById('assessmentSummaryCard');
+        var formCardNo = document.getElementById('assessmentFormCard');
+        if (summaryCardNo) summaryCardNo.classList.add('hidden');
+        if (formCardNo) formCardNo.classList.remove('hidden');
+        _assmStatus('Brak zapisanego assessmentu — wypełnij formularz bazowy poniżej.', 'info');
       }
     } catch (e) {
       _assmStatus('⚠️ ' + e.message, 'err');
+    }
+  };
+
+  async function _loadAssessmentHistory() {
+    var token = localStorage.getItem('fitai_token');
+    if (!token) return;
+    try {
+      var res = await fetch((window.API_BASE || '') + '/app/assessment/history', {
+        headers: { Authorization: 'Bearer ' + token },
+        cache: 'no-store'
+      });
+      if (!res.ok) return;
+      var data = await res.json();
+      var list = data.assessments || [];
+      var countEl = document.getElementById('assmHistoryCount');
+      var listEl = document.getElementById('assmHistoryList');
+      if (countEl) countEl.textContent = list.length + ' ' + (list.length === 1 ? 'wersja' : 'wersje');
+      if (listEl) {
+        listEl.innerHTML = list.map(function(item) {
+          return '<span style="font-size:11px;padding:4px 9px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#cbd5e1;font-family:monospace;">' +
+            'v' + item.version + ' · ' + item.assessment_date + (item.status === 'baseline' ? ' (bazowy)' : '') +
+          '</span>';
+        }).join('');
+      }
+    } catch(err) {
+      console.warn('[loadAssessmentHistory]', err);
+    }
+  }
+
+  window.generatePlanFromAssessment = async function() {
+    var token = localStorage.getItem('fitai_token');
+    if (!token) {
+      if (typeof showToast === 'function') showToast('Zaloguj się, aby wygenerować plan.', 'error');
+      return;
+    }
+    var btn = document.getElementById('assmGeneratePlanBtn');
+    var origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳ Generowanie planu…</span>';
+    }
+
+    try {
+      var res = await fetch((window.API_BASE || '') + '/app/plan/generate', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: true })
+      });
+      var data = await res.json().catch(function() { return {}; });
+      if (!res.ok) throw new Error(data.detail || 'Błąd generowania planu');
+
+      if (typeof showToast === 'function') {
+        showToast('🎉 Zaktualizowano plan treningowy na podstawie assessmentu!', 'success');
+      }
+      _assmStatus('🎉 Plan treningowy został wygenerowany i zsynchronizowany z assessmentem!', 'ok');
+
+      if (typeof window.syncProfileFromBackend === 'function') window.syncProfileFromBackend();
+      if (typeof window.loadEvolveTodayHub === 'function') window.loadEvolveTodayHub();
+    } catch(err) {
+      if (typeof showToast === 'function') {
+        showToast('Błąd generowania planu: ' + err.message, 'error');
+      }
+      _assmStatus('⚠️ Błąd generowania planu: ' + err.message, 'err');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+      }
     }
   };
 
@@ -27346,7 +28021,7 @@ window.syncProfileFromBackend = syncProfileFromBackend;
         metrics: {}
       };
 
-      var res = await fetch('/app/assessment', {
+      var res = await fetch((window.API_BASE || '') + '/app/assessment', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -27358,7 +28033,7 @@ window.syncProfileFromBackend = syncProfileFromBackend;
 
       // Try to auto-generate plan
       try {
-        var planRes = await fetch('/app/plan/generate', {
+        var planRes = await fetch((window.API_BASE || '') + '/app/plan/generate', {
           method: 'POST',
           headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
           body: JSON.stringify({ force: false })
@@ -27366,16 +28041,16 @@ window.syncProfileFromBackend = syncProfileFromBackend;
         var planData = await planRes.json();
         if (planRes.ok) {
           _assmStatus('🎉 Assessment zapisany i plan wygenerowany! Przejdź do zakładki Trening.', 'ok');
-          // Re-load profile state to pick up new plan
           if (typeof window.syncProfileFromBackend === 'function') window.syncProfileFromBackend();
+          if (typeof window.loadEvolveTodayHub === 'function') window.loadEvolveTodayHub();
         } else {
-          _assmStatus('✅ Assessment zapisany. Nie udało się auto-wygenerować planu: ' + (planData.detail || 'Nieznany błąd') + '. Przejdź do Treningu i wygeneruj ręcznie.', 'info');
+          _assmStatus('✅ Assessment zapisany. Przejdź do Treningu i sprawdź aktualny plan.', 'info');
         }
       } catch (planErr) {
         _assmStatus('✅ Assessment zapisany. Generowanie planu: ' + planErr.message, 'info');
       }
 
-      // Refresh the summary banner
+      // Refresh the summary banner and history
       window.loadEvolveAssessment();
     } catch (e) {
       _assmStatus('⚠️ ' + e.message, 'err');
@@ -27685,7 +28360,10 @@ async function loadTodayData() {
 
     renderMealsList(meals);
     renderWorkoutsList(workouts);
-    recalcBars(data.kcal_consumed || 0, data.protein_consumed || 0);
+    var carbsConsumed = (data.carbs_consumed != null) ? data.carbs_consumed : meals.reduce(function(acc, m) { return acc + (m.checked ? (Number(m.carbs) || 0) : 0); }, 0);
+    var fatConsumed = (data.fat_consumed != null) ? data.fat_consumed : meals.reduce(function(acc, m) { return acc + (m.checked ? (Number(m.fat) || 0) : 0); }, 0);
+    recalcBars(data.kcal_consumed || 0, data.protein_consumed || 0, carbsConsumed, fatConsumed);
+    if (typeof updateDayConsistencyScore === 'function') updateDayConsistencyScore(meals, workouts);
   } catch (err) {
     console.error('[loadTodayData]', err);
     _loadTodayFromWeeklyPlan();
@@ -27765,6 +28443,7 @@ function _loadTodayFromWeeklyPlan() {
 
     renderMealsList(meals);
     renderWorkoutsList(exercises);
+    if (typeof updateDayConsistencyScore === 'function') updateDayConsistencyScore(meals, exercises);
     console.info('[loadTodayData] Fallback z weekly_plan_json: ' + meals.length + ' posiłków, ' + exercises.length + ' ćwiczeń na ' + todayPL);
   } catch (err) {
     console.error('[_loadTodayFromWeeklyPlan]', err);
@@ -27833,12 +28512,16 @@ async function toggleItem(itemId, itemType, checked) {
     if (!res.ok) { var e = await res.json().catch(function(){return{};}); if(typeof showToast==='function') showToast(e.detail||'Błąd','error'); return; }
     var data = await res.json();
     await loadTodayData();
-    recalcBars(data.kcal_consumed || 0, data.protein_consumed || 0);
+    var cMeals = ((data.log && data.log.meals) || []).concat((data.log && data.log.custom_meals) || []);
+    var carbsDone = (data.carbs_consumed != null) ? data.carbs_consumed : cMeals.reduce(function(a, m){ return a + (m.checked ? (Number(m.carbs) || 0) : 0); }, 0);
+    var fatDone = (data.fat_consumed != null) ? data.fat_consumed : cMeals.reduce(function(a, m){ return a + (m.checked ? (Number(m.fat) || 0) : 0); }, 0);
+    recalcBars(data.kcal_consumed || 0, data.protein_consumed || 0, carbsDone, fatDone);
     if (data.xp_earned > 0 && typeof showToast === 'function') showToast('+' + data.xp_earned + ' XP 🔥', 'success');
+    if (typeof window.loadEvolveTodayHub === 'function') window.loadEvolveTodayHub();
   } catch (err) { console.error('[toggleItem]', err); }
 }
 
-function recalcBars(kcalConsumed, proteinConsumed) {
+function recalcBars(kcalConsumed, proteinConsumed, carbsConsumed, fatConsumed) {
   var kT = window._todayKcalTarget || parseInt(localStorage.getItem('fitai_kcal_target') || '2000');
   var pT = window._todayProteinTarget || parseInt(localStorage.getItem('fitai_protein_target') || '150');
   var kPct = Math.min(100, Math.round((kcalConsumed / kT) * 100)) || 0;
@@ -27855,7 +28538,62 @@ function recalcBars(kcalConsumed, proteinConsumed) {
   if (pTxt) pTxt.textContent = Math.round(proteinConsumed);
   if (kTxtAlt) kTxtAlt.textContent = kcalConsumed;
   if (kTargAlt) kTargAlt.textContent = kT;
+
+  // Zaktualizuj globale dla karty Dieta w Decision Hub
+  window._todayKcal    = kcalConsumed    || 0;
+  window._todayProtein = proteinConsumed || 0;
+  window._todayCarbs   = carbsConsumed   || 0;
+  window._todayFat     = fatConsumed     || 0;
+  if (typeof window.refreshTodayHubDiet === 'function') window.refreshTodayHubDiet();
+  if (typeof updateDayConsistencyScore === 'function') updateDayConsistencyScore();
 }
+
+function updateDayConsistencyScore(meals, workouts) {
+  if (Array.isArray(meals)) window._todayMeals = meals;
+  if (Array.isArray(workouts)) window._todayWorkouts = workouts;
+
+  var curMeals = window._todayMeals || [];
+  var curWorkouts = window._todayWorkouts || [];
+
+  var totalMeals = curMeals.length;
+  var doneMeals = curMeals.filter(function(m) { return Boolean(m.checked); }).length;
+
+  var totalWorkouts = curWorkouts.length;
+  var doneWorkouts = curWorkouts.filter(function(w) { return Boolean(w.checked); }).length;
+
+  var hasCheckin = Boolean(window._todayHasCheckin);
+  var hasBasketball = Boolean(window._todayHasBasketball);
+
+  var totalTasks = totalMeals + totalWorkouts;
+  var doneTasks = doneMeals + doneWorkouts;
+
+  // Filar regeneracji (poranny check-in)
+  totalTasks += 1;
+  if (hasCheckin) doneTasks += 1;
+
+  // Filar sportu / koszykówki (sesja rzutowa / drill)
+  totalTasks += 1;
+  if (hasBasketball) doneTasks += 1;
+
+  var pct = totalTasks > 0 ? Math.min(100, Math.round((doneTasks / totalTasks) * 100)) : 0;
+
+  var progressEl = document.getElementById('activeDayProgress');
+  var countEl = document.getElementById('dayProgressCount');
+  var ring = document.getElementById('headerProgressRing');
+  var trainCountEl = document.getElementById('dayTrainCount');
+
+  if (progressEl) progressEl.textContent = pct + '%';
+  if (countEl) countEl.textContent = doneTasks + ' / ' + totalTasks + ' zadań';
+  if (ring) {
+    var offset = 188.5 * (1 - pct / 100);
+    ring.style.strokeDashoffset = offset;
+  }
+  if (trainCountEl) {
+    var totalActivities = doneWorkouts + (hasBasketball ? 1 : 0);
+    trainCountEl.textContent = String(totalActivities);
+  }
+}
+window.updateDayConsistencyScore = updateDayConsistencyScore;
 
 async function openDayItemSwap(itemId, itemType) {
   var label = itemType === 'meal' ? 'posiłku' : 'ćwiczenia';
@@ -28209,7 +28947,7 @@ window.openDayItemSwap = openDayItemSwap;
       <h3 class="text-base font-bold text-white" style="font-family:'Syne',sans-serif;">
         📋 Historia planów diety
       </h3>
-      <button onclick="closeDietHistoryModal()" class="text-gray-500 hover:text-white text-2xl">×</button>
+      <button type="button" aria-label="Zamknij" onclick="closeDietHistoryModal()" class="text-gray-500 hover:text-white text-2xl">×</button>
     </div>
     <div id="dietHistoryContent" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
   </div>
@@ -28299,7 +29037,7 @@ window.openDayItemSwap = openDayItemSwap;
           Ostatnie 10 wygenerowanych planów
         </p>
       </div>
-      <button onclick="closePlanHistoryModal()" class="text-gray-500 hover:text-white text-2xl leading-none">×</button>
+      <button type="button" aria-label="Zamknij" onclick="closePlanHistoryModal()" class="text-gray-500 hover:text-white text-2xl leading-none">×</button>
     </div>
     <div id="planHistoryContent" class="flex-1 overflow-y-auto p-4 space-y-3">
     </div>
@@ -28764,13 +29502,40 @@ window.openDayItemSwap = openDayItemSwap;
         if (instrEl) instrEl.textContent = (data.primary_action && data.primary_action.instruction) ? data.primary_action.instruction : 'Zrealizuj zaplanowane aktywności na dany dzień.';
 
         var w = data.workout || {};
-        if (workoutNameEl) workoutNameEl.textContent = w.day_label || 'Trening dnia';
-        var exCount = (w.exercises || []).length;
+        var workoutsList = (w.exercises && w.exercises.length) ? w.exercises : (window._todayWorkouts || []);
+        var exCount = workoutsList.length;
+        if (workoutNameEl) {
+          if (w.day_label && w.day_label !== 'Trening dnia') {
+            workoutNameEl.textContent = w.day_label;
+          } else if (exCount > 0) {
+            workoutNameEl.textContent = 'Trening Siłowy';
+          } else {
+            workoutNameEl.textContent = 'Dzień regeneracyjny';
+          }
+        }
         if (workoutExEl) {
-          workoutExEl.textContent = exCount > 0 ? (exCount + ' zaplanowanych ćwiczeń do wykonania') : 'Brak ćwiczeń na ten dzień.';
+          if (exCount > 0) {
+            var sampleNames = workoutsList.slice(0, 3).map(function(e) { return e.name; }).filter(Boolean).join(', ');
+            workoutExEl.textContent = exCount + ' ćwiczeń: ' + (sampleNames ? (sampleNames + (exCount > 3 ? '…' : '')) : 'do wykonania');
+          } else {
+            workoutExEl.textContent = 'Dziś brak zaplanowanego treningu siłowego.';
+          }
         }
         if (statusBadge) {
-          statusBadge.textContent = w.has_workout ? 'Gotowy do startu' : 'Dzień wolny';
+          var doneExCount = workoutsList.filter(function(e) { return Boolean(e.checked); }).length;
+          if (doneExCount > 0 && doneExCount >= exCount && exCount > 0) {
+            statusBadge.textContent = '✓ Wykonany';
+            statusBadge.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-green-500/20 text-green-300 border border-green-500/40';
+          } else if (doneExCount > 0) {
+            statusBadge.textContent = 'W trakcie · ' + doneExCount + '/' + exCount;
+            statusBadge.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40';
+          } else if (exCount > 0) {
+            statusBadge.textContent = 'Zaplanowany';
+            statusBadge.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-violet-500/10 text-violet-300 border border-violet-500/20';
+          } else {
+            statusBadge.textContent = 'Dzień wolny';
+            statusBadge.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-gray-500/10 text-gray-400 border border-gray-500/20';
+          }
         }
       }
 
@@ -28782,6 +29547,7 @@ window.openDayItemSwap = openDayItemSwap;
       if (recRes.ok) {
         var recData = await recRes.json();
         var score = recData.readiness_score != null ? Math.round(recData.readiness_score) : null;
+        window._todayHasCheckin = (score != null);
         if (readinessVal) {
           readinessVal.textContent = score != null ? (score + '%') : '—';
           if (score >= 80) readinessVal.style.color = '#4ade80';
@@ -28789,10 +29555,408 @@ window.openDayItemSwap = openDayItemSwap;
           else readinessVal.style.color = '#fbbf24';
         }
       }
+
+      // 3. Odśwież kartę Diety
+      refreshTodayHubDiet();
+
+      // 4. Odśwież kartę Koszykówki & Rzutów
+      refreshTodayHubBasketball();
+
+      // 5. Zaktualizuj wskaźnik spójności dnia
+      if (typeof updateDayConsistencyScore === 'function') updateDayConsistencyScore();
     } catch (e) {
       console.warn('[loadEvolveTodayHub] Error:', e.message);
     }
   };
+
+  async function refreshTodayHubBasketball() {
+    var token = localStorage.getItem('fitai_token');
+    if (!token) return;
+    try {
+      var res = await fetch((window.API_BASE || '') + '/app/drill-history?limit=40', {
+        headers: { 'Authorization': 'Bearer ' + token },
+        cache: 'no-store'
+      });
+      if (!res.ok) return;
+      var data = await res.json();
+      var results = Array.isArray(data.results) ? data.results : [];
+      var todayISO = new Date().toISOString().slice(0, 10);
+      var todayShots = results.filter(function(r) {
+        return (r.session_date === todayISO) && (r.drill_category === 'Rzut' || (r.drill_sport || '').toLowerCase() === 'koszykówka');
+      });
+
+      var totalAttempts = 0;
+      var totalMade = 0;
+      todayShots.forEach(function(r) {
+        totalAttempts += (Number(r.total_attempts) || 0);
+        totalMade += (Number(r.success_count) || 0);
+      });
+
+      var targetGoal = 50;
+      var pctDone = Math.round((totalAttempts / targetGoal) * 100);
+      var accPct = totalAttempts > 0 ? Math.round((totalMade / totalAttempts) * 100) : 0;
+
+      var statsEl = document.getElementById('todayBasketballStats');
+      var barEl = document.getElementById('todayBasketballBar');
+      var badgeEl = document.getElementById('todayBasketballBadge');
+      var descEl = document.getElementById('todayBasketballDesc');
+
+      if (statsEl) {
+        if (totalAttempts > 0) {
+          statsEl.innerHTML = totalMade + ' / ' + totalAttempts + ' celnych <span style="color:#a78bfa;">(' + accPct + '%)</span>';
+        } else {
+          statsEl.textContent = '0 / ' + targetGoal + ' (0%)';
+        }
+      }
+      if (barEl) {
+        barEl.style.width = Math.min(100, pctDone) + '%';
+      }
+      if (badgeEl) {
+        if (totalAttempts >= targetGoal) {
+          badgeEl.textContent = '✓ Cel osiągnięty (' + totalAttempts + ' rzutów)';
+          badgeEl.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-green-500/20 text-green-300 border border-green-500/40';
+        } else if (totalAttempts > 0) {
+          badgeEl.textContent = 'W trakcie · ' + totalAttempts + '/' + targetGoal;
+          badgeEl.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40';
+        } else {
+          badgeEl.textContent = 'Dzisiejsza sesja';
+          badgeEl.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20';
+        }
+      }
+      if (descEl && totalAttempts > 0) {
+        descEl.textContent = 'Zalogowano dzisiaj ' + todayShots.length + ' ' + (todayShots.length === 1 ? 'serię' : 'serie') + ' rzutowe. Skuteczność ogólna: ' + accPct + '%.';
+      }
+
+      window._todayHasBasketball = (totalAttempts > 0);
+      if (typeof updateDayConsistencyScore === 'function') updateDayConsistencyScore();
+    } catch(e) {
+      console.warn('[refreshTodayHubBasketball]', e);
+    }
+  }
+  window.refreshTodayHubBasketball = refreshTodayHubBasketball;
+
+  window.openTodayShotTrackerModal = function() {
+    var token = localStorage.getItem('fitai_token');
+    if (!token) {
+      if (typeof showToast === 'function') showToast('Zaloguj się, aby rejestrować rzuty.', 'error');
+      return;
+    }
+
+    var existing = document.getElementById('todayShotTrackerModal');
+    if (existing) existing.remove();
+
+    var modal = document.createElement('div');
+    modal.id = 'todayShotTrackerModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+    modal.innerHTML = `
+      <div style="width:100%;max-width:520px;background:#101118;border:1px solid rgba(0,229,255,0.28);border-radius:24px;box-shadow:0 25px 70px rgba(0,0,0,0.7);display:flex;flex-direction:column;overflow:hidden;">
+        <!-- Header -->
+        <div style="padding:18px 22px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;">
+          <div style="flex:1;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:18px;">🏀</span>
+              <h3 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#fff;margin:0;">Shot Tracker · Seria Rzutowa</h3>
+            </div>
+            <p style="font-size:11px;color:#94a3b8;margin:3px 0 0;">Zarejestruj wykonane rzuty do historii drilli sportowych</p>
+          </div>
+          <button type="button" id="closeShotModalBtn" aria-label="Zamknij tracker rzutów" style="background:transparent;border:none;color:#94a3b8;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:8px;line-height:1;">✕</button>
+        </div>
+
+        <!-- Body -->
+        <div style="padding:20px 22px;overflow-y:auto;max-height:78vh;display:flex;flex-direction:column;gap:18px;">
+          <!-- Wybór strefy -->
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#00e5ff;margin-bottom:8px;">Strefa / Typ rzutu</label>
+            <div id="shotModalZones" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+              <button type="button" class="shot-zone-opt active" data-zone="Osobiste (FT)" style="padding:10px 12px;border-radius:12px;background:rgba(0,229,255,0.12);border:1px solid #00e5ff;color:#00e5ff;font-size:12px;font-weight:700;cursor:pointer;text-align:left;">🎯 Osobiste (FT)</button>
+              <button type="button" class="shot-zone-opt" data-zone="Półdystans (Mid-Range)" style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#cbd5e1;font-size:12px;font-weight:700;cursor:pointer;text-align:left;">📐 Półdystans</button>
+              <button type="button" class="shot-zone-opt" data-zone="Trójka ze skrzydła (3PT)" style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#cbd5e1;font-size:12px;font-weight:700;cursor:pointer;text-align:left;">🏹 Trójka ze skrzydła</button>
+              <button type="button" class="shot-zone-opt" data-zone="Catch & Shoot" style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#cbd5e1;font-size:12px;font-weight:700;cursor:pointer;text-align:left;">⚡ Catch & Shoot</button>
+              <button type="button" class="shot-zone-opt" data-zone="Pull-up po koźle" style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#cbd5e1;font-size:12px;font-weight:700;cursor:pointer;text-align:left;">🏃 Pull-up po koźle</button>
+              <button type="button" class="shot-zone-opt" data-zone="Trójka ze szczytu (Top 3PT)" style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#cbd5e1;font-size:12px;font-weight:700;cursor:pointer;text-align:left;">🏀 Trójka ze szczytu</button>
+            </div>
+          </div>
+
+          <!-- Liczniki rzutów -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <!-- Celne -->
+            <div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.25);border-radius:16px;padding:14px;text-align:center;">
+              <span style="font-size:11px;font-weight:700;text-transform:uppercase;color:#4ade80;">✓ Trafione</span>
+              <div id="shotModalMadeVal" style="font-family:'Syne',sans-serif;font-size:36px;font-weight:900;color:#4ade80;margin:6px 0;">0</div>
+              <div style="display:flex;gap:4px;justify-content:center;">
+                <button type="button" id="btnMadeMinus" style="padding:6px 12px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;font-weight:700;cursor:pointer;">-1</button>
+                <button type="button" id="btnMadePlus1" style="padding:6px 14px;border-radius:8px;background:rgba(34,197,94,0.2);border:1px solid rgba(34,197,94,0.4);color:#4ade80;font-weight:800;cursor:pointer;">+1</button>
+                <button type="button" id="btnMadePlus5" style="padding:6px 10px;border-radius:8px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);color:#4ade80;font-weight:700;cursor:pointer;">+5</button>
+              </div>
+            </div>
+
+            <!-- Oddane -->
+            <div style="background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.25);border-radius:16px;padding:14px;text-align:center;">
+              <span style="font-size:11px;font-weight:700;text-transform:uppercase;color:#00e5ff;">Total Oddane</span>
+              <div id="shotModalAttVal" style="font-family:'Syne',sans-serif;font-size:36px;font-weight:900;color:#00e5ff;margin:6px 0;">0</div>
+              <div style="display:flex;gap:4px;justify-content:center;">
+                <button type="button" id="btnAttMinus" style="padding:6px 12px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;font-weight:700;cursor:pointer;">-1</button>
+                <button type="button" id="btnAttPlus1" style="padding:6px 14px;border-radius:8px;background:rgba(0,229,255,0.2);border:1px solid rgba(0,229,255,0.4);color:#00e5ff;font-weight:800;cursor:pointer;">+1</button>
+                <button type="button" id="btnAttPlus5" style="padding:6px 10px;border-radius:8px;background:rgba(0,229,255,0.12);border:1px solid rgba(0,229,255,0.3);color:#00e5ff;font-weight:700;cursor:pointer;">+5</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Szybkie batche -->
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:11px;color:#64748b;font-weight:600;">Szybkie serie:</span>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="shot-batch-btn" data-made="7" data-att="10" style="padding:5px 9px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;font-size:11px;font-weight:600;cursor:pointer;">7/10</button>
+              <button type="button" class="shot-batch-btn" data-made="15" data-att="20" style="padding:5px 9px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;font-size:11px;font-weight:600;cursor:pointer;">15/20</button>
+              <button type="button" class="shot-batch-btn" data-made="18" data-att="25" style="padding:5px 9px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;font-size:11px;font-weight:600;cursor:pointer;">18/25</button>
+              <button type="button" id="btnResetShotModal" style="padding:5px 9px;border-radius:8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#f87171;font-size:11px;font-weight:600;cursor:pointer;">Zeruj</button>
+            </div>
+          </div>
+
+          <!-- Wskaźnik skuteczności -->
+          <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:12px 14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;">Skuteczność serii</span>
+              <span id="shotModalPctLabel" style="font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:#00e5ff;">0%</span>
+            </div>
+            <div style="width:100%;background:rgba(255,255,255,0.06);height:8px;border-radius:999px;overflow:hidden;">
+              <div id="shotModalPctBar" style="height:100%;width:0%;background:linear-gradient(90deg,#00e5ff,#a78bfa);transition:width 0.3s ease;"></div>
+            </div>
+            <div id="shotModalVerdict" style="font-size:11px;color:#64748b;margin-top:6px;text-align:right;">Wprowadź oddane rzuty</div>
+          </div>
+
+          <!-- RPE & Opcje -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center;">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">
+                <span style="color:#94a3b8;">Zmęczenie (RPE):</span>
+                <span id="shotModalRpeLabel" style="color:#a78bfa;font-weight:700;">6/10</span>
+              </div>
+              <input type="range" id="shotModalRpeInput" min="1" max="10" step="1" value="6" style="width:100%;accent-color:#a78bfa;">
+            </div>
+            <div>
+              <input type="text" id="shotModalNotes" placeholder="Notatki (np. po siłowni)" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:8px 10px;color:#f8fafc;font-size:12px;">
+            </div>
+          </div>
+
+          <div id="shotModalStatus" class="hidden" style="padding:8px 12px;border-radius:10px;font-size:12px;text-align:center;font-weight:600;"></div>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding:14px 22px;border-top:1px solid rgba(255,255,255,0.08);display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" id="cancelShotModalBtn" style="padding:10px 16px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#cbd5e1;font-size:12px;font-weight:700;cursor:pointer;">Anuluj</button>
+          <button type="button" id="saveShotModalBtn" class="btn-neon" style="padding:10px 20px;border-radius:12px;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <span>💾 Zapisz serię (+XP)</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    var curMade = 0;
+    var curAtt = 0;
+    var curZone = 'Osobiste (FT)';
+
+    function updateModalCalc() {
+      var madeEl = document.getElementById('shotModalMadeVal');
+      var attEl = document.getElementById('shotModalAttVal');
+      var pctEl = document.getElementById('shotModalPctLabel');
+      var barEl = document.getElementById('shotModalPctBar');
+      var verdEl = document.getElementById('shotModalVerdict');
+
+      if (madeEl) madeEl.textContent = curMade;
+      if (attEl) attEl.textContent = curAtt;
+
+      var pct = curAtt > 0 ? Math.round((curMade / curAtt) * 100) : 0;
+      if (pctEl) {
+        pctEl.textContent = pct + '%';
+        if (pct >= 75) pctEl.style.color = '#4ade80';
+        else if (pct >= 55) pctEl.style.color = '#00e5ff';
+        else pctEl.style.color = '#fbbf24';
+      }
+      if (barEl) barEl.style.width = pct + '%';
+      if (verdEl) {
+        if (curAtt === 0) verdEl.textContent = 'Wprowadź oddane rzuty';
+        else if (pct >= 80) verdEl.textContent = '🔥 Snajper — wybitna seria!';
+        else if (pct >= 65) verdEl.textContent = '⚡ Solidna celność meczowa';
+        else if (pct >= 50) verdEl.textContent = '🎯 Przyzwoity rytm rzutowy';
+        else verdEl.textContent = '💪 Budowanie formy i powtarzalności';
+      }
+    }
+
+    // Wybór strefy
+    modal.querySelectorAll('.shot-zone-opt').forEach(function(btn) {
+      btn.onclick = function() {
+        modal.querySelectorAll('.shot-zone-opt').forEach(function(b) {
+          b.style.background = 'rgba(255,255,255,0.04)';
+          b.style.borderColor = 'rgba(255,255,255,0.1)';
+          b.style.color = '#cbd5e1';
+        });
+        btn.style.background = 'rgba(0,229,255,0.12)';
+        btn.style.borderColor = '#00e5ff';
+        btn.style.color = '#00e5ff';
+        curZone = btn.getAttribute('data-zone') || 'Osobiste (FT)';
+      };
+    });
+
+    // Przyciski trafionych
+    var btnMPlus1 = document.getElementById('btnMadePlus1');
+    var btnMPlus5 = document.getElementById('btnMadePlus5');
+    var btnMMinus = document.getElementById('btnMadeMinus');
+    if (btnMPlus1) btnMPlus1.onclick = function() { curMade++; if (curMade > curAtt) curAtt = curMade; updateModalCalc(); };
+    if (btnMPlus5) btnMPlus5.onclick = function() { curMade += 5; if (curMade > curAtt) curAtt = curMade; updateModalCalc(); };
+    if (btnMMinus) btnMMinus.onclick = function() { curMade = Math.max(0, curMade - 1); updateModalCalc(); };
+
+    // Przyciski oddanych
+    var btnAPlus1 = document.getElementById('btnAttPlus1');
+    var btnAPlus5 = document.getElementById('btnAttPlus5');
+    var btnAMinus = document.getElementById('btnAttMinus');
+    if (btnAPlus1) btnAPlus1.onclick = function() { curAtt++; updateModalCalc(); };
+    if (btnAPlus5) btnAPlus5.onclick = function() { curAtt += 5; updateModalCalc(); };
+    if (btnAMinus) btnAMinus.onclick = function() { curAtt = Math.max(0, curAtt - 1); if (curMade > curAtt) curMade = curAtt; updateModalCalc(); };
+
+    // Szybkie serie
+    modal.querySelectorAll('.shot-batch-btn').forEach(function(btn) {
+      btn.onclick = function() {
+        curMade = parseInt(btn.getAttribute('data-made') || '0');
+        curAtt = parseInt(btn.getAttribute('data-att') || '0');
+        updateModalCalc();
+      };
+    });
+
+    var btnReset = document.getElementById('btnResetShotModal');
+    if (btnReset) btnReset.onclick = function() { curMade = 0; curAtt = 0; updateModalCalc(); };
+
+    // Suwak RPE
+    var rpeInput = document.getElementById('shotModalRpeInput');
+    var rpeLabel = document.getElementById('shotModalRpeLabel');
+    if (rpeInput && rpeLabel) {
+      rpeInput.oninput = function() { rpeLabel.textContent = this.value + '/10'; };
+    }
+
+    // Zamknięcie
+    function closeModal() { modal.remove(); }
+    var closeBtn = document.getElementById('closeShotModalBtn');
+    var cancelBtn = document.getElementById('cancelShotModalBtn');
+    if (closeBtn) closeBtn.onclick = closeModal;
+    if (cancelBtn) cancelBtn.onclick = closeModal;
+    modal.addEventListener('click', function(e) { if (e.target === modal) closeModal(); });
+
+    // Zapis serii
+    var saveBtn = document.getElementById('saveShotModalBtn');
+    if (saveBtn) {
+      saveBtn.onclick = async function() {
+        var statusEl = document.getElementById('shotModalStatus');
+        if (curAtt <= 0) {
+          if (statusEl) {
+            statusEl.className = 'text-xs px-3 py-1.5 rounded-xl font-bold text-yellow-400 bg-yellow-500/10 border border-yellow-500/30';
+            statusEl.textContent = 'Wprowadź liczbę oddanych rzutów';
+            statusEl.classList.remove('hidden');
+          }
+          return;
+        }
+
+        saveBtn.disabled = true;
+        if (statusEl) {
+          statusEl.className = 'text-xs px-3 py-1.5 rounded-xl font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/30';
+          statusEl.textContent = '⏳ Zapisuję serię…';
+          statusEl.classList.remove('hidden');
+        }
+
+        try {
+          var rpeVal = parseInt(rpeInput ? rpeInput.value : '6') || 6;
+          var notesVal = (document.getElementById('shotModalNotes')?.value || '').trim();
+          var payload = {
+            drill_name: 'Sesja rzutowa: ' + curZone,
+            drill_category: 'Rzut',
+            drill_sport: 'koszykówka',
+            session_date: new Date().toISOString().split('T')[0],
+            success_count: curMade,
+            total_attempts: curAtt,
+            rpe: rpeVal,
+            target_pct: 70,
+            notes: notesVal || ('Zapisano przez Quick Shot Tracker (' + curZone + ')')
+          };
+
+          var res = await fetch((window.API_BASE || '') + '/app/drill-result', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify(payload)
+          });
+          var resData = await res.json().catch(function() { return {}; });
+          if (!res.ok) throw new Error(resData.detail || 'Błąd zapisu serii');
+
+          var acc = Math.round((curMade / curAtt) * 100);
+          if (typeof showToast === 'function') {
+            showToast('✓ Zapisano serię: ' + curMade + '/' + curAtt + ' (' + acc + '%) · +25 XP 🔥', 'success');
+          }
+
+          closeModal();
+          refreshTodayHubBasketball();
+          if (typeof loadTodayData === 'function') loadTodayData();
+        } catch(err) {
+          saveBtn.disabled = false;
+          if (statusEl) {
+            statusEl.className = 'text-xs px-3 py-1.5 rounded-xl font-bold text-red-400 bg-red-500/10 border border-red-500/30';
+            statusEl.textContent = 'Błąd: ' + err.message;
+            statusEl.classList.remove('hidden');
+          }
+        }
+      };
+    }
+  };
+
+  function refreshTodayHubDiet() {
+    // Dane z loadTodayData (globals ustawiane przez istniejący skrypt diety)
+    var kcalConsumed = window._todayKcal || 0;
+    var proteinConsumed = window._todayProtein || 0;
+    var carbsConsumed = window._todayCarbs || 0;
+    var fatConsumed = window._todayFat || 0;
+    var kcalTarget = window._todayKcalTarget || parseInt(localStorage.getItem('fitai_kcal_target') || '2000');
+    var protTarget = window._todayProteinTarget || parseInt(localStorage.getItem('fitai_protein_target') || '150');
+    var carbTarget = window._todayCarbsTarget || Math.round(kcalTarget * 0.45 / 4);
+    var fatTarget  = window._todayFatTarget  || Math.round(kcalTarget * 0.30 / 9);
+
+    // Inteligentny fallback, jeśli posiłki w planie miały zdefiniowane tylko kcal i białko
+    var effectiveCarbs = carbsConsumed;
+    var effectiveFat = fatConsumed;
+    if (!effectiveCarbs && !effectiveFat && kcalConsumed > 0) {
+      var remainingKcal = Math.max(0, kcalConsumed - (proteinConsumed * 4));
+      effectiveCarbs = Math.round((remainingKcal * 0.55) / 4);
+      effectiveFat = Math.round((remainingKcal * 0.45) / 9);
+    }
+
+    function pct(val, tgt) { return tgt > 0 ? Math.min(100, Math.round((val / tgt) * 100)) : 0; }
+
+    var el = function(id) { return document.getElementById(id); };
+    if (el('todayHubKcalConsumed')) el('todayHubKcalConsumed').textContent = Math.round(kcalConsumed);
+    if (el('todayHubKcalTarget'))   el('todayHubKcalTarget').textContent   = ' / ' + kcalTarget + ' kcal';
+    if (el('todayHubKcalBar'))      el('todayHubKcalBar').style.width      = pct(kcalConsumed, kcalTarget) + '%';
+
+    if (el('todayHubProteinVal'))   el('todayHubProteinVal').textContent   = Math.round(proteinConsumed) + ' / ' + protTarget + 'g';
+    if (el('todayHubProteinBar'))   el('todayHubProteinBar').style.width   = pct(proteinConsumed, protTarget) + '%';
+
+    if (el('todayHubCarbsVal'))     el('todayHubCarbsVal').textContent     = Math.round(effectiveCarbs) + ' / ' + carbTarget + 'g';
+    if (el('todayHubCarbsBar'))     el('todayHubCarbsBar').style.width     = pct(effectiveCarbs, carbTarget) + '%';
+
+    if (el('todayHubFatVal'))       el('todayHubFatVal').textContent       = Math.round(effectiveFat) + ' / ' + fatTarget + 'g';
+    if (el('todayHubFatBar'))       el('todayHubFatBar').style.width       = pct(effectiveFat, fatTarget) + '%';
+
+    // Kolor statusu w zależności od % kalorii
+    var kPct = pct(kcalConsumed, kcalTarget);
+    var dietStatus = el('todayDietStatus');
+    if (dietStatus) {
+      if (kPct >= 90) { dietStatus.textContent = '✓ Cel osiągnięty'; dietStatus.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-green-500/20 text-green-300 border border-green-500/40'; }
+      else if (kPct >= 50) { dietStatus.textContent = 'W trakcie — ' + kPct + '%'; dietStatus.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-yellow-500/10 text-yellow-300 border border-yellow-500/20'; }
+      else { dietStatus.textContent = 'Dziennik — ' + kPct + '%'; }
+    }
+  }
+  window.refreshTodayHubDiet = refreshTodayHubDiet;
 
   window.submitQuickRecoveryCheckin = async function() {
     var token = localStorage.getItem('fitai_token');
@@ -28806,8 +29970,19 @@ window.openDayItemSwap = openDayItemSwap;
       return;
     }
 
-    var sleepHours = parseFloat(document.getElementById('quickSleepHours')?.value || '7.5');
-    var sleepQuality = parseInt(document.getElementById('quickSleepQuality')?.value || '8');
+    var sleepHours   = parseFloat(document.getElementById('quickSleepHours')?.value  || '7.5');
+    var sleepQuality = parseInt(document.getElementById('quickSleepQuality')?.value  || '8');
+    var energyLevel  = parseInt(document.getElementById('quickEnergyLevel')?.value   || '7');
+    var fatigue      = parseInt(document.getElementById('quickFatigue')?.value        || '3');
+    var stressLevel  = parseInt(document.getElementById('quickStressLevel')?.value   || '3');
+    var moodScore    = parseInt(document.getElementById('quickMoodScore')?.value      || '4');
+
+    // Pokaż spinner tymczasowo
+    if (statusEl) {
+      statusEl.className = 'text-xs font-semibold text-cyan-400';
+      statusEl.textContent = '⏳ Zapisuję…';
+      statusEl.classList.remove('hidden');
+    }
 
     try {
       var res = await fetch((window.API_BASE || '') + '/app/checkin', {
@@ -28817,19 +29992,24 @@ window.openDayItemSwap = openDayItemSwap;
           'Authorization': 'Bearer ' + token
         },
         body: JSON.stringify({
-          sleep_hours: sleepHours,
-          sleep_quality: sleepQuality
+          sleep_hours:   sleepHours,
+          sleep_quality: sleepQuality,
+          energy_level:  energyLevel,
+          fatigue_score: fatigue,
+          stress_level:  stressLevel,
+          mood_score:    moodScore
         })
       });
-      if (res.ok) {
-        if (statusEl) {
-          statusEl.className = 'text-xs font-semibold text-green-400';
-          statusEl.textContent = '✓ Zapisano stan poranny!';
-          statusEl.classList.remove('hidden');
-          setTimeout(function() { statusEl.classList.add('hidden'); }, 4000);
-        }
-        window.loadEvolveTodayHub();
+      var resData = await res.json().catch(function() { return {}; });
+      if (!res.ok) throw new Error(resData.detail || 'Błąd serwera (' + res.status + ')');
+
+      if (statusEl) {
+        statusEl.className = 'text-xs font-semibold text-green-400';
+        statusEl.textContent = '✓ Check-in zapisany! Sen: ' + sleepHours + 'h · Energia: ' + energyLevel + '/10 · Nastrój: ' + moodScore + '/5';
+        statusEl.classList.remove('hidden');
+        setTimeout(function() { statusEl.classList.add('hidden'); }, 6000);
       }
+      window.loadEvolveTodayHub();
     } catch(err) {
       if (statusEl) {
         statusEl.className = 'text-xs font-semibold text-red-400';
@@ -28837,6 +30017,431 @@ window.openDayItemSwap = openDayItemSwap;
         statusEl.classList.remove('hidden');
       }
     }
+  };
+
+  // ═══════════════════════════════════════════════════════════════════
+  // WORKOUT RUNNER — LIVE WORKOUT EXECUTION MODAL
+  // ═══════════════════════════════════════════════════════════════════
+
+  window.evolveStartTraining = async function() {
+    var token = localStorage.getItem('fitai_token');
+    if (!token) {
+      if (typeof showToast === 'function') {
+        showToast('Zaloguj się, aby rozpocząć trening na żywo.', 'error');
+      } else {
+        alert('Zaloguj się, aby rozpocząć trening na żywo.');
+      }
+      return;
+    }
+
+    var btn = document.getElementById('todayStartWorkoutBtn');
+    var origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳ Uruchamianie treningu…</span>';
+    }
+
+    try {
+      var res = await fetch((window.API_BASE || '') + '/app/training/sessions/start', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        }
+      });
+      var data = await res.json().catch(function() { return {}; });
+
+      if (!res.ok) {
+        var msg = data.detail || 'Nie udało się rozpocząć treningu.';
+        if (typeof msg === 'object') {
+          if (msg.code === 'TRAINING_START_BLOCKED') {
+            msg = 'Trening wstrzymany przez Decision Engine (' + (msg.action || 'regeneracja') + ').';
+          } else {
+            msg = JSON.stringify(msg);
+          }
+        }
+        if (typeof showToast === 'function') {
+          showToast('⚠️ ' + msg, 'error');
+        } else {
+          alert(msg);
+        }
+        return;
+      }
+
+      var session = data.session;
+      if (!session) throw new Error('Brak danych sesji');
+
+      if (typeof showToast === 'function') {
+        showToast(data.status === 'resumed' ? '✓ Wznowiono aktywny trening!' : '🚀 Trening na żywo rozpoczęty!', 'success');
+      }
+
+      window.openLiveWorkoutModal(session);
+    } catch(err) {
+      if (typeof showToast === 'function') {
+        showToast('Błąd rozpoczęcia sesji: ' + err.message, 'error');
+      } else {
+        alert('Błąd: ' + err.message);
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+      }
+    }
+  };
+
+  window.openLiveWorkoutModal = function(sessionData) {
+    var token = localStorage.getItem('fitai_token');
+    if (!token || !sessionData) return;
+
+    var curSession = sessionData;
+    var existing = document.getElementById('liveWorkoutModal');
+    if (existing) existing.remove();
+
+    var modal = document.createElement('div');
+    modal.id = 'liveWorkoutModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);backdrop-filter:blur(12px);z-index:10002;display:flex;align-items:center;justify-content:center;padding:14px;';
+
+    var planned = curSession.planned || {};
+    var exercises = planned.exercises || [];
+    var plannedSetsCount = exercises.reduce(function(acc, ex) { return acc + Math.max(0, Number(ex.sets || 0)); }, 0);
+
+    modal.innerHTML = `
+      <div style="width:100%;max-width:680px;max-height:92vh;background:#0d0f18;border:1px solid rgba(139,92,246,0.3);border-radius:24px;box-shadow:0 25px 75px rgba(0,0,0,0.8);display:flex;flex-direction:column;overflow:hidden;">
+        <!-- Header -->
+        <div style="padding:16px 22px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;background:rgba(139,92,246,0.05);">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:18px;">🏋️</span>
+              <h3 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#fff;margin:0;">Live Workout Runner</h3>
+              <span id="runnerLiveBadge" style="font-size:11px;padding:3px 8px;border-radius:99px;font-weight:700;background:rgba(34,197,94,0.15);color:#4ade80;border:1px solid rgba(34,197,94,0.3);">AKTYWNA SESJA</span>
+            </div>
+            <p style="font-size:11px;color:#94a3b8;margin:3px 0 0;">Zapisuj serie w czasie rzeczywistym. Postęp synchronizuje się z serwerem.</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <a href="/app/training/session-ui" target="_blank" title="Otwórz w osobnym oknie (tryb siłowni)" style="color:#a78bfa;font-size:11px;font-weight:700;text-decoration:none;padding:5px 9px;border-radius:8px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.25);">↗ Pełny ekran</a>
+            <button type="button" id="closeWorkoutModalBtn" aria-label="Zamknij trening" style="background:transparent;border:none;color:#94a3b8;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:8px;line-height:1;">✕</button>
+          </div>
+        </div>
+
+        <!-- Timer odpoczynku (Rest Timer) -->
+        <div id="runnerRestBanner" style="display:none;background:rgba(0,229,255,0.07);border-bottom:1px solid rgba(0,229,255,0.2);padding:10px 22px;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:16px;">⏱️</span>
+            <span style="font-size:12px;color:#cbd5e1;font-weight:600;">Odpoczynek:</span>
+            <span id="runnerRestTime" style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#00e5ff;">01:30</span>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button type="button" id="btnRestAdd30" style="padding:4px 9px;border-radius:6px;background:rgba(0,229,255,0.15);border:1px solid rgba(0,229,255,0.3);color:#00e5ff;font-size:11px;font-weight:700;cursor:pointer;">+30s</button>
+            <button type="button" id="btnRestSkip" style="padding:4px 9px;border-radius:6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;font-size:11px;font-weight:700;cursor:pointer;">Pomiń</button>
+          </div>
+        </div>
+
+        <!-- Postęp sesji -->
+        <div style="padding:12px 22px;background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div style="flex:1;">
+            <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:4px;">
+              <span style="color:#94a3b8;">Wykonane serie:</span>
+              <span id="runnerProgressText" style="color:#a78bfa;">0 / ${plannedSetsCount} (0%)</span>
+            </div>
+            <div style="width:100%;height:6px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;">
+              <div id="runnerProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg,#8b5cf6,#00e5ff);transition:width 0.3s ease;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista ćwiczeń -->
+        <div id="runnerExercisesList" style="padding:18px 22px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px;"></div>
+
+        <!-- Footer / Zakończenie treningu -->
+        <div style="padding:16px 22px;border-top:1px solid rgba(255,255,255,0.08);background:rgba(10,12,20,0.95);display:flex;flex-direction:column;gap:10px;">
+          <div id="completeSessionBox" style="display:none;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:12px 14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:12px;font-weight:700;color:#cbd5e1;">Końcowe zmęczenie sesji (RPE):</span>
+              <span id="runnerFinalRpeVal" style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:#a78bfa;">7/10</span>
+            </div>
+            <input type="range" id="runnerFinalRpeInput" min="1" max="10" step="1" value="7" style="width:100%;accent-color:#8b5cf6;margin-bottom:8px;">
+            <input type="text" id="runnerFinalNotes" placeholder="Notatka końcowa (opcjonalnie, np. dobra pompa)" style="width:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;color:#fff;font-size:11px;">
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <div id="runnerStatusMsg" style="font-size:12px;color:#94a3b8;font-weight:600;">Zapisz wykonane serie przed zakończeniem</div>
+            <button type="button" id="btnFinishWorkout" style="padding:10px 18px;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);border:none;color:#fff;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;transition:opacity 0.2s;" disabled>
+              <span>🏁 Zakończ trening (+100 XP)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    var restTimerId = null;
+    var restSecondsLeft = 0;
+
+    function stopRestTimer() {
+      if (restTimerId) { clearInterval(restTimerId); restTimerId = null; }
+      var banner = document.getElementById('runnerRestBanner');
+      if (banner) banner.style.display = 'none';
+    }
+
+    function startRestTimer(secs) {
+      stopRestTimer();
+      restSecondsLeft = secs || 90;
+      var banner = document.getElementById('runnerRestBanner');
+      var timeEl = document.getElementById('runnerRestTime');
+      if (banner) banner.style.display = 'flex';
+
+      function tick() {
+        var m = String(Math.floor(restSecondsLeft / 60)).padStart(2, '0');
+        var s = String(restSecondsLeft % 60).padStart(2, '0');
+        if (timeEl) timeEl.textContent = m + ':' + s;
+        if (restSecondsLeft <= 0) {
+          stopRestTimer();
+          if (typeof showToast === 'function') showToast('🔔 Koniec odpoczynku! Czas na kolejną serię.', 'info');
+        }
+        restSecondsLeft--;
+      }
+      tick();
+      restTimerId = setInterval(tick, 1000);
+    }
+
+    document.getElementById('btnRestAdd30')?.addEventListener('click', function() {
+      restSecondsLeft += 30;
+      var m = String(Math.floor(restSecondsLeft / 60)).padStart(2, '0');
+      var s = String(restSecondsLeft % 60).padStart(2, '0');
+      var timeEl = document.getElementById('runnerRestTime');
+      if (timeEl) timeEl.textContent = m + ':' + s;
+    });
+
+    document.getElementById('btnRestSkip')?.addEventListener('click', stopRestTimer);
+
+    function closeModal() {
+      stopRestTimer();
+      modal.remove();
+    }
+    document.getElementById('closeWorkoutModalBtn')?.addEventListener('click', closeModal);
+
+    var finalRpeInput = document.getElementById('runnerFinalRpeInput');
+    var finalRpeVal = document.getElementById('runnerFinalRpeVal');
+    if (finalRpeInput && finalRpeVal) {
+      finalRpeInput.oninput = function() { finalRpeVal.textContent = finalRpeInput.value + '/10'; };
+    }
+
+    function updateProgress() {
+      var completedSets = (curSession.sets || []).filter(function(s) { return Boolean(s.completed); }).length;
+      var total = plannedSetsCount || 1;
+      var pct = Math.min(100, Math.round((completedSets / total) * 100));
+
+      var progressText = document.getElementById('runnerProgressText');
+      var progressBar = document.getElementById('runnerProgressBar');
+      var finishBtn = document.getElementById('btnFinishWorkout');
+      var completeBox = document.getElementById('completeSessionBox');
+      var statusMsg = document.getElementById('runnerStatusMsg');
+
+      if (progressText) progressText.textContent = completedSets + ' / ' + plannedSetsCount + ' (' + pct + '%)';
+      if (progressBar) progressBar.style.width = pct + '%';
+
+      if (completedSets > 0) {
+        if (finishBtn) finishBtn.disabled = false;
+        if (completeBox) completeBox.style.display = 'block';
+        if (statusMsg) statusMsg.textContent = 'Możesz zakończyć sesję i zapisać progres.';
+      } else {
+        if (finishBtn) finishBtn.disabled = true;
+        if (completeBox) completeBox.style.display = 'none';
+        if (statusMsg) statusMsg.textContent = 'Zapisz przynajmniej 1 serię, aby móc zakończyć.';
+      }
+    }
+
+    function renderExercises() {
+      var listEl = document.getElementById('runnerExercisesList');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+
+      if (!exercises.length) {
+        listEl.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;">Brak ćwiczeń w dzisiejszym planie.</div>';
+        return;
+      }
+
+      exercises.forEach(function(ex, exIdx) {
+        var exKey = ex.exercise_key || ('exercise-' + (exIdx + 1));
+        var exSets = Math.max(1, Number(ex.sets || 3));
+        var exReps = ex.reps || 8;
+        var exWeight = ex.weight_kg || 0;
+        var exTargetRpe = ex.rpe || 7;
+
+        var loggedSetsForEx = (curSession.sets || []).filter(function(s) {
+          return String(s.exercise_key) === String(exKey);
+        });
+
+        var card = document.createElement('div');
+        card.style.cssText = 'background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:16px;';
+
+        var setsHtml = '';
+        for (var setNum = 1; setNum <= exSets; setNum++) {
+          var loggedSet = loggedSetsForEx.find(function(s) { return s.set_number === setNum; });
+          var isDone = loggedSet && loggedSet.completed;
+          var curReps = loggedSet ? loggedSet.actual_reps : exReps;
+          var curWeight = loggedSet ? loggedSet.actual_weight_kg : exWeight;
+          var curRpe = (loggedSet && loggedSet.actual_rpe) ? loggedSet.actual_rpe : exTargetRpe;
+
+          setsHtml += `
+            <div id="setrow-${exKey}-${setNum}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:${isDone ? 'rgba(34,197,94,0.06)' : 'rgba(0,0,0,0.3)'};border:1px solid ${isDone ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.07)'};margin-bottom:6px;flex-wrap:wrap;">
+              <span style="font-size:11px;font-weight:800;color:${isDone ? '#4ade80' : '#94a3b8'};min-width:55px;">Seria ${setNum}</span>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <input type="number" id="reps-${exKey}-${setNum}" value="${curReps}" min="1" max="100" style="width:52px;padding:5px 6px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;font-size:12px;text-align:center;">
+                <span style="font-size:10px;color:#64748b;">powt</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <input type="number" id="weight-${exKey}-${setNum}" value="${curWeight}" step="0.5" min="0" max="500" style="width:62px;padding:5px 6px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;font-size:12px;text-align:center;">
+                <span style="font-size:10px;color:#64748b;">kg</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <input type="number" id="rpe-${exKey}-${setNum}" value="${curRpe}" min="1" max="10" style="width:42px;padding:5px 4px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#a78bfa;font-size:12px;text-align:center;">
+                <span style="font-size:10px;color:#64748b;">RPE</span>
+              </div>
+              <button type="button" class="btn-save-set" data-exkey="${exKey}" data-setnum="${setNum}" style="margin-left:auto;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:${isDone ? 'rgba(34,197,94,0.2)' : 'linear-gradient(135deg,#8b5cf6,#6366f1)'};color:${isDone ? '#4ade80' : '#fff'};">
+                ${isDone ? '✓ Zapisano' : 'Zapisz'}
+              </button>
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+            <div>
+              <h4 style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:#fff;margin:0;">${exIdx + 1}. ${ex.exercise_name || 'Ćwiczenie'}</h4>
+              <p style="font-size:11px;color:#94a3b8;margin:2px 0 0;">Cel: ${exSets} serii × ${exReps} powt. ${exWeight ? ('· ' + exWeight + ' kg') : ''} ${exTargetRpe ? ('· RPE ' + exTargetRpe) : ''}</p>
+            </div>
+            <span style="font-size:11px;font-weight:700;color:#a78bfa;padding:3px 8px;border-radius:8px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2);">
+              ${loggedSetsForEx.length}/${exSets} serii
+            </span>
+          </div>
+          <div style="display:flex;flex-direction:column;">
+            ${setsHtml}
+          </div>
+        `;
+
+        listEl.appendChild(card);
+      });
+
+      // Podłącz zdarzenia zapisu serii
+      listEl.querySelectorAll('.btn-save-set').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+          var k = btn.dataset.exkey;
+          var n = parseInt(btn.dataset.setnum);
+          var repsInput = document.getElementById('reps-' + k + '-' + n);
+          var weightInput = document.getElementById('weight-' + k + '-' + n);
+          var rpeInput = document.getElementById('rpe-' + k + '-' + n);
+
+          var actReps = parseInt(repsInput ? repsInput.value : '0') || 0;
+          var actWeight = parseFloat(weightInput ? weightInput.value : '0') || 0.0;
+          var actRpe = parseInt(rpeInput ? rpeInput.value : '7') || 7;
+
+          btn.disabled = true;
+          btn.textContent = '⏳';
+
+          try {
+            var setRes = await fetch((window.API_BASE || '') + '/app/training/sessions/' + encodeURIComponent(curSession.id) + '/sets', {
+              method: 'POST',
+              headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                exercise_key: k,
+                set_number: n,
+                actual_reps: actReps,
+                actual_weight_kg: actWeight,
+                actual_rpe: actRpe,
+                completed: true
+              })
+            });
+            var setData = await setRes.json().catch(function() { return {}; });
+            if (!setRes.ok) throw new Error(setData.detail || 'Błąd zapisu serii');
+
+            // Zaktualizuj stan lokalny sesji
+            if (!curSession.sets) curSession.sets = [];
+            var existIdx = curSession.sets.findIndex(function(s) { return String(s.exercise_key) === String(k) && s.set_number === n; });
+            if (existIdx >= 0) {
+              curSession.sets[existIdx] = setData.set;
+            } else {
+              curSession.sets.push(setData.set);
+            }
+
+            var rowEl = document.getElementById('setrow-' + k + '-' + n);
+            if (rowEl) {
+              rowEl.style.background = 'rgba(34,197,94,0.06)';
+              rowEl.style.borderColor = 'rgba(34,197,94,0.3)';
+            }
+            btn.style.background = 'rgba(34,197,94,0.2)';
+            btn.style.color = '#4ade80';
+            btn.textContent = '✓ Zapisano';
+
+            updateProgress();
+            startRestTimer(90);
+          } catch(err) {
+            btn.textContent = 'Błąd!';
+            if (typeof showToast === 'function') showToast('Błąd: ' + err.message, 'error');
+          } finally {
+            btn.disabled = false;
+          }
+        });
+      });
+    }
+
+    // Obsługa zakończenia treningu
+    document.getElementById('btnFinishWorkout')?.addEventListener('click', async function() {
+      var finBtn = document.getElementById('btnFinishWorkout');
+      var rpeVal = parseInt(document.getElementById('runnerFinalRpeInput')?.value || '7') || 7;
+      var notesVal = (document.getElementById('runnerFinalNotes')?.value || '').trim();
+
+      if (finBtn) {
+        finBtn.disabled = true;
+        finBtn.innerHTML = '<span>⏳ Zapisywanie zakończenia…</span>';
+      }
+
+      try {
+        var compRes = await fetch((window.API_BASE || '') + '/app/training/sessions/' + encodeURIComponent(curSession.id) + '/complete', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            final_rpe: rpeVal,
+            notes: notesVal || 'Ukończono w Live Workout Runner'
+          })
+        });
+        var compData = await compRes.json().catch(function() { return {}; });
+        if (!compRes.ok) throw new Error(compData.detail || 'Nie udało się zakończyć treningu');
+
+        if (typeof showToast === 'function') {
+          showToast('🏆 Trening ukończony! Zapisano do bazy · +100 XP 🔥', 'success');
+        }
+
+        window._todayHasWorkout = true;
+        closeModal();
+
+        // Przeładuj Today Hub, aby odświeżyć status na "✓ Wykonany"
+        if (typeof window.loadEvolveTodayHub === 'function') {
+          window.loadEvolveTodayHub();
+        }
+      } catch(err) {
+        if (typeof showToast === 'function') {
+          showToast('Błąd: ' + err.message, 'error');
+        } else {
+          alert('Błąd: ' + err.message);
+        }
+        if (finBtn) {
+          finBtn.disabled = false;
+          finBtn.innerHTML = '<span>🏁 Zakończ trening (+100 XP)</span>';
+        }
+      }
+    });
+
+    renderExercises();
+    updateProgress();
   };
 
   document.addEventListener('DOMContentLoaded', function() {
