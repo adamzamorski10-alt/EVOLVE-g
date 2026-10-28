@@ -2279,7 +2279,7 @@
                 <span class="text-xs uppercase font-bold text-green-400">🥗 Dieta na dziś</span>
                 <span id="todayDietStatus" class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-green-500/10 text-green-300 border border-green-500/20">Dziennik</span>
               </div>
-              <button type="button" onclick="showTab('dieta')" class="text-xs text-gray-500 hover:text-green-400 transition-colors font-semibold">→ Otwórz dziennik</button>
+              <button type="button" onclick="showTab('plan'); switchPlanCategory('dieta');" class="text-xs text-gray-500 hover:text-green-400 transition-colors font-semibold">→ Otwórz dziennik</button>
             </div>
             <!-- Kcal pasek główny -->
             <div class="mb-3">
@@ -3211,34 +3211,16 @@
           </div>
         </div>
 
-        <!-- ════════ HYBRID LAYOUT ════════ -->
-        <div id="planHybridLayout" style="display:grid;grid-template-columns:72px 1fr;gap:16px;align-items:start;">
+        <!-- ════════ FULL-WIDTH LAYOUT ════════ -->
+        <!-- Mini-sidebar ukryty – nawigacja jest już w głównym Performance OS sidebarze -->
+        <nav id="planSubSidebar" aria-label="Kategorie planu" style="display:none;" hidden>
+          <button id="plancat-dieta" onclick="switchPlanCategory('dieta')"></button>
+          <button id="plancat-trening" onclick="switchPlanCategory('trening')"></button>
+          <button id="plancat-sport" onclick="switchPlanCategory('sport')"></button>
+        </nav>
+        <div id="planHybridLayout" style="display:block;">
 
-          <!-- LEFT: Category Sub-Sidebar -->
-          <nav id="planSubSidebar" aria-label="Kategorie planu" style="
-            display:flex;flex-direction:column;gap:6px;
-            background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);
-            border-radius:18px;padding:10px 8px;position:sticky;top:80px;">
-            <button class="plan-cat-btn active" id="plancat-dieta" onclick="switchPlanCategory('dieta')" title="Dieta"
-              style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:12px;cursor:pointer;transition:all .2s;border:1px solid transparent;">
-              <span class="cat-icon" style="font-size:1.3rem;">🍽️</span>
-              <span class="cat-label" style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;">Dieta</span>
-            </button>
-            <div style="height:1px;background:rgba(255,255,255,0.05);margin:2px 0;"></div>
-            <button class="plan-cat-btn" id="plancat-trening" onclick="switchPlanCategory('trening')" title="Trening"
-              style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:12px;cursor:pointer;transition:all .2s;border:1px solid transparent;">
-              <span class="cat-icon" style="font-size:1.3rem;">💪</span>
-              <span class="cat-label" style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;">Trening</span>
-            </button>
-            <div style="height:1px;background:rgba(255,255,255,0.05);margin:2px 0;"></div>
-            <button class="plan-cat-btn" id="plancat-sport" onclick="switchPlanCategory('sport')" title="Sport"
-              style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:12px;cursor:pointer;transition:all .2s;border:1px solid transparent;">
-              <span class="cat-icon" style="font-size:1.3rem;">🏀</span>
-              <span class="cat-label" style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;">Sport</span>
-            </button>
-          </nav>
-
-          <!-- RIGHT: Content Area -->
+          <!-- Full-Width Content Area -->
           <div id="planContentArea" style="min-width:0;">
 
             <!-- Top Tab Bar -->
@@ -8943,35 +8925,7 @@
       } catch (error) { status.textContent = 'Nie udało się połączyć z serwerem.'; }
     }
 
-    function showTab(tabId) {
-      document.querySelectorAll('section[id^="tab-"]').forEach(s => {
-        s.classList.add('hidden');
-      });
-      const target = document.getElementById('tab-' + tabId);
-      if (target) target.classList.remove('hidden');
-
-      document.querySelectorAll('[data-tab]').forEach(link => {
-        const active = link.getAttribute('data-tab') === tabId;
-        link.classList.toggle('active', active);
-        if (active) {
-          link.classList.remove('text-gray-400');
-          link.classList.add('text-cyan-400');
-        } else {
-          link.classList.remove('text-cyan-400');
-          link.classList.add('text-gray-400');
-        }
-      });
-
-      if (tabId === 'profile') {
-        _loadProfileIntoForm();
-      }
-      if (tabId === 'postepy') {
-        showSubTab('overview');
-      }
-      if (tabId === 'my-day') {
-        loadEvolveMyDay();
-      }
-    }
+    // showTab is defined later (canonical version at window.showTab assignment)
 
 
     function showTabFromHash() {
@@ -9724,7 +9678,7 @@
       document.getElementById('landingLinks')?.classList.add('hidden');
       document.getElementById('userSwitcher')?.classList.remove('hidden');
       document.getElementById('aiFloatBtn')?.classList.remove('hidden');
-      showTab('home');
+      showTab('my-day');
       updateDashboard();
       // Pobierz profil z backendu i załaduj plan do Mój Dzień
       if (typeof syncProfileFromBackend === 'function') {
@@ -11798,14 +11752,15 @@
 
       _syncPlanBuilderPreviewUi(false);
       _renderWeekGrid();
-      const panel = document.getElementById('dayConfigPanel');
-      if (panel) {
-        panel.innerHTML = `
-          <div class="text-center py-10 text-gray-500">
-            <p class="text-4xl mb-3">👆</p>
-            <p class="text-sm">Kliknij dzień w siatce powyżej aby go skonfigurować</p>
-          </div>`;
-      }
+
+      // Szablony błyskawiczne – wybierz gotowy szablon tygodniowy jednym kliknięciem
+      const tplBar = document.getElementById('pbTemplatesBar');
+      if (tplBar) tplBar.style.display = 'flex';
+
+      // Automatycznie otwórz pierwszy dzień roboczy (Pon) zamiast pustego placeholdera
+      _pb.activeDay = 'Pon';
+      _renderWeekGrid();
+      _renderDayConfig('Pon');
 
       _updateBalancePanel();
     }
@@ -11833,6 +11788,70 @@
           </div>`;
       }
     }
+
+    // ── Szablony błyskawiczne ─────────────────────────────────
+    const PB_TEMPLATES = {
+      upper_lower: {
+        Pon: { type: 'strength', muscles: ['klatka','barki','triceps'], exCount: 5 },
+        Wt:  { type: 'strength', muscles: ['nogi','plecy','biceps'],   exCount: 5 },
+        Sr:  { type: 'rest' },
+        Czw: { type: 'strength', muscles: ['klatka','barki','triceps'], exCount: 5 },
+        Pt:  { type: 'strength', muscles: ['nogi','plecy','biceps'],   exCount: 5 },
+        Sob: { type: 'rest' },
+        Nd:  { type: 'rest' }
+      },
+      full_body: {
+        Pon: { type: 'strength', muscles: ['klatka','plecy','nogi','barki'], exCount: 6 },
+        Wt:  { type: 'rest' },
+        Sr:  { type: 'strength', muscles: ['klatka','plecy','nogi','barki'], exCount: 6 },
+        Czw: { type: 'rest' },
+        Pt:  { type: 'strength', muscles: ['klatka','plecy','nogi','barki'], exCount: 6 },
+        Sob: { type: 'rest' },
+        Nd:  { type: 'rest' }
+      },
+      push_pull_legs: {
+        Pon: { type: 'strength', muscles: ['klatka','barki','triceps'], exCount: 5 },
+        Wt:  { type: 'strength', muscles: ['plecy','biceps'],           exCount: 5 },
+        Sr:  { type: 'strength', muscles: ['nogi','pośladki'],          exCount: 5 },
+        Czw: { type: 'rest' },
+        Pt:  { type: 'strength', muscles: ['klatka','barki','triceps'], exCount: 5 },
+        Sob: { type: 'strength', muscles: ['plecy','biceps'],           exCount: 5 },
+        Nd:  { type: 'rest' }
+      },
+      basketball_5day: {
+        Pon: { type: 'strength', muscles: ['nogi','pośladki'],           exCount: 5 },
+        Wt:  { type: 'basketball', sport: 'basketball', drillCats: ['shooting','ballhandling'], drillCount: 4 },
+        Sr:  { type: 'strength', muscles: ['klatka','plecy','barki'],   exCount: 4 },
+        Czw: { type: 'basketball', sport: 'basketball', drillCats: ['footwork','defense'],    drillCount: 4 },
+        Pt:  { type: 'basketball', sport: 'basketball', drillCats: ['game_prep'],             drillCount: 3 },
+        Sob: { type: 'rest' },
+        Nd:  { type: 'rest' }
+      }
+    };
+
+    function applyPBTemplate(key) {
+      const tpl = PB_TEMPLATES[key];
+      if (!tpl) return;
+      PB_DAYS.forEach(day => {
+        const cfg = tpl[day];
+        if (!cfg) return;
+        const base = _pbCloneEmptyDay();
+        base.type = cfg.type || 'rest';
+        if (cfg.muscles)    base.muscles    = [...cfg.muscles];
+        if (cfg.exCount)    base.exCount    = cfg.exCount;
+        if (cfg.sport)      base.sport      = cfg.sport;
+        if (cfg.drillCats)  base.drillCats  = [...cfg.drillCats];
+        if (cfg.drillCount) base.drillCount = cfg.drillCount;
+        _pb.days[day] = base;
+      });
+      _pb.activeDay = 'Pon';
+      _pbPreviewMode = false;
+      _syncPlanBuilderPreviewUi(false);
+      _renderWeekGrid();
+      _renderDayConfig('Pon');
+      _updateBalancePanel();
+    }
+    // ─────────────────────────────────────────────────────────
 
     let _pbPreviewMode = false;
 
@@ -22028,6 +22047,8 @@
     window.openPlanHistoryModal = openPlanHistoryModal;
     window.restoreHistoryPlan = restoreHistoryPlan;
     window.refreshWeeklyAnalysis = refreshWeeklyAnalysis;
+    window.applyPBTemplate = applyPBTemplate;
+
 
     window.addEventListener('beforeunload', function() {
       saveState();
@@ -27903,7 +27924,7 @@
       } else if (typeof showPanel === 'function') {
         showPanel();
       } else if (typeof showTab === 'function') {
-        showTab('home');
+        showTab('my-day');
       } else if (typeof initApp === 'function') {
         initApp();
       } else {
@@ -27930,7 +27951,7 @@
       // Mamy token — pokaż panel bezpośrednio
       if (typeof enterDashboard === 'function') enterDashboard();
       else if (typeof showPanel === 'function') showPanel();
-      else if (typeof showTab === 'function') showTab('home');
+      else if (typeof showTab === 'function') showTab('my-day');
       else if (typeof initApp === 'function') initApp();
     } else {
       // Brak tokenu — pokaż modal auth
@@ -29107,8 +29128,19 @@ window.openDayItemSwap = openDayItemSwap;
     </div>
 
     <div class="px-6 pt-5 flex-shrink-0">
-      <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Podgląd planu — kliknij dzień aby
-        edytować</p>
+      <!-- Szablony błyskawiczne -->
+      <div id="pbTemplatesBar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        <span style="font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:rgba(167,139,250,0.7);align-self:center;white-space:nowrap;">Szablon:</span>
+        <button onclick="applyPBTemplate('upper_lower')" style="font-size:11px;font-weight:700;padding:6px 14px;border-radius:10px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.22);color:#00e5ff;cursor:pointer;transition:all .15s;white-space:nowrap;"
+          onmouseover="this.style.background='rgba(0,229,255,0.18)'" onmouseout="this.style.background='rgba(0,229,255,0.08)'">Upper / Lower &times;4</button>
+        <button onclick="applyPBTemplate('full_body')" style="font-size:11px;font-weight:700;padding:6px 14px;border-radius:10px;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.22);color:#a78bfa;cursor:pointer;transition:all .15s;white-space:nowrap;"
+          onmouseover="this.style.background='rgba(124,58,237,0.18)'" onmouseout="this.style.background='rgba(124,58,237,0.08)'">Full Body &times;3</button>
+        <button onclick="applyPBTemplate('push_pull_legs')" style="font-size:11px;font-weight:700;padding:6px 14px;border-radius:10px;background:rgba(74,222,128,0.07);border:1px solid rgba(74,222,128,0.2);color:#4ade80;cursor:pointer;transition:all .15s;white-space:nowrap;"
+          onmouseover="this.style.background='rgba(74,222,128,0.18)'" onmouseout="this.style.background='rgba(74,222,128,0.07)'">Push / Pull / Legs</button>
+        <button onclick="applyPBTemplate('basketball_5day')" style="font-size:11px;font-weight:700;padding:6px 14px;border-radius:10px;background:rgba(251,191,36,0.07);border:1px solid rgba(251,191,36,0.22);color:#fbbf24;cursor:pointer;transition:all .15s;white-space:nowrap;"
+          onmouseover="this.style.background='rgba(251,191,36,0.18)'" onmouseout="this.style.background='rgba(251,191,36,0.07)'">&#127936; Koszykarz 5-dniowy</button>
+      </div>
+      <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Podgląd planu — kliknij dzień aby edytować</p>
       <div class="grid grid-cols-7 gap-1.5" id="weekGridBuilder"></div>
       <div id="pbBalancePanel" class="px-6 mt-3 flex-shrink-0">
         <div class="rounded-xl p-3 flex items-center gap-4 flex-wrap"
@@ -29129,10 +29161,7 @@ window.openDayItemSwap = openDayItemSwap;
     <div class="mx-6 mt-4 flex-shrink-0" style="border-bottom:1px solid rgba(255,255,255,0.07);"></div>
 
     <div class="flex-1 overflow-y-auto px-6 py-4" id="dayConfigPanel">
-      <div class="text-center py-10 text-gray-500">
-        <p class="text-4xl mb-3">👆</p>
-        <p class="text-sm">Kliknij dzień w siatce powyżej aby go skonfigurować</p>
-      </div>
+      <!-- Wypełniany automatycznie po otwarciu Kreatora (JS otwiera Pn) -->
     </div>
 
     <!-- Panel podglądu planu -->
