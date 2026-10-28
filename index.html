@@ -1946,7 +1946,7 @@
       </header>
 
       <!-- ====== TAB: HOME ====== -->
-      <section id="tab-home" class="space-y-5">
+      <section id="tab-home" class="hidden space-y-5">
 
         <!-- ══════════════════════════════════════════
              HERO GREETING BANNER
@@ -3188,12 +3188,19 @@
 
             <!-- Nawigacja dzienna -->
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <button onclick="generateShoppingList()" style="
+              <button id="heroShoppingListBtn" onclick="generateShoppingList()" style="
                 display:flex;align-items:center;gap:6px;
                 font-size:12px;font-weight:700;padding:8px 16px;border-radius:12px;
                 background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);color:#00e5ff;cursor:pointer;transition:background .2s;"
                 onmouseover="this.style.background='rgba(0,229,255,0.16)'" onmouseout="this.style.background='rgba(0,229,255,0.08)'">
                 🛒 Lista Zakupów
+              </button>
+              <button id="heroStartTrainingBtn" onclick="window.evolveStartTraining()" style="
+                display:none;align-items:center;gap:6px;
+                font-size:12px;font-weight:800;padding:8px 16px;border-radius:12px;
+                background:linear-gradient(135deg,rgba(0,229,255,0.2),rgba(124,58,237,0.25));border:1px solid rgba(0,229,255,0.4);color:#00e5ff;cursor:pointer;transition:all .2s;"
+                onmouseover="this.style.background='linear-gradient(135deg,rgba(0,229,255,0.3),rgba(124,58,237,0.35))'" onmouseout="this.style.background='linear-gradient(135deg,rgba(0,229,255,0.2),rgba(124,58,237,0.25))'">
+                ▶ Rozpocznij Trening
               </button>
               <div style="display:flex;align-items:center;gap:4px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:4px;">
                 <button onclick="prevDay()" style="width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#64748b;cursor:pointer;background:transparent;border:none;transition:all .2s;"
@@ -3604,14 +3611,24 @@
                         </div>
                       </div>
                       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <button id="planStartWorkoutBtn" type="button" onclick="window.evolveStartTraining()"
+                          class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
+                          style="background:linear-gradient(135deg,rgba(0,229,255,0.22),rgba(124,58,237,0.22));border:1px solid rgba(0,229,255,0.45);color:#00e5ff;box-shadow:0 0 16px rgba(0,229,255,0.15);"
+                          title="Uruchom Live Workout Runner do notowania serii, powtórzeń i ciężarów">
+                          ▶ Rozpocznij trening
+                        </button>
+                        <button type="button" onclick="openAddExerciseToDay()"
+                          class="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all"
+                          style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:#cbd5e1;"
+                          title="Dodaj ćwiczenie z bazy lub własne">
+                          ➕ Dodaj ćwiczenie
+                        </button>
                         <button id="createPlanBtn" onclick="handleCreatePlanClick()"
-                          class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all" style="background:linear-gradient(135deg,rgba(0,229,255,0.2),rgba(124,58,237,0.2));
-             border:1px solid rgba(0,229,255,0.5);color:#00e5ff;
-             box-shadow:0 0 20px rgba(0,229,255,0.1);">
+                          class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#9ca3af;">
                           ✨ Stwórz Plan
                         </button>
                         <button id="editPlanBtn" onclick="openEditPlanModal()"
-                          class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
+                          class="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all"
                           style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:#9ca3af;">
                           ✏️ Edytuj
                         </button>
@@ -3868,6 +3885,14 @@
                         class="atlas-cat-btn text-xs px-3 py-1.5 rounded-full font-bold transition-all"
                         style="background:rgba(255,255,255,0.05);color:var(--muted);border:1px solid var(--border);">📌
                         Barki</button>
+                      <button onclick="atlasSetCategory('ramiona')" data-cat="ramiona"
+                        class="atlas-cat-btn text-xs px-3 py-1.5 rounded-full font-bold transition-all"
+                        style="background:rgba(255,255,255,0.05);color:var(--muted);border:1px solid var(--border);">💪
+                        Ramiona</button>
+                      <button onclick="atlasSetCategory('brzuch')" data-cat="brzuch"
+                        class="atlas-cat-btn text-xs px-3 py-1.5 rounded-full font-bold transition-all"
+                        style="background:rgba(255,255,255,0.05);color:var(--muted);border:1px solid var(--border);">🧘
+                        Brzuch / Core</button>
                     </div>
                     <span id="atlasExerciseCount" class="text-xs ml-auto" style="color:var(--muted);"></span>
                   </div>
@@ -22821,10 +22846,61 @@
       }
     }
 
-    // Helper function for adding exercise to plan
-    function addExerciseToPlan(name, sets, reps, rpe) {
-      alert('✅ Dodano „' + name + '" do dzisiejszego planu (funkcja przygotowywana)');
+    /**
+     * addExerciseToDay(ex) — dodaje wybrane ćwiczenie z Atlasu do aktywnego dnia planu treningowego
+     */
+    function addExerciseToDay(ex) {
+      if (!ex || !ex.name) return;
+      const p = getCurrentProfile();
+      if (!p) {
+        if (typeof showToast === 'function') showToast('⚠️ Brak aktywnego profilu');
+        return;
+      }
+      const days = Array.isArray(state.days) && state.days.length > 0 ? state.days : ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Niedz'];
+      const dayIndex = Number.isInteger(state.currentDay) ? state.currentDay : 0;
+      const dayKey = days[dayIndex] || days[0];
+
+      if (!p.trainingPlan) p.trainingPlan = {};
+      if (!Array.isArray(p.trainingPlan[dayKey])) p.trainingPlan[dayKey] = [];
+
+      const newEx = {
+        id: 'ex_' + Date.now(),
+        name: ex.name,
+        sets: Number(ex.sets) || 3,
+        reps: Number(ex.reps) || 10,
+        weight: Number(ex.weight) || 0,
+        rpe: ex.rpe || 7,
+        muscle_group: ex.muscles || ex._group || '',
+        tags: Array.isArray(ex.tags) ? ex.tags : [],
+        how_to: ex.desc || ex.how_to || '',
+        notes: ex.desc || '',
+        isDrill: !!(ex._source === 'SPORT_DRILLS' || ex.isDrill),
+        done: false,
+      };
+
+      p.trainingPlan[dayKey].push(newEx);
+
+      if (typeof _activeDay !== 'undefined' && _activeDay && Array.isArray(_activeDay.exercises)) {
+        _activeDay.exercises.push(newEx);
+        if (typeof saveActiveDayState === 'function') saveActiveDayState();
+        if (typeof renderActiveDayExercises === 'function') renderActiveDayExercises();
+        if (typeof updateActiveDayProgress === 'function') updateActiveDayProgress();
+      }
+
+      if (typeof saveState === 'function') saveState();
+      if (typeof renderPlanTraining === 'function') renderPlanTraining();
+      if (typeof updateDashboard === 'function') updateDashboard();
+
+      if (typeof showToast === 'function') {
+        showToast(`✅ Dodano "${ex.name}" do planu (${dayKey})`);
+      }
     }
+    window.addExerciseToDay = addExerciseToDay;
+
+    function addExerciseToPlan(name, sets, reps, rpe) {
+      addExerciseToDay({ name, sets, reps, rpe });
+    }
+    window.addExerciseToPlan = addExerciseToPlan;
 
     function dietDbFilter() {
       renderDietDb();
