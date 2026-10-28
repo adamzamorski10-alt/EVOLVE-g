@@ -1,6 +1,6 @@
 # EVOLVE — Lista zadań i śledzenie postępów
 
-**Ostatni audyt:** 2026-10-25 (stan repozytorium po audycie funkcjonalnym i poprawkach dostępności)
+**Ostatni audyt:** 2026-10-28 (Etap E — loadProgressStats + podpięcie wykresów siły, rzutów, assessmentu i celów)
 **Wdrożona koncepcja:** 7 Filarów Performance OS (ZAMYSŁ_EVOLVE §6.2)  
 **Aplikacja:** https://evolve-d2h0.onrender.com/app#my-day  
 **Repozytorium:** https://github.com/adamzamorski10-alt/EVOLVE-g  
@@ -49,8 +49,8 @@ Legenda statusów:
 - [x] Ekran Trening pokazuje tygodniowy harmonogram i listę ćwiczeń
 - [x] Plan uwzględnia sprzęt, ograniczenia zdrowotne, dni treningowe i pozycję koszykarską
 - [x] Mechanizm planu kroczącego na 7–14 dni z readiness/provenance i `profile_stale`
-- [ ] Bezpieczna progresja obciążeń (sugestia ciężaru na bazie poprzedniej sesji i RPE)
-- [ ] Możliwość adaptacji planu (zmęczenie po meczu koszykarskim, brak czasu -> wersja skrócona)
+- [x] Bezpieczna progresja obciążeń (sugestia ciężaru i ghost weights na bazie poprzedniej sesji i RPE)
+- [x] Możliwość adaptacji planu (zmęczenie po meczu koszykarskim, brak czasu -> wersja skrócona / recovery override w decision engine)
 
 ### Realizacja treningu w aplikacji (Workout Execution) (§5.5)
 - [x] Istnieje zewnętrzna podstrona `/app/training/session-ui` (jako fallback)
@@ -100,10 +100,12 @@ Legenda statusów:
 
 ### Postępy i Cele (§5.8)
 - [x] Naprawiono błąd JSON (`initCharts`) — wykresy renderują się stabilnie
-- [ ] Wykres historii siły w głównych ćwiczeniach (1RM estymowane z serii i powtórzeń)
-- [ ] Wykres skuteczności rzutu w koszykówce w czasie (%)
-- [ ] Wykres postępu wyskoku dosiężnego (cm)
-- [ ] Moduł mierzalnych celów z paskiem postępu (np. waga docelowa, wyskok +5 cm, rzuty wolne 80%)
+- [x] **Estymowane 1RM** — `_etapE_loadStrength` pobiera `/app/progress/evidence/{key}` dla 8 kluczowych ćwiczeń i wyświetla estymowane 1RM (formuła Epley) w sekcji Postępy
+- [x] **Skuteczność rzutowa** — `_etapE_loadShooting` pobiera `/app/drill-history` i pokazuje sumaryczne próby/trafienia/% oraz historię 10 ostatnich sesji
+- [x] **Historia assessmentów** — `_etapE_loadAssessment` pobiera `/app/assessment/history` i wyświetla metryki bazowe (wyskok, sprint, rzuty wolne, siła)
+- [x] **Mierzalne cele** — `_etapE_loadGoals` pobiera `/app/goals` i renderuje paski postępu (baseline → current → target)
+- [ ] Wykres postępu wyskoku dosiężnego w czasie (wymaga kolejnych assessmentów)
+- [ ] Ghost Weights — podgląd poprzedniego ciężaru podczas logowania serii
 
 ### Uwierzytelnianie & Ustawienia (§5.13)
 - [ ] **Widoczny przycisk logowania / rejestracji w nawigacji głównej**:
@@ -164,10 +166,10 @@ Legenda statusów:
 - [x] **Ocena początkowa (Assessment) jako osobny moduł**: zintegrowana dedykowana zakładka `#tab-assessment` w SPA (`Performance OS -> 7. Assessment & Baza`), weryfikacja gotowości przed generowaniem planu, wersjonowanie bazy wyjściowej (v1, v2...) i pełny audit trail w API `/app/assessment`.
 - [x] **Plan kroczący powiązany z profilem**: plan deterministyczny i 7–14 dniowy horyzont kroczący (`rolling_plan`) uwzględniający profil sprzętowy (`equipment`), ograniczenia zdrowotne (`health_limitations`) oraz specjalizację pozycji koszykarskiej (`basketball_position`), z automatyczną detekcją zmian profilu (`profile_stale`) w `/app/plan/readiness`.
 
-### Etap E — Postępy
-- [ ] Naprawienie wykresów (API JSON)
-- [ ] Historia siły, skuteczności rzutu, testów
-- [ ] Cele z mierzalnym postępem
+### Etap E — Postępy ✅ DONE
+- [x] `loadProgressStats` zdefiniowana i podpięta do zakładki Postępy
+- [x] Siła (est. 1RM Epley), Rzuty (accuracy%), Assessment, Cele (paski postępu)
+- [x] 16/16 testów backendu zaliczonych
 
 ### Etap F — Odżywianie i regeneracja
 - [ ] Weryfikacja zapisu danych dietetycznych

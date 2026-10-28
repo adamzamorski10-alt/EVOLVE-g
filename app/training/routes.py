@@ -1790,7 +1790,23 @@ const token=localStorage.getItem('fitai_token');
 const headers=token?{'Authorization':'Bearer '+token,'Content-Type':'application/json'}:{};
 const statusEl=document.getElementById('status'),progressEl=document.getElementById('progress'),workoutEl=document.getElementById('workout'),completeEl=document.getElementById('complete');
 workoutEl.addEventListener('click',e=>{const b=e.target.closest('button.save');if(b&&!b.disabled)logSet(b.dataset.key,Number(b.dataset.set),b)});
-let current=null, saving=false, restTimer=null, restSeconds=0, activeExerciseIndex=0;
+let current=null, saving=false, restTimer=null, restSeconds=0, activeExerciseIndex=0, ghosts={};
+async function loadGhostWeights(){
+ const exs=current?.planned?.exercises||[];
+ for(const ex of exs){
+  if(!ex.exercise_key||ghosts[ex.exercise_key])continue;
+  try{
+   const r=await api('/app/progress/evidence/'+encodeURIComponent(ex.exercise_key));
+   if(r.ok){
+    const d=await r.json();
+    const obs=d.observations||[];
+    if(obs.length>0){
+     ghosts[ex.exercise_key]=obs[0];
+    }
+   }
+  }catch(e){}
+ }
+}
 function stopRest(){if(restTimer){clearInterval(restTimer);restTimer=null}document.getElementById('rest')?.remove()}
 function startRest(seconds=90){
  stopRest(); const el=document.createElement('div');el.id='rest';el.className='progress-card';
@@ -1822,11 +1838,15 @@ function render(){
  workoutEl.innerHTML=exercises.length?exercises.map((ex,ei)=>{
   const logged=(current.sets||[]).filter(s=>s.exercise_key===ex.exercise_key);
   const done=logged.filter(s=>s.completed).length;
-  return '<section class="exercise '+(done<Number(ex.sets||0)?'active':'')+'"><div class="head"><div><div class="title">'+(ei+1)+'. '+esc(ex.exercise_name)+'</div><div class="target">Cel: '+ex.sets+' × '+esc(ex.reps_label||ex.reps)+(ex.weight_kg?' · '+ex.weight_kg+' kg':'')+(ex.rpe?' · RPE '+ex.rpe:'')+'</div></div><span class="tag">'+done+'/'+ex.sets+' serie</span></div><div class="sets">'+Array.from({length:Math.max(0,Number(ex.sets||0))},(_,i)=>{
+  const ghost=ghosts[ex.exercise_key];
+  const ghostInfo=ghost?'<div class="meta" style="color:var(--accent);font-size:11px;margin-top:4px;">👻 Poprzednio: śr. '+ghost.average_weight_kg+' kg × '+ghost.average_reps+' powt. ('+ghost.completed_sets+' serii)</div>':'';
+  return '<section class="exercise '+(done<Number(ex.sets||0)?'active':'')+'"><div class="head"><div><div class="title">'+(ei+1)+'. '+esc(ex.exercise_name)+'</div><div class="target">Cel: '+ex.sets+' × '+esc(ex.reps_label||ex.reps)+(ex.weight_kg?' · '+ex.weight_kg+' kg':'')+(ex.rpe?' · RPE '+ex.rpe:'')+'</div>'+ghostInfo+'</div><span class="tag">'+done+'/'+ex.sets+' serie</span></div><div class="sets">'+Array.from({length:Math.max(0,Number(ex.sets||0))},(_,i)=>{
    const n=i+1,old=logged.find(s=>s.set_number===n),safe=encodeURIComponent(ex.exercise_key);
+   const defaultWeight=(old?.actual_weight_kg??ex.weight_kg??ghost?.average_weight_kg??0);
+   const defaultReps=(old?.actual_reps??ex.reps??ghost?.average_reps??0);
    return '<div class="set '+(old?.completed?'saved':'')+'"><b>Seria '+n+'</b>'+
-    '<input id="r-'+safe+'-'+n+'" type="number" min="0" max="1000" value="'+(old?.actual_reps??ex.reps)+'" aria-label="Powtórzenia" '+(current.execution_blocked?'disabled':'')+'>'+
-    '<input id="w-'+safe+'-'+n+'" type="number" min="0" max="10000" step="0.5" value="'+(old?.actual_weight_kg??ex.weight_kg??0)+'" aria-label="Ciężar kg" '+(current.execution_blocked?'disabled':'')+'>'+
+    '<input id="r-'+safe+'-'+n+'" type="number" min="0" max="1000" value="'+defaultReps+'" aria-label="Powtórzenia" '+(current.execution_blocked?'disabled':'')+'>'+
+    '<input id="w-'+safe+'-'+n+'" type="number" min="0" max="10000" step="0.5" value="'+defaultWeight+'" aria-label="Ciężar kg" '+(current.execution_blocked?'disabled':'')+'>'+
     '<input id="p-'+safe+'-'+n+'" type="number" min="1" max="10" value="'+(old?.actual_rpe??'')+'" placeholder="RPE" aria-label="RPE" '+(current.execution_blocked?'disabled':'')+'>'+
     '<button class="save '+(old?.completed?'done':'')+'" '+(current.execution_blocked?'disabled':'')+' data-key="'+esc(ex.exercise_key)+'" data-set="'+n+'">'+(old?.completed?'Edytuj / zapisz':'Zapisz serię')+'</button>'+
     '<textarea id="n-'+safe+'-'+n+'" maxlength="1000" placeholder="Notatka">'+esc(old?.note||'')+'</textarea></div>';
@@ -1879,7 +1899,9 @@ async function startOrResume(){
  try{
   const r=await api('/app/training/sessions/start',{method:'POST'}),d=await r.json();
   if(!r.ok)throw new Error(d.detail||'Nie udało się rozpocząć treningu.');
-  current=d.session;setStatus(d.status==='resumed'?'Wznowiono aktywną sesję.':'Rozpoczęto nową sesję.','success');render();
+  current=d.session;setStatus(d.status==='resumed'?'Wznowiono aktywną sesję.':'Rozpoczęto nową sesję.','success');
+  render();
+  loadGhostWeights().then(()=>render());
  }catch(e){setStatus(e.message,'error');workoutEl.innerHTML='<div class="progress-card empty">Nie udało się załadować treningu. Wróć do Mój dzień i spróbuj ponownie.</div>'}
 }
 startOrResume();

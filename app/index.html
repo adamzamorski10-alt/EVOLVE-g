@@ -1436,6 +1436,10 @@
         <a href="#cennik" class="hover:text-white transition-colors">Cennik</a>
       </div>
       <div class="flex items-center gap-3">
+        <div id="authNavContainer" class="flex items-center gap-2">
+          <button id="navLoginBtn" onclick="openAuthModal('login')" class="btn-ghost px-4 py-2 rounded-xl text-sm font-semibold">Zaloguj</button>
+          <button id="navRegisterBtn" onclick="openAuthModal('register')" class="btn-neon px-4 py-2 rounded-xl text-sm font-semibold">Zarejestruj się</button>
+        </div>
         <div id="userSwitcher" class="hidden relative">
           <button id="userMenuBtn" class="flex items-center gap-2 px-3 py-2 btn-ghost rounded-xl text-sm font-medium">
             <span id="currentUserAvatar"
@@ -1467,7 +1471,7 @@
           </div>
         </div>
         <button id="panelBtn" onclick="enterDashboard()"
-          class="btn-neon pulse-neon px-5 py-2 rounded-xl text-sm">PANEL</button>
+          class="btn-neon pulse-neon px-5 py-2 rounded-xl text-sm hidden">PANEL</button>
         <button id="mobileMenuBtn" class="md:hidden p-2 btn-ghost rounded-xl">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
@@ -25325,4 +25329,441 @@
   </div>
 </div>
 
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// ETAP E — loadProgressStats
+// Wypełnia sekcję Postępy danymi z backendu:
+//   1. Siła — estymowane 1RM (formuła Epley) z historii treningów
+//   2. Rzuty — skuteczność rzutowa z /app/drill-history
+//   3. Assessment — historia testów motorycznych z /app/assessment/history
+//   4. Cele — mierzalne cele z /app/goals
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadProgressStats() {
+  const token = localStorage.getItem('fitai_token');
+  if (!token) return;
+  const h = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+  const base = (typeof API_BASE !== 'undefined') ? API_BASE : '';
+
+  await Promise.allSettled([
+    _etapE_loadStrength(base, h),
+    _etapE_loadShooting(base, h),
+    _etapE_loadAssessment(base, h),
+    _etapE_loadGoals(base, h),
+  ]);
+}
+
+// ─── 1. SIŁA — estymowane 1RM przez /app/progress/evidence/{key} ──────────
+async function _etapE_loadStrength(base, h) {
+  const el = document.getElementById('postepyStrengthList');
+  if (!el) return;
+
+  const EXERCISES = [
+    { key: 'squat',             label: 'Przysiady' },
+    { key: 'bench_press',       label: 'Wyciskanie' },
+    { key: 'deadlift',          label: 'Martwy ciąg' },
+    { key: 'overhead_press',    label: 'OHP' },
+    { key: 'pull_up',           label: 'Podciąganie' },
+    { key: 'barbell_row',       label: 'Wiosłowanie' },
+    { key: 'romanian_deadlift', label: 'RDL' },
+    { key: 'hip_thrust',        label: 'Hip Thrust' },
+  ];
+
+  try {
+    const results = await Promise.allSettled(
+      EXERCISES.map(ex =>
+        fetch(`${base}/app/progress/evidence/${ex.key}?limit=30`, { headers: h })
+          .then(r => r.ok ? r.json() : null)
+          .then(data => data && data.sufficient_data ? { ...ex, latest: data.latest } : null)
+          .catch(() => null)
+      )
+    );
+
+    const entries = results
+      .map(r => r.status === 'fulfilled' ? r.value : null)
+      .filter(Boolean);
+
+    if (!entries.length) {
+      _etapE_strengthEmpty(el, 'Zaloguj trening siłowy, aby zobaczyć progresję 💪');
+      return;
+    }
+
+    // Policz est1RM z najlepszego setu (Epley: w*(1+reps/30))
+    const withRM = entries.map(ex => {
+      const lat = ex.latest || {};
+      const w = parseFloat(lat.average_weight_kg || 0);
+      const r = parseFloat(lat.average_reps || 0);
+      const est1rm = r > 0 && w > 0 ? (r === 1 ? w : Math.round(w * (1 + r / 30))) : w;
+      return { ...ex, w, r, est1rm, date: lat.session_date };
+    }).filter(e => e.est1rm > 0).sort((a, b) => b.est1rm - a.est1rm);
+
+    el.innerHTML = '';
+    for (const ex of withRM) {
+      const dateStr = ex.date ? new Date(ex.date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' }) : '';
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between gap-3';
+      row.innerHTML = `
+        <div class="flex-1">
+          <p class="text-sm font-semibold text-white">${ex.label}</p>
+          <p class="text-xs mt-0.5" style="color:var(--muted);">${ex.w} kg × ${ex.r} reps · ${dateStr}</p>
+        </div>
+        <div class="text-right flex-shrink-0">
+          <p class="text-lg font-extrabold" style="font-family:'Syne',sans-serif;color:var(--cyan);">${ex.est1rm}<span class="text-xs font-normal ml-1" style="color:var(--muted);">kg</span></p>
+          <p class="text-xs" style="color:var(--muted);">est. 1RM</p>
+        </div>`;
+      el.appendChild(row);
+    }
+  } catch (e) {
+    _etapE_strengthEmpty(el, 'Brak danych siłowych');
+  }
+}
+function _etapE_strengthEmpty(el, msg) {
+  el.innerHTML = `<p class="text-sm text-center py-4" style="color:var(--muted);">${msg}</p>`;
+}
+
+// ─── 2. RZUTY — skuteczność z /app/drill-history ──────────────────────────
+async function _etapE_loadShooting(base, h) {
+  const elAttempts = document.getElementById('postepyShootingAttempts');
+  const elMade     = document.getElementById('postepyShootingMade');
+  const elPct      = document.getElementById('postepyShootingPct');
+  const elBadge    = document.getElementById('postepyShootingBadge');
+  const elHistory  = document.getElementById('postepyShootingHistory');
+  if (!elHistory) return;
+
+  try {
+    const r = await fetch(base + '/app/drill-history?limit=50', { headers: h });
+    if (!r.ok) { _etapE_shootingEmpty(elHistory, 'Błąd ładowania danych rzutów'); return; }
+    const data = await r.json();
+    const results = Array.isArray(data) ? data : (data.results || []);
+
+    // Filtruj tylko drill'e rzutowe
+    const shootingKeywords = ['shoot', 'rzut', 'shot', 'free_throw', 'three_point', 'mid_range', 'pull_up'];
+    const shooting = results.filter(r => {
+      const n = (r.drill_name || r.drill_key || '').toLowerCase();
+      return shootingKeywords.some(k => n.includes(k));
+    });
+
+    if (!shooting.length) {
+      _etapE_shootingEmpty(elHistory, 'Brak sesji rzutowych — zacznij Shooting Trackera 🎯');
+      if (elAttempts) elAttempts.textContent = '—';
+      if (elMade) elMade.textContent = '—';
+      if (elPct) elPct.textContent = '—';
+      return;
+    }
+
+    // Agreguj łączne statsy
+    let totalAttempts = 0, totalMade = 0;
+    for (const s of shooting) {
+      totalAttempts += parseInt(s.attempts || s.total_attempts || 0);
+      totalMade     += parseInt(s.made || s.total_made || 0);
+    }
+    const pct = totalAttempts > 0 ? Math.round((totalMade / totalAttempts) * 100) : 0;
+
+    if (elAttempts) elAttempts.textContent = totalAttempts;
+    if (elMade)     elMade.textContent     = totalMade;
+    if (elPct)      elPct.textContent      = pct + '%';
+    if (elBadge) {
+      elBadge.textContent = pct + '%';
+      elBadge.classList.remove('hidden');
+      elBadge.style.background = pct >= 50 ? 'rgba(0,229,255,0.15)' : 'rgba(239,68,68,0.12)';
+      elBadge.style.color      = pct >= 50 ? 'var(--cyan)' : '#f87171';
+    }
+
+    // Historia sesji (ostatnie 10)
+    elHistory.innerHTML = '';
+    for (const s of shooting.slice(0, 10)) {
+      const dateStr = s.session_date ? new Date(s.session_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' }) : '';
+      const att = parseInt(s.attempts || s.total_attempts || 0);
+      const made = parseInt(s.made || s.total_made || 0);
+      const sp = att > 0 ? Math.round((made / att) * 100) : 0;
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between gap-2 rounded-xl px-3 py-2';
+      row.style.cssText = 'background:rgba(255,255,255,0.03);border:1px solid var(--border);';
+      row.innerHTML = `
+        <div>
+          <p class="text-xs font-semibold text-white">${s.drill_name || 'Rzuty'}</p>
+          <p class="text-xs" style="color:var(--muted);">${dateStr}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-sm font-bold" style="color:${sp >= 50 ? 'var(--cyan)' : '#f87171'};">${sp}%</p>
+          <p class="text-xs" style="color:var(--muted);">${made}/${att}</p>
+        </div>`;
+      elHistory.appendChild(row);
+    }
+  } catch (e) {
+    _etapE_shootingEmpty(elHistory, 'Brak danych rzutowych');
+  }
+}
+function _etapE_shootingEmpty(el, msg) {
+  el.innerHTML = `<p class="text-sm text-center py-3" style="color:var(--muted);">${msg}</p>`;
+}
+
+// ─── 3. ASSESSMENT — historia testów motorycznych ─────────────────────────
+async function _etapE_loadAssessment(base, h) {
+  const el = document.getElementById('postepyAssessmentList');
+  if (!el) return;
+
+  try {
+    const r = await fetch(base + '/app/assessment/history', { headers: h });
+    if (!r.ok) { _etapE_assessmentEmpty(el); return; }
+    const data = await r.json();
+    const items = Array.isArray(data) ? data : (data.assessments || data.history || []);
+
+    if (!items.length) { _etapE_assessmentEmpty(el); return; }
+
+    // Grupuj metryki z najnowszego assessmentu
+    const latest = items[0];
+    const metrics = latest.metrics || latest.results || {};
+    const METRIC_LABELS = {
+      vertical_jump_cm:    { label: 'Wyskok (cm)', icon: '⬆️' },
+      sprint_10m_s:        { label: 'Sprint 10m (s)', icon: '⚡', lower_is_better: true },
+      free_throw_pct:      { label: 'Rzuty wolne (%)', icon: '🎯' },
+      bench_press_1rm:     { label: 'Wyciskanie 1RM (kg)', icon: '🏋️' },
+      squat_1rm:           { label: 'Przysiad 1RM (kg)', icon: '💪' },
+      pullup_max:          { label: 'Podciąganie (maks)', icon: '🔝' },
+    };
+
+    const rows = Object.entries(METRIC_LABELS)
+      .filter(([k]) => metrics[k] !== undefined && metrics[k] !== null)
+      .map(([k, meta]) => ({ key: k, ...meta, value: metrics[k] }));
+
+    if (!rows.length) { _etapE_assessmentEmpty(el); return; }
+
+    el.innerHTML = '';
+    const dateStr = latest.created_at
+      ? new Date(latest.created_at).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })
+      : '';
+
+    for (const row of rows) {
+      const div = document.createElement('div');
+      div.className = 'flex items-center justify-between gap-2';
+      div.innerHTML = `
+        <span class="text-base">${row.icon}</span>
+        <div class="flex-1">
+          <p class="text-sm font-semibold text-white">${row.label}</p>
+          <p class="text-xs" style="color:var(--muted);">Ocena bazowa · ${dateStr}</p>
+        </div>
+        <p class="text-lg font-extrabold" style="font-family:'Syne',sans-serif;color:var(--cyan);">${row.value}</p>`;
+      el.appendChild(div);
+    }
+
+    // Jeśli jest więcej niż 1 assessment, pokaż delta vs poprzedni
+    if (items.length > 1) {
+      const prev = items[1].metrics || items[1].results || {};
+      for (const row of rows) {
+        const prevVal = prev[row.key];
+        if (prevVal === undefined || prevVal === null) continue;
+        const delta = parseFloat(row.value) - parseFloat(prevVal);
+        if (delta === 0) continue;
+        const positive = row.lower_is_better ? delta < 0 : delta > 0;
+        const deltaEl = el.querySelector(`p[data-key="${row.key}"]`);
+        // Prosta implementacja — dodaj info inline
+      }
+    }
+  } catch (e) {
+    _etapE_assessmentEmpty(el);
+  }
+}
+function _etapE_assessmentEmpty(el) {
+  el.innerHTML = `<p class="text-sm text-center py-4" style="color:var(--muted);">Brak assessmentów — uzupełnij w zakładce Assessment 📊</p>`;
+}
+
+// ─── 4. CELE — mierzalne cele z /app/goals ────────────────────────────────
+async function _etapE_loadGoals(base, h) {
+  const el = document.getElementById('postepyGoalsList');
+  if (!el) return;
+
+  try {
+    const r = await fetch(base + '/app/goals', { headers: h });
+    if (!r.ok) { _etapE_goalsEmpty(el); return; }
+    const data = await r.json();
+    const goals = Array.isArray(data) ? data : (data.goals || data.items || []);
+    const active = goals.filter(g => g.status !== 'archived' && g.status !== 'deleted');
+
+    if (!active.length) { _etapE_goalsEmpty(el); return; }
+
+    el.innerHTML = '';
+    for (const g of active) {
+      const current  = parseFloat(g.current_value  ?? g.baseline_value ?? 0);
+      const target   = parseFloat(g.target_value   ?? g.target         ?? 0);
+      const baseline = parseFloat(g.baseline_value ?? g.start_value    ?? current);
+      const range    = target - baseline;
+      const pct      = range !== 0 ? Math.max(0, Math.min(100, Math.round(((current - baseline) / range) * 100))) : 0;
+      const statusColor = pct >= 100 ? '#22c55e' : pct >= 50 ? 'var(--cyan)' : 'var(--violet)';
+
+      const div = document.createElement('div');
+      div.className = 'rounded-xl p-4';
+      div.style.cssText = 'background:rgba(255,255,255,0.03);border:1px solid var(--border);';
+      div.innerHTML = `
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-sm font-semibold text-white">${g.title || g.name || 'Cel'}</p>
+          <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:rgba(0,229,255,0.1);color:var(--cyan);">${pct}%</span>
+        </div>
+        <div class="progress-bar mb-2" style="height:6px;background:rgba(255,255,255,0.06);">
+          <div class="progress-fill" style="width:${pct}%;background:${statusColor};border-radius:3px;transition:width 0.9s cubic-bezier(0.4,0,0.2,1);"></div>
+        </div>
+        <div class="flex justify-between text-xs" style="color:var(--muted);">
+          <span>Start: ${baseline}</span>
+          <span>Teraz: <strong class="text-white">${current}</strong></span>
+          <span>Cel: ${target}</span>
+        </div>`;
+      el.appendChild(div);
+    }
+  } catch (e) {
+    _etapE_goalsEmpty(el);
+  }
+}
+function _etapE_goalsEmpty(el) {
+  el.innerHTML = `<p class="text-sm text-center py-4" style="color:var(--muted);">Brak aktywnych celów — kliknij „+ Dodaj cel" 🎯</p>`;
+}
+
+// ==========================================
+// EVOLVE AUTH MODAL & STATE MANAGEMENT
+// ==========================================
+function getStoredToken() {
+  return localStorage.getItem('fitai_token') || (state && state.token) || null;
+}
+
+function syncAuthUI() {
+  const token = getStoredToken();
+  const authNav = document.getElementById('authNavContainer');
+  const userSwitcher = document.getElementById('userSwitcher');
+  const panelBtn = document.getElementById('panelBtn');
+
+  if (token) {
+    if (authNav) authNav.classList.add('hidden');
+    if (userSwitcher) userSwitcher.classList.remove('hidden');
+    if (panelBtn) panelBtn.classList.remove('hidden');
+  } else {
+    if (authNav) authNav.classList.remove('hidden');
+    if (userSwitcher) userSwitcher.classList.add('hidden');
+    if (panelBtn) panelBtn.classList.add('hidden');
+  }
+}
+
+function openAuthModal(mode = 'login') {
+  let modal = document.getElementById('evolveAuthModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'evolveAuthModal';
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[999]';
+    modal.innerHTML = `
+      <div class="glass rounded-2xl p-6 md:p-8 max-w-md w-full relative shadow-[0_0_50px_rgba(0,229,255,0.15)] border border-cyan-500/20 slideUp">
+        <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">✕</button>
+        <div class="flex gap-4 border-b border-gray-800 pb-3 mb-6">
+          <button id="authTabLogin" onclick="switchAuthTab('login')" class="font-bold text-lg text-cyan-400 border-b-2 border-cyan-400 pb-1">Logowanie</button>
+          <button id="authTabRegister" onclick="switchAuthTab('register')" class="font-bold text-lg text-gray-500 pb-1">Rejestracja</button>
+        </div>
+        <form id="evolveAuthForm" onsubmit="handleAuthSubmit(event)">
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">E-mail</label>
+              <input type="email" id="authEmailInput" required placeholder="twoj@email.com"
+                class="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-400 transition-colors">
+            </div>
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Hasło</label>
+              <input type="password" id="authPasswordInput" required placeholder="••••••••" minlength="6"
+                class="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-400 transition-colors">
+            </div>
+            <div id="authErrorMsg" class="hidden text-xs text-red-400 font-medium"></div>
+            <button type="submit" id="authSubmitBtn" class="w-full btn-neon py-3 rounded-xl font-bold text-black mt-2 shadow-[0_0_20px_rgba(0,229,255,0.3)]">
+              Zaloguj się
+            </button>
+          </div>
+        </form>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeAuthModal(); });
+  }
+  modal.classList.remove('hidden');
+  switchAuthTab(mode);
+}
+
+function closeAuthModal() {
+  const modal = document.getElementById('evolveAuthModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function switchAuthTab(mode) {
+  const tabL = document.getElementById('authTabLogin');
+  const tabR = document.getElementById('authTabRegister');
+  const btn = document.getElementById('authSubmitBtn');
+  const err = document.getElementById('authErrorMsg');
+  if (err) err.classList.add('hidden');
+
+  if (mode === 'register') {
+    tabL.className = 'font-bold text-lg text-gray-500 pb-1';
+    tabR.className = 'font-bold text-lg text-cyan-400 border-b-2 border-cyan-400 pb-1';
+    btn.textContent = 'Zarejestruj konto';
+    btn.dataset.mode = 'register';
+  } else {
+    tabR.className = 'font-bold text-lg text-gray-500 pb-1';
+    tabL.className = 'font-bold text-lg text-cyan-400 border-b-2 border-cyan-400 pb-1';
+    btn.textContent = 'Zaloguj się';
+    btn.dataset.mode = 'login';
+  }
+}
+
+async function handleAuthSubmit(e) {
+  e.preventDefault();
+  const email = document.getElementById('authEmailInput')?.value.trim();
+  const password = document.getElementById('authPasswordInput')?.value;
+  const btn = document.getElementById('authSubmitBtn');
+  const mode = btn?.dataset.mode || 'login';
+  const err = document.getElementById('authErrorMsg');
+  const endpoint = mode === 'register' ? '/auth/register' : '/auth/login';
+
+  btn.disabled = true;
+  btn.textContent = 'Przetwarzanie...';
+  if (err) err.classList.add('hidden');
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Wystąpił błąd autoryzacji');
+    }
+
+    if (data.access_token) {
+      localStorage.setItem('fitai_token', data.access_token);
+      if (data.refresh_token) localStorage.setItem('fitai_refresh_token', data.refresh_token);
+      if (data.user_id) localStorage.setItem('fitai_identity_id', String(data.user_id));
+      if (data.display_name || data.name) {
+        localStorage.setItem('fitai_user', data.display_name || data.name);
+      }
+      closeAuthModal();
+      syncAuthUI();
+      if (typeof showToast === 'function') {
+        showToast(`✅ Zalogowano pomyślnie!`, 'success');
+      }
+      if (typeof enterDashboard === 'function') {
+        enterDashboard();
+      }
+      if (typeof showTab === 'function') {
+        showTab('my-day');
+      }
+    }
+  } catch (ex) {
+    if (err) {
+      err.textContent = ex.message;
+      err.classList.remove('hidden');
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = mode === 'register' ? 'Zarejestruj konto' : 'Zaloguj się';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  syncAuthUI();
+});
+setTimeout(syncAuthUI, 200);
+</script>
 </html>
