@@ -2424,6 +2424,8 @@
           <p id="macroAlertText" class="text-sm font-medium"></p>
         </div>
 
+        <!-- ══ Poniższe reliktowe moduły (stary Plan na dziś, Woda, Check-in v2) ukrywamy dla zachowania czystego Performance OS UI bez psucia selektorów JS ══ -->
+        <div id="legacyMyDayContainer" class="hidden" aria-hidden="true" style="display:none !important;">
         <!-- ══ PLAN NA DZIŚ ══ -->
         <div id="activeDayCard" style="
           background: rgba(255,255,255,0.02);
@@ -3164,6 +3166,7 @@
             "></p>
           </div>
         </div>
+        </div> <!-- koniec legacyMyDayContainer -->
       </section>
 
       <!-- ====== TAB: PLAN ====== -->
