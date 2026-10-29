@@ -792,23 +792,6 @@
     }
     .day-card.active .day-count-dot span { background: rgba(0,229,255,0.7); }
 
-    /* ── Day Preview Card (below carousel) ──────────────────────────────── */
-    #dayPreviewCard {
-      background: rgba(124,58,237,0.04);
-      border: 1px solid rgba(124,58,237,0.2);
-      border-radius: 20px;
-      padding: 20px;
-      margin-top: 6px;
-      transition: all 0.3s ease;
-    }
-    #dayPreviewCard.rest-day {
-      background: rgba(255,255,255,0.02);
-      border-color: rgba(255,255,255,0.08);
-    }
-    #dayPreviewCard.today-preview {
-      border-color: rgba(0,229,255,0.3);
-      background: rgba(0,229,255,0.03);
-    }
 
     .user-ring {
       transition: all 0.3s;
@@ -3277,33 +3260,44 @@
       </section>
 
       <!-- ====== TAB: PLAN ====== -->
-      <section id="tab-plan" class="hidden" style="flex-direction:column;gap:20px;">
+      <!-- ====== TAB: PLAN ====== -->
+      <section id="tab-plan" class="hidden" style="flex-direction:column;gap:16px;">
 
-        <!-- ════════ HERO HEADER ════════ -->
-        <div style="
+        <!-- ════════ TOP TAB BAR (Zawsze na samej górze sekcji Plan) ════════ -->
+        <div id="planTopTabBar" style="
+          display:flex;align-items:center;gap:8px;
+          background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);
+          border-radius:16px;padding:6px 8px;overflow-x:auto;">
+          <span id="planCatHeaderChip" style="
+            font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;
+            color:rgba(167,139,250,0.6);padding:0 6px;white-space:nowrap;">Plan</span>
+        </div>
+
+        <!-- ════════ HERO / WEEKLY CONTROLS (Tylko dla podzakładek Mój Plan) ════════ -->
+        <div id="planWeeklyHero" style="
           position:relative;overflow:hidden;
           background:linear-gradient(135deg,rgba(124,58,237,0.08) 0%,rgba(0,229,255,0.06) 60%,rgba(251,191,36,0.04) 100%);
-          border:1px solid rgba(124,58,237,0.2);border-radius:28px;padding:22px 24px;">
+          border:1px solid rgba(124,58,237,0.2);border-radius:24px;padding:20px 22px;">
           <div style="pointer-events:none;position:absolute;top:-50px;right:-30px;width:200px;height:200px;background:radial-gradient(circle,rgba(124,58,237,0.08),transparent 65%);"></div>
           <div style="pointer-events:none;position:absolute;bottom:-40px;left:20px;width:160px;height:160px;background:radial-gradient(circle,rgba(0,229,255,0.05),transparent 65%);"></div>
 
           <div style="position:relative;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">
             <div>
               <p style="font-size:10px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:rgba(167,139,250,0.6);margin-bottom:4px;">Tygodniowy</p>
-              <h3 style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;color:#fff;line-height:1;margin:0;">Plan</h3>
+              <h3 style="font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:800;color:#fff;line-height:1;margin:0;">Plan</h3>
             </div>
 
             <!-- Nawigacja dzienna -->
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
               <button id="heroShoppingListBtn" onclick="generateShoppingList()" style="
-                display:flex;align-items:center;gap:6px;
+                display:none;align-items:center;gap:6px;
                 font-size:12px;font-weight:700;padding:8px 16px;border-radius:12px;
                 background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);color:#00e5ff;cursor:pointer;transition:background .2s;"
                 onmouseover="this.style.background='rgba(0,229,255,0.16)'" onmouseout="this.style.background='rgba(0,229,255,0.08)'">
                 🛒 Lista Zakupów
               </button>
               <button id="heroStartTrainingBtn" onclick="window.evolveStartTraining()" style="
-                display:none;align-items:center;gap:6px;
+                display:flex;align-items:center;gap:6px;
                 font-size:12px;font-weight:800;padding:8px 16px;border-radius:12px;
                 background:linear-gradient(135deg,rgba(0,229,255,0.2),rgba(124,58,237,0.25));border:1px solid rgba(0,229,255,0.4);color:#00e5ff;cursor:pointer;transition:all .2s;"
                 onmouseover="this.style.background='linear-gradient(135deg,rgba(0,229,255,0.3),rgba(124,58,237,0.35))'" onmouseout="this.style.background='linear-gradient(135deg,rgba(0,229,255,0.2),rgba(124,58,237,0.25))'">
@@ -3320,7 +3314,7 @@
           </div>
 
           <!-- Karuzela dni -->
-          <div style="position:relative;margin-top:18px;overflow-x:auto;padding-bottom:2px;">
+          <div style="position:relative;margin-top:16px;overflow-x:auto;padding-bottom:2px;">
             <div id="dayCarousel" style="display:flex;gap:8px;min-width:max-content;"></div>
           </div>
 
@@ -3336,64 +3330,6 @@
           </div>
         </div>
 
-        <!-- ── Podgląd wybranego dnia (tylko zakładka Trening) ── -->
-        <div id="dayPreviewCard" style="display:none;">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-            <div style="display:flex;align-items:center;gap:10px;">
-              <div id="dayPreviewIcon" style="width:40px;height:40px;border-radius:12px;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.2);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">💪</div>
-              <div>
-                <div id="dayPreviewTitle" style="font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:#fff;"></div>
-                <div id="dayPreviewSubtitle" style="font-size:11px;color:#475569;margin-top:2px;"></div>
-              </div>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <div id="dayPreviewTypeBadge" style="display:none;"></div>
-              <div id="dayPreviewProgressWrap" style="display:none;align-items:center;gap:6px;">
-                <span id="dayPreviewProgressText" style="font-size:11px;font-weight:700;color:#00e5ff;"></span>
-                <div style="width:60px;height:5px;border-radius:99px;background:rgba(255,255,255,0.08);overflow:hidden;">
-                  <div id="dayPreviewProgressBar" style="height:100%;border-radius:99px;background:linear-gradient(90deg,#00e5ff,#a78bfa);transition:width .4s ease;width:0%;"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Lista ćwiczeń -->
-          <div id="dayPreviewExercises" style="display:flex;flex-direction:column;gap:6px;"></div>
-
-          <!-- Pasek akcji podglądu dnia -->
-          <div id="dayPreviewActions" style="display:none;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);flex-wrap:wrap;">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <button id="dayPreviewStartWorkoutBtn" type="button" onclick="window.evolveStartTraining ? window.evolveStartTraining() : null"
-                style="background:linear-gradient(135deg,rgba(0,229,255,0.22),rgba(124,58,237,0.25));border:1px solid rgba(0,229,255,0.45);color:#00e5ff;font-weight:800;font-size:12px;padding:8px 18px;border-radius:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 0 16px rgba(0,229,255,0.15);transition:all .2s;"
-                onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
-                ▶ Rozpocznij trening na żywo
-              </button>
-              <button type="button" onclick="openAddExerciseToDay()"
-                style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#cbd5e1;font-weight:700;font-size:12px;padding:8px 14px;border-radius:12px;cursor:pointer;transition:all .2s;">
-                ➕ Dodaj ćwiczenie
-              </button>
-            </div>
-            <button type="button" onclick="openEditPlanModal()"
-              style="background:transparent;border:1px solid rgba(255,255,255,0.08);color:#94a3b8;font-size:11px;font-weight:600;padding:7px 12px;border-radius:10px;cursor:pointer;transition:all .2s;"
-              onmouseover="this.style.color='#fff';this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.color='#94a3b8';this.style.borderColor='rgba(255,255,255,0.08)'">
-              ✏️ Edytuj ten dzień
-            </button>
-          </div>
-
-          <!-- Stan pusty / odpoczynek -->
-          <div id="dayPreviewEmpty" style="display:none;text-align:center;padding:22px 0;">
-            <div style="font-size:2.2rem;margin-bottom:8px;">🛌</div>
-            <div style="font-size:14px;font-weight:600;color:#94a3b8;">Dzień odpoczynku</div>
-            <div style="font-size:12px;color:#475569;margin-top:4px;">Regeneracja to kluczowy element Twojego rozwoju</div>
-            <div style="margin-top:12px;">
-              <button type="button" onclick="openAddExerciseToDay()"
-                style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#cbd5e1;font-size:11px;font-weight:700;padding:6px 14px;border-radius:10px;cursor:pointer;">
-                ➕ Zaplanuj trening na ten dzień
-              </button>
-            </div>
-          </div>
-        </div>
-
         <!-- ════════ FULL-WIDTH LAYOUT ════════ -->
         <!-- Mini-sidebar ukryty – nawigacja jest już w głównym Performance OS sidebarze -->
         <nav id="planSubSidebar" aria-label="Kategorie planu" style="display:none;" hidden>
@@ -3405,16 +3341,6 @@
 
           <!-- Full-Width Content Area -->
           <div id="planContentArea" style="min-width:0;">
-
-            <!-- Top Tab Bar -->
-            <div id="planTopTabBar" style="
-              display:flex;align-items:center;gap:8px;margin-bottom:16px;
-              background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);
-              border-radius:16px;padding:6px 8px;overflow-x:auto;">
-              <span id="planCatHeaderChip" style="
-                font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;
-                color:rgba(167,139,250,0.6);padding:0 6px;white-space:nowrap;">Dieta</span>
-            </div>
 
             <!-- Inner scrollable content -->
             <div id="planInnerScroll">
@@ -3780,10 +3706,10 @@
                   <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:22px;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
                       <div style="display:flex;align-items:center;gap:10px;">
-                        <div style="width:36px;height:36px;border-radius:10px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.22);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">💪</div>
+                        <div id="planTrainingHeaderIcon" style="width:36px;height:36px;border-radius:10px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.22);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">💪</div>
                         <div>
-                          <h4 style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#fff;line-height:1.2;margin:0;">Zaplanowany Trening</h4>
-                          <p style="font-size:11px;color:#475569;margin:0;">sesja treningowa</p>
+                          <h4 id="planTrainingHeaderTitle" style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#fff;line-height:1.2;margin:0;">Zaplanowany Trening</h4>
+                          <p id="planTrainingHeaderSubtitle" style="font-size:11px;color:#475569;margin:0;">sesja treningowa</p>
                         </div>
                       </div>
                       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -10115,17 +10041,34 @@
       const checkedKey = _checkedKey(p.id, dayIndex);
       const checked = state.dayChecked[checkedKey] || {};
 
+      const titleEl = document.getElementById('planTrainingHeaderTitle');
+      const subtitleEl = document.getElementById('planTrainingHeaderSubtitle');
+      const iconEl = document.getElementById('planTrainingHeaderIcon');
+      const todayIdx = (new Date().getDay() + 6) % 7;
+      const isToday = dayIndex === todayIdx;
+
+      if (titleEl) titleEl.textContent = (isToday ? '📍 Dzisiaj · ' : '') + dayKey + ' — Trening';
+
       if (dayExercises.length === 0) {
+        if (subtitleEl) subtitleEl.textContent = 'Dzień regeneracji i odpoczynku';
+        if (iconEl) iconEl.textContent = '🛌';
         container.innerHTML = `
           <div class="text-center py-10">
-            <p class="text-4xl mb-3">🏋️</p>
-            <p class="text-base font-medium text-gray-400 mb-1">Brak planu treningowego na ten dzień</p>
-            <p class="text-sm text-gray-600 mb-4">Kliknij "✨ Stwórz Plan" aby wygenerować plan treningowy</p>
-            <button onclick="handleCreatePlanClick()"
-              class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
-              style="background:linear-gradient(135deg,rgba(0,229,255,0.2),rgba(124,58,237,0.2));border:1px solid rgba(0,229,255,0.4);color:#00e5ff;">
-              ✨ Stwórz Plan
-            </button>
+            <p class="text-4xl mb-3">🛌</p>
+            <p class="text-base font-semibold text-white mb-1">Dzień odpoczynku i regeneracji</p>
+            <p class="text-xs text-gray-500 mb-5">Regeneracja to kluczowy element Twojego rozwoju. Odbuduj siły na kolejny trening!</p>
+            <div class="flex items-center justify-center gap-3 flex-wrap">
+              <button type="button" onclick="openAddExerciseToDay()"
+                class="px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;">
+                ➕ Zaplanuj trening na ten dzień
+              </button>
+              <button type="button" onclick="handleCreatePlanClick()"
+                class="px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                style="background:linear-gradient(135deg,rgba(0,229,255,0.18),rgba(124,58,237,0.22));border:1px solid rgba(0,229,255,0.4);color:#00e5ff;">
+                ✨ Stwórz Plan z AI
+              </button>
+            </div>
           </div>`;
         return;
       }
@@ -11027,6 +10970,20 @@
       // 6. Header chip
       const chip = document.getElementById('planCatHeaderChip');
       if (chip) chip.textContent = PLAN_CATEGORY_LABELS[cat] || cat;
+
+      // 6b. Kontrola widoczności nagłówka tygodniowego (tylko dla sub === 'plan')
+      const weeklyHero = document.getElementById('planWeeklyHero');
+      if (weeklyHero) {
+        const isPlanSub = (sub === 'plan');
+        weeklyHero.style.display = isPlanSub ? 'block' : 'none';
+        if (isPlanSub) {
+          const shopBtn = document.getElementById('heroShoppingListBtn');
+          const trainBtn = document.getElementById('heroStartTrainingBtn');
+          if (shopBtn) shopBtn.style.display = (cat === 'dieta') ? 'flex' : 'none';
+          if (trainBtn) trainBtn.style.display = (cat === 'trening') ? 'flex' : 'none';
+          if (typeof renderDayCarousel === 'function') renderDayCarousel();
+        }
+      }
 
       // 7. Top tab bar — przebudowa TYLKO RAZ na wywołanie (eliminuje podwójny render)
       _renderPlanTopTabs(cat, sub);
@@ -14828,109 +14785,10 @@
       const jumpRow = document.getElementById('todayJumpRow');
       if (jumpRow) jumpRow.style.display = (state.currentDay !== todayIdx) ? 'block' : 'none';
 
-      // Odśwież podgląd dnia
-      if (isTrainingView) renderDayPreview();
-    }
-
-    /** Renderuje kartę podglądu dnia (ćwiczenia/odpoczynek) */
-    function renderDayPreview() {
-      const card = document.getElementById('dayPreviewCard');
-      if (!card) return;
-
-      const isTrainingView = (state.planCategory === 'trening');
-      if (!isTrainingView) { card.style.display = 'none'; return; }
-
-      card.style.display = 'block';
-
-      const p = getCurrentProfile();
-      const day = getCurrentDayKey();
-      const todayIdx = (new Date().getDay() + 6) % 7;
-      const isToday = state.currentDay === todayIdx;
-
-      const exercises = p && p.trainingPlan ? ((p.trainingPlan[day] || []).filter(e => !e.hidden)) : [];
-      const info = _getDayTypeInfo(exercises);
-
-      // Klasy karty
-      card.className = exercises.length === 0 ? 'rest-day' : (isToday ? 'today-preview' : '');
-      // Przywróć id i style
-      card.id = 'dayPreviewCard';
-
-      // Tytuł
-      const titleEl = document.getElementById('dayPreviewTitle');
-      const subtitleEl = document.getElementById('dayPreviewSubtitle');
-      const iconEl = document.getElementById('dayPreviewIcon');
-      if (titleEl) titleEl.textContent = isToday ? ('📍 Dzisiaj · ' + day) : day;
-      if (subtitleEl) subtitleEl.textContent = info.label + (exercises.length > 0 ? ' · ' + exercises.length + ' ćwiczeń' : '');
-      if (iconEl) iconEl.textContent = info.emoji;
-
-      // Badge typu
-      const badgeEl = document.getElementById('dayPreviewTypeBadge');
-      if (badgeEl) {
-        if (exercises.length > 0) {
-          const badgeColors = {
-            strength: { bg: 'rgba(0,229,255,0.1)', border: 'rgba(0,229,255,0.3)', color: '#00e5ff' },
-            sport: { bg: 'rgba(124,58,237,0.12)', border: 'rgba(124,58,237,0.3)', color: '#a78bfa' },
-            mixed: { bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.3)', color: '#fbbf24' },
-            rest: { bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)', color: '#64748b' }
-          };
-          const c = badgeColors[info.type] || badgeColors.strength;
-          badgeEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:99px;font-size:10px;font-weight:700;background:${c.bg};border:1px solid ${c.border};color:${c.color};">${info.emoji} ${info.label}</span>`;
-          badgeEl.style.display = 'block';
-        } else {
-          badgeEl.style.display = 'none';
-        }
+      // Odśwież główny panel treningowy dla wybranego dnia
+      if (isTrainingView && typeof renderPlanTraining === 'function') {
+        renderPlanTraining();
       }
-
-      // Progress
-      const checkedKey = _checkedKey(p.id, state.currentDay);
-      const checked = state.dayChecked[checkedKey] || {};
-      const done = exercises.filter((_, i) => checked['ex_' + i]).length;
-      const pct = exercises.length > 0 ? Math.round(done / exercises.length * 100) : 0;
-      const progressWrap = document.getElementById('dayPreviewProgressWrap');
-      const progressText = document.getElementById('dayPreviewProgressText');
-      const progressBar = document.getElementById('dayPreviewProgressBar');
-      if (progressWrap) progressWrap.style.display = exercises.length > 0 ? 'flex' : 'none';
-      if (progressText) progressText.textContent = done + '/' + exercises.length + ' ukończone';
-      if (progressBar) progressBar.style.width = pct + '%';
-
-      const listEl = document.getElementById('dayPreviewExercises');
-      const actionsEl = document.getElementById('dayPreviewActions');
-      const emptyEl = document.getElementById('dayPreviewEmpty');
-      if (!listEl || !emptyEl) return;
-
-      if (exercises.length === 0) {
-        listEl.style.display = 'none';
-        if (actionsEl) actionsEl.style.display = 'none';
-        emptyEl.style.display = 'block';
-        return;
-      }
-
-      listEl.style.display = 'flex';
-      if (actionsEl) actionsEl.style.display = 'flex';
-      emptyEl.style.display = 'none';
-
-      listEl.innerHTML = exercises.map((ex, i) => {
-        const isDrill = !!(ex.isDrill || ex._sport);
-        const isDone = !!checked['ex_' + i];
-        const name = ex.name || 'Ćwiczenie';
-        const sets = ex.sets || 3;
-        const reps = ex.reps || 10;
-        const weight = ex.weight || 0;
-        const detail = isDrill
-          ? (ex.duration || ex.category || 'Drill')
-          : (sets + ' ser × ' + reps + ' powt.' + (weight > 0 ? ' @ ' + weight + 'kg' : ''));
-        const icon = isDrill ? '🏀' : '💪';
-        const doneStyle = isDone ? 'opacity:0.5;' : '';
-        const doneText = isDone ? 'text-decoration:line-through;color:#64748b;' : 'color:#e2e8f0;';
-        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;${doneStyle}background:rgba(255,255,255,0.03);border:1px solid ${isDone ? 'rgba(74,222,128,0.18)' : 'rgba(255,255,255,0.06)'};">
-          <span style="font-size:1.1rem;flex-shrink:0;">${icon}</span>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:600;${doneText}white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
-            <div style="font-size:11px;color:#475569;margin-top:2px;">${detail}</div>
-          </div>
-          ${isDone ? '<span style="font-size:11px;font-weight:700;color:#4ade80;flex-shrink:0;">✓</span>' : '<span style="font-size:11px;color:#334155;flex-shrink:0;">' + (i + 1) + '</span>'}
-        </div>`;
-      }).join('');
     }
 
     /** Skocz do dzisiaj i odśwież widok */
