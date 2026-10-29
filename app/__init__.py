@@ -1184,6 +1184,44 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
     if 'id="evolve-nutrition-shell-integration"' not in html:
         html = _insert_before_document_body_end(html, nutrition_shell_integration)
 
+    demo_script = ""
+    try:
+        from sqlmodel import Session
+        from app.database import engine
+        from app.auth.routes import ensure_demo_user_session
+        with Session(engine) as session:
+            demo_data = ensure_demo_user_session(session)
+        demo_script = f"""<script id="evolve-auto-auth">
+(function () {{
+  try {{
+    var storedToken = localStorage.getItem('fitai_token');
+    var demoToken = "{demo_data['access_token']}";
+    window._evolveDemoToken = demoToken;
+    if (!storedToken && demoToken) {{
+      localStorage.setItem('fitai_token', demoToken);
+      localStorage.setItem('fitai_user_id', "{demo_data.get('user_id', '')}");
+      localStorage.setItem('fitai_display_name', "{demo_data.get('display_name', 'Zawodnik EVOLVE')}");
+      localStorage.setItem('fitai_name', "{demo_data.get('name', 'Zawodnik EVOLVE')}");
+      localStorage.setItem('fitai_role', "{demo_data.get('role', 'pro_user')}");
+      localStorage.setItem('fitai_plan', "{demo_data.get('plan', 'pro')}");
+      localStorage.setItem('fitai_user_number', "{demo_data.get('user_number', '1')}");
+    }}
+    window._fitaiToken = localStorage.getItem('fitai_token') || demoToken;
+  }} catch (e) {{
+    console.warn('[EVOLVE] Auto-auth:', e);
+  }}
+}})();
+</script>"""
+    except Exception:
+        demo_script = """<script id="evolve-auto-auth">window._evolveDemoToken = "";</script>"""
+
+    if 'id="evolve-auto-auth"' not in html:
+        pos = html.find("</head>")
+        if pos != -1:
+            html = html[:pos] + demo_script + "\n" + html[pos:]
+        else:
+            html = demo_script + "\n" + html
+
     if 'id="evolve-dashboard-first-style"' not in html:
         pos = html.find("</head>")
         if pos != -1:
@@ -1216,8 +1254,13 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   if (!hasToken) {
-    showAuthenticatedShell(false);
-    return;
+    if (window._evolveDemoToken) {
+      localStorage.setItem('fitai_token', window._evolveDemoToken);
+      hasToken = true;
+    } else {
+      showAuthenticatedShell(false);
+      return;
+    }
   }
 
   fetch('/app/profile', {
@@ -1226,6 +1269,12 @@ document.addEventListener('DOMContentLoaded', function () {
   }).then(function (response) {
     if (response.status === 401 || response.status === 403) {
       localStorage.removeItem('fitai_token');
+      if (window._evolveDemoToken) {
+        localStorage.setItem('fitai_token', window._evolveDemoToken);
+        showAuthenticatedShell(true);
+        if (typeof initApp === 'function') initApp();
+        return;
+      }
       showAuthenticatedShell(false);
       return;
     }

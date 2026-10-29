@@ -703,6 +703,113 @@
       box-shadow: 0 0 16px rgba(0, 229, 255, 0.4);
     }
 
+    /* ── Day Card (rich weekly view) ──────────────────────────────────── */
+    .day-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      min-width: 80px;
+      padding: 10px 8px 9px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.07);
+      background: rgba(255,255,255,0.025);
+      cursor: pointer;
+      transition: all 0.22s cubic-bezier(.4,0,.2,1);
+      position: relative;
+      user-select: none;
+    }
+    .day-card:hover {
+      background: rgba(255,255,255,0.055);
+      border-color: rgba(0,229,255,0.25);
+      transform: translateY(-2px);
+    }
+    .day-card.active {
+      background: linear-gradient(145deg, rgba(0,229,255,0.14), rgba(124,58,237,0.18));
+      border-color: rgba(0,229,255,0.55);
+      box-shadow: 0 0 20px rgba(0,229,255,0.18), inset 0 0 12px rgba(124,58,237,0.08);
+    }
+    .day-card.today-card:not(.active) {
+      border-color: rgba(167,139,250,0.4);
+      background: rgba(124,58,237,0.07);
+    }
+    .day-card .day-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #94a3b8;
+    }
+    .day-card.active .day-name {
+      color: #00e5ff;
+    }
+    .day-card.today-card:not(.active) .day-name {
+      color: #a78bfa;
+    }
+    .day-card .day-emoji {
+      font-size: 1.35rem;
+      line-height: 1;
+    }
+    .day-card .day-meta {
+      font-size: 9.5px;
+      font-weight: 600;
+      color: #475569;
+      text-align: center;
+      line-height: 1.3;
+      max-width: 72px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .day-card.active .day-meta {
+      color: rgba(0,229,255,0.7);
+    }
+    .day-card .today-badge {
+      position: absolute;
+      top: -7px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      padding: 1px 7px;
+      border-radius: 20px;
+      background: linear-gradient(90deg,#00e5ff,#a78bfa);
+      color: #000;
+      white-space: nowrap;
+    }
+    .day-card .day-count-dot {
+      display: flex;
+      gap: 2px;
+      align-items: center;
+      justify-content: center;
+    }
+    .day-card .day-count-dot span {
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+    }
+    .day-card.active .day-count-dot span { background: rgba(0,229,255,0.7); }
+
+    /* ── Day Preview Card (below carousel) ──────────────────────────────── */
+    #dayPreviewCard {
+      background: rgba(124,58,237,0.04);
+      border: 1px solid rgba(124,58,237,0.2);
+      border-radius: 20px;
+      padding: 20px;
+      margin-top: 6px;
+      transition: all 0.3s ease;
+    }
+    #dayPreviewCard.rest-day {
+      background: rgba(255,255,255,0.02);
+      border-color: rgba(255,255,255,0.08);
+    }
+    #dayPreviewCard.today-preview {
+      border-color: rgba(0,229,255,0.3);
+      background: rgba(0,229,255,0.03);
+    }
+
     .user-ring {
       transition: all 0.3s;
     }
@@ -1888,8 +1995,8 @@
       <nav class="space-y-1 flex-1" aria-label="Główna nawigacja">
         <p class="px-3 py-1 text-xs font-bold uppercase tracking-wider" style="color:var(--cyan);letter-spacing:0.12em;">Performance OS</p>
         <a href="#my-day" onclick="showTab('my-day'); return false;" data-tab="my-day" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-cyan-400 active" title="Dzisiejsze centrum dowodzenia"><span>⚡</span><span>1. Dziś (Today)</span></a>
-        <a href="#" onclick="showTab('plan'); switchPlanCategory('sport'); return false;" data-tab="basketball" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Rzut, ball handling, wykończenie i motoryka"><span>🏀</span><span>2. Koszykówka</span></a>
-        <a href="#" onclick="showTab('plan'); switchPlanCategory('trening'); return false;" data-tab="training" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Trening siłowy, serie, ciężary"><span>🏋️</span><span>3. Trening siłowy</span></a>
+        <a href="#" onclick="showTab('plan'); switchPlanCategory('sport'); return false;" data-tab="basketball" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Umiejętności sportowe, motoryka i drille"><span>🏀</span><span>2. Sport</span></a>
+        <a href="#" onclick="showTab('plan'); switchPlanCategory('trening'); return false;" data-tab="training" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Tygodniowy plan: siła, motoryka, sport"><span>📅</span><span>3. Plan</span></a>
         <a href="#" onclick="showTab('plan'); switchPlanCategory('dieta'); return false;" data-tab="diet" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Paliwo sportowe i makroskładniki"><span>🥗</span><span>4. Odżywianie</span></a>
         <a href="#" onclick="showTab('recovery'); return false;" data-tab="recovery" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Sen, gotowość i zmęczenie"><span>🔋</span><span>5. Regeneracja</span></a>
         <a href="#" onclick="showTab('postepy'); return false;" data-tab="postepy" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Wykresy wyskoku, siły i celności"><span>📈</span><span>6. Postępy</span></a>
@@ -3215,6 +3322,75 @@
           <!-- Karuzela dni -->
           <div style="position:relative;margin-top:18px;overflow-x:auto;padding-bottom:2px;">
             <div id="dayCarousel" style="display:flex;gap:8px;min-width:max-content;"></div>
+          </div>
+
+          <!-- Dziś button (szybki skok do dzisiaj) -->
+          <div id="todayJumpRow" style="display:none;margin-top:10px;">
+            <button onclick="jumpToToday()" style="
+              font-size:11px;font-weight:700;padding:5px 14px;border-radius:10px;
+              background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.25);
+              color:#00e5ff;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:5px;"
+              onmouseover="this.style.background='rgba(0,229,255,0.16)'" onmouseout="this.style.background='rgba(0,229,255,0.08)'">
+              📍 Wróć do Dzisiaj
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Podgląd wybranego dnia (tylko zakładka Trening) ── -->
+        <div id="dayPreviewCard" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div id="dayPreviewIcon" style="width:40px;height:40px;border-radius:12px;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.2);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">💪</div>
+              <div>
+                <div id="dayPreviewTitle" style="font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:#fff;"></div>
+                <div id="dayPreviewSubtitle" style="font-size:11px;color:#475569;margin-top:2px;"></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <div id="dayPreviewTypeBadge" style="display:none;"></div>
+              <div id="dayPreviewProgressWrap" style="display:none;align-items:center;gap:6px;">
+                <span id="dayPreviewProgressText" style="font-size:11px;font-weight:700;color:#00e5ff;"></span>
+                <div style="width:60px;height:5px;border-radius:99px;background:rgba(255,255,255,0.08);overflow:hidden;">
+                  <div id="dayPreviewProgressBar" style="height:100%;border-radius:99px;background:linear-gradient(90deg,#00e5ff,#a78bfa);transition:width .4s ease;width:0%;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lista ćwiczeń -->
+          <div id="dayPreviewExercises" style="display:flex;flex-direction:column;gap:6px;"></div>
+
+          <!-- Pasek akcji podglądu dnia -->
+          <div id="dayPreviewActions" style="display:none;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <button id="dayPreviewStartWorkoutBtn" type="button" onclick="window.evolveStartTraining ? window.evolveStartTraining() : null"
+                style="background:linear-gradient(135deg,rgba(0,229,255,0.22),rgba(124,58,237,0.25));border:1px solid rgba(0,229,255,0.45);color:#00e5ff;font-weight:800;font-size:12px;padding:8px 18px;border-radius:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 0 16px rgba(0,229,255,0.15);transition:all .2s;"
+                onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
+                ▶ Rozpocznij trening na żywo
+              </button>
+              <button type="button" onclick="openAddExerciseToDay()"
+                style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#cbd5e1;font-weight:700;font-size:12px;padding:8px 14px;border-radius:12px;cursor:pointer;transition:all .2s;">
+                ➕ Dodaj ćwiczenie
+              </button>
+            </div>
+            <button type="button" onclick="openEditPlanModal()"
+              style="background:transparent;border:1px solid rgba(255,255,255,0.08);color:#94a3b8;font-size:11px;font-weight:600;padding:7px 12px;border-radius:10px;cursor:pointer;transition:all .2s;"
+              onmouseover="this.style.color='#fff';this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.color='#94a3b8';this.style.borderColor='rgba(255,255,255,0.08)'">
+              ✏️ Edytuj ten dzień
+            </button>
+          </div>
+
+          <!-- Stan pusty / odpoczynek -->
+          <div id="dayPreviewEmpty" style="display:none;text-align:center;padding:22px 0;">
+            <div style="font-size:2.2rem;margin-bottom:8px;">🛌</div>
+            <div style="font-size:14px;font-weight:600;color:#94a3b8;">Dzień odpoczynku</div>
+            <div style="font-size:12px;color:#475569;margin-top:4px;">Regeneracja to kluczowy element Twojego rozwoju</div>
+            <div style="margin-top:12px;">
+              <button type="button" onclick="openAddExerciseToDay()"
+                style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#cbd5e1;font-size:11px;font-weight:700;padding:6px 14px;border-radius:10px;cursor:pointer;">
+                ➕ Zaplanuj trening na ten dzień
+              </button>
+            </div>
           </div>
         </div>
 
@@ -8954,18 +9130,36 @@
 
 
     function showTabFromHash() {
-      const tabId = decodeURIComponent(window.location.hash.replace(/^#/, ''));
+      let rawTab = decodeURIComponent(window.location.hash.replace(/^#/, ''));
+      let tabId = rawTab;
+      if (tabId === 'training') {
+        tabId = 'plan';
+        if (typeof switchPlanCategory === 'function') switchPlanCategory('trening');
+      } else if (tabId === 'basketball') {
+        tabId = 'plan';
+        if (typeof switchPlanCategory === 'function') switchPlanCategory('sport');
+      } else if (tabId === 'diet') {
+        tabId = 'plan';
+        if (typeof switchPlanCategory === 'function') switchPlanCategory('dieta');
+      }
       if (!tabId || !document.getElementById('tab-' + tabId)) return;
       // Deep links must not bypass authentication.
       if (!localStorage.getItem('fitai_token')) {
-        if (typeof openAuthModal === 'function') openAuthModal('login');
-        return;
+        if (window._evolveDemoToken) {
+          localStorage.setItem('fitai_token', window._evolveDemoToken);
+        } else {
+          if (typeof openAuthModal === 'function') openAuthModal('login');
+          return;
+        }
       }
       if (typeof enterDashboard === 'function') {
         enterDashboard();
         showTab(tabId);
       } else {
         showTab(tabId);
+      }
+      if (rawTab === 'training' && typeof switchPlanCategory === 'function') {
+        switchPlanCategory('trening');
       }
     }
 
@@ -10633,6 +10827,21 @@
 
     // ========== TAB SWITCHING ==========
     function showTab(tabId) {
+      if (tabId === 'training') {
+        showTab('plan');
+        if (typeof switchPlanCategory === 'function') switchPlanCategory('trening');
+        return;
+      }
+      if (tabId === 'basketball') {
+        showTab('plan');
+        if (typeof switchPlanCategory === 'function') switchPlanCategory('sport');
+        return;
+      }
+      if (tabId === 'diet') {
+        showTab('plan');
+        if (typeof switchPlanCategory === 'function') switchPlanCategory('dieta');
+        return;
+      }
       // Zamknij wszystkie "pływające" modale przy zmianie głównej zakładki
       try {
         const drillModal = document.getElementById('drillLogModal');
@@ -10716,7 +10925,7 @@
       ],
     };
 
-    const PLAN_CATEGORY_LABELS = { dieta: 'Dieta', trening: 'Trening', sport: 'Sport' };
+    const PLAN_CATEGORY_LABELS = { dieta: 'Dieta', trening: 'Plan', sport: 'Sport' };
 
     // Toggle Plan submenu in left sidebar
     function togglePlanSubmenu() {
@@ -14556,11 +14765,178 @@
     }
 
     // ========== PLAN ==========
+
+    /** Helper: determine day type emoji and label from exercises */
+    function _getDayTypeInfo(exercises) {
+      if (!exercises || exercises.length === 0) return { emoji: '🛌', label: 'Odpoczynek', type: 'rest' };
+      const hasDrills = exercises.some(e => e && (e.isDrill || e._sport));
+      const hasStrength = exercises.some(e => e && !(e.isDrill || e._sport));
+      if (hasDrills && hasStrength) return { emoji: '⚡', label: 'Trening mieszany', type: 'mixed' };
+      if (hasDrills) return { emoji: '🏀', label: 'Sport', type: 'sport' };
+      const muscles = [...new Set(
+        exercises.filter(e => e && !(e.isDrill || e._sport) && (e.muscle_group || e.muscles))
+          .map(e => e.muscle_group || _firstMuscleLabel(e.muscles)).filter(Boolean)
+      )];
+      if (muscles.length > 0) return { emoji: '💪', label: muscles.slice(0, 2).join(' + '), type: 'strength' };
+      return { emoji: '💪', label: 'Siłowy', type: 'strength' };
+    }
+
     function renderDayCarousel() {
-      document.getElementById('dayCarousel').innerHTML = state.days.map((d, i) => `
-    <button onclick="selectDay(${i})" class="day-btn px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all btn-ghost ${i === state.currentDay ? 'active' : ''}">${d}</button>
-  `).join('');
-      document.getElementById('currentDayLabel').textContent = getCurrentDayKey();
+      const carousel = document.getElementById('dayCarousel');
+      if (!carousel) return;
+      const p = getCurrentProfile();
+      const todayIdx = (new Date().getDay() + 6) % 7;
+      const isTrainingView = (state.planCategory === 'trening');
+
+      carousel.innerHTML = state.days.map((d, i) => {
+        const exercises = p && p.trainingPlan ? ((p.trainingPlan[d] || []).filter(e => !e.hidden)) : [];
+        const info = _getDayTypeInfo(exercises);
+        const isActive = i === state.currentDay;
+        const isToday = i === todayIdx;
+        const count = exercises.length;
+
+        // Dot indicators (max 4)
+        const dotCount = Math.min(count, 4);
+        const dots = dotCount > 0 ? Array(dotCount).fill('<span></span>').join('') : '<span style="background:rgba(255,255,255,0.06)"></span>';
+
+        const todayBadge = isToday ? '<div class="today-badge">DZIŚ</div>' : '';
+
+        if (isTrainingView) {
+          return `<button onclick="selectDay(${i})"
+            class="day-card ${isActive ? 'active' : ''} ${isToday ? 'today-card' : ''}"
+            title="${d}: ${info.label}${count > 0 ? ' · ' + count + ' ćw.' : ''}">
+            ${todayBadge}
+            <div class="day-name">${d}</div>
+            <div class="day-emoji">${info.emoji}</div>
+            <div class="day-meta">${count > 0 ? info.label : 'Odpoczynek'}</div>
+            <div class="day-count-dot">${dots}</div>
+          </button>`;
+        } else {
+          // Dieta/inne — klasyczny styl
+          return `<button onclick="selectDay(${i})"
+            class="day-btn px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all btn-ghost ${isActive ? 'active' : ''} ${isToday ? 'today-card' : ''}"
+            style="${isToday && !isActive ? 'border:1px solid rgba(167,139,250,0.4);' : ''}">
+            ${d}${isToday ? ' <span style="font-size:8px;vertical-align:super;opacity:0.7">●</span>' : ''}
+          </button>`;
+        }
+      }).join('');
+
+      const label = document.getElementById('currentDayLabel');
+      if (label) label.textContent = getCurrentDayKey();
+
+      // Pokaż/ukryj "Wróć do Dzisiaj"
+      const jumpRow = document.getElementById('todayJumpRow');
+      if (jumpRow) jumpRow.style.display = (state.currentDay !== todayIdx) ? 'block' : 'none';
+
+      // Odśwież podgląd dnia
+      if (isTrainingView) renderDayPreview();
+    }
+
+    /** Renderuje kartę podglądu dnia (ćwiczenia/odpoczynek) */
+    function renderDayPreview() {
+      const card = document.getElementById('dayPreviewCard');
+      if (!card) return;
+
+      const isTrainingView = (state.planCategory === 'trening');
+      if (!isTrainingView) { card.style.display = 'none'; return; }
+
+      card.style.display = 'block';
+
+      const p = getCurrentProfile();
+      const day = getCurrentDayKey();
+      const todayIdx = (new Date().getDay() + 6) % 7;
+      const isToday = state.currentDay === todayIdx;
+
+      const exercises = p && p.trainingPlan ? ((p.trainingPlan[day] || []).filter(e => !e.hidden)) : [];
+      const info = _getDayTypeInfo(exercises);
+
+      // Klasy karty
+      card.className = exercises.length === 0 ? 'rest-day' : (isToday ? 'today-preview' : '');
+      // Przywróć id i style
+      card.id = 'dayPreviewCard';
+
+      // Tytuł
+      const titleEl = document.getElementById('dayPreviewTitle');
+      const subtitleEl = document.getElementById('dayPreviewSubtitle');
+      const iconEl = document.getElementById('dayPreviewIcon');
+      if (titleEl) titleEl.textContent = isToday ? ('📍 Dzisiaj · ' + day) : day;
+      if (subtitleEl) subtitleEl.textContent = info.label + (exercises.length > 0 ? ' · ' + exercises.length + ' ćwiczeń' : '');
+      if (iconEl) iconEl.textContent = info.emoji;
+
+      // Badge typu
+      const badgeEl = document.getElementById('dayPreviewTypeBadge');
+      if (badgeEl) {
+        if (exercises.length > 0) {
+          const badgeColors = {
+            strength: { bg: 'rgba(0,229,255,0.1)', border: 'rgba(0,229,255,0.3)', color: '#00e5ff' },
+            sport: { bg: 'rgba(124,58,237,0.12)', border: 'rgba(124,58,237,0.3)', color: '#a78bfa' },
+            mixed: { bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.3)', color: '#fbbf24' },
+            rest: { bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)', color: '#64748b' }
+          };
+          const c = badgeColors[info.type] || badgeColors.strength;
+          badgeEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:99px;font-size:10px;font-weight:700;background:${c.bg};border:1px solid ${c.border};color:${c.color};">${info.emoji} ${info.label}</span>`;
+          badgeEl.style.display = 'block';
+        } else {
+          badgeEl.style.display = 'none';
+        }
+      }
+
+      // Progress
+      const checkedKey = _checkedKey(p.id, state.currentDay);
+      const checked = state.dayChecked[checkedKey] || {};
+      const done = exercises.filter((_, i) => checked['ex_' + i]).length;
+      const pct = exercises.length > 0 ? Math.round(done / exercises.length * 100) : 0;
+      const progressWrap = document.getElementById('dayPreviewProgressWrap');
+      const progressText = document.getElementById('dayPreviewProgressText');
+      const progressBar = document.getElementById('dayPreviewProgressBar');
+      if (progressWrap) progressWrap.style.display = exercises.length > 0 ? 'flex' : 'none';
+      if (progressText) progressText.textContent = done + '/' + exercises.length + ' ukończone';
+      if (progressBar) progressBar.style.width = pct + '%';
+
+      const listEl = document.getElementById('dayPreviewExercises');
+      const actionsEl = document.getElementById('dayPreviewActions');
+      const emptyEl = document.getElementById('dayPreviewEmpty');
+      if (!listEl || !emptyEl) return;
+
+      if (exercises.length === 0) {
+        listEl.style.display = 'none';
+        if (actionsEl) actionsEl.style.display = 'none';
+        emptyEl.style.display = 'block';
+        return;
+      }
+
+      listEl.style.display = 'flex';
+      if (actionsEl) actionsEl.style.display = 'flex';
+      emptyEl.style.display = 'none';
+
+      listEl.innerHTML = exercises.map((ex, i) => {
+        const isDrill = !!(ex.isDrill || ex._sport);
+        const isDone = !!checked['ex_' + i];
+        const name = ex.name || 'Ćwiczenie';
+        const sets = ex.sets || 3;
+        const reps = ex.reps || 10;
+        const weight = ex.weight || 0;
+        const detail = isDrill
+          ? (ex.duration || ex.category || 'Drill')
+          : (sets + ' ser × ' + reps + ' powt.' + (weight > 0 ? ' @ ' + weight + 'kg' : ''));
+        const icon = isDrill ? '🏀' : '💪';
+        const doneStyle = isDone ? 'opacity:0.5;' : '';
+        const doneText = isDone ? 'text-decoration:line-through;color:#64748b;' : 'color:#e2e8f0;';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;${doneStyle}background:rgba(255,255,255,0.03);border:1px solid ${isDone ? 'rgba(74,222,128,0.18)' : 'rgba(255,255,255,0.06)'};">
+          <span style="font-size:1.1rem;flex-shrink:0;">${icon}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;${doneText}white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+            <div style="font-size:11px;color:#475569;margin-top:2px;">${detail}</div>
+          </div>
+          ${isDone ? '<span style="font-size:11px;font-weight:700;color:#4ade80;flex-shrink:0;">✓</span>' : '<span style="font-size:11px;color:#334155;flex-shrink:0;">' + (i + 1) + '</span>'}
+        </div>`;
+      }).join('');
+    }
+
+    /** Skocz do dzisiaj i odśwież widok */
+    function jumpToToday() {
+      const todayIdx = (new Date().getDay() + 6) % 7;
+      selectDay(todayIdx);
     }
 
     function selectDay(i) {
@@ -28023,6 +28399,10 @@
 
   function openPanelOrAuth() {
     var token = localStorage.getItem('fitai_token');
+    if (!token && window._evolveDemoToken) {
+      localStorage.setItem('fitai_token', window._evolveDemoToken);
+      token = window._evolveDemoToken;
+    }
     if (token && token.length > 20) {
       // Mamy token — pokaż panel bezpośrednio
       if (typeof enterDashboard === 'function') enterDashboard();
