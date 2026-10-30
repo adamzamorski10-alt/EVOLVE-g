@@ -792,6 +792,46 @@
     }
     .day-card.active .day-count-dot span { background: rgba(0,229,255,0.7); }
 
+    /* ── Human Anatomy Interactive SVG Map ──────────────────────────────── */
+    .human-anatomy-svg {
+      width: 100%;
+      max-width: 155px;
+      height: auto;
+      filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6));
+      user-select: none;
+    }
+    .muscle-path {
+      fill: rgba(255, 255, 255, 0.05);
+      stroke: rgba(255, 255, 255, 0.18);
+      stroke-width: 1.1;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+    }
+    .muscle-group:hover .muscle-path {
+      fill: rgba(0, 229, 255, 0.3) !important;
+      stroke: rgba(0, 229, 255, 0.8) !important;
+      filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.45));
+    }
+    .muscle-group.active-priority-low .muscle-path {
+      fill: rgba(124, 58, 237, 0.42) !important;
+      stroke: #a78bfa !important;
+    }
+    .muscle-group.active-priority-mid .muscle-path {
+      fill: rgba(0, 229, 255, 0.45) !important;
+      stroke: #00e5ff !important;
+      filter: drop-shadow(0 0 7px rgba(0, 229, 255, 0.4));
+    }
+    .muscle-group.active-priority-high .muscle-path {
+      fill: rgba(251, 191, 36, 0.6) !important;
+      stroke: #fbbf24 !important;
+      filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.55));
+    }
+    .muscle-group.selected-muscle .muscle-path {
+      stroke-width: 1.8 !important;
+      stroke: #fff !important;
+    }
+
+
 
     .user-ring {
       transition: all 0.3s;
@@ -3708,7 +3748,10 @@
                       <div style="display:flex;align-items:center;gap:10px;">
                         <div id="planTrainingHeaderIcon" style="width:36px;height:36px;border-radius:10px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.22);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">💪</div>
                         <div>
-                          <h4 id="planTrainingHeaderTitle" style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#fff;line-height:1.2;margin:0;">Zaplanowany Trening</h4>
+                          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                            <h4 id="planTrainingHeaderTitle" style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#fff;line-height:1.2;margin:0;">Zaplanowany Trening</h4>
+                            <span id="activePlanBadge" onclick="openSavedPlansModal()" class="cursor-pointer inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold transition-all hover:brightness-125" style="background:rgba(0,229,255,0.09);border:1px solid rgba(0,229,255,0.28);color:#00e5ff;" title="Kliknij, aby zarządzać planami">📌 <span id="activePlanName">Plan Główny</span> <span style="font-size:9px;opacity:0.7;">▾</span></span>
+                          </div>
                           <p id="planTrainingHeaderSubtitle" style="font-size:11px;color:#475569;margin:0;">sesja treningowa</p>
                         </div>
                       </div>
@@ -10032,6 +10075,7 @@
 
       const p = getCurrentProfile();
       if (!p) { container.innerHTML = ''; return; }
+      if (typeof updateActivePlanBadge === 'function') updateActivePlanBadge();
 
       const days = Array.isArray(state.days) && state.days.length > 0 ? state.days : ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Niedz'];
       const dayIndex = Number.isInteger(state.currentDay) ? state.currentDay : 0;
@@ -11908,7 +11952,797 @@
       });
     }
 
+    
+    // ══════════════════════════════════════════════════════════════════
+    // SMART PLAN BUILDER & SAVED PLANS ENGINE (EVOLVE Smart Coach)
+    // ══════════════════════════════════════════════════════════════════
+
+    const _smartMuscleDefs = {
+      klatka: { name: 'Klatka piersiowa', icon: '🫁', desc: 'Rozwój siły wyciskania, stabilizacja pchnięcia i estetyka górnej połowy ciała.' },
+      plecy: { name: 'Plecy / Najszersze', icon: '🔙', desc: 'Szerokość grzbietu, siła przyciągania i zdrowie kręgosłupa oraz obręczy barkowej.' },
+      barki: { name: 'Barki / Naramienne', icon: '💪', desc: 'Kulistość barków, stabilność rzutowa i ochrona stawu ramiennego.' },
+      biceps: { name: 'Bicepsy', icon: '💪', desc: 'Zginanie ramion, siła chwytu i pełna kontrola ruchów ciągnących.' },
+      triceps: { name: 'Tricepsy', icon: '💪', desc: 'Wyciskanie końcowe, moc rzutu i dynamiczny wyprost ramienia.' },
+      brzuch: { name: 'Brzuch & Core', icon: '🎯', desc: 'Pancerz tułowia, transfer energii między dołem a górą ciała, ochrona kręgosłupa.' },
+      nogi: { name: 'Uda (Czworogłowe / Dwugłowe)', icon: '🦵', desc: 'Fundament wyskoku pionowego, przyspieszenia i siły dolnej połowy ciała.' },
+      pośladki: { name: 'Pośladki (Glutes)', icon: '🍑', desc: 'Główny generator mocy biodra przy wyskoku i sprincie.' },
+      łydki: { name: 'Łydki & Ścięgna', icon: '🦶', desc: 'Sprężystość ścięgna Achillesa i sztywność stawu skokowego.' }
+    };
+
+    const _smartPlanState = {
+      mode: 'smart', // 'smart' | 'custom'
+      planName: 'Plan Inteligentny EVOLVE',
+      days: ['Pon', 'Śr', 'Pt', 'Sob'],
+      duration: 60,
+      equipment: 'gym',
+      sport: 'basketball',
+      sportFocus: ['jump', 'speed'],
+      activeMuscle: 'klatka',
+      musclePriorities: {
+        klatka: 8,
+        plecy: 7,
+        barki: 6,
+        biceps: 5,
+        triceps: 5,
+        brzuch: 6,
+        nogi: 7,
+        pośladki: 5,
+        łydki: 5
+      },
+      generatedPlan: null
+    };
+
+    function setPlanBuilderMode(mode) {
+      _smartPlanState.mode = mode;
+      const smartTab = document.getElementById('pbModeSmartTab');
+      const customTab = document.getElementById('pbModeCustomTab');
+      const smartContainer = document.getElementById('pbSmartModeContainer');
+      const customContainer = document.getElementById('pbCustomModeContainer');
+      const smartActions = document.getElementById('pbSmartActions');
+      const customActions = document.getElementById('pbCustomActions');
+
+      if (mode === 'smart') {
+        if (smartTab) {
+          smartTab.style.background = 'linear-gradient(135deg,rgba(0,229,255,0.2),rgba(124,58,237,0.22))';
+          smartTab.style.borderColor = 'rgba(0,229,255,0.45)';
+          smartTab.style.color = '#00e5ff';
+          smartTab.style.boxShadow = '0 0 14px rgba(0,229,255,0.15)';
+          smartTab.className = 'py-2 px-3 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-2 transition-all';
+        }
+        if (customTab) {
+          customTab.style.background = 'transparent';
+          customTab.style.borderColor = 'transparent';
+          customTab.style.color = '#94a3b8';
+          customTab.style.boxShadow = 'none';
+          customTab.className = 'py-2 px-3 rounded-lg text-xs md:text-sm font-medium flex items-center justify-center gap-2 transition-all text-gray-400 hover:text-white';
+        }
+        if (smartContainer) smartContainer.classList.remove('hidden');
+        if (customContainer) customContainer.classList.add('hidden');
+        if (smartActions) smartActions.classList.remove('hidden');
+        if (customActions) customActions.classList.add('hidden');
+        initSmartPlanBuilder();
+      } else {
+        if (customTab) {
+          customTab.style.background = 'linear-gradient(135deg,rgba(0,229,255,0.2),rgba(124,58,237,0.22))';
+          customTab.style.borderColor = 'rgba(0,229,255,0.45)';
+          customTab.style.color = '#00e5ff';
+          customTab.style.boxShadow = '0 0 14px rgba(0,229,255,0.15)';
+          customTab.className = 'py-2 px-3 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-2 transition-all';
+        }
+        if (smartTab) {
+          smartTab.style.background = 'transparent';
+          smartTab.style.borderColor = 'transparent';
+          smartTab.style.color = '#94a3b8';
+          smartTab.style.boxShadow = 'none';
+          smartTab.className = 'py-2 px-3 rounded-lg text-xs md:text-sm font-medium flex items-center justify-center gap-2 transition-all text-gray-400 hover:text-white';
+        }
+        if (smartContainer) smartContainer.classList.add('hidden');
+        if (customContainer) customContainer.classList.remove('hidden');
+        if (smartActions) smartActions.classList.add('hidden');
+        if (customActions) customActions.classList.remove('hidden');
+        _renderWeekGrid();
+        _renderDayConfig(_pb.activeDay || 'Pon');
+      }
+    }
+
+    function initSmartPlanBuilder() {
+      const p = getCurrentProfile ? getCurrentProfile() : null;
+      if (p) {
+        if (p.sport) _smartPlanState.sport = p.sport;
+        if (p.equipment && p.equipment.length > 0) {
+          const eqStr = p.equipment.join(',').toLowerCase();
+          if (eqStr.includes('barbell') || eqStr.includes('gym')) _smartPlanState.equipment = 'gym';
+          else if (eqStr.includes('dumbbell')) _smartPlanState.equipment = 'dumbbells';
+          else if (eqStr.includes('bodyweight') || eqStr.includes('none')) _smartPlanState.equipment = 'bodyweight';
+        }
+      }
+
+      renderSmartDaysPicker();
+      renderSmartDurationPicker();
+      renderSmartSportButtons();
+      renderSmartSportFocus();
+      selectSmartMuscle(_smartPlanState.activeMuscle || 'klatka');
+      attachAnatomySvgEvents();
+      updateSmartAnatomyColors();
+      renderSmartMuscleBadges();
+      if (!_smartPlanState.generatedPlan) {
+        generateSmartPlan(false);
+      }
+    }
+
+    function renderSmartDaysPicker() {
+      const el = document.getElementById('smartDaysPicker');
+      if (!el) return;
+      const allDays = ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Niedz'];
+      el.innerHTML = allDays.map(d => {
+        const isSel = _smartPlanState.days.includes(d);
+        const bg = isSel ? 'linear-gradient(135deg,rgba(0,229,255,0.2),rgba(124,58,237,0.25))' : 'rgba(255,255,255,0.03)';
+        const border = isSel ? 'rgba(0,229,255,0.45)' : 'rgba(255,255,255,0.1)';
+        const color = isSel ? '#00e5ff' : '#94a3b8';
+        return `<button type="button" onclick="toggleSmartDay('${d}')"
+          class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+          style="background:${bg};border:1px solid ${border};color:${color};">
+          ${d} ${isSel ? '✓' : ''}
+        </button>`;
+      }).join('');
+    }
+
+    function toggleSmartDay(day) {
+      const idx = _smartPlanState.days.indexOf(day);
+      if (idx !== -1) {
+        if (_smartPlanState.days.length <= 2) {
+          if (typeof showToast === 'function') showToast('Wybierz co najmniej 2 dni treningowe!', 'warning');
+          return;
+        }
+        _smartPlanState.days.splice(idx, 1);
+      } else {
+        if (_smartPlanState.days.length >= 6) {
+          if (typeof showToast === 'function') showToast('Maksymalnie 6 dni w tygodniu (czas na regenerację!)', 'warning');
+          return;
+        }
+        _smartPlanState.days.push(day);
+      }
+      // Zachowaj kolejność dni tygodnia
+      const order = ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Niedz'];
+      _smartPlanState.days.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+      renderSmartDaysPicker();
+      generateSmartPlan(false);
+    }
+
+    function setSmartDaysPreset(days) {
+      _smartPlanState.days = days.slice();
+      renderSmartDaysPicker();
+      generateSmartPlan(false);
+    }
+
+    function setSmartDuration(mins) {
+      _smartPlanState.duration = mins;
+      renderSmartDurationPicker();
+      generateSmartPlan(false);
+    }
+
+    function renderSmartDurationPicker() {
+      const container = document.getElementById('smartDurationPicker');
+      if (!container) return;
+      container.querySelectorAll('.smart-dur-btn').forEach(btn => {
+        const d = parseInt(btn.getAttribute('data-dur'), 10);
+        if (d === _smartPlanState.duration) {
+          btn.style.background = 'linear-gradient(135deg,rgba(0,229,255,0.2),rgba(124,58,237,0.22))';
+          btn.style.borderColor = 'rgba(0,229,255,0.45)';
+          btn.style.color = '#00e5ff';
+        } else {
+          btn.style.background = 'rgba(255,255,255,0.03)';
+          btn.style.borderColor = 'rgba(255,255,255,0.08)';
+          btn.style.color = '#94a3b8';
+        }
+      });
+    }
+
+    function selectSmartMuscle(key) {
+      if (!_smartMuscleDefs[key]) return;
+      _smartPlanState.activeMuscle = key;
+      const def = _smartMuscleDefs[key];
+      const prio = _smartPlanState.musclePriorities[key] || 5;
+
+      const iconEl = document.getElementById('smartActiveMuscleIcon');
+      const nameEl = document.getElementById('smartActiveMuscleName');
+      const rankEl = document.getElementById('smartActiveMuscleRank');
+      const prioEl = document.getElementById('smartMusclePriorityNumber');
+      const slider = document.getElementById('smartMusclePrioritySlider');
+      const descEl = document.getElementById('smartActiveMuscleDescription');
+
+      if (iconEl) iconEl.textContent = def.icon;
+      if (nameEl) nameEl.textContent = def.name;
+      if (prioEl) prioEl.textContent = prio;
+      if (slider) slider.value = prio;
+
+      let rankText = 'Standardowy rozwój';
+      let rankColor = '#00e5ff';
+      let rankBg = 'rgba(0,229,255,0.12)';
+      if (prio <= 3) {
+        rankText = 'Utrzymanie / Niska objętość';
+        rankColor = '#a78bfa';
+        rankBg = 'rgba(124,58,237,0.18)';
+      } else if (prio >= 8) {
+        rankText = '🔥 MAKSYMALNY FOCUS (Priorytet)';
+        rankColor = '#fbbf24';
+        rankBg = 'rgba(251,191,36,0.2)';
+      }
+
+      if (rankEl) {
+        rankEl.textContent = rankText;
+        rankEl.style.color = rankColor;
+        rankEl.style.background = rankBg;
+      }
+      if (descEl) {
+        descEl.textContent = def.desc + (prio >= 8 ? ' (Partia priorytetowa: otrzyma 4 serie ćwiczeń złożonych i rozpocznie sesję).' : '');
+      }
+
+      updateSmartAnatomyColors();
+      renderSmartMuscleBadges();
+    }
+
+    function onSmartMusclePriorityChange(val) {
+      const prio = parseInt(val, 10);
+      const key = _smartPlanState.activeMuscle;
+      if (!key) return;
+      _smartPlanState.musclePriorities[key] = prio;
+
+      const prioEl = document.getElementById('smartMusclePriorityNumber');
+      const rankEl = document.getElementById('smartActiveMuscleRank');
+      if (prioEl) prioEl.textContent = prio;
+
+      let rankText = 'Standardowy rozwój';
+      let rankColor = '#00e5ff';
+      let rankBg = 'rgba(0,229,255,0.12)';
+      if (prio <= 3) {
+        rankText = 'Utrzymanie / Niska objętość';
+        rankColor = '#a78bfa';
+        rankBg = 'rgba(124,58,237,0.18)';
+      } else if (prio >= 8) {
+        rankText = '🔥 MAKSYMALNY FOCUS (Priorytet)';
+        rankColor = '#fbbf24';
+        rankBg = 'rgba(251,191,36,0.2)';
+      }
+
+      if (rankEl) {
+        rankEl.textContent = rankText;
+        rankEl.style.color = rankColor;
+        rankEl.style.background = rankBg;
+      }
+
+      updateSmartAnatomyColors();
+      renderSmartMuscleBadges();
+      generateSmartPlan(false);
+    }
+
+    function updateSmartAnatomyColors() {
+      const frontSvg = document.getElementById('anatomyFrontSvg');
+      const backSvg = document.getElementById('anatomyBackSvg');
+      const allSvgs = [frontSvg, backSvg].filter(Boolean);
+
+      allSvgs.forEach(svg => {
+        svg.querySelectorAll('.muscle-group').forEach(g => {
+          const mKey = g.getAttribute('data-muscle');
+          const prio = _smartPlanState.musclePriorities[mKey] || 5;
+          const isSelected = (_smartPlanState.activeMuscle === mKey);
+
+          g.classList.remove('active-priority-low', 'active-priority-mid', 'active-priority-high', 'selected-muscle');
+          if (prio <= 3) g.classList.add('active-priority-low');
+          else if (prio <= 7) g.classList.add('active-priority-mid');
+          else g.classList.add('active-priority-high');
+
+          if (isSelected) g.classList.add('selected-muscle');
+        });
+      });
+    }
+
+    function attachAnatomySvgEvents() {
+      const frontSvg = document.getElementById('anatomyFrontSvg');
+      const backSvg = document.getElementById('anatomyBackSvg');
+      const allSvgs = [frontSvg, backSvg].filter(Boolean);
+
+      allSvgs.forEach(svg => {
+        svg.querySelectorAll('.muscle-group').forEach(g => {
+          const mKey = g.getAttribute('data-muscle');
+          g.style.cursor = 'pointer';
+          g.onclick = function() {
+            if (mKey) selectSmartMuscle(mKey);
+          };
+        });
+      });
+    }
+
+    function renderSmartMuscleBadges() {
+      const container = document.getElementById('smartMuscleBadgesList');
+      if (!container) return;
+
+      container.innerHTML = Object.entries(_smartMuscleDefs).map(([key, def]) => {
+        const prio = _smartPlanState.musclePriorities[key] || 5;
+        const isSel = (_smartPlanState.activeMuscle === key);
+        let color = '#94a3b8';
+        let bg = 'rgba(255,255,255,0.03)';
+        let border = 'rgba(255,255,255,0.08)';
+
+        if (prio >= 8) {
+          color = '#fbbf24';
+          bg = 'rgba(251,191,36,0.12)';
+          border = 'rgba(251,191,36,0.35)';
+        } else if (prio >= 4) {
+          color = '#00e5ff';
+          bg = 'rgba(0,229,255,0.08)';
+          border = 'rgba(0,229,255,0.25)';
+        } else {
+          color = '#a78bfa';
+          bg = 'rgba(124,58,237,0.08)';
+          border = 'rgba(124,58,237,0.2)';
+        }
+
+        const selBorder = isSel ? 'box-shadow:0 0 10px rgba(0,229,255,0.3);border-color:#fff;' : '';
+
+        return `<button type="button" onclick="selectSmartMuscle('${key}')"
+          class="px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all"
+          style="background:${bg};border:1px solid ${border};color:${color};${selBorder}">
+          <span>${def.icon}</span> ${def.name.split(' ')[0]}
+          <span class="font-mono text-[10px] opacity-80">${prio}/10</span>
+        </button>`;
+      }).join('');
+    }
+
+    function setSmartSport(sport) {
+      _smartPlanState.sport = sport;
+      renderSmartSportButtons();
+      renderSmartSportFocus();
+      generateSmartPlan(false);
+    }
+
+    function renderSmartSportButtons() {
+      const container = document.getElementById('smartSportSelector');
+      if (!container) return;
+      container.querySelectorAll('.smart-sport-btn').forEach(btn => {
+        const s = btn.getAttribute('data-sport');
+        if (s === _smartPlanState.sport) {
+          btn.style.background = 'linear-gradient(135deg,rgba(0,229,255,0.18),rgba(124,58,237,0.22))';
+          btn.style.borderColor = 'rgba(0,229,255,0.45)';
+          btn.style.color = '#00e5ff';
+        } else {
+          btn.style.background = 'rgba(255,255,255,0.03)';
+          btn.style.borderColor = 'rgba(255,255,255,0.08)';
+          btn.style.color = '#cbd5e1';
+        }
+      });
+    }
+
+    function renderSmartSportFocus() {
+      const area = document.getElementById('smartSportFocusArea');
+      const chipsEl = document.getElementById('smartSportFocusChips');
+      if (!area || !chipsEl) return;
+
+      if (_smartPlanState.sport === 'none') {
+        area.style.opacity = '0.4';
+        area.style.pointerEvents = 'none';
+        chipsEl.innerHTML = '<span class="text-xs text-gray-500 col-span-2">Wybrano wyłącznie trening siłowy / sylwetkowy.</span>';
+        return;
+      }
+
+      area.style.opacity = '1';
+      area.style.pointerEvents = 'auto';
+
+      const sportsConfig = {
+        basketball: [
+          { k: 'jump', l: '🚀 Wyskoki & Plyometria', d: 'Vertical jump, skoczność, moc z 1 i 2 nóg' },
+          { k: 'speed', l: '⚡ Szybkość & Pierwszy Krok', d: 'Przyspieszenie, zmiana kierunku, obrona' },
+          { k: 'shooting', l: '🎯 Mechanika Rzutu & Barki', d: 'Płynność i stabilizacja obręczy barkowej' },
+          { k: 'dribble', l: '🏀 Kozłowanie & Ball-handling', d: 'Kontrola piłki, niski środek ciężkości' }
+        ],
+        football: [
+          { k: 'sprint', l: '⚡ Sprint & Zmiana Kierunku', d: 'Zwinność, start do piłki' },
+          { k: 'power', l: '💥 Siła Strzału & Korpus', d: 'Transfer mocy biodro-tułów' },
+          { k: 'stamina', l: '🏃 Wytrzymałość Meczowa', d: 'Wysoka intensywność biegowa' }
+        ],
+        running: [
+          { k: 'cadence', l: '⏱️ Kadencja & Krok Biegowy', d: 'Ekonomia biegu' },
+          { k: 'tempo', l: '🏃 Trening Tempowy', d: 'Próg beztlenowy' },
+          { k: 'joints', l: '🛡️ Wzmocnienie Stawów', d: 'Biodra, kolana i łydki' }
+        ]
+      };
+
+      const items = sportsConfig[_smartPlanState.sport] || sportsConfig.basketball;
+      chipsEl.innerHTML = items.map(item => {
+        const isSel = _smartPlanState.sportFocus.includes(item.k);
+        const bg = isSel ? 'rgba(0,229,255,0.14)' : 'rgba(255,255,255,0.03)';
+        const border = isSel ? 'rgba(0,229,255,0.45)' : 'rgba(255,255,255,0.08)';
+        const color = isSel ? '#00e5ff' : '#cbd5e1';
+
+        return `<div onclick="toggleSmartSportFocus('${item.k}')"
+          class="p-2.5 rounded-xl cursor-pointer transition-all flex items-start gap-2.5"
+          style="background:${bg};border:1px solid ${border};color:${color};">
+          <input type="checkbox" ${isSel ? 'checked' : ''} class="mt-1 accent-cyan-400 pointer-events-none" />
+          <div>
+            <span class="text-xs font-bold block leading-snug">${item.l}</span>
+            <span class="text-[10.5px] text-gray-500 block mt-0.5">${item.d}</span>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function toggleSmartSportFocus(key) {
+      const idx = _smartPlanState.sportFocus.indexOf(key);
+      if (idx !== -1) {
+        _smartPlanState.sportFocus.splice(idx, 1);
+      } else {
+        _smartPlanState.sportFocus.push(key);
+      }
+      renderSmartSportFocus();
+      generateSmartPlan(false);
+    }
+
+    function generateSmartPlan(showToastMsg) {
+      const days = _smartPlanState.days;
+      const duration = _smartPlanState.duration;
+      const priorities = _smartPlanState.musclePriorities;
+      const sport = _smartPlanState.sport !== 'none' ? _smartPlanState.sport : null;
+
+      // Sortuj partie według priorytetu
+      const sorted = Object.entries(priorities).sort((a, b) => b[1] - a[1]);
+      const focusMuscles = sorted.filter(e => e[1] >= 8).map(e => e[0]);
+      const midMuscles = sorted.filter(e => e[1] >= 4 && e[1] < 8).map(e => e[0]);
+
+      const nDays = days.length;
+      const exCount = duration <= 45 ? 4 : (duration <= 60 ? 5 : (duration <= 75 ? 6 : 7));
+
+      let planConfig = {};
+
+      if (nDays === 2) {
+        planConfig[days[0]] = { type: 'strength', muscles: ['klatka', 'plecy', 'barki'], focus: focusMuscles };
+        planConfig[days[1]] = { type: 'strength', muscles: ['nogi', 'brzuch', 'ramiona'], focus: focusMuscles };
+      } else if (nDays === 3) {
+        if (sport) {
+          planConfig[days[0]] = { type: 'strength', muscles: ['klatka', 'plecy', 'barki'], focus: focusMuscles };
+          planConfig[days[1]] = { type: 'sport', sport: sport, drillCats: _smartPlanState.sportFocus };
+          planConfig[days[2]] = { type: 'strength', muscles: ['nogi', 'pośladki', 'brzuch'], focus: focusMuscles };
+        } else {
+          planConfig[days[0]] = { type: 'strength', muscles: ['klatka', 'triceps', 'barki'], focus: focusMuscles };
+          planConfig[days[1]] = { type: 'strength', muscles: ['plecy', 'biceps', 'brzuch'], focus: focusMuscles };
+          planConfig[days[2]] = { type: 'strength', muscles: ['nogi', 'pośladki', 'łydki'], focus: focusMuscles };
+        }
+      } else if (nDays === 4) {
+        if (sport) {
+          planConfig[days[0]] = { type: 'strength', muscles: ['klatka', 'barki', 'triceps'], focus: focusMuscles };
+          planConfig[days[1]] = { type: 'sport', sport: sport, drillCats: _smartPlanState.sportFocus };
+          planConfig[days[2]] = { type: 'strength', muscles: ['plecy', 'biceps', 'brzuch'], focus: focusMuscles };
+          planConfig[days[3]] = { type: 'strength', muscles: ['nogi', 'pośladki', 'łydki'], focus: focusMuscles };
+        } else {
+          planConfig[days[0]] = { type: 'strength', muscles: ['klatka', 'barki', 'triceps'], focus: focusMuscles };
+          planConfig[days[1]] = { type: 'strength', muscles: ['plecy', 'biceps', 'brzuch'], focus: focusMuscles };
+          planConfig[days[2]] = { type: 'strength', muscles: ['nogi', 'pośladki'], focus: focusMuscles };
+          planConfig[days[3]] = { type: 'strength', muscles: ['klatka', 'plecy', 'barki'], focus: focusMuscles };
+        }
+      } else {
+        // 5 or 6 dni
+        planConfig[days[0]] = { type: 'strength', muscles: ['klatka', 'triceps'], focus: focusMuscles };
+        planConfig[days[1]] = { type: 'strength', muscles: ['plecy', 'biceps'], focus: focusMuscles };
+        if (sport && days[2]) planConfig[days[2]] = { type: 'sport', sport: sport, drillCats: _smartPlanState.sportFocus };
+        else if (days[2]) planConfig[days[2]] = { type: 'strength', muscles: ['nogi', 'łydki'], focus: focusMuscles };
+        if (days[3]) planConfig[days[3]] = { type: 'strength', muscles: ['barki', 'brzuch'], focus: focusMuscles };
+        if (days[4]) planConfig[days[4]] = { type: 'strength', muscles: ['nogi', 'pośladki'], focus: focusMuscles };
+        if (days[5]) planConfig[days[5]] = { type: 'sport', sport: sport || 'basketball', drillCats: _smartPlanState.sportFocus };
+      }
+
+      // Przypisz ćwiczenia do każdego dnia
+      const fullPlan = {};
+      const profile = getCurrentProfile ? getCurrentProfile() : {};
+      const equip = profile?.equipment || [_smartPlanState.equipment];
+      const excl = profile?.exclusions || [];
+
+      days.forEach(day => {
+        const cfg = planConfig[day] || { type: 'strength', muscles: ['klatka', 'plecy'] };
+
+        if (cfg.type === 'sport' && cfg.sport) {
+          const sd = window.SPORT_DRILLS || {};
+          const sportData = sd[cfg.sport] || sd.basketball || {};
+          let allDrills = Object.values(sportData).flatMap(cat => Array.isArray(cat?.drills) ? cat.drills : []);
+          if (allDrills.length === 0) {
+            allDrills = [
+              { name: 'Drill wyskoku dosiężnego', category: 'Wyskok', duration: '15 min' },
+              { name: 'Zwinność defensywna z piłką', category: 'Szybkość', duration: '15 min' },
+              { name: 'Rzuty z wyskoku po koźle', category: 'Rzut', duration: '20 min' },
+              { name: 'Stabilizacja obręczy barkowej', category: 'Prewencja', duration: '10 min' }
+            ];
+          }
+          const needed = Math.min(exCount, 5);
+          fullPlan[day] = allDrills.slice(0, needed).map(d => ({
+            ...d, isDrill: true, _sport: true, sets: 3, reps: 10, weight: 0, sport: cfg.sport
+          }));
+        } else {
+          // Siłowy
+          let muscleTargets = cfg.muscles || ['klatka', 'plecy'];
+          // Wstrzyknij partie o najwyższym priorytecie na początek!
+          if (focusMuscles.length > 0) {
+            const topFocus = focusMuscles[0];
+            if (!muscleTargets.includes(topFocus)) {
+              muscleTargets.unshift(topFocus);
+            }
+          }
+
+          let exercises = [];
+          if (typeof generateExercisesForDay === 'function') {
+            exercises = generateExercisesForDay(muscleTargets, equip, excl, exCount, { difficulty: profile?.difficulty });
+          }
+
+          if (!exercises || exercises.length === 0) {
+            // Fallback z EXERCISE_DB
+            const db = window.EXERCISE_DB || {};
+            muscleTargets.forEach(m => {
+              if (db[m] && db[m].length > 0) {
+                exercises.push(...db[m].slice(0, 2));
+              }
+            });
+          }
+
+          // Dostosuj serie dla partii priorytetowych (4 serie zamiast 3)
+          fullPlan[day] = exercises.slice(0, exCount).map((ex, idx) => {
+            const isFocus = focusMuscles.some(f => (ex.muscle_group || ex.muscles || '').toLowerCase().includes(f));
+            return {
+              ...ex,
+              sets: isFocus ? 4 : (idx === 0 ? 4 : 3),
+              reps: ex.reps || 10,
+              weight: ex.weight || 0,
+              isFocus: isFocus
+            };
+          });
+        }
+      });
+
+      _smartPlanState.generatedPlan = fullPlan;
+      renderSmartPlanPreview(fullPlan);
+
+      if (showToastMsg && typeof showToast === 'function') {
+        showToast('⚡ Plan wygenerowany pomyślnie!', 'success');
+      }
+    }
+
+    function renderSmartPlanPreview(plan) {
+      const container = document.getElementById('smartPlanPreviewArea');
+      if (!container) return;
+
+      const days = Object.keys(plan);
+      if (days.length === 0) {
+        container.innerHTML = '<div class="text-center py-6 text-xs text-gray-500">Brak zaplanowanych dni.</div>';
+        return;
+      }
+
+      container.innerHTML = days.map(d => {
+        const exercises = plan[d] || [];
+        const isSport = exercises.some(e => e.isDrill || e._sport);
+        const icon = isSport ? '🏀' : '💪';
+        const typeLabel = isSport ? 'Sesja Sportowa / Drills' : 'Trening Siłowy';
+        const badgeColor = isSport ? 'rgba(124,58,237,0.2)' : 'rgba(0,229,255,0.15)';
+        const textColor = isSport ? '#a78bfa' : '#00e5ff';
+
+        return `
+          <div class="p-3.5 rounded-xl" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);">
+            <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+              <div class="flex items-center gap-2">
+                <span class="text-base">${icon}</span>
+                <span class="text-sm font-bold text-white">${d}</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:${badgeColor};color:${textColor};">${typeLabel}</span>
+              </div>
+              <span class="text-xs text-gray-400 font-mono">${exercises.length} ćwiczeń</span>
+            </div>
+            <div class="space-y-1 mt-2">
+              ${exercises.map((ex, i) => {
+                const focusBadge = ex.isFocus ? '<span class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 ml-2">FOCUS</span>' : '';
+                return `
+                  <div class="flex items-center justify-between text-xs py-1 px-2 rounded bg-white/[0.02]">
+                    <span class="text-gray-300 font-medium">${i + 1}. ${ex.name} ${focusBadge}</span>
+                    <span class="text-gray-500 text-[11px] font-mono">${ex.sets || 3} ser. × ${ex.reps || 10} powt.</span>
+                  </div>`;
+              }).join('')}
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function applySmartPlan(onlySaveToLibrary) {
+      if (!_smartPlanState.generatedPlan) {
+        generateSmartPlan(false);
+      }
+
+      const p = getCurrentProfile ? getCurrentProfile() : null;
+      if (!p) {
+        alert('Najpierw utwórz lub załaduj profil użytkownika.');
+        return;
+      }
+
+      const nameInput = document.getElementById('smartPlanNameInput');
+      const planName = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : 'Plan Inteligentny EVOLVE';
+
+      const planRecord = {
+        id: 'plan_' + Date.now(),
+        name: planName,
+        createdAt: new Date().toLocaleDateString('pl-PL', { day: '2-digit', month: 'short', year: 'numeric' }),
+        plan: JSON.parse(JSON.stringify(_smartPlanState.generatedPlan)),
+        config: JSON.parse(JSON.stringify(_smartPlanState)),
+        isActive: !onlySaveToLibrary
+      };
+
+      p.savedPlans = Array.isArray(p.savedPlans) ? p.savedPlans : [];
+
+      if (!onlySaveToLibrary) {
+        p.savedPlans.forEach(sp => { sp.isActive = false; });
+        planRecord.isActive = true;
+        p.trainingPlan = JSON.parse(JSON.stringify(_smartPlanState.generatedPlan));
+        p.activePlanName = planName;
+        localStorage.setItem('fitai_training_plan', JSON.stringify(p.trainingPlan));
+      }
+
+      p.savedPlans.unshift(planRecord);
+
+      if (typeof saveState === 'function') saveState();
+
+      updateActivePlanBadge();
+      if (!onlySaveToLibrary) {
+        if (typeof renderPlanTraining === 'function') renderPlanTraining();
+        if (typeof renderDayCarousel === 'function') renderDayCarousel();
+      }
+
+      closePlanBuilderModal();
+
+      const msg = onlySaveToLibrary
+        ? `📁 Plan „${planName}” zapisany do Biblioteki!`
+        : `🚀 Plan „${planName}” utworzony i aktywowany!`;
+      if (typeof showToast === 'function') showToast(msg, 'success');
+      else alert(msg);
+    }
+
+    function updateActivePlanBadge() {
+      const p = getCurrentProfile ? getCurrentProfile() : null;
+      const badgeText = document.getElementById('activePlanName');
+      if (!badgeText) return;
+
+      if (p && p.activePlanName) {
+        badgeText.textContent = p.activePlanName;
+      } else if (p && p.savedPlans && p.savedPlans.length > 0) {
+        const active = p.savedPlans.find(s => s.isActive) || p.savedPlans[0];
+        badgeText.textContent = active.name;
+      } else {
+        badgeText.textContent = 'Plan Główny';
+      }
+    }
+
+    // ── Saved Plans Modal Logic ─────────────────────────────────────────
+    function openSavedPlansModal() {
+      const modal = document.getElementById('savedPlansModal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      renderSavedPlansList();
+    }
+
+    function closeSavedPlansModal() {
+      const modal = document.getElementById('savedPlansModal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function renderSavedPlansList() {
+      const container = document.getElementById('savedPlansListContainer');
+      if (!container) return;
+      const p = getCurrentProfile ? getCurrentProfile() : null;
+      const list = (p && Array.isArray(p.savedPlans)) ? p.savedPlans : [];
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8">
+            <span class="text-4xl block mb-2">📁</span>
+            <p class="text-sm font-semibold text-gray-300">Brak zapisanych dodatkowych planów</p>
+            <p class="text-xs text-gray-500 mt-1">Stwórz nowy plan za pomocą Kreatora Inteligentnego lub Indywidualnego.</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = list.map(item => {
+        const isActive = !!item.isActive;
+        const daysCount = Object.keys(item.plan || {}).length;
+        const borderStyle = isActive ? 'border-color:rgba(0,229,255,0.45);background:rgba(0,229,255,0.04);' : 'border-color:rgba(255,255,255,0.08);background:rgba(255,255,255,0.02);';
+
+        return `
+          <div class="p-4 rounded-xl flex items-center justify-between gap-3 border transition-all" style="${borderStyle}">
+            <div>
+              <div class="flex items-center gap-2">
+                <h4 class="text-sm font-bold text-white">${item.name}</h4>
+                ${isActive ? '<span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 border border-cyan-400/30">AKTYWNY</span>' : ''}
+              </div>
+              <p class="text-xs text-gray-400 mt-0.5">${daysCount} dni treningowych · Zapisano: ${item.createdAt || 'Niedawno'}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              ${!isActive ? `
+                <button type="button" onclick="activateSavedPlan('${item.id}')"
+                  class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                  style="background:rgba(0,229,255,0.15);border:1px solid rgba(0,229,255,0.35);color:#00e5ff;">
+                  Aktywuj
+                </button>` : ''}
+              <button type="button" onclick="deleteSavedPlan('${item.id}')"
+                class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                title="Usuń plan">
+                🗑️
+              </button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function activateSavedPlan(planId) {
+      const p = getCurrentProfile ? getCurrentProfile() : null;
+      if (!p || !Array.isArray(p.savedPlans)) return;
+
+      const target = p.savedPlans.find(s => s.id === planId);
+      if (!target) return;
+
+      p.savedPlans.forEach(s => { s.isActive = false; });
+      target.isActive = true;
+      p.trainingPlan = JSON.parse(JSON.stringify(target.plan));
+      p.activePlanName = target.name;
+      localStorage.setItem('fitai_training_plan', JSON.stringify(p.trainingPlan));
+
+      if (typeof saveState === 'function') saveState();
+
+      updateActivePlanBadge();
+      if (typeof renderPlanTraining === 'function') renderPlanTraining();
+      if (typeof renderDayCarousel === 'function') renderDayCarousel();
+      renderSavedPlansList();
+
+      if (typeof showToast === 'function') showToast(`✅ Aktywowano plan: ${target.name}`, 'success');
+    }
+
+    function deleteSavedPlan(planId) {
+      const p = getCurrentProfile ? getCurrentProfile() : null;
+      if (!p || !Array.isArray(p.savedPlans)) return;
+      if (!confirm('Czy na pewno chcesz usunąć ten plan z biblioteki?')) return;
+
+      p.savedPlans = p.savedPlans.filter(s => s.id !== planId);
+      if (typeof saveState === 'function') saveState();
+      renderSavedPlansList();
+      if (typeof showToast === 'function') showToast('Plan usunięty z biblioteki.', 'info');
+    }
+
+    window.setPlanBuilderMode = setPlanBuilderMode;
+    window.selectSmartMuscle = selectSmartMuscle;
+    window.onSmartMusclePriorityChange = onSmartMusclePriorityChange;
+    window.toggleSmartDay = toggleSmartDay;
+    window.setSmartDaysPreset = setSmartDaysPreset;
+    window.setSmartDuration = setSmartDuration;
+    window.setSmartSport = setSmartSport;
+    window.toggleSmartSportFocus = toggleSmartSportFocus;
+    window.generateSmartPlan = generateSmartPlan;
+    window.applySmartPlan = applySmartPlan;
+    window.openSavedPlansModal = openSavedPlansModal;
+    window.closeSavedPlansModal = closeSavedPlansModal;
+    window.activateSavedPlan = activateSavedPlan;
+    window.deleteSavedPlan = deleteSavedPlan;
+    window.updateActivePlanBadge = updateActivePlanBadge;
+
     function openPlanBuilderModal(mode = 'create', sourceProfile = null, skipLoad = false) {
+      const profile = sourceProfile || (getEnrichedProfile ? getEnrichedProfile() : getCurrentProfile());
+      if (!profile) {
+        alert('Uzupełnij najpierw profil użytkownika w zakładce Profil.');
+        return;
+      }
+
+      if (!skipLoad) {
+        _pbLoadFromProfile(profile);
+      }
+      _pb.activeDay = null;
+      _pbPreviewMode = false;
+
+      // Domyślny tryb: Inteligentny przy tworzeniu nowego, Indywidualny przy edycji
+      setTimeout(() => {
+        if (mode === 'edit') setPlanBuilderMode('custom');
+        else setPlanBuilderMode('smart');
+      }, 50);
+
       const profile = sourceProfile || (getEnrichedProfile ? getEnrichedProfile() : getCurrentProfile());
       if (!profile) {
         alert('Uzupełnij najpierw profil użytkownika w zakładce Profil.');
@@ -29427,21 +30261,378 @@ window.openDayItemSwap = openDayItemSwap;
 <div id="planBuilderModal" class="fixed inset-0 z-[350] hidden flex items-center justify-center p-2 md:p-4"
   style="background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);">
   <div class="glass rounded-2xl w-full flex flex-col" style="border:1px solid rgba(0,229,255,0.2);
-           max-width:900px;max-height:95vh;">
+           max-width:980px;max-height:94vh;">
 
-    <div class="px-6 py-4 flex items-center justify-between flex-shrink-0"
+    <!-- Modal Header -->
+    <div class="px-6 py-3.5 flex items-center justify-between flex-shrink-0"
       style="border-bottom:1px solid rgba(255,255,255,0.07);">
-      <div>
-        <h2 class="text-lg font-bold text-white" style="font-family:'Syne',sans-serif;">
-          💪 Kreator Planu Treningowego
-        </h2>
-        <p class="text-xs text-gray-400 mt-0.5">Kliknij dzień żeby go skonfigurować</p>
+      <div class="flex items-center gap-2.5">
+        <span class="text-xl">💪</span>
+        <div>
+          <h2 class="text-base md:text-lg font-bold text-white" style="font-family:'Syne',sans-serif;">
+            Kreator Planu Treningowego
+          </h2>
+          <p class="text-[11px] text-gray-400">Stwórz lub dostosuj swój optymalny cykl treningowy</p>
+        </div>
       </div>
       <button onclick="closePlanBuilderModal()"
         class="text-gray-500 hover:text-white text-2xl leading-none transition-colors">×</button>
     </div>
 
-    <div class="px-6 pt-5 flex-shrink-0">
+    <!-- Mode Switcher Tabs -->
+    <div class="px-6 py-2.5 flex-shrink-0" style="border-bottom:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.015);">
+      <div class="grid grid-cols-2 gap-2 p-1 rounded-xl max-w-lg mx-auto" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
+        <button id="pbModeSmartTab" type="button" onclick="setPlanBuilderMode('smart')"
+          class="py-2 px-3 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-2 transition-all"
+          style="background:linear-gradient(135deg,rgba(0,229,255,0.2),rgba(124,58,237,0.22));border:1px solid rgba(0,229,255,0.45);color:#00e5ff;box-shadow:0 0 14px rgba(0,229,255,0.15);">
+          <span>🧠</span> Tryb Inteligentny (EVOLVE Smart)
+        </button>
+        <button id="pbModeCustomTab" type="button" onclick="setPlanBuilderMode('custom')"
+          class="py-2 px-3 rounded-lg text-xs md:text-sm font-medium flex items-center justify-center gap-2 transition-all text-gray-400 hover:text-white"
+          style="background:transparent;border:1px solid transparent;">
+          <span>🛠️</span> Tryb Indywidualny (Własny)
+        </button>
+      </div>
+    </div>
+
+    <!-- ════ TRYB INTELIGENTNY (EVOLVE Smart Plan) ════ -->
+    <div id="pbSmartModeContainer" class="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+
+      <!-- Wprowadzenie & Nazwa Planu -->
+      <div class="p-4 rounded-2xl flex items-center justify-between flex-wrap gap-4"
+        style="background:linear-gradient(135deg,rgba(0,229,255,0.06),rgba(124,58,237,0.08));border:1px solid rgba(0,229,255,0.2);">
+        <div class="flex items-center gap-3">
+          <div style="width:42px;height:42px;border-radius:12px;background:rgba(0,229,255,0.12);border:1px solid rgba(0,229,255,0.3);display:flex;align-items:center;justify-content:center;font-size:1.3rem;">🧠</div>
+          <div>
+            <h3 class="text-sm font-bold text-white" style="font-family:'Syne',sans-serif;">Kreator Inteligentny (EVOLVE Smart Coach)</h3>
+            <p class="text-xs text-gray-400">Określ dostępność, zaznacz priorytety na sylwetce i cele sportowe – ułożymy zbalansowany plan.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <label class="text-xs text-gray-400 whitespace-nowrap font-medium">Nazwa planu:</label>
+          <input id="smartPlanNameInput" type="text" value="Plan Inteligentny EVOLVE"
+            class="px-3 py-1.5 rounded-xl text-xs font-bold text-white flex-1 sm:w-56"
+            style="background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);outline:none;" />
+        </div>
+      </div>
+
+      <!-- KROK 1: Dostępność, Dni i Czas -->
+      <div class="p-5 rounded-2xl" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:rgba(0,229,255,0.15);color:#00e5ff;border:1px solid rgba(0,229,255,0.3);">KROK 1</span>
+            <h4 class="text-sm font-bold text-white">Dostępność i Czas Treningu</h4>
+          </div>
+          <span class="text-xs text-gray-500">W jakie dni i jak długo możesz ćwiczyć?</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+          <!-- Dni w tygodniu -->
+          <div>
+            <label class="text-xs text-gray-400 block mb-2 font-medium">Dni treningowe w tygodniu:</label>
+            <div id="smartDaysPicker" class="flex gap-1.5 flex-wrap">
+              <!-- generowane przez JS -->
+            </div>
+            <div class="flex items-center gap-2 mt-2">
+              <span class="text-[10.5px] text-gray-500">Szybki wybór:</span>
+              <button type="button" onclick="setSmartDaysPreset(['Pon','Śr','Pt'])" class="text-[10px] px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 transition-all">3 dni (FBW)</button>
+              <button type="button" onclick="setSmartDaysPreset(['Pon','Wt','Czw','Pt'])" class="text-[10px] px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 transition-all">4 dni (Góra/Dół)</button>
+              <button type="button" onclick="setSmartDaysPreset(['Pon','Wt','Śr','Pt','Sob'])" class="text-[10px] px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 transition-all">5 dni (Dedykowany)</button>
+            </div>
+          </div>
+
+          <!-- Czas sesji i sprzęt -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-gray-400 block mb-2 font-medium">Szacowany czas sesji:</label>
+              <div class="grid grid-cols-2 gap-1.5" id="smartDurationPicker">
+                <button type="button" onclick="setSmartDuration(45)" class="smart-dur-btn py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all" data-dur="45">⏱️ 45 min</button>
+                <button type="button" onclick="setSmartDuration(60)" class="smart-dur-btn py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all" data-dur="60">⚡ 60 min</button>
+                <button type="button" onclick="setSmartDuration(75)" class="smart-dur-btn py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all" data-dur="75">🔥 75 min</button>
+                <button type="button" onclick="setSmartDuration(90)" class="smart-dur-btn py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all" data-dur="90">💪 90 min</button>
+              </div>
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 block mb-2 font-medium">Dostępny sprzęt:</label>
+              <select id="smartEquipmentSelect" onchange="_smartPlanState.equipment = this.value"
+                class="w-full py-2 px-2.5 rounded-xl text-xs font-semibold text-white"
+                style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);outline:none;">
+                <option value="gym" style="background:#0a0a14;color:#fff;">🏋️ Pełna siłownia (Sztangi/Maszyny)</option>
+                <option value="dumbbells" style="background:#0a0a14;color:#fff;">🏠 Hantle + Drążek (Trening domowy)</option>
+                <option value="bodyweight" style="background:#0a0a14;color:#fff;">🤸 Kalistenika / Masa ciała</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KROK 2: Interaktywna Mapa Ciała & Priorytety Partii (1–10) -->
+      <div class="p-5 rounded-2xl" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:rgba(124,58,237,0.2);color:#a78bfa;border:1px solid rgba(124,58,237,0.4);">KROK 2</span>
+            <h4 class="text-sm font-bold text-white">Interaktywna Mapa Ciała & Priorytety Partii</h4>
+          </div>
+          <span class="text-xs text-gray-400">Kliknij partię na ciele, aby ustawić priorytet (1–10)</span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+          <!-- Wizualizacja Sylwetki (Przód & Tył) -->
+          <div class="lg:col-span-5 flex items-center justify-center gap-4 p-3 rounded-2xl" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.05);">
+            <!-- PRZÓD -->
+            <div class="text-center">
+              <span class="text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-1 block">PRZÓD</span>
+              <div class="relative cursor-pointer">
+                <svg viewBox="0 0 200 360" class="human-anatomy-svg" id="anatomyFrontSvg">
+  <!-- Body outline subtle reference -->
+  <g class="anatomy-base" opacity="0.15" stroke="rgba(255,255,255,0.4)" fill="none" stroke-width="1.2">
+    <!-- Head -->
+    <ellipse cx="100" cy="32" rx="16" ry="20"/>
+    <path d="M92 52 L90 64 L110 64 L108 52"/>
+  </g>
+
+  <!-- Front Muscle Groups -->
+  <!-- Barki / Shoulders -->
+  <g class="muscle-group" data-muscle="barki" id="front_barki">
+    <path class="muscle-path" d="M72,66 C65,70 54,82 52,98 C58,100 68,96 72,86 C74,78 74,70 72,66 Z" />
+    <path class="muscle-path" d="M128,66 C135,70 146,82 148,98 C142,100 132,96 128,86 C126,78 126,70 128,66 Z" />
+  </g>
+
+  <!-- Klatka piersiowa / Chest -->
+  <g class="muscle-group" data-muscle="klatka" id="front_klatka">
+    <path class="muscle-path" d="M74,68 C82,67 98,68 98,96 C86,98 74,96 68,90 C66,80 70,72 74,68 Z" />
+    <path class="muscle-path" d="M126,68 C118,67 102,68 102,96 C114,98 126,96 132,90 C134,80 130,72 126,68 Z" />
+  </g>
+
+  <!-- Biceps -->
+  <g class="muscle-group" data-muscle="biceps" id="front_biceps">
+    <path class="muscle-path" d="M50,102 C46,114 46,128 50,138 C56,138 60,128 62,116 C62,108 58,102 50,102 Z" />
+    <path class="muscle-path" d="M150,102 C154,114 154,128 150,138 C144,138 140,128 138,116 C138,108 142,102 150,102 Z" />
+  </g>
+
+  <!-- Przedramiona / Forearms -->
+  <g class="muscle-group" data-muscle="ramiona" id="front_forearms">
+    <path class="muscle-path" d="M48,142 C42,156 38,174 36,192 C42,194 48,184 52,170 C54,158 54,146 48,142 Z" />
+    <path class="muscle-path" d="M152,142 C158,156 162,174 164,192 C158,194 152,184 148,170 C146,158 146,146 152,142 Z" />
+  </g>
+
+  <!-- Brzuch / Core / Abs -->
+  <g class="muscle-group" data-muscle="brzuch" id="front_brzuch">
+    <path class="muscle-path" d="M78,100 C86,99 98,99 98,122 C88,122 78,121 76,112 C76,106 77,102 78,100 Z" />
+    <path class="muscle-path" d="M122,100 C114,99 102,99 102,122 C112,122 122,121 124,112 C124,106 123,102 122,100 Z" />
+    <path class="muscle-path" d="M77,125 C86,125 98,125 98,154 C88,155 78,152 75,142 C74,134 75,128 77,125 Z" />
+    <path class="muscle-path" d="M123,125 C114,125 102,125 102,154 C112,155 122,152 125,142 C126,134 125,128 123,125 Z" />
+    <path class="muscle-path" d="M78,157 C88,158 98,158 98,176 C86,176 76,170 76,164 Z" />
+    <path class="muscle-path" d="M122,157 C112,158 102,158 102,176 C114,176 124,170 124,164 Z" />
+  </g>
+
+  <!-- Czworogłowe / Quads (Uda przód) -->
+  <g class="muscle-group" data-muscle="nogi" id="front_quads">
+    <path class="muscle-path" d="M70,186 C64,204 62,236 68,264 C76,266 84,256 86,236 C88,214 86,192 70,186 Z" />
+    <path class="muscle-path" d="M130,186 C136,204 138,236 132,264 C124,266 116,256 114,236 C112,214 114,192 130,186 Z" />
+    <path class="muscle-path" d="M86,194 C92,212 94,236 92,260 C96,260 98,248 98,228 C98,206 94,196 86,194 Z" />
+    <path class="muscle-path" d="M114,194 C108,212 106,236 108,260 C104,260 102,248 102,228 C102,206 106,196 114,194 Z" />
+  </g>
+
+  <!-- Łydki przód / Calves -->
+  <g class="muscle-group" data-muscle="łydki" id="front_calves">
+    <path class="muscle-path" d="M68,278 C64,294 66,322 72,342 C78,342 82,328 82,306 C82,288 78,280 68,278 Z" />
+    <path class="muscle-path" d="M132,278 C136,294 134,322 128,342 C122,342 118,328 118,306 C118,288 122,280 132,278 Z" />
+  </g>
+</svg>
+              </div>
+            </div>
+            <!-- TYŁ -->
+            <div class="text-center">
+              <span class="text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-1 block">TYŁ</span>
+              <div class="relative cursor-pointer">
+                <svg viewBox="0 0 200 360" class="human-anatomy-svg" id="anatomyBackSvg">
+  <!-- Body outline subtle reference -->
+  <g class="anatomy-base" opacity="0.15" stroke="rgba(255,255,255,0.4)" fill="none" stroke-width="1.2">
+    <!-- Head -->
+    <ellipse cx="100" cy="32" rx="16" ry="20"/>
+    <path d="M92 52 L90 64 L110 64 L108 52"/>
+  </g>
+
+  <!-- Back Muscle Groups -->
+  <!-- Kark / Czworoboczny / Traps -->
+  <g class="muscle-group" data-muscle="plecy" id="back_traps">
+    <path class="muscle-path" d="M88,58 L100,74 L112,58 L100,52 Z" />
+    <path class="muscle-path" d="M78,66 C86,72 98,76 98,104 C92,100 86,92 82,82 C80,74 78,70 78,66 Z" />
+    <path class="muscle-path" d="M122,66 C114,72 102,76 102,104 C108,100 114,92 118,82 C120,74 122,70 122,66 Z" />
+  </g>
+
+  <!-- Tył barku / Rear Delts -->
+  <g class="muscle-group" data-muscle="barki" id="back_barki">
+    <path class="muscle-path" d="M72,68 C64,74 54,84 52,98 C58,100 66,96 72,86 C74,80 74,74 72,68 Z" />
+    <path class="muscle-path" d="M128,68 C136,74 146,84 148,98 C142,100 134,96 128,86 C126,80 126,74 128,68 Z" />
+  </g>
+
+  <!-- Triceps -->
+  <g class="muscle-group" data-muscle="triceps" id="back_triceps">
+    <path class="muscle-path" d="M50,102 C44,116 44,130 48,140 C54,140 60,130 62,118 C62,108 58,102 50,102 Z" />
+    <path class="muscle-path" d="M150,102 C156,116 156,130 152,140 C146,140 140,130 138,118 C138,108 142,102 150,102 Z" />
+  </g>
+
+  <!-- Plecy / Najszersze / Lats -->
+  <g class="muscle-group" data-muscle="plecy" id="back_lats">
+    <path class="muscle-path" d="M74,86 C82,98 84,122 84,152 C76,146 68,132 66,114 C66,100 70,90 74,86 Z" />
+    <path class="muscle-path" d="M126,86 C118,98 116,122 116,152 C124,146 132,132 134,114 C134,100 130,90 126,86 Z" />
+    <path class="muscle-path" d="M84,124 C92,130 98,136 98,168 C92,168 86,164 84,152 Z" />
+    <path class="muscle-path" d="M116,124 C108,130 102,136 102,168 C108,168 114,164 116,152 Z" />
+  </g>
+
+  <!-- Pośladki / Glutes -->
+  <g class="muscle-group" data-muscle="pośladki" id="back_glutes">
+    <path class="muscle-path" d="M72,172 C80,170 98,172 98,206 C86,210 74,206 68,196 C66,186 68,178 72,172 Z" />
+    <path class="muscle-path" d="M128,172 C120,170 102,172 102,206 C114,210 126,206 132,196 C134,186 132,178 128,172 Z" />
+  </g>
+
+  <!-- Dwugłowe / Hamstrings (Uda tył) -->
+  <g class="muscle-group" data-muscle="nogi" id="back_hamstrings">
+    <path class="muscle-path" d="M70,210 C64,228 62,250 68,266 C78,266 84,254 86,238 C88,222 86,212 70,210 Z" />
+    <path class="muscle-path" d="M130,210 C136,228 138,250 132,266 C122,266 116,254 114,238 C112,222 114,212 130,210 Z" />
+    <path class="muscle-path" d="M86,212 C92,226 94,244 92,264 C96,264 98,252 98,236 C98,222 94,214 86,212 Z" />
+    <path class="muscle-path" d="M114,212 C108,226 106,244 108,264 C104,264 102,252 102,236 C102,222 106,214 114,212 Z" />
+  </g>
+
+  <!-- Łydki tył / Calves -->
+  <g class="muscle-group" data-muscle="łydki" id="back_calves">
+    <path class="muscle-path" d="M68,276 C60,292 62,318 68,340 C76,340 82,328 84,306 C84,288 80,278 68,276 Z" />
+    <path class="muscle-path" d="M132,276 C140,292 138,318 132,340 C124,340 118,328 116,306 C116,288 120,278 132,276 Z" />
+  </g>
+</svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel wybranej partii & suwak priorytetu -->
+          <div class="lg:col-span-7 space-y-4">
+            <!-- Aktywna partia box -->
+            <div id="smartMuscleConfigCard" class="p-4 rounded-xl" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <span id="smartActiveMuscleIcon" class="text-xl">💪</span>
+                  <div>
+                    <h5 id="smartActiveMuscleName" class="text-sm font-bold text-white">Klatka piersiowa</h5>
+                    <span id="smartActiveMuscleRank" class="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(0,229,255,0.12);color:#00e5ff;">Standardowy rozwój</span>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <span class="text-xs text-gray-500">Priorytet:</span>
+                  <span id="smartMusclePriorityNumber" class="text-xl font-extrabold text-cyan-400 ml-1 font-mono">8</span><span class="text-xs text-gray-500">/10</span>
+                </div>
+              </div>
+
+              <!-- Suwak priorytetu -->
+              <div class="mt-3">
+                <input id="smartMusclePrioritySlider" type="range" min="1" max="10" value="8"
+                  oninput="onSmartMusclePriorityChange(this.value)"
+                  class="w-full h-2 rounded-lg cursor-pointer accent-cyan-400"
+                  style="background:linear-gradient(to right, rgba(124,58,237,0.6), rgba(0,229,255,0.8), rgba(251,191,36,0.9));" />
+                <div class="flex justify-between text-[10px] text-gray-500 mt-1 font-medium">
+                  <span>1 (Utrzymanie)</span>
+                  <span>5 (Standard)</span>
+                  <span>10 (Maksymalny Focus 🔥)</span>
+                </div>
+              </div>
+
+              <p id="smartActiveMuscleDescription" class="text-xs text-gray-400 mt-3 italic leading-relaxed">
+                Partia priorytetowa — otrzyma najwyższy priorytet w sesjach, 4 serie ćwiczeń złożonych oraz miejsce na początku treningu.
+              </p>
+            </div>
+
+            <!-- Podsumowanie partii w kafelkach -->
+            <div>
+              <span class="text-xs text-gray-400 font-medium block mb-2">Wszystkie partie mięśniowe (kliknij aby edytować):</span>
+              <div id="smartMuscleBadgesList" class="flex flex-wrap gap-1.5">
+                <!-- Generowane przez JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KROK 3: Moduł Treningu Sportowego -->
+      <div class="p-5 rounded-2xl" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);">KROK 3</span>
+            <h4 class="text-sm font-bold text-white">Przygotowanie Sportowe & Cele Dyscypliny</h4>
+          </div>
+          <span class="text-xs text-gray-400">Połącz siłę z dynamiką i specyfiką sportu</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+          <div class="md:col-span-4">
+            <label class="text-xs text-gray-400 block mb-2 font-medium">Dyscyplina wiodąca:</label>
+            <div id="smartSportSelector" class="space-y-1.5">
+              <button type="button" onclick="setSmartSport('basketball')" class="smart-sport-btn w-full p-2.5 rounded-xl text-xs font-bold text-left flex items-center justify-between border transition-all" data-sport="basketball">
+                <span class="flex items-center gap-2"><span>🏀</span> Koszykówka</span>
+                <span class="text-[10px] opacity-75">Drills & Wyskoki</span>
+              </button>
+              <button type="button" onclick="setSmartSport('football')" class="smart-sport-btn w-full p-2.5 rounded-xl text-xs font-bold text-left flex items-center justify-between border transition-all" data-sport="football">
+                <span class="flex items-center gap-2"><span>⚽</span> Piłka nożna</span>
+                <span class="text-[10px] opacity-75">Zwinność & Sprint</span>
+              </button>
+              <button type="button" onclick="setSmartSport('running')" class="smart-sport-btn w-full p-2.5 rounded-xl text-xs font-bold text-left flex items-center justify-between border transition-all" data-sport="running">
+                <span class="flex items-center gap-2"><span>🏃</span> Bieganie / Kondycja</span>
+                <span class="text-[10px] opacity-75">Tlenowa & Tempówka</span>
+              </button>
+              <button type="button" onclick="setSmartSport('none')" class="smart-sport-btn w-full p-2.5 rounded-xl text-xs font-bold text-left flex items-center justify-between border transition-all" data-sport="none">
+                <span class="flex items-center gap-2"><span>🚫</span> Tylko siłownia / Sylwetka</span>
+                <span class="text-[10px] opacity-75">Czysty trening siłowy</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Akcenty sportowe dla wybranego sportu -->
+          <div id="smartSportFocusArea" class="md:col-span-8 p-4 rounded-xl" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);">
+            <div class="flex items-center justify-between mb-2">
+              <h5 class="text-xs font-bold text-white uppercase tracking-wider">🎯 Na czym chcesz się skupić w sporcie?</h5>
+              <span class="text-[10.5px] text-cyan-400 font-semibold">Zaznacz priorytety</span>
+            </div>
+            <div id="smartSportFocusChips" class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+              <!-- generowane przez JS -->
+            </div>
+            <div class="mt-3 p-3 rounded-lg flex items-start gap-2 text-xs text-gray-400" style="background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.15);">
+              <span class="text-cyan-400 mt-0.5">💡</span>
+              <p id="smartSportHintText" class="text-[11px] leading-relaxed">
+                EVOLVE wplecie plyometrię i drille w dni niekolidujące z ciężkim przysiadem, chroniąc Twoje stawy skokowe i kolana.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KROK 4: Generowanie & Podgląd Planu -->
+      <div class="p-5 rounded-2xl" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:rgba(74,222,128,0.2);color:#4ade80;border:1px solid rgba(74,222,128,0.4);">KROK 4</span>
+            <h4 class="text-sm font-bold text-white">Podgląd Tygodnia & Aktywacja</h4>
+          </div>
+          <button type="button" onclick="generateSmartPlan(true)"
+            class="px-4 py-1.5 rounded-xl text-xs font-bold transition-all"
+            style="background:linear-gradient(135deg,rgba(0,229,255,0.2),rgba(124,58,237,0.25));border:1px solid rgba(0,229,255,0.45);color:#00e5ff;">
+            ⚡ Przelicz i Odśwież Plan
+          </button>
+        </div>
+
+        <div id="smartPlanPreviewArea" class="space-y-3 mt-3">
+          <!-- generowane dynamicznie przez JS po kalkulacji -->
+          <div class="text-center py-6 text-xs text-gray-500">
+            Kliknij „Przelicz i Odśwież Plan", aby wygenerować harmonogram.
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <!-- ════ KONIEC TRYB INTELIGENTNY ════ -->
+
+    <!-- ════ TRYB INDYWIDUALNY (Własny / Custom) ════ -->
+    <div id="pbCustomModeContainer" class="hidden flex-1 overflow-y-auto flex flex-col">
+      <div class="px-6 pt-5 flex-shrink-0">
       <!-- Szablony błyskawiczne -->
       <div id="pbTemplatesBar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
         <span style="font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:rgba(167,139,250,0.7);align-self:center;white-space:nowrap;">Szablon:</span>
@@ -29482,38 +30673,93 @@ window.openDayItemSwap = openDayItemSwap;
     <div id="pbPreviewPanel" class="hidden flex-1 overflow-y-auto px-6 py-4">
       <!-- generowane przez JS -->
     </div>
+    </div>
+    <!-- ════ KONIEC TRYB INDYWIDUALNY ════ -->
 
+    <!-- Modal Footer Actions -->
     <div class="px-6 py-4 flex items-center gap-3 flex-shrink-0" style="border-top:1px solid rgba(255,255,255,0.07);">
       <button onclick="resetPlanBuilder()"
-        class="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-500 transition-all"
+        class="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-500 transition-all hover:text-white"
         style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);">
         🔄 Reset
       </button>
+
       <div class="flex gap-2 ml-auto">
         <button onclick="closePlanBuilderModal()"
-          class="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-400 transition-all"
+          class="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-400 transition-all hover:text-white"
           style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);">
           Anuluj
         </button>
-        <button id="planHistoryBtn" onclick="openPlanHistoryModal()"
-          class="hidden items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
-          style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#64748b;">
-          📋 <span id="planHistoryBadge" class="text-xs">0</span>
-        </button>
-        <button id="pbPreviewBtn" onclick="togglePlanBuilderPreview()"
-          class="px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
-          style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#9ca3af;">
-          👁️ Podgląd
-        </button>
-        <button onclick="applyBuiltPlan()" class="px-6 py-2.5 rounded-xl text-sm font-bold transition-all"
-          style="background:linear-gradient(135deg,rgba(0,229,255,0.25),rgba(124,58,237,0.2));border:1px solid rgba(0,229,255,0.5);color:#00e5ff;">
-          🚀 Generuj i Zapisz Plan
-        </button>
+
+        <!-- Custom Mode Actions -->
+        <div id="pbCustomActions" class="hidden flex gap-2">
+          <button id="pbPreviewBtn" onclick="togglePlanBuilderPreview()"
+            class="px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
+            style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#9ca3af;">
+            👁️ Podgląd
+          </button>
+          <button onclick="applyBuiltPlan()" class="px-6 py-2.5 rounded-xl text-sm font-bold transition-all"
+            style="background:linear-gradient(135deg,rgba(0,229,255,0.25),rgba(124,58,237,0.2));border:1px solid rgba(0,229,255,0.5);color:#00e5ff;">
+            🚀 Zapisz Plan
+          </button>
+        </div>
+
+        <!-- Smart Mode Actions -->
+        <div id="pbSmartActions" class="flex gap-2">
+          <button type="button" onclick="applySmartPlan(true)"
+            class="px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
+            style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#cbd5e1;"
+            title="Zapisz do biblioteki planów bez natychmiastowej aktywacji">
+            📁 Zapisz do Biblioteki
+          </button>
+          <button type="button" onclick="applySmartPlan(false)"
+            class="px-6 py-2.5 rounded-xl text-sm font-bold transition-all"
+            style="background:linear-gradient(135deg,rgba(0,229,255,0.25),rgba(124,58,237,0.25));border:1px solid rgba(0,229,255,0.5);color:#00e5ff;box-shadow:0 0 16px rgba(0,229,255,0.2);">
+            🚀 Utwórz i Aktywuj Plan
+          </button>
+        </div>
       </div>
     </div>
+
   </div>
 </div>
 <!-- ═══ KONIEC PLAN BUILDER MODAL ═══ -->
+
+<!-- ═══════════════ SAVED PLANS MODAL (Biblioteka Planów) ═══════════════ -->
+<div id="savedPlansModal" class="fixed inset-0 z-[360] hidden flex items-center justify-center p-3 md:p-6"
+  style="background:rgba(0,0,0,0.85);backdrop-filter:blur(14px);">
+  <div class="glass rounded-2xl w-full flex flex-col" style="border:1px solid rgba(0,229,255,0.25);max-width:680px;max-height:85vh;">
+    <div class="px-6 py-4 flex items-center justify-between flex-shrink-0" style="border-bottom:1px solid rgba(255,255,255,0.07);">
+      <div class="flex items-center gap-2.5">
+        <span class="text-xl">📁</span>
+        <div>
+          <h3 class="text-base font-bold text-white" style="font-family:'Syne',sans-serif;">Biblioteka Planów Treningowych</h3>
+          <p class="text-xs text-gray-400">Przełączaj i zarządzaj swoimi zapisanymi planami</p>
+        </div>
+      </div>
+      <button onclick="closeSavedPlansModal()" class="text-gray-500 hover:text-white text-2xl leading-none transition-colors">×</button>
+    </div>
+
+    <div id="savedPlansListContainer" class="flex-1 overflow-y-auto px-6 py-5 space-y-3">
+      <!-- Generowane dynamicznie przez renderSavedPlansList() -->
+    </div>
+
+    <div class="px-6 py-4 flex items-center justify-between flex-shrink-0" style="border-top:1px solid rgba(255,255,255,0.07);">
+      <button onclick="openPlanBuilderModal('create'); closeSavedPlansModal();"
+        class="px-4 py-2 rounded-xl text-xs font-bold transition-all"
+        style="background:linear-gradient(135deg,rgba(0,229,255,0.2),rgba(124,58,237,0.2));border:1px solid rgba(0,229,255,0.4);color:#00e5ff;">
+        ✨ Nowy Plan
+      </button>
+      <button onclick="closeSavedPlansModal()"
+        class="px-4 py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-white transition-all"
+        style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);">
+        Zamknij
+      </button>
+    </div>
+  </div>
+</div>
+<!-- ═══ KONIEC SAVED PLANS MODAL ═══ -->
+
 
 <!-- ═══════════════ DIET BUILDER MODAL ═══════════════ -->
 <div id="dietBuilderModal" class="fixed inset-0 hidden items-center justify-center p-2 md:p-4" style="background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);
@@ -31306,4 +32552,4 @@ window.openDayItemSwap = openDayItemSwap;
 })();
 </script>
 </body>
-</html>
+</html>

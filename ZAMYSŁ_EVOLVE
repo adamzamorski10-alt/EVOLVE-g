@@ -258,6 +258,29 @@ Planowanie ma uwzględniać:
 
 Docelowo podstawą powinien być **plan kroczący na około 1–2 tygodnie**, który można aktualizować na podstawie nowych informacji. Nie oznacza to chaotycznego zmieniania planu każdego dnia. Zmiany powinny być uzasadnione i zachowywać ciągłość długoterminowego rozwoju.
 
+### 5.4.1. Dwa tryby tworzenia i konfiguracji planu
+
+Tworzenie planu w EVOLVE opiera się na dwóch równorzędnych ścieżkach dostosowanych do potrzeb użytkownika:
+
+1. **Tryb Indywidualny (Pełna kontrola):**
+   - Użytkownik samodzielnie konfiguruje harmonogram tygodniowy dzień po dniu.
+   - Może wybrać podział (Full Body, Upper/Lower, Push/Pull/Legs, sesje sportowe).
+   - Samodzielnie przypisuje i przypina konkretne ćwiczenia z bazy, określa liczbę serii, powtórzeń i obciążeń.
+   - Idealny dla zaawansowanych trenujących posiadających własną, sprawdzoną rutynę.
+
+2. **Tryb Inteligentny (Kreator adaptacyjny / EVOLVE Smart Coach):**
+   - **Ankieta celów i dostępności:** Użytkownik wskazuje dni w tygodniu, w których ma czas trenować, oraz szacowany czas trwania pojedynczej sesji (np. 45, 60, 75, 90 minut) i posiadany sprzęt.
+   - **Interaktywna mapa ciała i priorytety partii (1–10):** Wizualny model sylwetki anatomicznej (przód i tył), na którym użytkownik zaznacza partie mięśniowe i przypisuje im suwakiem priorytet od 1 do 10 (np. 1–3 utrzymanie, 4–7 standard, 8–10 priorytet sylwetkowy/focus). Wybrane partie są dynamicznie podświetlane na ciele w kolorach neonowych w zależności od wagi celu.
+   - **Moduł celów sportowych:** Możliwość zintegrowania planu z konkretną dyscypliną (np. koszykówka) i wskazania obszarów rozwoju (np. wyskok/plyometria, pierwszy krok, stabilizacja rzutu, kozłowanie/drills). Program sugeruje optymalne rozłożenie akcentów na podstawie wcześniejszych wyników i danych z profilu sportowego.
+   - **Automatyczny algorytm dopasowania:** Silnik tworzy zbalansowany, bezpieczny plan tygodniowy, który priorytetyzuje kluczowe partie bez ryzyka przetrenowania i konfliktów regeneracyjnych z treningami sportowymi.
+   - **Podgląd i akceptacja:** Użytkownik przed zatwierdzeniem widzi wygenerowany tydzień i może go od razu zatwierdzić lub skorygować.
+
+### 5.4.2. Zarządzanie wieloma planami
+
+- Użytkownik ma możliwość tworzenia i nazywania wielu planów (np. *„Okres Przygotowawczy Koszykówka”*, *„Masa / Focus Klatka”*, *„Plan Domowy / Hantle”*).
+- Jeden z planów jest oznaczony jako **Aktywny**, z możliwością szybkiego przełączania między nimi w zależności od sezonu i okoliczności życiowych.
+- Pełna historia wcześniejszych planów jest zachowywana, aby użytkownik widział, jak ewoluował jego trening.
+
 System powinien rozróżniać plan pierwotny od jego faktycznej realizacji. Jeśli trening został pominięty lub wykonany inaczej, historia musi odzwierciedlać rzeczywistość.
 
 Przykładowe sytuacje wymagające dostosowania:
