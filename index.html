@@ -11781,13 +11781,7 @@
       return missing;
     }
 
-    function openPlanBuilderModal() {
-      if (typeof openEditPlanModal === 'function') {
-        openEditPlanModal();
-        return;
-      }
-      alert('Kreator planu — TODO');
-    }
+
 
     function handleCreatePlanClick() {
       const missing = _validateProfileForPlan();
@@ -12742,18 +12736,6 @@
         if (mode === 'edit') setPlanBuilderMode('custom');
         else setPlanBuilderMode('smart');
       }, 50);
-
-      const profile = sourceProfile || (getEnrichedProfile ? getEnrichedProfile() : getCurrentProfile());
-      if (!profile) {
-        alert('Uzupełnij najpierw profil użytkownika w zakładce Profil.');
-        return;
-      }
-
-      if (!skipLoad) {
-        _pbLoadFromProfile(profile);
-      }
-      _pb.activeDay = null;
-      _pbPreviewMode = false;
 
       // Ustaw tytuł modala w zależności od trybu
       const titleEl = document.querySelector('#planBuilderModal h2');
