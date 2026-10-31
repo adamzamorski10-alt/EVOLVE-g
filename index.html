@@ -12641,7 +12641,7 @@
       attachAnatomySvgEvents();
       updateSmartAnatomyColors();
       renderSmartMuscleBadges();
-      if (!_smartPlanState.generatedPlan) {
+      if (!_smartPlanState.generatedPlan && !_smartPlanState.isReset) {
         generateSmartPlan(false);
       }
     }
@@ -12664,6 +12664,7 @@
     }
 
     function toggleSmartDay(day) {
+      _smartPlanState.isReset = false;
       const idx = _smartPlanState.days.indexOf(day);
       if (idx !== -1) {
         if (_smartPlanState.days.length <= 2) {
@@ -12686,6 +12687,7 @@
     }
 
     function setSmartDaysPreset(days) {
+      _smartPlanState.isReset = false;
       _smartPlanState.days = days.slice();
       renderSmartDaysPicker();
       generateSmartPlan(false);
@@ -12954,10 +12956,17 @@
     }
 
     function generateSmartPlan(showToastMsg) {
-      const days = _smartPlanState.days;
+      _smartPlanState.isReset = false;
+      const days = _smartPlanState.days || [];
       const duration = _smartPlanState.duration;
       const priorities = _smartPlanState.musclePriorities;
       const sport = _smartPlanState.sport !== 'none' ? _smartPlanState.sport : null;
+
+      if (!days || days.length === 0) {
+        _smartPlanState.generatedPlan = {};
+        renderSmartPlanPreview({});
+        return;
+      }
 
       // Sortuj partie według priorytetu
       const sorted = Object.entries(priorities).sort((a, b) => b[1] - a[1]);
@@ -12969,7 +12978,9 @@
 
       let planConfig = {};
 
-      if (nDays === 2) {
+      if (nDays === 1) {
+        planConfig[days[0]] = { type: 'strength', muscles: ['klatka', 'plecy', 'nogi', 'barki'], focus: focusMuscles };
+      } else if (nDays === 2) {
         planConfig[days[0]] = { type: 'strength', muscles: ['klatka', 'plecy', 'barki'], focus: focusMuscles };
         planConfig[days[1]] = { type: 'strength', muscles: ['nogi', 'brzuch', 'ramiona'], focus: focusMuscles };
       } else if (nDays === 3) {
@@ -13121,8 +13132,15 @@
     }
 
     function applySmartPlan(onlySaveToLibrary) {
-      if (!_smartPlanState.generatedPlan) {
-        generateSmartPlan(false);
+      if (!_smartPlanState.generatedPlan || Object.keys(_smartPlanState.generatedPlan).length === 0) {
+        if (_smartPlanState.days && _smartPlanState.days.length > 0) {
+          generateSmartPlan(false);
+        } else {
+          const msg = 'Wybierz dni treningowe przed zapisaniem planu!';
+          if (typeof showToast === 'function') showToast(msg, 'warning');
+          else alert(msg);
+          return;
+        }
       }
 
       const p = getCurrentProfile ? getCurrentProfile() : null;
@@ -13177,11 +13195,18 @@
       const badgeText = document.getElementById('activePlanName');
       if (!badgeText) return;
 
+      const hasActivePlan = p && p.trainingPlan && typeof p.trainingPlan === 'object' && Object.keys(p.trainingPlan).some(k => Array.isArray(p.trainingPlan[k]) && p.trainingPlan[k].length > 0);
+
+      if (!hasActivePlan) {
+        badgeText.textContent = 'Brak aktywnego planu';
+        return;
+      }
+
       if (p && p.activePlanName) {
         badgeText.textContent = p.activePlanName;
-      } else if (p && p.savedPlans && p.savedPlans.length > 0) {
-        const active = p.savedPlans.find(s => s.isActive) || p.savedPlans[0];
-        badgeText.textContent = active.name;
+      } else if (p && Array.isArray(p.savedPlans) && p.savedPlans.length > 0) {
+        const active = p.savedPlans.find(s => s.isActive);
+        badgeText.textContent = active ? active.name : 'Plan Główny';
       } else {
         badgeText.textContent = 'Plan Główny';
       }
@@ -13307,6 +13332,11 @@
         return;
       }
 
+      if (mode === 'create' && _smartPlanState.isReset && (!_smartPlanState.days || _smartPlanState.days.length === 0)) {
+        _smartPlanState.isReset = false;
+        _smartPlanState.days = ['Pon', 'Śr', 'Pt'];
+      }
+
       if (!skipLoad) {
         _pbLoadFromProfile(profile);
       }
@@ -13364,6 +13394,8 @@
 
     function resetPlanBuilder() {
       _pbPreviewMode = false;
+
+      // 1. Reset stanu konfiguratora indywidualnego (_pb)
       PB_DAYS.forEach(day => { _pb.days[day] = _pbCloneEmptyDay(); });
       _pb.activeDay = null;
       _renderWeekGrid();
@@ -13375,6 +13407,66 @@
           <div class="text-center py-8 text-gray-500">
             <p class="text-sm">Plan wyczyszczony. Kliknij dzień aby go skonfigurować.</p>
           </div>`;
+      }
+
+      // 2. Reset stanu kreatora inteligentnego (_smartPlanState)
+      _smartPlanState.isReset = true;
+      _smartPlanState.generatedPlan = null;
+      _smartPlanState.days = [];
+      _smartPlanState.planName = 'Plan Inteligentny EVOLVE';
+      _smartPlanState.activeMuscle = 'klatka';
+      _smartPlanState.musclePriorities = {
+        klatka: 5, plecy: 5, barki: 5, biceps: 5, triceps: 5,
+        brzuch: 5, nogi: 5, pośladki: 5, łydki: 5
+      };
+
+      const nameInput = document.getElementById('smartPlanNameInput');
+      if (nameInput) nameInput.value = 'Plan Inteligentny EVOLVE';
+
+      const previewArea = document.getElementById('smartPlanPreviewArea');
+      if (previewArea) {
+        previewArea.innerHTML = `
+          <div class="text-center py-8 text-gray-400">
+            <span class="text-3xl block mb-2">🔄</span>
+            <p class="text-sm font-semibold text-white mb-1">Plan został zresetowany</p>
+            <p class="text-xs text-gray-500">Wybierz dni treningowe powyżej lub kliknij szybki wybór (np. 3 dni FBW), aby wygenerować nowy plan.</p>
+          </div>`;
+      }
+
+      if (typeof renderSmartDaysPicker === 'function') renderSmartDaysPicker();
+      if (typeof selectSmartMuscle === 'function') selectSmartMuscle('klatka');
+      if (typeof updateSmartAnatomyColors === 'function') updateSmartAnatomyColors();
+      if (typeof renderSmartMuscleBadges === 'function') renderSmartMuscleBadges();
+      if (typeof renderSmartSportFocus === 'function') renderSmartSportFocus();
+
+      // 3. Reset aktywnego planu w profilu użytkownika i storage
+      const p = getCurrentProfile ? getCurrentProfile() : null;
+      if (p) {
+        p.trainingPlan = {};
+        p._planBuilderConfig = null;
+        p.activePlanName = '';
+        if (Array.isArray(p.savedPlans)) {
+          p.savedPlans.forEach(s => { s.isActive = false; });
+        }
+        localStorage.removeItem('fitai_training_plan');
+        if (typeof saveState === 'function') saveState();
+      }
+
+      // 4. Odświeżenie widoków i flag w całej aplikacji
+      if (typeof _resetPlanRenderFlags === 'function') _resetPlanRenderFlags();
+      if (typeof updateActivePlanBadge === 'function') updateActivePlanBadge();
+      if (typeof renderPlanTraining === 'function') renderPlanTraining();
+      if (typeof renderDayCarousel === 'function') renderDayCarousel();
+      if (typeof updateDashboard === 'function') updateDashboard();
+      if (typeof renderCurrentDay === 'function') renderCurrentDay();
+      if (typeof renderPlanWeekView === 'function') renderPlanWeekView();
+      if (typeof loadPlanForDay === 'function') loadPlanForDay();
+      if (typeof initActiveDayFromPlan === 'function') initActiveDayFromPlan();
+      if (typeof _updatePlanHistoryBadge === 'function') _updatePlanHistoryBadge();
+      if (typeof renderSavedPlansList === 'function') renderSavedPlansList();
+
+      if (typeof showToast === 'function') {
+        showToast('🔄 Plan treningowy został pomyślnie zresetowany!', 'info');
       }
     }
 
@@ -19483,10 +19575,11 @@
       // Zmiana: zawsze normalizuj do lowercase przed jakimkolwiek porównaniem
       const s = String(rawId).trim();
       const sLow = s.toLowerCase();
+      const sd = window.SPORT_DRILLS || (typeof SPORT_DRILLS !== 'undefined' ? SPORT_DRILLS : {});
       return SPORT_ID_MAP[s]                          // 1. dokładne dopasowanie (oryginał)
         || SPORT_ID_MAP[sLow]                       // 2. toLowerCase → SPORT_ID_MAP
-        || (SPORT_DRILLS[s] ? s : null)       // 3. oryginał jako klucz SPORT_DRILLS
-        || (SPORT_DRILLS[sLow] ? sLow : null)       // 4. toLowerCase jako klucz SPORT_DRILLS
+        || (sd[s] ? s : null)                       // 3. oryginał jako klucz SPORT_DRILLS
+        || (sd[sLow] ? sLow : null)                 // 4. toLowerCase jako klucz SPORT_DRILLS
         || null;
     }
 
@@ -21087,7 +21180,7 @@
         }
 
         const sportId = resolveSportId(rawSportNormalized);
-        const sportData = sportId ? SPORT_DRILLS[sportId] : null;
+        const sportData = sportId ? (window.SPORT_DRILLS?.[sportId] || (typeof SPORT_DRILLS !== 'undefined' ? SPORT_DRILLS[sportId] : null)) : null;
         try {
           const tdEl = document.getElementById('sportDrillTotalCount');
           if (tdEl) tdEl.textContent = `${sportId ? countDrillsForSport(sportId) : 0} drilli`;
@@ -24302,11 +24395,15 @@
         if (extracted.MEAL_DB) _mergeIntoMealDB(extracted.MEAL_DB);
         if (extracted.EXERCISE_DB) _mergeIntoExerciseDB(extracted.EXERCISE_DB);
 
-        // Jeśli seed ma SPORT_DRILLS a globalny go nie ma lub ma mniej dyscyplin
-        if (extracted.SPORT_DRILLS && typeof SPORT_DRILLS !== 'undefined') {
+        // Jeśli seed ma SPORT_DRILLS, zsynchronizuj z window.SPORT_DRILLS
+        if (extracted.SPORT_DRILLS) {
+          window.SPORT_DRILLS = window.SPORT_DRILLS || {};
           Object.entries(extracted.SPORT_DRILLS).forEach(([sport, data]) => {
-            if (!SPORT_DRILLS[sport]) SPORT_DRILLS[sport] = data;
+            if (!window.SPORT_DRILLS[sport]) window.SPORT_DRILLS[sport] = data;
           });
+          if (typeof SPORT_DRILLS !== 'undefined' && SPORT_DRILLS !== window.SPORT_DRILLS) {
+            Object.assign(SPORT_DRILLS, window.SPORT_DRILLS);
+          }
         }
 
         const addedMeals = _countMeals() - inlineMeals;
