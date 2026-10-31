@@ -2018,9 +2018,9 @@
       <nav class="space-y-1 flex-1" aria-label="Główna nawigacja">
         <p class="px-3 py-1 text-xs font-bold uppercase tracking-wider" style="color:var(--cyan);letter-spacing:0.12em;">Performance OS</p>
         <a href="#my-day" onclick="showTab('my-day'); return false;" data-tab="my-day" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-cyan-400 active" title="Dzisiejsze centrum dowodzenia"><span>⚡</span><span>1. Dziś (Today)</span></a>
-        <a href="#" onclick="showTab('plan'); switchPlanCategory('sport'); return false;" data-tab="basketball" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Umiejętności sportowe, motoryka i drille"><span>🏀</span><span>2. Sport</span></a>
-        <a href="#" onclick="showTab('plan'); switchPlanCategory('trening'); return false;" data-tab="training" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Tygodniowy plan: siła, motoryka, sport"><span>📅</span><span>3. Plan</span></a>
-        <a href="#" onclick="showTab('plan'); switchPlanCategory('dieta'); return false;" data-tab="diet" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Paliwo sportowe i makroskładniki"><span>🥗</span><span>4. Odżywianie</span></a>
+        <a href="#" onclick="showTab('sport'); return false;" data-tab="basketball" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Umiejętności sportowe, motoryka i drille"><span>🏀</span><span>2. Sport</span></a>
+        <a href="#" onclick="showTab('training'); return false;" data-tab="training" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Tygodniowy plan: siła, motoryka, sport"><span>📅</span><span>3. Plan</span></a>
+        <a href="#" onclick="showTab('diet'); return false;" data-tab="diet" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Paliwo sportowe i makroskładniki"><span>🥗</span><span>4. Odżywianie</span></a>
         <a href="#" onclick="showTab('recovery'); return false;" data-tab="recovery" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Sen, gotowość i zmęczenie"><span>🔋</span><span>5. Regeneracja</span></a>
         <a href="#" onclick="showTab('postepy'); return false;" data-tab="postepy" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Wykresy wyskoku, siły i celności"><span>📈</span><span>6. Postępy</span></a>
         <a href="#" onclick="showTab('assessment'); return false;" data-tab="assessment" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Ocena wyjściowa i generowanie planu"><span>📋</span><span>7. Assessment & Baza</span></a>
@@ -2395,7 +2395,7 @@
                 <button type="button" onclick="window.openTodayShotTrackerModal()" id="todayOpenShotModalBtn" class="btn-neon py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5">
                   <span>🎯 Szybki Shot Tracker</span>
                 </button>
-                <button type="button" onclick="showTab('plan'); switchPlanCategory('sport');" class="btn-outline-cyan py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5">
+                <button type="button" onclick="showTab('sport'); switchPlanTab('sport', 'drille');" class="btn-outline-cyan py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5">
                   <span>📖 Atlas Drilli</span>
                 </button>
               </div>
@@ -9208,10 +9208,10 @@
       if (tabId === 'training') {
         tabId = 'plan';
         if (typeof switchPlanCategory === 'function') switchPlanCategory('trening');
-      } else if (tabId === 'basketball') {
+      } else if (tabId === 'basketball' || tabId === 'sport') {
         tabId = 'plan';
         if (typeof switchPlanCategory === 'function') switchPlanCategory('sport');
-      } else if (tabId === 'diet') {
+      } else if (tabId === 'diet' || tabId === 'dieta') {
         tabId = 'plan';
         if (typeof switchPlanCategory === 'function') switchPlanCategory('dieta');
       }
@@ -9233,6 +9233,10 @@
       }
       if (rawTab === 'training' && typeof switchPlanCategory === 'function') {
         switchPlanCategory('trening');
+      } else if ((rawTab === 'basketball' || rawTab === 'sport') && typeof switchPlanCategory === 'function') {
+        switchPlanCategory('sport');
+      } else if ((rawTab === 'diet' || rawTab === 'dieta') && typeof switchPlanCategory === 'function') {
+        switchPlanCategory('dieta');
       }
     }
 
@@ -10919,16 +10923,19 @@
     // ========== TAB SWITCHING ==========
     function showTab(tabId) {
       if (tabId === 'training') {
+        state.planCategory = 'trening';
         showTab('plan');
         if (typeof switchPlanCategory === 'function') switchPlanCategory('trening');
         return;
       }
-      if (tabId === 'basketball') {
+      if (tabId === 'basketball' || tabId === 'sport') {
+        state.planCategory = 'sport';
         showTab('plan');
         if (typeof switchPlanCategory === 'function') switchPlanCategory('sport');
         return;
       }
-      if (tabId === 'diet') {
+      if (tabId === 'diet' || tabId === 'dieta') {
+        state.planCategory = 'dieta';
         showTab('plan');
         if (typeof switchPlanCategory === 'function') switchPlanCategory('dieta');
         return;
@@ -10955,13 +10962,13 @@
         const curSub = state.planSubTab || 'plan';
         if (curSub === 'biblioteka') state._dieta_rendered = false;
         if (curSub === 'atlas') state._trening_rendered = false;
-        if (curSub === 'drills') state._sport_rendered = false;
+        if (curSub === 'drills' || curSub === 'drille') state._sport_rendered = false;
 
         renderDayCarousel();
         loadPlanForDay();
         // Always call switchPlanCategory so the left sidebar, top tabs, and content
         // panel are all initialized — never leaves the user looking at a blank screen.
-        switchPlanCategory(state.planCategory || 'dieta');
+        switchPlanCategory(state.planCategory || 'trening');
         // Sync slider value if we're on training subtab
         if (state.planSubtab === 'training' || (state.planSubtab === 'myplan' && state.planView === 'training')) {
           const slider = document.getElementById('exerciseCountSlider');
@@ -11078,6 +11085,12 @@
       if (!validCats.includes(cat)) cat = 'dieta';
       const defaultSubs = { dieta: 'plan', trening: 'plan', sport: 'informacje' };
       if (!sub) sub = defaultSubs[cat];
+      if (cat === 'sport') {
+        if (sub === 'drills') sub = 'drille';
+        if (sub === 'info' || sub === 'court' || sub === 'boisko') sub = 'informacje';
+        if (sub === 'stats') sub = 'statystyki';
+        if (sub === 'logs' || sub === 'log') sub = 'logi';
+      }
 
       // 2. Persist state — jedno miejsce, zero duplikacji
       state.planCategory = cat;
@@ -11105,12 +11118,32 @@
       if (target) {
         target.classList.add('active');
       } else {
-        console.warn('[FitAI] switchPlanTab: panel nie znaleziony:', panelId, '— fallback do dieta-plan');
-        const fallback = document.getElementById('panel-dieta-plan');
-        if (fallback) { fallback.classList.add('active'); cat = 'dieta'; sub = 'plan'; }
+        console.warn('[FitAI] switchPlanTab: panel nie znaleziony:', panelId);
+        const defaultSubForCat = defaultSubs[cat] || 'plan';
+        const catFallback = document.getElementById('panel-' + cat + '-' + defaultSubForCat);
+        if (catFallback) {
+          catFallback.classList.add('active');
+          sub = defaultSubForCat;
+        } else {
+          const fallback = document.getElementById('panel-dieta-plan');
+          if (fallback) { fallback.classList.add('active'); cat = 'dieta'; sub = 'plan'; }
+        }
       }
 
-      // 5. Synchronizacja lewego sidebara (przyciski kategorii)
+      // 5. Synchronizacja lewego sidebara Performance OS
+      const catToDataTab = { sport: 'basketball', trening: 'training', dieta: 'diet' };
+      const targetDataTab = catToDataTab[cat];
+      if (targetDataTab) {
+        document.querySelectorAll('.nav-item').forEach(n => {
+          n.classList.remove('active', 'text-cyan-400');
+          n.classList.add('text-gray-400');
+        });
+        const activeNav = document.querySelector(`.nav-item[data-tab="${targetDataTab}"]`) || document.querySelector(`.nav-item[data-tab="${cat}"]`);
+        if (activeNav) {
+          activeNav.classList.add('active', 'text-cyan-400');
+          activeNav.classList.remove('text-gray-400');
+        }
+      }
       ['dieta', 'trening', 'sport'].forEach(c => {
         const btn = document.getElementById('plancat-' + c);
         if (btn) btn.classList.toggle('active', c === cat);
@@ -11120,10 +11153,10 @@
       const chip = document.getElementById('planCatHeaderChip');
       if (chip) chip.textContent = PLAN_CATEGORY_LABELS[cat] || cat;
 
-      // 6b. Kontrola widoczności nagłówka tygodniowego (tylko dla sub === 'plan')
+      // 6b. Kontrola widoczności nagłówka tygodniowego (tylko dla sub === 'plan' i NIE sport)
       const weeklyHero = document.getElementById('planWeeklyHero');
       if (weeklyHero) {
-        const isPlanSub = (sub === 'plan');
+        const isPlanSub = (sub === 'plan' && cat !== 'sport');
         weeklyHero.style.display = isPlanSub ? 'block' : 'none';
         if (isPlanSub) {
           const shopBtn = document.getElementById('heroShoppingListBtn');
@@ -11223,7 +11256,7 @@
 
     // ─── switchPlanCategory — wrapper dla kompatybilności wstecznej ───────────
     function switchPlanCategory(cat) {
-      const defaultSub = { dieta: 'plan', trening: 'plan', sport: 'drills' }[cat] || 'plan';
+      const defaultSub = { dieta: 'plan', trening: 'plan', sport: 'informacje' }[cat] || 'plan';
       switchPlanTab(cat, defaultSub);
     }
 
@@ -11306,7 +11339,7 @@
     function _showPlanPanel(cat, sub) { switchPlanTab(cat, sub); }
 
     function switchPlanCategoryAndSub(cat, sub) {
-      switchPlanTab(cat, sub || ({ dieta: 'plan', trening: 'plan', sport: 'drills' }[cat]));
+      switchPlanTab(cat, sub || ({ dieta: 'plan', trening: 'plan', sport: 'informacje' }[cat]));
     }
 
     function switchPlanSubtab(sub) {
@@ -11316,7 +11349,13 @@
         'diet': ['dieta', 'plan'],
         'dietdb': ['dieta', 'kuchnia'],
         'training': ['trening', 'plan'],
-        'sport': ['sport', 'drills'],
+        'sport': ['sport', 'informacje'],
+        'drills': ['sport', 'drille'],
+        'drille': ['sport', 'drille'],
+        'sport-info': ['sport', 'informacje'],
+        'sport-drills': ['sport', 'drille'],
+        'sport-stats': ['sport', 'statystyki'],
+        'sport-logs': ['sport', 'logi'],
       };
       const [cat, tab] = legacyMap[sub] || ['dieta', 'plan'];
 
@@ -11331,8 +11370,20 @@
     }
 
     function showSportSubtab(sub) {
-      const subMap = { log: 'log', history: 'historia', historia: 'historia', drills: 'drills' };
-      switchPlanTab('sport', subMap[sub] || 'drills');
+      const subMap = {
+        log: 'logi',
+        logi: 'logi',
+        history: 'statystyki',
+        historia: 'statystyki',
+        stats: 'statystyki',
+        statystyki: 'statystyki',
+        drills: 'drille',
+        drille: 'drille',
+        info: 'informacje',
+        informacje: 'informacje',
+        boisko: 'informacje',
+      };
+      switchPlanTab('sport', subMap[sub] || 'informacje');
     }
 
 
