@@ -416,26 +416,38 @@ W przyszłości moduł może obliczać wskaźniki gotowości i prognozy regenera
 
 System powinien wyjaśniać istotne rekomendacje, np. dlaczego sugeruje zmniejszenie objętości treningu. Nie powinien jednak automatycznie obniżać obciążenia wyłącznie na podstawie jednego słabego pomiaru bez uwzględnienia kontekstu.
 
-## 5.10. Odżywianie
+## 5.10. Odżywianie (Performance Nutrition)
 
-Moduł odżywiania ma wspierać rozwój sportowy, budowę mięśni, regenerację i prawidłowe funkcjonowanie organizmu.
+Moduł odżywiania ma wspierać rozwój sportowy, budowę mięśni, regenerację i prawidłowe funkcjonowanie organizmu. Nie jest odizolowaną listą dań, lecz dynamicznym kokpitem żywieniowym powiązanym z profilem biometrycznym, treningami i regeneracją.
 
-Powinien uwzględniać:
+Główne filary modułu:
 
-- regularność posiłków;
-- źródła białka;
-- węglowodany potrzebne do intensywnego wysiłku;
-- zdrowe tłuszcze;
-- warzywa i owoce;
-- nawodnienie;
-- posiłki przed i po treningu;
-- praktyczne propozycje wykorzystujące produkty dostępne w domu.
+- **Pełna integracja z biometrią i celami**:
+  - Zapotrzebowanie bazowe (BMR i TDEE) wyliczane ściśle z wzoru Mifflina-St Jeora na podstawie wagi, wzrostu, wieku, płci i współczynnika aktywności.
+  - Podział na makroskładniki (białko 1.6–2.2 g/kg, tłuszcze 20–30% energii, węglowodany dopełniające bilans) skorelowany z celem sylwetkowym (redukcja, rekompozycja, masa, siła).
+  - Skalowanie porcji i gramatur: suma posiłków danego dnia musi dokładnie odpowiadać dziennemu zapotrzebowaniu kalorycznemu (±50 kcal), a nie operować na przypadkowych, nieskalowanych przepisach.
 
-W pierwszej użytecznej wersji priorytetem jest praktyczna pomoc, a nie restrykcyjne liczenie każdej kalorii. Użytkownik powinien móc korzystać z prostych propozycji posiłków i elastycznych wskazówek.
+- **Dostosowanie do dnia treningowego vs regeneracji (Carb Cycling & Timing)**:
+  - Dni treningowe: podwyższona pula energii (+200-350 kcal) z akcentem na węglowodany złożone przed treningiem i szybkie węglowodany z białkiem po treningu.
+  - Dni regeneracji / nietreningowe: kalorie na poziomie bazowym lub lekkim deficycie, z wyższym udziałem zdrowych tłuszczów i warzyw.
 
-W dalszym rozwoju możliwe jest lepsze dopasowywanie odżywiania do harmonogramu i obciążenia treningowego.
+- **Struktura i interfejs modułu Odżywianie**:
+  - Dwie główne, uporządkowane podzakładki:
+    1. `Jadłospis & Dzień` (główny kokpit z podsumowaniem makro, pierścieniem kalorii, wskaźnikiem treningu i listą posiłków).
+    2. `Biblioteka Posiłków & Produktów` (katalog dań z filtrami kategorii, czasem przygotowania i makroskładnikami).
+  - Wyłączenie zbędnej podzakładki `Kuchnia AI` na obecnym etapie w celu maksymalnej przejrzystości i użyteczności.
 
-W przypadku nastolatków system powinien szczególnie dbać o odpowiednią podaż energii, regularne jedzenie i zdrowy rozwój. Nie powinien proponować skrajnych diet, nieuzasadnionego ograniczania kalorii ani suplementacji bez odpowiednich podstaw.
+- **Interaktywny dziennik i oznaczanie posiłków („Zjedzone”)**:
+  - Każdy posiłek posiada aktywny checkmark `Zjedzone`, który na żywo aktualizuje dzienny pasek spożytych kalorii i makroskładników oraz stan realizacji celu.
+  - Możliwość szybkiej wymiany posiłku (`Wymień posiłek`) na inne danie o zbliżonej kaloryczności.
+  - Generowanie listy zakupów na wybrany dzień lub cały tydzień.
+
+- **Kierunek rozwoju: Skaner kodów kreskowych i baza produktów (a'la Samsung Health / MyFitnessPal)**:
+  - Wyszukiwarka produktów spożywczych z bazy Open Food Facts API (tysiące gotowych produktów z polskiego rynku).
+  - Skaner kodów kreskowych EAN-13 z wykorzystaniem kamery telefonu / laptopa w przeglądarce (`html5-qrcode`).
+  - Szybkie dodawanie zjedzonego produktu do posiłku z przeliczeniem gramatury.
+
+W przypadku nastolatków i sportowców dyscyplin dynamicznych (np. koszykówka) system szczególnie dba o odpowiednią podaż energii, regularne jedzenie i zdrowy rozwój, bez promowania skrajnych diet czy nieuzasadnionych deficytów.
 
 ## 5.11. Silnik decyzji
 
