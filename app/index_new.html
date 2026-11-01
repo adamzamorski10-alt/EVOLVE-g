@@ -3695,6 +3695,25 @@
               </div>
             </div>
 
+            <div class="glass rounded-2xl overflow-hidden" style="border:1px solid rgba(74,222,128,0.16);">
+              <div class="px-5 py-4" style="background:rgba(74,222,128,0.04);border-bottom:1px solid rgba(255,255,255,0.07);">
+                <h4 class="text-sm font-bold text-white uppercase tracking-wider">📍 Miejsca treningu</h4>
+                <p class="text-xs text-gray-500 mt-0.5">Zapisz różne lokalizacje i przypisz do nich sprzęt z katalogu.</p>
+              </div>
+              <div class="p-5 space-y-3">
+                <div id="trainingLocationsList" class="space-y-2"></div>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <input id="newTrainingLocationName" type="text" maxlength="80" placeholder="np. Dom, hala, boisko"
+                    class="flex-1 px-3 py-2 rounded-xl text-sm" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;">
+                  <button type="button" onclick="addTrainingLocation()" class="px-4 py-2 rounded-xl text-sm font-bold"
+                    style="background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.3);color:#4ade80;">+ Dodaj miejsce</button>
+                </div>
+                <div id="trainingLocationEquipment" class="hidden grid grid-cols-2 md:grid-cols-3 gap-2"></div>
+                <button type="button" onclick="saveTrainingLocations()" class="w-full py-2.5 rounded-xl text-sm font-bold"
+                  style="background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.25);color:#00e5ff;">Zapisz miejsca treningu</button>
+              </div>
+            </div>
+
             <!-- Poziom trudności -->
             <div class="glass rounded-2xl overflow-hidden" style="border:1px solid rgba(0,229,255,0.12);">
               <div class="px-5 py-4"
@@ -8085,6 +8104,7 @@
       if (dEl && p.diet) dEl.value = p.diet;
 
       _recalcMacro();
+      if (typeof loadTrainingLocations === 'function') loadTrainingLocations(p);
     }
 
     function _recalcMacro() {
@@ -9991,7 +10011,7 @@
     let _pbDragSource = null;
 
     function _pbCloneEmptyDay() {
-      return { type: 'rest', muscles: [], sport: null, drillCats: [], exCount: 5, drillCount: 4, pinned: [] };
+      return { type: 'rest', muscles: [], sport: null, drillCats: [], exCount: 5, drillCount: 4, pinned: [], locations: [], duration: 60 };
     }
 
     function _pbLoadFromProfile(p) {
@@ -10168,19 +10188,48 @@
       }
     }
 
+    function _pbEquipmentForDay(cfg, profile) {
+      const selected = new Set((cfg?.locations || []).flatMap(id =>
+        (_evolveLocations || []).find(location => location.id === id)?.equipment || []));
+      const labels = selected.size
+        ? [...selected].map(id => EVOLVE_EQUIPMENT_CATALOG.find(item => item[0] === id)?.[1] || id)
+        : (Array.isArray(profile?.equipment) ? profile.equipment : []);
+      return labels;
+    }
+
+    function _pbDayDiagnostics() {
+      const days = PB_DAYS.map(day => _pb.days[day]).filter(cfg => cfg.type !== 'rest');
+      const warnings = [];
+      let quality = 100;
+      if (!days.length) { warnings.push('Dodaj co najmniej jeden dzień treningowy.'); quality -= 40; }
+      if (_evolveLocations.length && days.some(cfg => !(cfg.locations || []).length)) {
+        warnings.push('Niektóre dni nie mają przypisanego miejsca ani sprzętu.'); quality -= 15;
+      }
+      for (let index = 0; index < PB_DAYS.length - 1; index++) {
+        const first = _pb.days[PB_DAYS[index]], second = _pb.days[PB_DAYS[index + 1]];
+        const overlap = (first.muscles || []).filter(m => (second.muscles || []).includes(m));
+        if (first.type === 'strength' && second.type === 'strength' && overlap.length) {
+          warnings.push(`${overlap[0]} pojawia się dzień po dniu (${PB_DAYS[index]} → ${PB_DAYS[index + 1]}).`);
+          quality -= 8;
+        }
+      }
+      return { quality: Math.max(0, quality), warnings };
+    }
+
     function _renderPlanPreview() {
       const panel = document.getElementById('pbPreviewPanel');
       if (!panel) return;
 
       const profile = typeof getEnrichedProfile === 'function'
         ? getEnrichedProfile() : getCurrentProfile();
-      const equip = profile?.equipment || [];
+      const equip = _pbEquipmentForDay(_pb.days[day], profile);
       const excl = profile?.exclusions || [];
 
       const DAY_NAMES = {
         Pon: 'Poniedziałek', Wt: 'Wtorek', Śr: 'Środa',
         Czw: 'Czwartek', Pt: 'Piątek', Sob: 'Sobota', Niedz: 'Niedziela'
       };
+      const diagnostics = _pbDayDiagnostics();
 
       panel.innerHTML = `
         <div class="space-y-3">
@@ -10191,6 +10240,13 @@
             <span class="text-xs text-gray-500">
               Kliknij "← Wróć do edycji" aby wprowadzić zmiany
             </span>
+          </div>
+          <div class="rounded-xl p-3" style="background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.16);">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-gray-400">Jakość dopasowania planu</span>
+              <strong style="color:${diagnostics.quality >= 80 ? '#4ade80' : diagnostics.quality >= 60 ? '#facc15' : '#f87171'}">${diagnostics.quality}/100</strong>
+            </div>
+            ${diagnostics.warnings.length ? `<div class="mt-2 space-y-1">${diagnostics.warnings.map(item => `<p class="text-xs text-yellow-300">⚠️ ${item}</p>`).join('')}</div>` : '<p class="text-xs text-green-300 mt-2">✅ Brak wykrytych konfliktów.</p>'}
           </div>
           ${['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Niedz'].map(day => {
         const cfg = _pb.days[day];
@@ -10230,6 +10286,7 @@
         }
 
         const allItems = [...pinned, ...autoItems];
+        const locationNames = (cfg.locations || []).map(id => (_evolveLocations || []).find(location => location.id === id)?.name).filter(Boolean);
 
         return `
               <div class="rounded-xl overflow-hidden"
@@ -10249,6 +10306,9 @@
                     </p>
                   </div>
                   <span class="text-xs text-gray-500">${allItems.length} pozycji</span>
+                </div>
+                <div class="px-4 pt-2 text-xs text-cyan-300">
+                  ${locationNames.length ? `📍 ${locationNames.join(' + ')} · ${cfg.duration || 60} min` : '📍 Miejsce zostanie dobrane z profilu'}
                 </div>
                 <div class="px-4 py-2 space-y-1"
                   style="background:rgba(255,255,255,0.015);">
@@ -10458,6 +10518,22 @@
       </div>
     </div>
 
+    <div class="mb-5 rounded-xl p-4" style="background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.12);">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Miejsca i czas</p>
+        <span class="text-xs text-cyan-300">${(cfg.locations || []).length} wybr.</span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        ${(_evolveLocations || []).map(location => `
+          <label class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-300" style="background:rgba(255,255,255,0.04);">
+            <input type="checkbox" ${cfg.locations.includes(location.id) ? 'checked' : ''} onchange="setPBLocations('${day}', '${location.id}', this.checked)"> ${location.name}
+          </label>`).join('') || '<p class="text-xs text-gray-600 sm:col-span-2">Dodaj miejsce w profilu, aby filtrować ćwiczenia po sprzęcie.</p>'}
+      </div>
+      <label class="block text-xs text-gray-400 mt-3">Czas treningu: <strong class="text-white">${cfg.duration || 60} min</strong>
+        <input type="range" min="15" max="180" step="5" value="${cfg.duration || 60}" class="w-full mt-2" oninput="setPBDuration('${day}', this.value)">
+      </label>
+    </div>
+
     <div class="mb-5">
       <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Typ dnia</p>
       <div class="grid grid-cols-4 gap-2">
@@ -10475,6 +10551,17 @@
     <div id="pbDayTypeContent_${day}">${_renderDayTypeContent(day)}</div>
     ${_renderPinnedItems(day)}
   `;
+    }
+
+    function setPBLocations(day, locationId, enabled) {
+      const cfg = _pb.days[day];
+      cfg.locations = enabled ? [...new Set([...(cfg.locations || []), locationId])] : (cfg.locations || []).filter(id => id !== locationId);
+      _renderWeekGrid(); _renderDayConfig(day); _updateBalancePanel();
+    }
+    function setPBDuration(day, value) {
+      _pb.days[day].duration = Math.max(15, Number(value) || 60);
+      const label = document.querySelector('#dayConfigPanel strong');
+      if (label) label.textContent = _pb.days[day].duration + ' min';
     }
 
     function toggleDayCopyMenu(day) {
@@ -10977,14 +11064,14 @@
           if (needed > 0 && typeof generateExercisesForDay === 'function') {
             // Generuj z flagą dokładnej liczby — nie mniej, nie więcej
             autoExercises = generateExercisesForDay(
-              muscles, equip, excl, needed,
+              muscles, _pbEquipmentForDay(cfg, profile), excl, needed,
               { difficulty: profile?.difficulty, exactCount: needed }
             );
             // Jeśli funkcja zwróciła za mało — uzupełnij z innych grup
             if (autoExercises.length < needed) {
               const allGroups = Object.keys(window.EXERCISE_DB || {});
               const fallback = generateExercisesForDay(
-                allGroups, equip, excl, needed - autoExercises.length, {}
+                allGroups, _pbEquipmentForDay(cfg, profile), excl, needed - autoExercises.length, {}
               );
               // Dodaj tylko te których jeszcze nie ma
               const usedNames = new Set(autoExercises.map(e => e.name));
@@ -25187,6 +25274,83 @@
     </div>
   </div>
 
+<script>
+  // EVOLVE training locations: catalog-backed, user-scoped and reused by the planner.
+  const EVOLVE_EQUIPMENT_CATALOG = [
+    ['dumbbells', 'Hantle'], ['bench', 'Ławka'], ['barbell', 'Sztanga'],
+    ['kettlebell', 'Kettlebell'], ['resistance-band', 'Gumy oporowe'],
+    ['pull-up-bar', 'Drążek'], ['cable', 'Wyciąg / brama'], ['cones', 'Pachołki'],
+    ['basketball-hoop', 'Kosz do koszykówki'], ['basketball', 'Piłka do koszykówki'], ['mat', 'Mata']
+  ];
+  let _evolveLocations = [];
+  let _evolveLocationDraft = null;
+
+  function renderTrainingLocations() {
+    const list = document.getElementById('trainingLocationsList');
+    const equipment = document.getElementById('trainingLocationEquipment');
+    if (!list) return;
+    list.innerHTML = _evolveLocations.length ? _evolveLocations.map((location, index) => `
+      <div class="rounded-xl p-3 flex items-center gap-3" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
+        <div class="flex-1 min-w-0"><p class="text-sm font-bold text-white truncate">${String(location.name).replace(/</g, '&lt;')}</p>
+        <p class="text-xs text-gray-500">${(location.equipment || []).map(id => EVOLVE_EQUIPMENT_CATALOG.find(item => item[0] === id)?.[1] || id).join(', ') || 'Bez wybranego sprzętu'}</p></div>
+        <button type="button" aria-label="Edytuj sprzęt miejsca" onclick="editTrainingLocation(${index})" class="px-2 py-1 rounded-lg text-xs text-cyan-300">Edytuj</button>
+        <button type="button" aria-label="Usuń miejsce" onclick="removeTrainingLocation(${index})" class="px-2 py-1 rounded-lg text-xs text-red-300">Usuń</button>
+      </div>`).join('') : '<p class="text-xs text-gray-600 italic">Nie dodano jeszcze żadnego miejsca.</p>';
+    if (equipment) {
+      equipment.classList.toggle('hidden', !_evolveLocationDraft);
+      equipment.innerHTML = _evolveLocationDraft ? EVOLVE_EQUIPMENT_CATALOG.map(([id, label]) => `
+        <label class="flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-gray-300" style="background:rgba(255,255,255,0.04);">
+          <input type="checkbox" value="${id}" ${_evolveLocationDraft.equipment.includes(id) ? 'checked' : ''} onchange="toggleLocationEquipment('${id}', this.checked)"> ${label}
+        </label>`).join('') : '';
+    }
+  }
+  function addTrainingLocation() {
+    const input = document.getElementById('newTrainingLocationName');
+    const name = input?.value.trim();
+    if (!name) return _showPBToast('Podaj nazwę miejsca.');
+    if (_evolveLocations.some(item => item.name.toLowerCase() === name.toLowerCase())) return _showPBToast('Takie miejsce już istnieje.');
+    _evolveLocations.push({ id: 'location-' + Date.now(), name, equipment: [] });
+    input.value = '';
+    _evolveLocationDraft = _evolveLocations[_evolveLocations.length - 1];
+    renderTrainingLocations();
+  }
+  function editTrainingLocation(index) { _evolveLocationDraft = _evolveLocations[index]; renderTrainingLocations(); }
+  function removeTrainingLocation(index) { _evolveLocations.splice(index, 1); _evolveLocationDraft = null; renderTrainingLocations(); }
+  function toggleLocationEquipment(id, checked) {
+    if (!_evolveLocationDraft) return;
+    _evolveLocationDraft.equipment = checked
+      ? [...new Set([...( _evolveLocationDraft.equipment || []), id])]
+      : (_evolveLocationDraft.equipment || []).filter(item => item !== id);
+    renderTrainingLocations();
+  }
+  async function saveTrainingLocations() {
+    const token = localStorage.getItem('fitai_token');
+    const payload = { locations: _evolveLocations };
+    const profile = typeof getCurrentProfile === 'function' ? getCurrentProfile() : null;
+    if (profile) { profile.training_locations = _evolveLocations; if (typeof saveState === 'function') saveState(); }
+    if (!token || !window.API_BASE) return _showPBToast('✅ Miejsca zapisane lokalnie.');
+    try {
+      const response = await fetch(window.API_BASE + '/app/plan/locations', {
+        method: 'PUT', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error((await response.json()).detail || 'Nie udało się zapisać miejsc.');
+      _showPBToast('✅ Miejsca treningu zapisane.');
+    } catch (error) { _showPBToast('⚠️ ' + error.message); }
+  }
+  async function loadTrainingLocations(profile) {
+    _evolveLocations = Array.isArray(profile?.training_locations) ? JSON.parse(JSON.stringify(profile.training_locations)) : [];
+    const token = localStorage.getItem('fitai_token');
+    if (token && window.API_BASE) {
+      try {
+        const response = await fetch(window.API_BASE + '/app/plan/locations', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (response.ok) _evolveLocations = (await response.json()).locations || _evolveLocations;
+      } catch (error) { console.warn('Nie udało się pobrać miejsc treningu', error); }
+    }
+    renderTrainingLocations();
+  }
+
+</script>
 </body>
 
 

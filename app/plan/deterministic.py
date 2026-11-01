@@ -139,6 +139,13 @@ def build_deterministic_plan(
     """
     meal_catalog = _default_meal_catalog(user.diet or "")
     exercise_pool = _exercise_pool()
+    training_locations = user.get_list("training_locations_json")
+    location_equipment = {
+        str(item)
+        for location in training_locations
+        if isinstance(location, dict)
+        for item in (location.get("equipment") or [])
+    }
 
     profile_days = _frequency_days(user.frequency)
     assessment_days = _assessment_value(assessment, "sessions_per_week")
@@ -505,6 +512,8 @@ def build_deterministic_plan(
 
         days.append({
             "day": day_name,
+            "locations": training_locations[day_index % len(training_locations):day_index % len(training_locations) + 1]
+            if training_locations and day_type != "rest" else [],
             "day_type": day_type,
             "macros": calc_daily_macros(base_calories, day_type),
             "is_sport_session": is_sport_session,
@@ -532,5 +541,7 @@ def build_deterministic_plan(
             "progress_evidence_used": bool(normalized_progress),
             "progress_evidence_count": len(normalized_progress),
             "schedule_diagnostics": schedule_diagnostics,
+            "training_locations_used": bool(training_locations),
+            "location_equipment_count": len(location_equipment),
         },
     }

@@ -107,6 +107,27 @@ Każda adaptacja planu musi mieć logiczne uzasadnienie i być oparta na dostęp
 
 EVOLVE ma być systemem osobistym, a nie aplikacją oferującą wszystkim identyczny plan.
 
+## 4.8. Miejsca treningowe i kontekst planu (wdrażane)
+
+Użytkownik może definiować wiele własnych miejsc treningu, np. dom, boisko lub
+halę. Sprzęt miejsca jest wybierany z katalogu, a nie wpisywany jako
+niezweryfikowany tekst. Jednego dnia można przypisać kilka miejsc, dlatego
+planista może łączyć część siłową i sportową w jednej sesji.
+
+Kreator planu posiada dwa tryby:
+
+- **Inteligentny** — dobiera dni, miejsca, czas, partie ciała i obszary sportowe
+  na podstawie profilu, assessmentu, historii, wyników drillów, pozycji
+  koszykarskiej i regeneracji;
+- **Indywidualny** — pozwala ręcznie wybierać ćwiczenia, filtrować je po
+  miejscu i sprzęcie oraz automatycznie dobrać określoną liczbę ćwiczeń.
+
+Każda rekomendacja powinna mieć alternatywy i krótkie uzasadnienie. Podgląd
+planu pokazuje jakość dopasowania, ostrzeżenia o konfliktach (m.in. brak
+sprzętu, zbyt krótki czas i przeciążenie tej samej partii) oraz umożliwia
+odświeżenie po zmianie ustawień. Interfejs musi pozostać responsywny i
+użyteczny na telefonie, tablecie i dużym ekranie.
+
 W przypadku użytkownika rozwijającego się przede wszystkim w koszykówce system powinien wspierać jednocześnie:
 
 - poprawę rzutu;

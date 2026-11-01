@@ -127,6 +127,7 @@ class ProfileUpdateRequest(BaseModel):
     training_experience: Optional[str] = Field(default=None, max_length=40)
     equipment: Optional[str] = Field(default=None, max_length=60)
     health_limitations: Optional[str] = Field(default=None, max_length=2000)
+    training_locations: Optional[list[dict[str, Any]]] = None
 
 
 class AssessmentRequest(BaseModel):

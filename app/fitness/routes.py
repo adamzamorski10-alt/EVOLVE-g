@@ -901,6 +901,10 @@ def update_profile(
                 db_user.set_list(json_field_map[field], cleaned)
                 changed = True
 
+        if payload.training_locations is not None:
+            db_user.set_list("training_locations_json", payload.training_locations)
+            changed = True
+
         if not changed:
             raise HTTPException(status_code=422, detail="Nie podano żadnego pola do aktualizacji")
 

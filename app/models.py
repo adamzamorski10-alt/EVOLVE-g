@@ -92,6 +92,7 @@ class UserDB(SQLModel, table=True):
     sport_specialization: Optional[str] = None         # np. "rzuty"
     sport_training_days_json: str = "[]"               # np. ["Środa", "Sobota"]
     training_availability_json: str = "{}"             # optional weekly day-level availability contract
+    training_locations_json: str = "[]"                # user-defined places with catalog equipment
     sport_training_schedule_json: str = "{}"          # optional reserved sports-session time windows
     # ─── Auth (dodane w v2.1) ───────────────────────────────────────────────
     hashed_password: Optional[str] = None             # None = konto Netlify Identity (stare)
@@ -193,6 +194,7 @@ class UserDB(SQLModel, table=True):
             "sport_specialization": self.sport_specialization,
             "sport_training_days": self.get_list("sport_training_days_json"),
             "training_availability": self.get_dict("training_availability_json"),
+            "training_locations": self.get_list("training_locations_json"),
             "sport_training_schedule": self.get_dict("sport_training_schedule_json"),
             "total_xp": self.total_xp,
             "level": _xp_to_level(self.total_xp),

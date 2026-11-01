@@ -22,6 +22,68 @@ from app.schemas import PlanGenerateRequest, PlanSwapRequest, TrainingAvailabili
 
 router = APIRouter(prefix="/app/plan", tags=["plan"])
 
+_EQUIPMENT_CATALOG = [
+    {"id": "dumbbells", "label": "Hantle"},
+    {"id": "bench", "label": "Ławka"},
+    {"id": "barbell", "label": "Sztanga"},
+    {"id": "kettlebell", "label": "Kettlebell"},
+    {"id": "resistance-band", "label": "Gumy oporowe"},
+    {"id": "pull-up-bar", "label": "Drążek"},
+    {"id": "cable", "label": "Wyciąg / brama"},
+    {"id": "cones", "label": "Pachołki"},
+    {"id": "basketball-hoop", "label": "Kosz do koszykówki"},
+    {"id": "basketball", "label": "Piłka do koszykówki"},
+    {"id": "mat", "label": "Mata"},
+]
+
+
+@router.get("/equipment-catalog", tags=["plan"])
+def get_equipment_catalog():
+    return {"items": _EQUIPMENT_CATALOG}
+
+
+@router.get("/locations", tags=["plan"])
+def get_training_locations(user: UserDB = Depends(get_current_user)):
+    return {"locations": user.get_list("training_locations_json")}
+
+
+@router.put("/locations", tags=["plan"])
+def set_training_locations(
+    payload: dict,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    locations = payload.get("locations")
+    if not isinstance(locations, list) or len(locations) > 20:
+        raise HTTPException(status_code=422, detail="locations musi być listą maksymalnie 20 miejsc.")
+    valid_ids = {item["id"] for item in _EQUIPMENT_CATALOG}
+    normalized = []
+    seen = set()
+    for location in locations:
+        if not isinstance(location, dict):
+            raise HTTPException(status_code=422, detail="Każde miejsce musi być obiektem.")
+        name = str(location.get("name") or "").strip()
+        equipment = location.get("equipment") or []
+        if not name or len(name) > 80:
+            raise HTTPException(status_code=422, detail="Nazwa miejsca jest wymagana i może mieć maksymalnie 80 znaków.")
+        if not isinstance(equipment, list) or any(str(item) not in valid_ids for item in equipment):
+            raise HTTPException(status_code=422, detail="Wybrano nieprawidłowy sprzęt.")
+        key = name.casefold()
+        if key in seen:
+            raise HTTPException(status_code=422, detail="Miejsca muszą mieć różne nazwy.")
+        seen.add(key)
+        normalized.append({
+            "id": str(location.get("id") or _fingerprint(name)[:12]),
+            "name": name,
+            "equipment": list(dict.fromkeys(str(item) for item in equipment)),
+        })
+    user.set_list("training_locations_json", normalized)
+    user.updated_at = datetime.now()
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return {"status": "ok", "locations": user.get_list("training_locations_json")}
+
 
 @router.get("/availability", tags=["plan"])
 def get_training_availability(user: UserDB = Depends(get_current_user)):
@@ -83,6 +145,7 @@ def _profile_inputs(user: UserDB) -> dict:
         "sport_specialization": user.sport_specialization,
         "sport_training_days": user.get_list("sport_training_days_json"),
         "training_availability": user.get_dict("training_availability_json"),
+        "training_locations": user.get_list("training_locations_json"),
         "sport_training_schedule": user.get_dict("sport_training_schedule_json"),
         "basketball_position": user.basketball_position,
         "training_experience": user.training_experience,
