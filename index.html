@@ -4795,64 +4795,27 @@
             </div>
           </div>
 
-          <!-- Gdzie trenujesz (Lokalizacja) -->
-          <div class="glass rounded-3xl p-6" style="border:1px solid rgba(255,255,255,0.08);">
-            <div class="flex items-center justify-between mb-4">
+          <!-- Twoje Miejsca Treningowe & Sprzęt (Zarządzanie) -->
+          <div class="glass rounded-3xl overflow-hidden" style="border:1px solid rgba(0,229,255,0.2);">
+            <div class="px-6 py-5 flex items-center justify-between flex-wrap gap-4"
+              style="background:linear-gradient(135deg,rgba(0,229,255,0.06),rgba(124,58,237,0.08));border-bottom:1px solid rgba(255,255,255,0.07);">
               <div>
-                <h4 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <span>📍</span> Gdzie głównie trenujesz?
+                <h4 class="text-base font-bold text-white flex items-center gap-2" style="font-family:'Syne',sans-serif;">
+                  <span>📍</span> Twoje Miejsca Treningowe & Sprzęt
                 </h4>
-                <p class="text-xs text-gray-500 mt-0.5">Generator planu dostosuje ćwiczenia do Twojego środowiska</p>
+                <p class="text-xs text-gray-400 mt-1">
+                  Zdefiniuj bazy treningowe (Siłownia, Dom, Boisko na dworze, Hala) i dostępny w nich sprzęt. Podczas planowania przypiszesz wybrane miejsce do poszczególnych dni!
+                </p>
               </div>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="trainingLocationSelector">
-              <label class="cursor-pointer">
-                <input type="radio" name="trainingLocation" value="gym" class="sr-only peer" checked onchange="updateLocationPreference('gym')">
-                <div class="p-4 rounded-2xl border transition-all duration-300 peer-checked:border-cyan-400 peer-checked:bg-cyan-500/10 hover:border-white/20"
-                  style="background:rgba(255,255,255,0.03);border-color:rgba(255,255,255,0.08);">
-                  <div class="text-2xl mb-1">🏢</div>
-                  <div class="text-sm font-bold text-white">Siłownia komercyjna</div>
-                  <div class="text-xs text-gray-400 mt-1">Pełny dostęp do maszyn, wyciągów, wolnych ciężarów.</div>
-                </div>
-              </label>
-              <label class="cursor-pointer">
-                <input type="radio" name="trainingLocation" value="home" class="sr-only peer" onchange="updateLocationPreference('home')">
-                <div class="p-4 rounded-2xl border transition-all duration-300 peer-checked:border-cyan-400 peer-checked:bg-cyan-500/10 hover:border-white/20"
-                  style="background:rgba(255,255,255,0.03);border-color:rgba(255,255,255,0.08);">
-                  <div class="text-2xl mb-1">🏠</div>
-                  <div class="text-sm font-bold text-white">Trening w domu</div>
-                  <div class="text-xs text-gray-400 mt-1">Tylko sprzęt zaznaczony poniżej lub kalistenika.</div>
-                </div>
-              </label>
-              <label class="cursor-pointer">
-                <input type="radio" name="trainingLocation" value="hybrid" class="sr-only peer" onchange="updateLocationPreference('hybrid')">
-                <div class="p-4 rounded-2xl border transition-all duration-300 peer-checked:border-cyan-400 peer-checked:bg-cyan-500/10 hover:border-white/20"
-                  style="background:rgba(255,255,255,0.03);border-color:rgba(255,255,255,0.08);">
-                  <div class="text-2xl mb-1">🔄</div>
-                  <div class="text-sm font-bold text-white">Hybryda (Dom + Siłownia)</div>
-                  <div class="text-xs text-gray-400 mt-1">Elastyczny dobór w zależności od dnia.</div>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <!-- Sprzęt domowy -->
-          <div class="glass rounded-3xl overflow-hidden" style="border:1px solid rgba(0,229,255,0.15);">
-            <div class="px-6 py-4 flex items-center justify-between"
-              style="background:rgba(0,229,255,0.03);border-bottom:1px solid rgba(255,255,255,0.07);">
-              <div>
-                <h4 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <span>🏋️</span> Sprzęt treningowy
-                </h4>
-                <p class="text-xs text-gray-400 mt-0.5">Zaznacz sprzęt który masz do dyspozycji (kluczowe przy treningu domowym):</p>
-              </div>
-              <span class="text-xs px-2.5 py-1 rounded-full font-medium"
-                style="background:rgba(0,229,255,0.1);color:#00e5ff;border:1px solid rgba(0,229,255,0.25);">
-                Wielokrotny wybór
-              </span>
+              <button type="button" onclick="openAddLocationModal()"
+                class="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 hover:brightness-110"
+                style="background:linear-gradient(135deg,rgba(0,229,255,0.25),rgba(124,58,237,0.3));border:1px solid rgba(0,229,255,0.5);color:#00e5ff;box-shadow:0 0 14px rgba(0,229,255,0.15);">
+                <span>➕</span> Dodaj nowe miejsce
+              </button>
             </div>
             <div class="p-6">
-              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5" id="homeEquipGrid">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="trainingLocationsCardsGrid">
+                <!-- Generowane dynamicznie przez renderTrainingLocationsCards() -->
               </div>
             </div>
           </div>
@@ -5608,6 +5571,77 @@
             <button onclick="confirmAddToPlan()" class="flex-1 btn-neon py-2.5 rounded-xl font-bold text-sm">✅
               Dodaj</button>
             <button onclick="closeAddToPlanModal()" class="flex-1 btn-ghost py-2.5 rounded-xl text-sm">Anuluj</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- MODAL: Edytor Miejsca Treningowego ---- -->
+      <div id="locationEditorModal" class="hidden fixed inset-0 z-[120] flex items-center justify-center p-4 modal-backdrop" style="background:rgba(5,7,15,0.85);backdrop-filter:blur(8px);">
+        <div class="glass rounded-3xl w-full max-w-2xl p-6 sm:p-8 space-y-5 max-h-[90vh] overflow-y-auto" style="border:1px solid rgba(0,229,255,0.3);box-shadow:0 0 35px rgba(0,229,255,0.15);">
+          <div class="flex justify-between items-center pb-3 border-b border-white/10">
+            <div class="flex items-center gap-3">
+              <span id="locModalIconBadge" class="text-3xl p-2 rounded-2xl bg-cyan-500/10 border border-cyan-500/20">📍</span>
+              <div>
+                <h4 id="locModalTitle" class="text-xl font-bold text-white" style="font-family:'Syne',sans-serif;">Dodaj Miejsce Treningowe</h4>
+                <p class="text-xs text-gray-400">Skonfiguruj nazwę, ikonę oraz dostępny w tej lokalizacji sprzęt</p>
+              </div>
+            </div>
+            <button type="button" aria-label="Zamknij" onclick="closeLocationModal()" class="text-gray-400 hover:text-white text-2xl">✕</button>
+          </div>
+
+          <input type="hidden" id="locEditorId" value="">
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="sm:col-span-2 space-y-1.5">
+              <label class="text-xs font-semibold text-gray-300">Nazwa miejsca:</label>
+              <input type="text" id="locEditorName" placeholder="np. Siłownia, Dom, Boisko na dworze, Hala..."
+                class="w-full px-4 py-2.5 rounded-xl text-sm text-white outline-none focus:border-cyan-400"
+                style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);">
+            </div>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-gray-300">Ikona:</label>
+              <select id="locEditorIcon" class="w-full px-4 py-2.5 rounded-xl text-sm text-white outline-none focus:border-cyan-400"
+                style="background:rgba(15,23,42,0.95);border:1px solid rgba(255,255,255,0.15);">
+                <option value="🏢">🏢 Siłownia</option>
+                <option value="🏠">🏠 Dom</option>
+                <option value="🏀">🏀 Boisko</option>
+                <option value="🏟️">🏟️ Hala / Sala</option>
+                <option value="🏋️‍♂️">🏋️‍♂️ Klub fitness</option>
+                <option value="🌳">🌳 Plener / Park</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Pasek narzędzi sprzętu: Wybierz wszystkie / Odznacz -->
+          <div class="flex items-center justify-between pt-2">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">Dostępny Sprzęt w tej lokalizacji</span>
+              <p class="text-[11px] text-gray-400">Treningi zaplanowane w tym miejscu dobiorą tylko zaznaczony sprzęt:</p>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" onclick="toggleAllLocationEquip(true)"
+                class="px-2.5 py-1 text-[11px] font-bold rounded-lg text-cyan-300 bg-cyan-500/15 border border-cyan-500/30 hover:bg-cyan-500/25 transition">
+                ✓ Wybierz wszystkie
+              </button>
+              <button type="button" onclick="toggleAllLocationEquip(false)"
+                class="px-2.5 py-1 text-[11px] font-bold rounded-lg text-gray-400 bg-white/5 border border-white/10 hover:bg-white/10 transition">
+                ✕ Wyczyść
+              </button>
+            </div>
+          </div>
+
+          <!-- Siatka sprzętu -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-[300px] overflow-y-auto pr-1" id="locEditorEquipGrid">
+            <!-- Wypełniane dynamicznie przez renderLocationEditorEquipCheckboxes() -->
+          </div>
+
+          <div class="flex gap-3 pt-3 border-t border-white/10">
+            <button type="button" onclick="saveLocationModal()" class="btn-neon flex-1 py-3 rounded-xl font-bold text-sm">
+              💾 Zapisz miejsce
+            </button>
+            <button type="button" onclick="closeLocationModal()" class="btn-ghost px-5 py-3 rounded-xl text-sm">
+              Anuluj
+            </button>
           </div>
         </div>
       </div>
@@ -9062,24 +9096,97 @@
       return result;
     }
 
+    const KNOWN_EQUIPMENT_TAGS = [
+      'sztanga', 'sztanga-lamana', 'sztanga_lamana', 'gryf', 'barbell',
+      'hantle', 'hantel', 'dumbbell', 'dumbbells',
+      'kettlebell', 'kettle',
+      'drazek', 'drążek', 'pullup', 'pull-up',
+      'porecze', 'poręcze', 'dips',
+      'wyciag', 'wyciąg', 'wyciag-dolny', 'brama', 'cable',
+      'suwnica', 'leg-press',
+      'smith', 'maszyna-smitha',
+      'maszyna', 'maszyny', 'hammer',
+      'lawka', 'ławka', 'bench',
+      'lawka-rzymska', 'ławka-rzymska',
+      'gumy', 'gumy-oporowe', 'guma', 'bands',
+      'mata', 'mat',
+      'skakanka', 'jump-rope',
+      'pacholki', 'pachołki', 'cones',
+      'drabinka', 'agility-ladder',
+      'kosz', 'tablica', 'hoop', 'basket',
+      'boisko-koszykowka', 'boisko', 'court',
+      'pilka-koszykarska', 'pilka', 'piłka', 'basketball',
+      'skrzynia-plyo', 'box', 'pilka-lekarska'
+    ];
+
+    function isEquipmentSatisfied(req, availableEquip) {
+      if (req === 'mata' || req === 'mat') return true;
+      if (!availableEquip || availableEquip.length === 0) return false;
+      const isBarbell = ['sztanga', 'sztanga-lamana', 'sztanga_lamana', 'gryf', 'barbell'].includes(req);
+      const isDumbbell = ['hantle', 'hantel', 'dumbbell', 'dumbbells'].includes(req);
+      const isPullup = ['drazek', 'drążek', 'pullup', 'pull-up'].includes(req);
+      const isDip = ['porecze', 'poręcze', 'dips'].includes(req);
+      const isCable = ['wyciag', 'wyciąg', 'wyciag-dolny', 'brama', 'cable'].includes(req);
+      const isBench = ['lawka', 'ławka', 'bench'].includes(req);
+      const isMachine = ['maszyna', 'maszyny', 'hammer', 'smith', 'suwnica'].includes(req);
+      const isBasket = ['kosz', 'tablica', 'hoop', 'basket'].includes(req);
+      const isCourt = ['boisko-koszykowka', 'boisko', 'court', 'hala-parkiet'].includes(req);
+      const isBall = ['pilka-koszykarska', 'pilka', 'piłka', 'basketball'].includes(req);
+
+      return availableEquip.some(eq => {
+        const e = String(eq).toLowerCase().trim();
+        if (e === req) return true;
+        if (isBarbell && (e.includes('sztang') || e.includes('barbell') || e === 'gym' || e === 'silownia' || e === 'siłownia')) return true;
+        if (isDumbbell && (e.includes('hantl') || e.includes('dumbbell') || e === 'gym' || e === 'silownia' || e === 'siłownia')) return true;
+        if (isPullup && (e.includes('drazek') || e.includes('drążek') || e.includes('pull') || e === 'gym' || e === 'silownia' || e === 'siłownia')) return true;
+        if (isDip && (e.includes('porecz') || e.includes('poręcz') || e.includes('dip') || e === 'gym' || e === 'silownia' || e === 'siłownia')) return true;
+        if (isCable && (e.includes('wyciag') || e.includes('wyciąg') || e.includes('bram') || e === 'gym' || e === 'silownia' || e === 'siłownia')) return true;
+        if (isBench && (e.includes('lawk') || e.includes('ławk') || e.includes('bench') || e === 'gym' || e === 'silownia' || e === 'siłownia')) return true;
+        if (isMachine && (e.includes('maszyn') || e.includes('smith') || e.includes('suwnic') || e === 'gym' || e === 'silownia' || e === 'siłownia')) return true;
+        if (isBasket && (e.includes('kosz') || e.includes('basket') || e.includes('tablic'))) return true;
+        if (isCourt && (e.includes('boisk') || e.includes('court') || e.includes('hal') || e.includes('parkiet'))) return true;
+        if (isBall && (e.includes('pilk') || e.includes('piłk') || e.includes('ball'))) return true;
+        return e.includes(req) || req.includes(e);
+      });
+    }
+
+    function isExerciseEquipmentAvailable(ex, availableEquip) {
+      if (!availableEquip || availableEquip.length === 0) return true;
+      if (availableEquip.some(e => e === 'gym' || e === 'silownia' || e === 'siłownia')) return true;
+
+      const tags = (ex.tags || []).map(t => String(t).toLowerCase().trim());
+      const reqEquip = tags.filter(t => KNOWN_EQUIPMENT_TAGS.includes(t));
+      if (reqEquip.length === 0) return true; // kalistenika/masa ciała lub brak specjalistycznego sprzętu
+
+      return reqEquip.every(req => isEquipmentSatisfied(req, availableEquip));
+    }
+    window.KNOWN_EQUIPMENT_TAGS = KNOWN_EQUIPMENT_TAGS;
+    window.isEquipmentSatisfied = isEquipmentSatisfied;
+    window.isExerciseEquipmentAvailable = isExerciseEquipmentAvailable;
+
     function generateExercisesForDay(muscleGroups, equipmentAvailable, exclusions, count, profile) {
       if (!muscleGroups || muscleGroups.length === 0) return [];
       const result = [];
       const used = new Set();
 
-      const filterPool = (group) => (EXERCISE_DB[group] || []).filter(e => {
-        const tags = e.tags || [];
-        const hidden = (exclusions || []).some(ex => tags.some(t => t.includes(ex)));
-        const equipOk = tags.length === 0 || tags.every(t => {
-          if (t === 'mata' || t === 'lawka') return true;
-          return (equipmentAvailable || []).some(eq => eq === t || t.includes(eq) || eq.includes(t));
+      const filterPool = (group) => {
+        const db = window.EXERCISE_DB || (typeof EXERCISE_DB !== 'undefined' ? EXERCISE_DB : {});
+        return (db[group] || []).filter(e => {
+          const tags = e.tags || [];
+          const isExcluded = (exclusions || []).some(ex => {
+            const exNorm = String(ex).toLowerCase().trim();
+            return tags.some(t => String(t).toLowerCase().includes(exNorm)) ||
+                   String(e.name || '').toLowerCase().includes(exNorm);
+          });
+          if (isExcluded) return false;
+          return isExerciseEquipmentAvailable(e, equipmentAvailable);
         });
-        return !hidden && equipOk;
-      });
+      };
 
       // Build filtered pools for requested groups + fallback all groups
       const pools = {};
-      for (const group of Object.keys(EXERCISE_DB)) {
+      const dbAll = window.EXERCISE_DB || (typeof EXERCISE_DB !== 'undefined' ? EXERCISE_DB : {});
+      for (const group of Object.keys(dbAll)) {
         pools[group] = filterPool(group);
       }
 
@@ -9092,12 +9199,12 @@
         }
       }
 
-      // Pass 3+: fall back to ANY remaining group to fill up to count
+      // Pass 3+: fall back to ANY remaining group to fill up to count (zawsze respektując sprzęt!)
       if (result.length < count) {
-        const fallbackGroups = Object.keys(EXERCISE_DB).filter(g => !muscleGroups.includes(g));
+        const fallbackGroups = Object.keys(dbAll).filter(g => !muscleGroups.includes(g));
         for (const group of fallbackGroups) {
           if (result.length >= count) break;
-          const candidate = (pools[group] || []).find(e => !used.has(e.name));
+          const candidate = (pools[group] || []).find(e => !used.has(e.name) && isExerciseEquipmentAvailable(e, equipmentAvailable));
           if (candidate) { used.add(candidate.name); result.push({ ...candidate, id: 'e' + result.length }); }
         }
         // Final pass: allow repeats from primary groups if still short
@@ -9105,8 +9212,8 @@
         while (result.length < count && safetyPass < 5) {
           for (const group of muscleGroups) {
             if (result.length >= count) break;
-            const candidate = (pools[group] || []).find(e => !used.has(e.name));
-            if (candidate) { used.add(candidate.name); result.push({ ...candidate, id: 'e' + result.length }); }
+            const candidate = (pools[group] || []).find(e => isExerciseEquipmentAvailable(e, equipmentAvailable));
+            if (candidate) { result.push({ ...candidate, id: 'e' + result.length }); }
           }
           safetyPass++;
         }
@@ -10699,8 +10806,11 @@
         const badgeLabel = isDrill ? (category || 'Drill') : (muscle || 'Ćwiczenie');
         const icon = isDrill ? '🏀' : '💪';
 
-        // ── Pobierz how_to: z obiektu lub (dla drilli) z atlasu SPORT_DRILLS ─
+        // ── Pobierz how_to: z obiektu, bazy EXERCISE_HOW_TO lub (dla drilli) z atlasu SPORT_DRILLS ─
         let howToText = (ex.how_to || '').trim();
+        if (!howToText && typeof window.findExerciseHowTo === 'function') {
+          howToText = window.findExerciseHowTo(ex.name);
+        }
         if (!howToText && isDrill && typeof window.findDrillDescriptionByName === 'function') {
           const _fd = window.findDrillDescriptionByName(ex.name);
           if (_fd) {
@@ -10881,14 +10991,33 @@
     // ── Exercise / Drill how-to accordion ────────────────────────────────────
 
     // ── Exercise Detail Modal ─────────────────────────────────────────────────
-    function openExerciseDetailModal(btn) {
-      const name    = btn.getAttribute('data-name')     || '';
-      const isDrill = btn.getAttribute('data-is-drill') === '1';
-      let   howTo   = btn.getAttribute('data-how-to')   || '';
-      const notes   = btn.getAttribute('data-notes')    || '';
+    function openExerciseDetailModal(btnOrEx) {
+      let name    = '';
+      let isDrill = false;
+      let howTo   = '';
+      let notes   = '';
 
-      // ── Uzupełnij how_to z atlasu drilli gdy brakuje opisu ────────────────
-      if (!howTo.trim() && isDrill && typeof window.findDrillDescriptionByName === 'function') {
+      if (btnOrEx && typeof btnOrEx.getAttribute === 'function') {
+        name    = btnOrEx.getAttribute('data-name')     || '';
+        isDrill = btnOrEx.getAttribute('data-is-drill') === '1';
+        howTo   = btnOrEx.getAttribute('data-how-to')   || '';
+        notes   = btnOrEx.getAttribute('data-notes')    || '';
+      } else if (btnOrEx && typeof btnOrEx === 'object') {
+        name    = btnOrEx.name || btnOrEx.title || '';
+        isDrill = !!(btnOrEx.isDrill || btnOrEx._sport || btnOrEx._source === 'SPORT_DRILLS');
+        howTo   = btnOrEx.how_to || btnOrEx.execution || btnOrEx.instructions || '';
+        notes   = btnOrEx.notes || btnOrEx.desc || btnOrEx.description || '';
+      } else if (typeof btnOrEx === 'string') {
+        name = btnOrEx;
+      }
+
+      // ── Uzupełnij how_to z bazy EXERCISE_HOW_TO gdy brakuje opisu ────────────────
+      if (!howTo.trim() && typeof window.findExerciseHowTo === 'function') {
+        howTo = window.findExerciseHowTo(name);
+      }
+
+      // ── Uzupełnij how_to z atlasu drilli gdy nadal brakuje opisu ────────────────
+      if (!howTo.trim() && (isDrill || typeof window.findDrillDescriptionByName === 'function')) {
         const found = window.findDrillDescriptionByName(name);
         if (found) {
           const parts = [];
@@ -10944,6 +11073,13 @@
     function _exDetailEscHandler(e) {
       if (e.key === 'Escape') closeExerciseDetailModal();
     }
+
+    // Expose to window so Atlas Ćwiczeń and workout views can call directly
+    window.openExerciseDetailModal = openExerciseDetailModal;
+    window.closeExerciseDetailModal = closeExerciseDetailModal;
+    window.showExerciseInfo = function (ex) {
+      openExerciseDetailModal(ex);
+    };
     // ─────────────────────────────────────────────────────────────────────────
     function toggleExHowTo(wrapEl) {
       if (!wrapEl) return;
@@ -12457,13 +12593,14 @@
         exCount: 5,
         drillCount: 4,
         pinned: [],
+        locations: [],
       }])),
     };
 
     let _pbDragSource = null;
 
     function _pbCloneEmptyDay() {
-      return { type: 'rest', muscles: [], sport: null, drillCats: [], exCount: 5, drillCount: 4, pinned: [] };
+      return { type: 'rest', muscles: [], sport: null, drillCats: [], exCount: 5, drillCount: 4, pinned: [], locations: [] };
     }
 
     function _pbLoadFromProfile(p) {
@@ -12473,6 +12610,10 @@
 
       const sourcePlan = p?._planBuilderConfig || p?.trainingPlan || {};
       PB_DAYS.forEach(day => {
+        const savedConfig = p?._planBuilderConfig?.[day];
+        if (Array.isArray(savedConfig?.locations)) {
+          _pb.days[day].locations = [...savedConfig.locations];
+        }
         const dayItems = Array.isArray(sourcePlan[day]) ? sourcePlan[day] : [];
         if (dayItems.length === 0) return;
 
@@ -12553,6 +12694,7 @@
       equipment: 'gym',
       sport: 'basketball',
       sportFocus: ['jump', 'speed'],
+      dayLocations: {},
       activeMuscle: 'klatka',
       musclePriorities: {
         klatka: 8,
@@ -12634,6 +12776,7 @@
       }
 
       renderSmartDaysPicker();
+      renderSmartDayLocationRows();
       renderSmartDurationPicker();
       renderSmartSportButtons();
       renderSmartSportFocus();
@@ -12683,6 +12826,7 @@
       const order = ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Niedz'];
       _smartPlanState.days.sort((a, b) => order.indexOf(a) - order.indexOf(b));
       renderSmartDaysPicker();
+      renderSmartDayLocationRows();
       generateSmartPlan(false);
     }
 
@@ -12690,6 +12834,47 @@
       _smartPlanState.isReset = false;
       _smartPlanState.days = days.slice();
       renderSmartDaysPicker();
+      renderSmartDayLocationRows();
+      generateSmartPlan(false);
+    }
+
+    function renderSmartDayLocationRows() {
+      const area = document.getElementById('smartDayConfigArea');
+      const container = document.getElementById('smartDayLocationRows');
+      if (!area || !container) return;
+      const locations = getProfileLocations();
+      area.style.display = _smartPlanState.days.length ? 'block' : 'none';
+      if (!locations.length) {
+        container.innerHTML = '<p class="text-xs text-yellow-300">Dodaj miejsce treningu w profilu, aby przypisać sprzęt do konkretnego dnia.</p>';
+        return;
+      }
+      container.innerHTML = _smartPlanState.days.map(day => {
+        const selected = new Set(_smartPlanState.dayLocations[day] || []);
+        return `<div class="rounded-xl p-3" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.08);">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-white">${PB_DAY_NAMES[day] || day}</span>
+            <span class="text-[10px] text-cyan-300">${selected.size} miejsc</span>
+          </div>
+          <div class="flex flex-wrap gap-2">${locations.map(location => {
+            const id = String(location.id || location.name);
+            const on = selected.has(id);
+            return `<label class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] cursor-pointer"
+              style="background:${on ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.04)'};
+              border:1px solid ${on ? 'rgba(0,229,255,0.4)' : 'rgba(255,255,255,0.08)'};
+              color:${on ? '#00e5ff' : '#94a3b8'};">
+              <input type="checkbox" ${on ? 'checked' : ''} onchange="toggleSmartDayLocation('${day}',this.value,this.checked)" value="${id}">
+              ${location.icon || '📍'} ${location.name}
+            </label>`;
+          }).join('')}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function toggleSmartDayLocation(day, locationId, enabled) {
+      const selected = new Set(_smartPlanState.dayLocations[day] || []);
+      if (enabled) selected.add(locationId); else selected.delete(locationId);
+      _smartPlanState.dayLocations[day] = [...selected];
+      renderSmartDayLocationRows();
       generateSmartPlan(false);
     }
 
@@ -13024,6 +13209,12 @@
 
       days.forEach(day => {
         const cfg = planConfig[day] || { type: 'strength', muscles: ['klatka', 'plecy'] };
+        const selectedLocations = (_smartPlanState.dayLocations[day] || [])
+          .map(id => getProfileLocations().find(location => String(location.id || location.name) === String(id)))
+          .filter(Boolean);
+        const dayEquip = selectedLocations.length
+          ? [...new Set(selectedLocations.flatMap(location => location.equipment || []))]
+          : equip;
 
         if (cfg.type === 'sport' && cfg.sport) {
           const sd = window.SPORT_DRILLS || {};
@@ -13054,7 +13245,7 @@
 
           let exercises = [];
           if (typeof generateExercisesForDay === 'function') {
-            exercises = generateExercisesForDay(muscleTargets, equip, excl, exCount, { difficulty: profile?.difficulty });
+            exercises = generateExercisesForDay(muscleTargets, dayEquip, excl, exCount, { difficulty: profile?.difficulty });
           }
 
           if (!exercises || exercises.length === 0) {
@@ -13062,7 +13253,7 @@
             const db = window.EXERCISE_DB || {};
             muscleTargets.forEach(m => {
               if (db[m] && db[m].length > 0) {
-                exercises.push(...db[m].slice(0, 2));
+                exercises.push(...db[m].filter(ex => isExerciseEquipmentAvailable(ex, dayEquip)).slice(0, 2));
               }
             });
           }
@@ -13079,6 +13270,10 @@
             };
           });
         }
+        fullPlan[day]._meta = {
+          locations: selectedLocations.map(location => ({ id: location.id, name: location.name, equipment: location.equipment || [] })),
+          equipment: dayEquip
+        };
       });
 
       _smartPlanState.generatedPlan = fullPlan;
@@ -13100,7 +13295,8 @@
       }
 
       container.innerHTML = days.map(d => {
-        const exercises = plan[d] || [];
+        const exercises = (plan[d] || []).filter(item => !item?._meta);
+        const dayMeta = (plan[d] || [])._meta || {};
         const isSport = exercises.some(e => e.isDrill || e._sport);
         const icon = isSport ? '🏀' : '💪';
         const typeLabel = isSport ? 'Sesja Sportowa / Drills' : 'Trening Siłowy';
@@ -13127,6 +13323,7 @@
                   </div>`;
               }).join('')}
             </div>
+            ${dayMeta.locations?.length ? `<div class="mt-2 text-[10px] text-gray-500">📍 ${dayMeta.locations.map(location => location.name).join(', ')}</div>` : ''}
           </div>`;
       }).join('');
     }
@@ -13879,9 +14076,40 @@
       </div>
     </div>
 
+    ${_renderPBLocationPicker(day)}
     <div id="pbDayTypeContent_${day}">${_renderDayTypeContent(day)}</div>
     ${_renderPinnedItems(day)}
   `;
+    }
+
+    function _renderPBLocationPicker(day) {
+      const cfg = _pb.days[day];
+      const locations = getProfileLocations();
+      if (!locations.length) {
+        return '<div class="mb-5 p-3 rounded-xl text-xs text-gray-500" style="border:1px solid rgba(255,255,255,0.07);">Dodaj miejsca treningowe w profilu, aby ograniczyć ćwiczenia do dostępnego sprzętu.</div>';
+      }
+      const selected = new Set(cfg.locations || []);
+      return `<div class="mb-5">
+        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Miejsce i sprzęt tego dnia</p>
+        <div class="flex flex-wrap gap-2">${locations.map(location => {
+          const id = String(location.id || location.name);
+          const on = selected.has(id);
+          return `<label class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] cursor-pointer"
+            style="background:${on ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.04)'};
+            border:1px solid ${on ? 'rgba(0,229,255,0.4)' : 'rgba(255,255,255,0.08)'};
+            color:${on ? '#00e5ff' : '#94a3b8'};">
+            <input type="checkbox" value="${id}" ${on ? 'checked' : ''} onchange="togglePBLocation('${day}',this.value,this.checked)">
+            ${location.icon || '📍'} ${location.name}
+          </label>`;
+        }).join('')}</div>
+      </div>`;
+    }
+
+    function togglePBLocation(day, locationId, enabled) {
+      const selected = new Set(_pb.days[day].locations || []);
+      if (enabled) selected.add(locationId); else selected.delete(locationId);
+      _pb.days[day].locations = [...selected];
+      _renderDayConfig(day);
     }
 
     function toggleDayCopyMenu(day) {
@@ -14130,6 +14358,11 @@
       <div class="px-4 py-3 flex items-center justify-between"
         style="background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.06);">
         <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">➕ Dodaj konkretne ćwiczenie</p>
+        <button type="button" onclick="autoSelectPBExercises('${day}')"
+          class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all"
+          style="background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.3);color:#00e5ff;">
+          ✨ Wybierz automatycznie
+        </button>
       </div>
       <div class="p-4 space-y-3">
         <input type="text" id="exSearch_${day}"
@@ -14143,6 +14376,35 @@
           style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);"></div>
       </div>
     </div>`;
+    }
+
+    function autoSelectPBExercises(day) {
+      const cfg = _pb.days[day];
+      if (!cfg || cfg.type !== 'strength') return;
+      const locations = (cfg.locations || [])
+        .map(id => getProfileLocations().find(location => String(location.id || location.name) === String(id)))
+        .filter(Boolean);
+      const equipment = locations.length
+        ? [...new Set(locations.flatMap(location => location.equipment || []))]
+        : (getCurrentProfile()?.equipment || []);
+      const exclusions = getCurrentProfile()?.exclusions || [];
+      const count = Math.max(1, cfg.exCount || 5);
+      const generated = generateExercisesForDay(
+        cfg.muscles?.length ? cfg.muscles : ['klatka', 'plecy'],
+        equipment,
+        exclusions,
+        count,
+        { difficulty: getCurrentProfile()?.difficulty, exactCount: count }
+      );
+      const existing = new Set((cfg.pinned || []).map(item => item.item?.name));
+      generated.forEach(item => {
+        if (!existing.has(item.name) && cfg.pinned.length < count) {
+          cfg.pinned.push({ type: 'exercise', item: { ...item, sets: item.sets || 3, reps: item.reps || 10, weight: item.weight || 0 } });
+          existing.add(item.name);
+        }
+      });
+      _renderDayConfig(day);
+      _showPBToast(`✨ Dobierano ${Math.min(generated.length, count)} ćwiczeń dopasowanych do dnia`);
     }
 
     function _renderDrillSearch(day) {
@@ -14350,6 +14612,12 @@
 
       PB_DAYS.forEach(day => {
         const cfg = _pb.days[day];
+        const selectedLocations = (cfg.locations || [])
+          .map(id => getProfileLocations().find(location => String(location.id || location.name) === String(id)))
+          .filter(Boolean);
+        const dayEquip = selectedLocations.length
+          ? [...new Set(selectedLocations.flatMap(location => location.equipment || []))]
+          : equip;
         if (cfg.type === 'rest') {
           newPlan[day] = [];
           return;
@@ -14384,7 +14652,7 @@
           if (needed > 0 && typeof generateExercisesForDay === 'function') {
             // Generuj z flagą dokładnej liczby — nie mniej, nie więcej
             autoExercises = generateExercisesForDay(
-              muscles, equip, excl, needed,
+              muscles, dayEquip, excl, needed,
               { difficulty: profile?.difficulty, exactCount: needed }
             );
             // Jeśli funkcja zwróciła za mało — uzupełnij z innych grup
@@ -15560,6 +15828,10 @@
       if (typeof handleMealsSliderInput === 'function') {
         handleMealsSliderInput(_prefsState.mealsPerDay);
       }
+      if (typeof renderTrainingLocationsCards === 'function') {
+        renderTrainingLocationsCards();
+        syncTrainingLocationsFromApi();
+      }
       switchPrefsTab('training');
     }
 
@@ -15784,6 +16056,277 @@
       prefs.trainingLocation = loc;
       localStorage.setItem('fitai_prefs', JSON.stringify(prefs));
     }
+
+    // ══════════════════════════════════════════════════════════════════
+    // TRAINING LOCATIONS MANAGER
+    // ══════════════════════════════════════════════════════════════════
+
+    const DEFAULT_LOCATIONS = [
+      {
+        id: 'silownia',
+        name: 'Siłownia',
+        icon: '🏢',
+        equipment: ['sztanga', 'hantle', 'kettlebell', 'maszyna', 'wyciag', 'suwnica', 'lawka', 'drazek', 'porecze', 'gumy', 'mata', 'skakanka', 'smith'],
+      },
+      {
+        id: 'dom',
+        name: 'Dom',
+        icon: '🏠',
+        equipment: ['hantle', 'lawka', 'mata', 'drazek', 'gumy', 'skakanka'],
+      },
+      {
+        id: 'boisko',
+        name: 'Boisko na dworze',
+        icon: '🏀',
+        equipment: ['boisko-koszykowka', 'kosz', 'pilka-koszykarska'],
+      },
+      {
+        id: 'hala',
+        name: 'Hala',
+        icon: '🏟️',
+        equipment: ['hala-parkiet', 'boisko-koszykowka', 'kosz', 'pilka-koszykarska', 'pacholki', 'drabinka'],
+      },
+    ];
+
+    const LOCATION_EQUIP_OPTIONS = [
+      // Siła / Fitness
+      { k: 'sztanga',           l: 'Sztanga',             e: '⚡', group: 'Siła' },
+      { k: 'hantle',            l: 'Hantle',              e: '🏋️', group: 'Siła' },
+      { k: 'kettlebell',        l: 'Kettlebell',          e: '🔵', group: 'Siła' },
+      { k: 'maszyna',           l: 'Maszyny (ogólnie)',   e: '⚙️', group: 'Siła' },
+      { k: 'wyciag',            l: 'Wyciąg / Brama kablowa', e: '🔗', group: 'Siła' },
+      { k: 'suwnica',           l: 'Suwnica / Leg Press', e: '🦵', group: 'Siła' },
+      { k: 'smith',             l: 'Maszyna Smitha',      e: '🏗️', group: 'Siła' },
+      { k: 'lawka',             l: 'Ławka',               e: '🛋️', group: 'Siła' },
+      { k: 'lawka-rzymska',     l: 'Ławka Rzymska',       e: '📐', group: 'Siła' },
+      { k: 'drazek',            l: 'Drążek',              e: '🔝', group: 'Siła' },
+      { k: 'porecze',           l: 'Poręcze / Dip bars',  e: '🤸', group: 'Siła' },
+      { k: 'gumy',              l: 'Gumy oporowe',        e: '🟢', group: 'Siła' },
+      // Cardio / Mobilność
+      { k: 'mata',              l: 'Mata',                e: '🟫', group: 'Cardio / Mobilność' },
+      { k: 'skakanka',          l: 'Skakanka',            e: '🪢', group: 'Cardio / Mobilność' },
+      { k: 'TRX',               l: 'TRX / Taśmy',         e: '🔗', group: 'Cardio / Mobilność' },
+      // Koszykówka / Sport
+      { k: 'boisko-koszykowka', l: 'Boisko do kosza',     e: '🏟️', group: 'Sport' },
+      { k: 'hala-parkiet',      l: 'Hala / Parkiet',      e: '🏠', group: 'Sport' },
+      { k: 'kosz',              l: 'Kosz / Tablica',       e: '🏀', group: 'Sport' },
+      { k: 'pilka-koszykarska', l: 'Piłka koszykarska',   e: '🟠', group: 'Sport' },
+      { k: 'pacholki',          l: 'Pachołki / Tyczki',   e: '🔶', group: 'Sport' },
+      { k: 'drabinka',          l: 'Drabinka szybkości',  e: '🪜', group: 'Sport' },
+      { k: 'skrzynia-plyo',     l: 'Skrzynia plyometryczna', e: '📦', group: 'Sport' },
+      { k: 'pilka-lekarska',    l: 'Piłka lekarska',      e: '⚫', group: 'Sport' },
+    ];
+
+    function _loadTrainingLocations() {
+      const saved = localStorage.getItem('fitai_training_locations');
+      if (saved) {
+        try { return JSON.parse(saved); } catch(e) {}
+      }
+      // Inicjalizuj domyślne lokalizacje
+      localStorage.setItem('fitai_training_locations', JSON.stringify(DEFAULT_LOCATIONS));
+      return DEFAULT_LOCATIONS;
+    }
+
+    function _saveTrainingLocations(locs) {
+      localStorage.setItem('fitai_training_locations', JSON.stringify(locs));
+      if (typeof fetch === 'function') {
+        fetch('/app/plan/locations', {
+          method: 'PUT',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ locations: locs })
+        }).then(response => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.json();
+        }).catch(() => {
+          // Local storage remains the offline fallback.
+        });
+      }
+    }
+
+    async function syncTrainingLocationsFromApi() {
+      if (typeof fetch !== 'function') return;
+      try {
+        const response = await fetch('/app/plan/locations', { credentials: 'same-origin' });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (Array.isArray(data.locations)) {
+          localStorage.setItem('fitai_training_locations', JSON.stringify(data.locations));
+          renderTrainingLocationsCards();
+          renderSmartDayLocationRows();
+        }
+      } catch (error) {
+        // Keep local storage when the API is unavailable (offline/demo mode).
+      }
+    }
+
+    function getProfileLocations() {
+      return _loadTrainingLocations();
+    }
+    window.getProfileLocations = getProfileLocations;
+
+    function renderTrainingLocationsCards() {
+      const grid = document.getElementById('trainingLocationsCardsGrid');
+      if (!grid) return;
+      const locs = _loadTrainingLocations();
+
+      if (!locs || locs.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full text-center py-10">
+            <div style="font-size:2.5rem">📍</div>
+            <p class="text-sm text-gray-400 mt-3">Brak miejsc treningowych. Dodaj swoje pierwsze miejsce!</p>
+          </div>`;
+        return;
+      }
+
+      grid.innerHTML = locs.map((loc, idx) => {
+        const equipNames = (loc.equipment || []).map(k => {
+          const opt = LOCATION_EQUIP_OPTIONS.find(o => o.k === k);
+          return opt ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-lg text-[10px] font-medium"
+            style="background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);color:#7dd3fc;">${opt.e} ${opt.l}</span>` : '';
+        }).filter(Boolean).join('');
+
+        return `
+        <div class="p-4 rounded-2xl flex flex-col gap-3"
+          style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.1);">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-2.5">
+              <span class="text-2xl p-2 rounded-xl" style="background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.15);">${loc.icon || '📍'}</span>
+              <div>
+                <h5 class="font-bold text-white text-sm">${loc.name}</h5>
+                <p class="text-[11px] text-gray-500">${(loc.equipment || []).length} pozycji sprzętu</p>
+              </div>
+            </div>
+            <div class="flex gap-1.5 flex-shrink-0">
+              <button type="button" onclick="openEditLocationModal('${loc.id}')"
+                class="px-2 py-1 rounded-lg text-[11px] font-bold transition-all hover:brightness-125"
+                style="background:rgba(124,58,237,0.12);color:#a78bfa;border:1px solid rgba(124,58,237,0.3);">
+                ✏️ Edytuj
+              </button>
+              <button type="button" onclick="deleteLocation('${loc.id}')"
+                class="px-2 py-1 rounded-lg text-[11px] font-bold transition-all hover:brightness-125"
+                style="background:rgba(239,68,68,0.08);color:#f87171;border:1px solid rgba(239,68,68,0.2);">
+                🗑️
+              </button>
+            </div>
+          </div>
+          ${equipNames ? `<div class="flex flex-wrap gap-1">${equipNames}</div>` : '<p class="text-[11px] text-gray-600 italic">Brak sprzętu</p>'}
+        </div>`;
+      }).join('');
+    }
+    window.renderTrainingLocationsCards = renderTrainingLocationsCards;
+
+    function renderLocationEditorEquipCheckboxes(selectedSet) {
+      const grid = document.getElementById('locEditorEquipGrid');
+      if (!grid) return;
+      const groups = {};
+      LOCATION_EQUIP_OPTIONS.forEach(opt => {
+        if (!groups[opt.group]) groups[opt.group] = [];
+        groups[opt.group].push(opt);
+      });
+
+      grid.innerHTML = Object.entries(groups).map(([group, opts]) => {
+        const checkboxes = opts.map(opt => {
+          const checked = selectedSet.has(opt.k);
+          return `
+            <label class="flex items-center gap-2 p-2 rounded-xl cursor-pointer transition-all hover:bg-white/5"
+              style="border:1px solid ${checked ? 'rgba(0,229,255,0.3)' : 'rgba(255,255,255,0.07)'};">
+              <input type="checkbox" value="${opt.k}" ${checked ? 'checked' : ''}
+                onchange="(function(el){ var d=document.getElementById('locEditorEquipGrid'); d.querySelectorAll('label').forEach(function(lbl){ var i=lbl.querySelector('input'); if(i===el){ lbl.style.borderColor=el.checked?'rgba(0,229,255,0.3)':'rgba(255,255,255,0.07)'; }}); })(this)"
+                class="accent-cyan-400 w-4 h-4 rounded flex-shrink-0">
+              <span class="text-base">${opt.e}</span>
+              <span class="text-xs text-gray-300">${opt.l}</span>
+            </label>`;
+        }).join('');
+        return `<div class="col-span-full">
+          <p class="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1.5">${group}</p>
+        </div>${checkboxes}`;
+      }).join('');
+    }
+
+    function openAddLocationModal() {
+      document.getElementById('locModalTitle').textContent = 'Dodaj Miejsce Treningowe';
+      document.getElementById('locModalIconBadge').textContent = '📍';
+      document.getElementById('locEditorId').value = '';
+      document.getElementById('locEditorName').value = '';
+      document.getElementById('locEditorIcon').value = '🏢';
+      renderLocationEditorEquipCheckboxes(new Set());
+      const modal = document.getElementById('locationEditorModal');
+      if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+    }
+    window.openAddLocationModal = openAddLocationModal;
+
+    function openEditLocationModal(id) {
+      const locs = _loadTrainingLocations();
+      const loc = locs.find(l => l.id === id);
+      if (!loc) return;
+      document.getElementById('locModalTitle').textContent = 'Edytuj Miejsce: ' + loc.name;
+      document.getElementById('locModalIconBadge').textContent = loc.icon || '📍';
+      document.getElementById('locEditorId').value = loc.id;
+      document.getElementById('locEditorName').value = loc.name;
+      const iconSel = document.getElementById('locEditorIcon');
+      if (iconSel) iconSel.value = loc.icon || '🏢';
+      renderLocationEditorEquipCheckboxes(new Set(loc.equipment || []));
+      const modal = document.getElementById('locationEditorModal');
+      if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+    }
+    window.openEditLocationModal = openEditLocationModal;
+
+    function closeLocationModal() {
+      const modal = document.getElementById('locationEditorModal');
+      if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+    }
+    window.closeLocationModal = closeLocationModal;
+
+    function saveLocationModal() {
+      const id = document.getElementById('locEditorId').value.trim();
+      const name = document.getElementById('locEditorName').value.trim();
+      const icon = document.getElementById('locEditorIcon').value || '📍';
+      if (!name) { alert('Podaj nazwę miejsca.'); return; }
+
+      const grid = document.getElementById('locEditorEquipGrid');
+      const checked = grid ? [...grid.querySelectorAll('input[type=checkbox]:checked')].map(el => el.value) : [];
+
+      const locs = _loadTrainingLocations();
+      if (id) {
+        // Edycja
+        const idx = locs.findIndex(l => l.id === id);
+        if (idx >= 0) {
+          locs[idx] = { ...locs[idx], name, icon, equipment: checked };
+        }
+      } else {
+        // Nowe miejsce
+        const newId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Date.now();
+        locs.push({ id: newId, name, icon, equipment: checked });
+      }
+      _saveTrainingLocations(locs);
+      closeLocationModal();
+      renderTrainingLocationsCards();
+      _showPrefsToast('✅ Miejsce treningowe zapisane!', '#4ade80');
+    }
+    window.saveLocationModal = saveLocationModal;
+
+    function deleteLocation(id) {
+      if (!confirm('Usunąć to miejsce treningowe?')) return;
+      const locs = _loadTrainingLocations().filter(l => l.id !== id);
+      _saveTrainingLocations(locs);
+      renderTrainingLocationsCards();
+      _showPrefsToast('🗑️ Miejsce treningowe usunięte.', '#f87171');
+    }
+    window.deleteLocation = deleteLocation;
+
+    function toggleAllLocationEquip(allOn) {
+      const grid = document.getElementById('locEditorEquipGrid');
+      if (!grid) return;
+      grid.querySelectorAll('input[type=checkbox]').forEach(el => {
+        el.checked = allOn;
+        const lbl = el.closest('label');
+        if (lbl) lbl.style.borderColor = allOn ? 'rgba(0,229,255,0.3)' : 'rgba(255,255,255,0.07)';
+      });
+    }
+    window.toggleAllLocationEquip = toggleAllLocationEquip;
+
+
 
     function exportProfileBackup() {
       const data = {
@@ -23499,6 +24042,10 @@
             window.showExerciseInfo(ex);
             return;
           }
+          if (typeof window.openExerciseDetailModal === 'function') {
+            window.openExerciseDetailModal(ex);
+            return;
+          }
           if (typeof window.openTrainingExerciseAddModalForExercise === 'function') {
             window.openTrainingExerciseAddModalForExercise();
             return;
@@ -23937,7 +24484,12 @@
       document.getElementById('drillInfoModal')?.classList.add('hidden');
     };
 
+    // Delegate to the canonical exercise detail modal (exerciseDetailModal)
     window.showExerciseInfo = function (exercise) {
+      if (typeof window.openExerciseDetailModal === 'function') {
+        window.openExerciseDetailModal(exercise);
+        return;
+      }
       const modal = document.getElementById('exerciseInfoModal');
       if (!modal || !exercise) return;
 
@@ -24758,6 +25310,7 @@
           || (e.tags || []).map(t => normalizeCategory(t || '')).includes(cat);
         return matchQ && matchCat;
       });
+      window._atlasFilteredExercises = filtered;
 
       if (countEl) {
         const hasFilter = cat !== 'all' || !!query;
@@ -24903,7 +25456,9 @@
       const list = window._atlasFilteredExercises || [];
       const ex = list[Number(idx)];
       if (!ex) return;
-      if (typeof window.showExerciseInfo === 'function') {
+      if (typeof window.openExerciseDetailModal === 'function') {
+        window.openExerciseDetailModal(ex);
+      } else if (typeof window.showExerciseInfo === 'function') {
         window.showExerciseInfo(ex);
       }
     }
@@ -31255,7 +31810,7 @@ window.openDayItemSwap = openDayItemSwap;
 <div id="planBuilderModal" class="fixed inset-0 z-[350] hidden flex items-center justify-center p-2 md:p-4"
   style="background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);">
   <div class="glass rounded-2xl w-full flex flex-col" style="border:1px solid rgba(0,229,255,0.2);
-           max-width:980px;max-height:94vh;">
+           max-width:1240px;max-height:94vh;">
 
     <!-- Modal Header -->
     <div class="px-6 py-3.5 flex items-center justify-between flex-shrink-0"
@@ -31335,27 +31890,27 @@ window.openDayItemSwap = openDayItemSwap;
             </div>
           </div>
 
-          <!-- Czas sesji i sprzęt -->
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-xs text-gray-400 block mb-2 font-medium">Szacowany czas sesji:</label>
-              <div class="grid grid-cols-2 gap-1.5" id="smartDurationPicker">
-                <button type="button" onclick="setSmartDuration(45)" class="smart-dur-btn py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all" data-dur="45">⏱️ 45 min</button>
-                <button type="button" onclick="setSmartDuration(60)" class="smart-dur-btn py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all" data-dur="60">⚡ 60 min</button>
-                <button type="button" onclick="setSmartDuration(75)" class="smart-dur-btn py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all" data-dur="75">🔥 75 min</button>
-                <button type="button" onclick="setSmartDuration(90)" class="smart-dur-btn py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all" data-dur="90">💪 90 min</button>
-              </div>
-            </div>
-            <div>
-              <label class="text-xs text-gray-400 block mb-2 font-medium">Dostępny sprzęt:</label>
-              <select id="smartEquipmentSelect" onchange="_smartPlanState.equipment = this.value"
-                class="w-full py-2 px-2.5 rounded-xl text-xs font-semibold text-white"
-                style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);outline:none;">
-                <option value="gym" style="background:#0a0a14;color:#fff;">🏋️ Pełna siłownia (Sztangi/Maszyny)</option>
-                <option value="dumbbells" style="background:#0a0a14;color:#fff;">🏠 Hantle + Drążek (Trening domowy)</option>
-                <option value="bodyweight" style="background:#0a0a14;color:#fff;">🤸 Kalistenika / Masa ciała</option>
-              </select>
-            </div>
+        </div>
+
+        <!-- Per-day type + location (generated by JS after days are selected) -->
+        <div class="mt-4" id="smartDayConfigArea" style="display:none;">
+          <label class="text-xs text-gray-400 block mb-2 font-medium">Typ treningu i miejsce dla każdego dnia:</label>
+          <div id="smartDayLocationRows" class="space-y-2">
+            <!-- generated by JS: renderSmartDayLocationRows() -->
+          </div>
+          <p class="text-[10.5px] text-gray-600 mt-1.5 italic">
+            💡 Sprzęt dostępny w wybranym miejscu automatycznie dopasuje ćwiczenia do dnia.
+          </p>
+        </div>
+
+        <!-- Czas sesji -->
+        <div class="mt-4">
+          <label class="text-xs text-gray-400 block mb-2 font-medium">Szacowany czas sesji (wszystkie dni):</label>
+          <div class="grid grid-cols-4 gap-1.5" id="smartDurationPicker">
+            <button type="button" onclick="setSmartDuration(45)" class="smart-dur-btn py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all" data-dur="45">⏱️ 45 min</button>
+            <button type="button" onclick="setSmartDuration(60)" class="smart-dur-btn py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all" data-dur="60">⚡ 60 min</button>
+            <button type="button" onclick="setSmartDuration(75)" class="smart-dur-btn py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all" data-dur="75">🔥 75 min</button>
+            <button type="button" onclick="setSmartDuration(90)" class="smart-dur-btn py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all" data-dur="90">💪 90 min</button>
           </div>
         </div>
       </div>
