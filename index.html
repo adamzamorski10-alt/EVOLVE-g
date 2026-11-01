@@ -12694,7 +12694,13 @@
       equipment: 'gym',
       sport: 'basketball',
       sportFocus: ['jump', 'speed'],
+      sportPriorities: {
+        three_point: 5, mid_range: 5, layup: 5, dribbling: 5,
+        ball_handling: 5, passing: 5, defense: 5, footwork: 5
+      },
+      sportPrioritySource: 'brak danych — ustawiono wartości 5/10',
       dayLocations: {},
+      dayTypes: {},
       activeMuscle: 'klatka',
       musclePriorities: {
         klatka: 8,
@@ -12763,10 +12769,28 @@
       }
     }
 
+    const SMART_BASKETBALL_FOCUS = [
+      { k: 'three_point', l: 'Rzut za 3', d: 'Celność i powtarzalność rzutu zza łuku', terms: ['3', 'trój', 'three', 'rzut'] },
+      { k: 'mid_range', l: 'Mid-range', d: 'Rzut z półdystansu po koźle i zatrzymaniu', terms: ['mid', 'półdystans', 'pull-up'] },
+      { k: 'layup', l: 'Lay-up i wykończenie', d: 'Wykończenie pod presją z obu stron', terms: ['layup', 'lay-up', 'wykońc', 'finish'] },
+      { k: 'dribbling', l: 'Dribbling', d: 'Kozłowanie, zmiana tempa i kierunku', terms: ['drybl', 'dribbl', 'kozł', 'crossover'] },
+      { k: 'ball_handling', l: 'Ball-handling', d: 'Kontrola piłki w ruchu i pod presją', terms: ['handle', 'ball-handling', 'piłk'] },
+      { k: 'passing', l: 'Podania i czytanie gry', d: 'Dokładność podań i decyzje w przewadze', terms: ['podan', 'pass', 'asyst'] },
+      { k: 'defense', l: 'Obrona 1 na 1', d: 'Praca nóg, closeout i reakcja', terms: ['obron', 'defens', 'closeout'] },
+      { k: 'footwork', l: 'Footwork i pierwszy krok', d: 'Balans, zatrzymanie i eksplozja', terms: ['footwork', 'krok', 'praca nóg', 'zwin'] }
+    ];
+
+    function onSmartSportPriorityChange(key, value) {
+      _smartPlanState.sportPriorities[key] = Math.max(1, Math.min(10, Number(value) || 5));
+      renderSmartSportFocus();
+      generateSmartPlan(false);
+    }
+
     function initSmartPlanBuilder() {
       const p = getCurrentProfile ? getCurrentProfile() : null;
       if (p) {
-        if (p.sport) _smartPlanState.sport = p.sport;
+        if (typeof p.sport === 'string') _smartPlanState.sport = p.sport;
+        _initializeSmartSportPriorities(p);
         if (p.equipment && p.equipment.length > 0) {
           const eqStr = p.equipment.join(',').toLowerCase();
           if (eqStr.includes('barbell') || eqStr.includes('gym')) _smartPlanState.equipment = 'gym';
@@ -12785,6 +12809,57 @@
       updateSmartAnatomyColors();
       renderSmartMuscleBadges();
       if (!_smartPlanState.generatedPlan && !_smartPlanState.isReset) {
+        generateSmartPlan(false);
+      }
+
+      const SMART_BASKETBALL_FOCUS_LOCAL = [
+        { k: 'three_point', l: 'Rzut za 3', d: 'Celność i powtarzalność rzutu zza łuku', terms: ['3', 'trój', 'three', 'rzut'] },
+        { k: 'mid_range', l: 'Mid-range', d: 'Rzut z półdystansu po koźle i zatrzymaniu', terms: ['mid', 'półdystans', 'pull-up'] },
+        { k: 'layup', l: 'Lay-up i wykończenie', d: 'Wykończenie pod presją z obu stron', terms: ['layup', 'lay-up', 'wykońc', 'finish'] },
+        { k: 'dribbling', l: 'Dribbling', d: 'Kozłowanie, zmiana tempa i kierunku', terms: ['drybl', 'dribbl', 'kozł', 'crossover'] },
+        { k: 'ball_handling', l: 'Ball-handling', d: 'Kontrola piłki w ruchu i pod presją', terms: ['handle', 'ball-handling', 'piłk'] },
+        { k: 'passing', l: 'Podania i czytanie gry', d: 'Dokładność podań i decyzje w przewadze', terms: ['podan', 'pass', 'asyst'] },
+        { k: 'defense', l: 'Obrona 1 na 1', d: 'Praca nóg, closeout i reakcja', terms: ['obron', 'defens', 'closeout'] },
+        { k: 'footwork', l: 'Footwork i pierwszy krok', d: 'Balans, zatrzymanie i eksplozja', terms: ['footwork', 'krok', 'praca nóg', 'zwin'] }
+      ];
+
+      function _initializeSmartSportPriorities(profile) {
+        if (_smartPlanState.sport !== 'basketball') return;
+        const saved = profile?.sportPriorities || profile?.sport?.priorities;
+        if (saved && typeof saved === 'object') {
+          _smartPlanState.sportPriorities = { ..._smartPlanState.sportPriorities, ...saved };
+          _smartPlanState.sportPrioritySource = 'zapisane priorytety użytkownika';
+          return;
+        }
+        const sportProfile = profile?.sport || {};
+        const position = String(sportProfile.position || '').toLowerCase();
+        const results = profile?.sportDrillResults || profile?.drillResults || {};
+        const hasResults = Object.keys(results).length > 0;
+        const priorities = { ..._smartPlanState.sportPriorities };
+        if (position.includes('guard') || position.includes('rozgryw') || position.includes('pg') || position.includes('sg')) {
+          priorities.dribbling = 7; priorities.ball_handling = 7; priorities.passing = 7;
+        } else if (position.includes('center') || position.includes('środk') || position.includes('c —')) {
+          priorities.layup = 7; priorities.footwork = 7; priorities.three_point = 4;
+        } else if (position.includes('forward') || position.includes('skrzyd')) {
+          priorities.layup = 6; priorities.mid_range = 6; priorities.defense = 6;
+        }
+        if (hasResults) {
+          SMART_BASKETBALL_FOCUS_LOCAL.forEach(item => {
+            const value = Number(results[item.k] ?? results[item.l]);
+            if (Number.isFinite(value)) priorities[item.k] = Math.max(1, Math.min(10, Math.round(10 - value / 10)));
+          });
+          _smartPlanState.sportPrioritySource = `wyniki drillów${position ? ` i pozycja: ${sportProfile.position}` : ''}`;
+        } else if (Object.values(priorities).every(value => value === 5)) {
+          _smartPlanState.sportPrioritySource = 'brak danych — ustawiono wartości 5/10';
+        } else {
+          _smartPlanState.sportPrioritySource = `pozycja: ${sportProfile.position || 'nieokreślona'}`;
+        }
+        _smartPlanState.sportPriorities = priorities;
+      }
+
+      function onSmartSportPriorityChange(key, value) {
+        _smartPlanState.sportPriorities[key] = Math.max(1, Math.min(10, Number(value) || 5));
+        renderSmartSportFocus();
         generateSmartPlan(false);
       }
     }
@@ -12853,7 +12928,14 @@
         return `<div class="rounded-xl p-3" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.08);">
           <div class="flex items-center justify-between mb-2">
             <span class="text-xs font-bold text-white">${PB_DAY_NAMES[day] || day}</span>
-            <span class="text-[10px] text-cyan-300">${selected.size} miejsc</span>
+            <div class="flex items-center gap-2">
+              <select onchange="setSmartDayType('${day}',this.value)" class="text-[10px] rounded-lg px-2 py-1 text-gray-300"
+                style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);">
+                ${[['auto','Automatycznie'],['strength','Siła'],['sport','Sport']].map(([value,label]) =>
+                  `<option value="${value}" ${(_smartPlanState.dayTypes[day] || 'auto') === value ? 'selected' : ''}>${label}</option>`).join('')}
+              </select>
+              <span class="text-[10px] text-cyan-300">${selected.size} miejsc</span>
+            </div>
           </div>
           <div class="flex flex-wrap gap-2">${locations.map(location => {
             const id = String(location.id || location.name);
@@ -12875,6 +12957,11 @@
       if (enabled) selected.add(locationId); else selected.delete(locationId);
       _smartPlanState.dayLocations[day] = [...selected];
       renderSmartDayLocationRows();
+      generateSmartPlan(false);
+    }
+
+    function setSmartDayType(day, type) {
+      _smartPlanState.dayTypes[day] = type;
       generateSmartPlan(false);
     }
 
@@ -13093,10 +13180,7 @@
 
       const sportsConfig = {
         basketball: [
-          { k: 'jump', l: '🚀 Wyskoki & Plyometria', d: 'Vertical jump, skoczność, moc z 1 i 2 nóg' },
-          { k: 'speed', l: '⚡ Szybkość & Pierwszy Krok', d: 'Przyspieszenie, zmiana kierunku, obrona' },
-          { k: 'shooting', l: '🎯 Mechanika Rzutu & Barki', d: 'Płynność i stabilizacja obręczy barkowej' },
-          { k: 'dribble', l: '🏀 Kozłowanie & Ball-handling', d: 'Kontrola piłki, niski środek ciężkości' }
+          ...SMART_BASKETBALL_FOCUS
         ],
         football: [
           { k: 'sprint', l: '⚡ Sprint & Zmiana Kierunku', d: 'Zwinność, start do piłki' },
@@ -13112,21 +13196,40 @@
 
       const items = sportsConfig[_smartPlanState.sport] || sportsConfig.basketball;
       chipsEl.innerHTML = items.map(item => {
-        const isSel = _smartPlanState.sportFocus.includes(item.k);
+        const isBasketball = _smartPlanState.sport === 'basketball';
+        const priority = isBasketball ? (_smartPlanState.sportPriorities[item.k] || 5) : null;
+        const isSel = isBasketball ? priority >= 6 : _smartPlanState.sportFocus.includes(item.k);
         const bg = isSel ? 'rgba(0,229,255,0.14)' : 'rgba(255,255,255,0.03)';
         const border = isSel ? 'rgba(0,229,255,0.45)' : 'rgba(255,255,255,0.08)';
         const color = isSel ? '#00e5ff' : '#cbd5e1';
 
-        return `<div onclick="toggleSmartSportFocus('${item.k}')"
+        return `<div onclick="${isBasketball ? `selectSmartSportFocus('${item.k}')` : `toggleSmartSportFocus('${item.k}')`}"
           class="p-2.5 rounded-xl cursor-pointer transition-all flex items-start gap-2.5"
           style="background:${bg};border:1px solid ${border};color:${color};">
           <input type="checkbox" ${isSel ? 'checked' : ''} class="mt-1 accent-cyan-400 pointer-events-none" />
           <div>
             <span class="text-xs font-bold block leading-snug">${item.l}</span>
             <span class="text-[10.5px] text-gray-500 block mt-0.5">${item.d}</span>
+            ${isBasketball ? `<div class="flex items-center gap-2 mt-2">
+              <input type="range" min="1" max="10" value="${priority}" aria-label="Priorytet ${item.l}"
+                onclick="event.stopPropagation()" oninput="onSmartSportPriorityChange('${item.k}',this.value)"
+                class="w-24 accent-cyan-400">
+              <span class="text-[10px] font-mono text-cyan-300">${priority}/10</span>
+            </div>` : ''}
           </div>
         </div>`;
       }).join('');
+      const source = document.getElementById('smartSportHintText');
+      if (source && _smartPlanState.sport === 'basketball') {
+        source.textContent = `Priorytety: ${_smartPlanState.sportPrioritySource}. Wartości 8–10 są wybierane jako główny fokus planu.`;
+      }
+    }
+
+    function selectSmartSportFocus(key) {
+      const current = _smartPlanState.sportPriorities[key] || 5;
+      _smartPlanState.sportPriorities[key] = current >= 6 ? 5 : 8;
+      renderSmartSportFocus();
+      generateSmartPlan(false);
     }
 
     function toggleSmartSportFocus(key) {
@@ -13208,7 +13311,13 @@
       const excl = profile?.exclusions || [];
 
       days.forEach(day => {
-        const cfg = planConfig[day] || { type: 'strength', muscles: ['klatka', 'plecy'] };
+        const autoCfg = planConfig[day] || { type: 'strength', muscles: ['klatka', 'plecy'] };
+        const requestedType = _smartPlanState.dayTypes[day] || 'auto';
+        const cfg = requestedType === 'sport'
+          ? { ...autoCfg, type: 'sport', sport: sport || 'basketball', drillCats: _smartPlanState.sportFocus }
+          : requestedType === 'strength'
+            ? { ...autoCfg, type: 'strength', muscles: autoCfg.muscles || ['klatka', 'plecy'] }
+            : autoCfg;
         const selectedLocations = (_smartPlanState.dayLocations[day] || [])
           .map(id => getProfileLocations().find(location => String(location.id || location.name) === String(id)))
           .filter(Boolean);
@@ -13227,6 +13336,17 @@
               { name: 'Rzuty z wyskoku po koźle', category: 'Rzut', duration: '20 min' },
               { name: 'Stabilizacja obręczy barkowej', category: 'Prewencja', duration: '10 min' }
             ];
+          }
+          if (cfg.sport === 'basketball') {
+            const focusItems = SMART_BASKETBALL_FOCUS
+              .filter(item => (_smartPlanState.sportPriorities[item.k] || 5) >= 6)
+              .sort((a, b) => (_smartPlanState.sportPriorities[b.k] || 5) - (_smartPlanState.sportPriorities[a.k] || 5));
+            const scoreDrill = drill => {
+              const text = `${drill.name || ''} ${drill.category || ''} ${(drill.tags || []).join(' ')}`.toLowerCase();
+              return focusItems.reduce((score, item) =>
+                score + (item.terms.some(term => text.includes(term)) ? (_smartPlanState.sportPriorities[item.k] || 5) : 0), 0);
+            };
+            allDrills = [...allDrills].sort((a, b) => scoreDrill(b) - scoreDrill(a));
           }
           const needed = Math.min(exCount, 5);
           fullPlan[day] = allDrills.slice(0, needed).map(d => ({
@@ -13296,7 +13416,7 @@
 
       container.innerHTML = days.map(d => {
         const exercises = (plan[d] || []).filter(item => !item?._meta);
-        const dayMeta = (plan[d] || [])._meta || {};
+        const dayMeta = (plan[d] || [])._meta || (plan[d] || []).find(item => item?._meta)?._meta || {};
         const isSport = exercises.some(e => e.isDrill || e._sport);
         const icon = isSport ? '🏀' : '💪';
         const typeLabel = isSport ? 'Sesja Sportowa / Drills' : 'Trening Siłowy';
@@ -13324,6 +13444,7 @@
               }).join('')}
             </div>
             ${dayMeta.locations?.length ? `<div class="mt-2 text-[10px] text-gray-500">📍 ${dayMeta.locations.map(location => location.name).join(', ')}</div>` : ''}
+            <div class="mt-2 text-[10px] text-gray-500">💡 ${isSport ? 'Dobór drilli wynika z priorytetów sportowych i wybranego czasu.' : 'Dobór ćwiczeń wynika z priorytetów partii, profilu i dostępnego sprzętu.'}</div>
           </div>`;
       }).join('');
     }
@@ -13369,6 +13490,7 @@
       }
 
       p.savedPlans.unshift(planRecord);
+      p.sportPriorities = { ...(_smartPlanState.sportPriorities || {}) };
 
       if (typeof saveState === 'function') saveState();
 
@@ -13514,6 +13636,10 @@
     window.setSmartDuration = setSmartDuration;
     window.setSmartSport = setSmartSport;
     window.toggleSmartSportFocus = toggleSmartSportFocus;
+    window.selectSmartSportFocus = selectSmartSportFocus;
+    window.onSmartSportPriorityChange = onSmartSportPriorityChange;
+    window.setSmartDayType = setSmartDayType;
+    window.toggleSmartDayLocation = toggleSmartDayLocation;
     window.generateSmartPlan = generateSmartPlan;
     window.applySmartPlan = applySmartPlan;
     window.openSavedPlansModal = openSavedPlansModal;
@@ -13603,13 +13729,16 @@
         panel.innerHTML = `
           <div class="text-center py-8 text-gray-500">
             <p class="text-sm">Plan wyczyszczony. Kliknij dzień aby go skonfigurować.</p>
-          </div>`;
+          </div>          `;
+        if (cfg.type === 'strength') renderPBExerciseCatalog(day);
       }
 
       // 2. Reset stanu kreatora inteligentnego (_smartPlanState)
       _smartPlanState.isReset = true;
       _smartPlanState.generatedPlan = null;
       _smartPlanState.days = [];
+      _smartPlanState.dayLocations = {};
+      _smartPlanState.dayTypes = {};
       _smartPlanState.planName = 'Plan Inteligentny EVOLVE';
       _smartPlanState.activeMuscle = 'klatka';
       _smartPlanState.musclePriorities = {
@@ -13818,6 +13947,10 @@
             ? { ...p.item, isDrill: true }
             : p.item
         );
+        const dayEquipment = _getPBEquipmentForDay(day);
+        const selectedLocations = (cfg.locations || [])
+          .map(id => getProfileLocations().find(location => String(location.id || location.name) === String(id)))
+          .filter(Boolean);
 
         let autoItems = [];
         if (cfg.type === 'sport' && cfg.sport) {
@@ -13830,7 +13963,7 @@
         } else if (typeof generateExercisesForDay === 'function') {
           const muscles = (cfg.muscles || []).length > 0 ? cfg.muscles : ['klatka', 'plecy'];
           const count = Math.max(0, (cfg.exCount || 5) - pinned.length);
-          autoItems = generateExercisesForDay(muscles, equip, excl, count);
+          autoItems = generateExercisesForDay(muscles, dayEquipment, excl, count);
         }
 
         const allItems = [...pinned, ...autoItems];
@@ -13854,6 +13987,7 @@
                   </div>
                   <span class="text-xs text-gray-500">${allItems.length} pozycji</span>
                 </div>
+                ${selectedLocations.length ? `<div class="px-4 py-1 text-[10px] text-gray-500">📍 ${selectedLocations.map(location => location.name).join(', ')}</div>` : ''}
                 <div class="px-4 py-2 space-y-1"
                   style="background:rgba(255,255,255,0.015);">
                   ${allItems.slice(0, 6).map((ex, i) => `
@@ -13873,6 +14007,7 @@
                     <p class="text-xs text-gray-600 py-1">
                       + ${allItems.length - 6} więcej pozycji...
                     </p>` : ''}
+                    <p class="text-[10px] text-cyan-300/70 pt-1">💡 ${cfg.type === 'sport' ? 'Dobór według celu sportowego i profilu.' : `Dobór według partii i sprzętu: ${dayEquipment.length ? dayEquipment.join(', ') : 'masa ciała'}.`}</p>
                 </div>
               </div>`;
       }).join('')}
@@ -14077,6 +14212,7 @@
     </div>
 
     ${_renderPBLocationPicker(day)}
+    ${_renderPBRecommendationInsights(day)}
     <div id="pbDayTypeContent_${day}">${_renderDayTypeContent(day)}</div>
     ${_renderPinnedItems(day)}
   `;
@@ -14087,6 +14223,30 @@
       const locations = getProfileLocations();
       if (!locations.length) {
         return '<div class="mb-5 p-3 rounded-xl text-xs text-gray-500" style="border:1px solid rgba(255,255,255,0.07);">Dodaj miejsca treningowe w profilu, aby ograniczyć ćwiczenia do dostępnego sprzętu.</div>';
+      }
+
+      function _renderPBRecommendationInsights(day) {
+        const cfg = _pb.days[day];
+        if (!cfg || cfg.type === 'rest') return '';
+        const locations = (cfg.locations || [])
+          .map(id => getProfileLocations().find(location => String(location.id || location.name) === String(id)))
+          .filter(Boolean);
+        const equipment = locations.length ? [...new Set(locations.flatMap(location => location.equipment || []))] : (getCurrentProfile()?.equipment || []);
+        const issues = [];
+        const notes = [];
+        if (!locations.length) notes.push('Brak przypisanego miejsca — używam sprzętu globalnego z profilu.');
+        if (locations.length && equipment.length === 0) issues.push('Wybrane miejsce nie ma przypisanego sprzętu.');
+        const previous = PB_DAYS.slice(0, PB_DAYS.indexOf(day)).map(d => _pb.days[d]).filter(item => item?.type === 'strength');
+        const repeated = previous.some(item => (item.muscles || []).some(muscle => (cfg.muscles || []).includes(muscle)));
+        if (repeated) issues.push('Ten sam obszar mięśniowy pojawia się także w poprzednim dniu — zaplanuj regenerację.');
+        if (cfg.type === 'strength' && cfg.muscles?.length) {
+          notes.push(`Rekomendacja: ${cfg.muscles.slice(0, 3).join(', ')} + ${cfg.exCount || 5} ćwiczeń.`);
+        }
+        const color = issues.length ? '#fbbf24' : '#4ade80';
+        return `<div class="mb-4 p-3 rounded-xl text-xs" style="background:${issues.length ? 'rgba(251,191,36,0.07)' : 'rgba(74,222,128,0.06)'};border:1px solid ${color}40;">
+          <div class="font-bold mb-1" style="color:${color};">${issues.length ? '⚠️ Ostrzeżenia planu' : '✅ Rekomendacja EVOLVE'}</div>
+          ${issues.concat(notes).map(item => `<div class="text-gray-400 mt-1">${item}</div>`).join('')}
+        </div>`;
       }
       const selected = new Set(cfg.locations || []);
       return `<div class="mb-5">
@@ -14358,7 +14518,7 @@
       <div class="px-4 py-3 flex items-center justify-between"
         style="background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.06);">
         <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">➕ Dodaj konkretne ćwiczenie</p>
-        <button type="button" onclick="autoSelectPBExercises('${day}')"
+        <button type="button" onclick="openPBAutoPicker('${day}')"
           class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all"
           style="background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.3);color:#00e5ff;">
           ✨ Wybierz automatycznie
@@ -14372,10 +14532,75 @@
           style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;outline:none;"
           onfocus="this.style.borderColor='rgba(0,229,255,0.4)'"
           onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[10px] text-gray-500">Domyślnie pokazuję ćwiczenia zgodne z partiami i sprzętem.</span>
+          <button type="button" onclick="clearPBExerciseFilter('${day}')"
+            class="text-[10px] text-cyan-400 hover:text-white transition-colors">Wyczyść filtr</button>
+        </div>
         <div id="exSearchResults_${day}" class="hidden space-y-1 max-h-36 overflow-y-auto rounded-xl"
           style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);"></div>
+        <div id="exCatalog_${day}" class="space-y-1 max-h-48 overflow-y-auto"></div>
+        <div id="pbAutoPicker_${day}" class="hidden p-3 rounded-xl" style="background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.15);">
+          <div class="flex items-center justify-between gap-3">
+            <label class="text-[11px] text-gray-300">Ile ćwiczeń dobrać?</label>
+            <input id="pbAutoCount_${day}" type="range" min="3" max="10" value="${_pb.days[day]?.exCount || 5}"
+              oninput="document.getElementById('pbAutoCountValue_${day}').textContent=this.value" class="flex-1 accent-cyan-400">
+            <span id="pbAutoCountValue_${day}" class="text-sm font-bold text-cyan-300">${_pb.days[day]?.exCount || 5}</span>
+            <button type="button" onclick="autoSelectPBExercises('${day}')"
+              class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-cyan-300"
+              style="background:rgba(0,229,255,0.12);border:1px solid rgba(0,229,255,0.3);">Dobierz</button>
+          </div>
+        </div>
       </div>
     </div>`;
+    }
+
+    function openPBAutoPicker(day) {
+      document.getElementById('pbAutoPicker_' + day)?.classList.toggle('hidden');
+    }
+
+    function _getPBEquipmentForDay(day) {
+      const locations = (_pb.days[day]?.locations || [])
+        .map(id => getProfileLocations().find(location => String(location.id || location.name) === String(id)))
+        .filter(Boolean);
+      return locations.length
+        ? [...new Set(locations.flatMap(location => location.equipment || []))]
+        : (getCurrentProfile()?.equipment || []);
+    }
+
+    function _getPBExerciseMatches(day, query = '') {
+      const db = window.EXERCISE_DB || {};
+      const cfg = _pb.days[day] || {};
+      const q = String(query || '').trim().toLowerCase();
+      const muscles = cfg.muscles || [];
+      const equipment = _getPBEquipmentForDay(day);
+      const all = Object.values(db).flat();
+      return all.filter(ex => {
+        const text = `${ex.name || ''} ${ex.muscles || ''} ${ex.muscle_group || ''}`.toLowerCase();
+        const muscleMatch = muscles.length === 0 || muscles.some(muscle => text.includes(muscle.toLowerCase()));
+        return muscleMatch && isExerciseEquipmentAvailable(ex, equipment) && (!q || text.includes(q));
+      }).slice(0, 10);
+    }
+
+    function renderPBExerciseCatalog(day, query = '') {
+      const catalog = document.getElementById('exCatalog_' + day);
+      if (!catalog) return;
+      const already = new Set((_pb.days[day]?.pinned || []).filter(item => item.type === 'exercise').map(item => item.item.name));
+      const matches = _getPBExerciseMatches(day, query).filter(ex => !already.has(ex.name));
+      catalog.innerHTML = matches.length ? matches.map(ex => `
+        <button type="button" onclick="addPBExercise('${day}', ${JSON.stringify(ex).replace(/"/g, '&quot;')})"
+          class="w-full text-left px-3 py-2 rounded-lg text-xs text-gray-300 flex items-center gap-2 transition-colors hover:bg-cyan-400/10">
+          <span class="text-cyan-400">+</span><span class="flex-1">${ex.name}</span>
+          <span class="text-[10px] text-gray-600">${ex.muscle_group || ''}</span>
+        </button>`).join('') : '<p class="text-[11px] text-gray-600 py-2">Brak ćwiczeń spełniających filtr. Wyczyść filtr lub dodaj więcej sprzętu.</p>';
+    }
+
+    function clearPBExerciseFilter(day) {
+      const search = document.getElementById('exSearch_' + day);
+      if (search) search.value = '';
+      const results = document.getElementById('exSearchResults_' + day);
+      results?.classList.add('hidden');
+      renderPBExerciseCatalog(day);
     }
 
     function autoSelectPBExercises(day) {
@@ -14388,7 +14613,9 @@
         ? [...new Set(locations.flatMap(location => location.equipment || []))]
         : (getCurrentProfile()?.equipment || []);
       const exclusions = getCurrentProfile()?.exclusions || [];
-      const count = Math.max(1, cfg.exCount || 5);
+      const countInput = document.getElementById('pbAutoCount_' + day);
+      const count = Math.max(1, Number(countInput?.value || cfg.exCount || 5));
+      cfg.exCount = count;
       const generated = generateExercisesForDay(
         cfg.muscles?.length ? cfg.muscles : ['klatka', 'plecy'],
         equipment,
@@ -14404,7 +14631,7 @@
         }
       });
       _renderDayConfig(day);
-      _showPBToast(`✨ Dobierano ${Math.min(generated.length, count)} ćwiczeń dopasowanych do dnia`);
+      _showPBToast(`✨ Dobrano ${Math.min(generated.length, count)} ćwiczeń dopasowanych do dnia`);
     }
 
     function _renderDrillSearch(day) {
@@ -14450,6 +14677,8 @@
             </div>
             <button onclick="removePBPinnedItem('${day}',${i})"
               class="text-gray-600 hover:text-red-400 text-lg flex-shrink-0 transition-colors">×</button>
+            ${item.type === 'exercise' ? `<button onclick="replacePBPinnedItem('${day}',${i})"
+              class="text-[10px] text-violet-300 hover:text-white transition-colors">Zamień</button>` : ''}
           </div>`).join('')}
       </div>
     </div>`;
@@ -14461,6 +14690,24 @@
       _renderWeekGrid();
       _renderDayConfig(day);
       _updateBalancePanel();
+    }
+
+    function replacePBPinnedItem(day, index) {
+      const current = _pb.days[day]?.pinned?.[index];
+      if (!current || current.type !== 'exercise') return;
+      const equipment = _getPBEquipmentForDay(day);
+      const exclusions = getCurrentProfile()?.exclusions || [];
+      const muscles = _pb.days[day].muscles?.length ? _pb.days[day].muscles : ['klatka', 'plecy'];
+      const alternatives = generateExercisesForDay(muscles, equipment, exclusions, 10, { difficulty: getCurrentProfile()?.difficulty })
+        .filter(item => item.name !== current.item.name && !(_pb.days[day].pinned || []).some(pin => pin.item?.name === item.name));
+      if (!alternatives.length) {
+        _showPBToast('Brak dostępnego zamiennika przy tym sprzęcie.');
+        return;
+      }
+      _pb.days[day].pinned[index] = { type: 'exercise', item: { ...alternatives[0] } };
+      _renderDayConfig(day);
+      _renderWeekGrid();
+      _showPBToast(`🔄 Zamieniono na: ${alternatives[0].name}`);
     }
 
     function togglePBMuscle(day, muscle) {
@@ -14513,6 +14760,7 @@
     function searchPBExercises(day, query) {
       const resultsEl = document.getElementById('exSearchResults_' + day);
       if (!resultsEl) return;
+      renderPBExerciseCatalog(day, query);
       if (!query || query.length < 2) { resultsEl.classList.add('hidden'); return; }
 
       const db = window.EXERCISE_DB || {};
