@@ -12691,6 +12691,9 @@
       planName: 'Plan Inteligentny EVOLVE',
       days: ['Pon', 'Śr', 'Pt', 'Sob'],
       duration: 60,
+      dayDurations: {
+        Pon: 60, Wt: 60, Śr: 60, Czw: 60, Pt: 60, Sob: 60, Niedz: 60
+      },
       equipment: 'gym',
       sport: 'basketball',
       sportFocus: ['jump', 'speed'],
@@ -12786,6 +12789,40 @@
       generateSmartPlan(false);
     }
 
+    function _initializeSmartSportPriorities(profile) {
+      if (_smartPlanState.sport !== 'basketball') return;
+      const saved = profile?.sportPriorities || profile?.sport?.priorities;
+      if (saved && typeof saved === 'object') {
+        _smartPlanState.sportPriorities = { ..._smartPlanState.sportPriorities, ...saved };
+        _smartPlanState.sportPrioritySource = 'zapisane priorytety użytkownika';
+        return;
+      }
+      const sportProfile = profile?.sport || {};
+      const position = String(sportProfile.position || '').toLowerCase();
+      const results = profile?.sportDrillResults || profile?.drillResults || {};
+      const hasResults = Object.keys(results).length > 0;
+      const priorities = { ..._smartPlanState.sportPriorities };
+      if (position.includes('guard') || position.includes('rozgryw') || position.includes('pg') || position.includes('sg')) {
+        priorities.dribbling = 7; priorities.ball_handling = 7; priorities.passing = 7;
+      } else if (position.includes('center') || position.includes('środk') || position.includes('c —')) {
+        priorities.layup = 7; priorities.footwork = 7; priorities.three_point = 4;
+      } else if (position.includes('forward') || position.includes('skrzyd')) {
+        priorities.layup = 6; priorities.mid_range = 6; priorities.defense = 6;
+      }
+      if (hasResults) {
+        SMART_BASKETBALL_FOCUS.forEach(item => {
+          const value = Number(results[item.k] ?? results[item.l]);
+          if (Number.isFinite(value)) priorities[item.k] = Math.max(1, Math.min(10, Math.round(10 - value / 10)));
+        });
+        _smartPlanState.sportPrioritySource = `wyniki drillów${position ? ` i pozycja: ${sportProfile.position}` : ''}`;
+      } else if (Object.values(priorities).every(value => value === 5)) {
+        _smartPlanState.sportPrioritySource = 'brak danych — ustawiono wartości 5/10';
+      } else {
+        _smartPlanState.sportPrioritySource = `pozycja: ${sportProfile.position || 'nieokreślona'}`;
+      }
+      _smartPlanState.sportPriorities = priorities;
+    }
+
     function initSmartPlanBuilder() {
       const p = getCurrentProfile ? getCurrentProfile() : null;
       if (p) {
@@ -12812,56 +12849,6 @@
         generateSmartPlan(false);
       }
 
-      const SMART_BASKETBALL_FOCUS_LOCAL = [
-        { k: 'three_point', l: 'Rzut za 3', d: 'Celność i powtarzalność rzutu zza łuku', terms: ['3', 'trój', 'three', 'rzut'] },
-        { k: 'mid_range', l: 'Mid-range', d: 'Rzut z półdystansu po koźle i zatrzymaniu', terms: ['mid', 'półdystans', 'pull-up'] },
-        { k: 'layup', l: 'Lay-up i wykończenie', d: 'Wykończenie pod presją z obu stron', terms: ['layup', 'lay-up', 'wykońc', 'finish'] },
-        { k: 'dribbling', l: 'Dribbling', d: 'Kozłowanie, zmiana tempa i kierunku', terms: ['drybl', 'dribbl', 'kozł', 'crossover'] },
-        { k: 'ball_handling', l: 'Ball-handling', d: 'Kontrola piłki w ruchu i pod presją', terms: ['handle', 'ball-handling', 'piłk'] },
-        { k: 'passing', l: 'Podania i czytanie gry', d: 'Dokładność podań i decyzje w przewadze', terms: ['podan', 'pass', 'asyst'] },
-        { k: 'defense', l: 'Obrona 1 na 1', d: 'Praca nóg, closeout i reakcja', terms: ['obron', 'defens', 'closeout'] },
-        { k: 'footwork', l: 'Footwork i pierwszy krok', d: 'Balans, zatrzymanie i eksplozja', terms: ['footwork', 'krok', 'praca nóg', 'zwin'] }
-      ];
-
-      function _initializeSmartSportPriorities(profile) {
-        if (_smartPlanState.sport !== 'basketball') return;
-        const saved = profile?.sportPriorities || profile?.sport?.priorities;
-        if (saved && typeof saved === 'object') {
-          _smartPlanState.sportPriorities = { ..._smartPlanState.sportPriorities, ...saved };
-          _smartPlanState.sportPrioritySource = 'zapisane priorytety użytkownika';
-          return;
-        }
-        const sportProfile = profile?.sport || {};
-        const position = String(sportProfile.position || '').toLowerCase();
-        const results = profile?.sportDrillResults || profile?.drillResults || {};
-        const hasResults = Object.keys(results).length > 0;
-        const priorities = { ..._smartPlanState.sportPriorities };
-        if (position.includes('guard') || position.includes('rozgryw') || position.includes('pg') || position.includes('sg')) {
-          priorities.dribbling = 7; priorities.ball_handling = 7; priorities.passing = 7;
-        } else if (position.includes('center') || position.includes('środk') || position.includes('c —')) {
-          priorities.layup = 7; priorities.footwork = 7; priorities.three_point = 4;
-        } else if (position.includes('forward') || position.includes('skrzyd')) {
-          priorities.layup = 6; priorities.mid_range = 6; priorities.defense = 6;
-        }
-        if (hasResults) {
-          SMART_BASKETBALL_FOCUS_LOCAL.forEach(item => {
-            const value = Number(results[item.k] ?? results[item.l]);
-            if (Number.isFinite(value)) priorities[item.k] = Math.max(1, Math.min(10, Math.round(10 - value / 10)));
-          });
-          _smartPlanState.sportPrioritySource = `wyniki drillów${position ? ` i pozycja: ${sportProfile.position}` : ''}`;
-        } else if (Object.values(priorities).every(value => value === 5)) {
-          _smartPlanState.sportPrioritySource = 'brak danych — ustawiono wartości 5/10';
-        } else {
-          _smartPlanState.sportPrioritySource = `pozycja: ${sportProfile.position || 'nieokreślona'}`;
-        }
-        _smartPlanState.sportPriorities = priorities;
-      }
-
-      function onSmartSportPriorityChange(key, value) {
-        _smartPlanState.sportPriorities[key] = Math.max(1, Math.min(10, Number(value) || 5));
-        renderSmartSportFocus();
-        generateSmartPlan(false);
-      }
     }
 
     function renderSmartDaysPicker() {
@@ -12937,6 +12924,17 @@
               <span class="text-[10px] text-cyan-300">${selected.size} miejsc</span>
             </div>
           </div>
+          <div class="flex items-center gap-2 mb-2">
+            <label class="text-[10px] text-gray-500">Czas:</label>
+            <input type="number" min="0" max="23" value="${Math.floor((_smartPlanState.dayDurations[day] || 60) / 60)}"
+              aria-label="Godziny ${PB_DAY_NAMES[day] || day}" onchange="setSmartDayDuration('${day}',this.value,document.getElementById('smartMinutes_${day}').value)"
+              class="w-16 rounded-lg px-2 py-1 text-xs text-white" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);">
+            <span class="text-[10px] text-gray-500">h</span>
+            <input id="smartMinutes_${day}" type="number" min="0" max="59" value="${(_smartPlanState.dayDurations[day] || 60) % 60}"
+              aria-label="Minuty ${PB_DAY_NAMES[day] || day}" onchange="setSmartDayDuration('${day}',document.querySelector('[aria-label="Godziny ${PB_DAY_NAMES[day] || day}"]').value,this.value)"
+              class="w-16 rounded-lg px-2 py-1 text-xs text-white" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);">
+            <span class="text-[10px] text-gray-500">min</span>
+          </div>
           <div class="flex flex-wrap gap-2">${locations.map(location => {
             const id = String(location.id || location.name);
             const on = selected.has(id);
@@ -12965,10 +12963,32 @@
       generateSmartPlan(false);
     }
 
+    function setSmartDayDuration(day, hours, minutes) {
+      const h = Math.max(0, Math.min(23, Number.parseInt(hours, 10) || 0));
+      const m = Math.max(0, Math.min(59, Number.parseInt(minutes, 10) || 0));
+      _smartPlanState.dayDurations[day] = Math.max(1, h * 60 + m);
+      generateSmartPlan(false);
+    }
+
     function setSmartDuration(mins) {
       _smartPlanState.duration = mins;
+      _smartPlanState.days.forEach(day => { _smartPlanState.dayDurations[day] = mins; });
       renderSmartDurationPicker();
+      renderSmartDayLocationRows();
       generateSmartPlan(false);
+    }
+
+    function estimateExerciseMinutes(exercise) {
+      if (!exercise) return 5;
+      const sets = Number.parseInt(exercise.sets, 10) || 3;
+      const reps = Number.parseInt(exercise.reps, 10) || 10;
+      const workSeconds = Math.max(30, Math.min(180, reps * 4));
+      const restSeconds = exercise.isDrill || exercise._sport ? 45 : 90;
+      return Math.max(1, Math.ceil((sets * workSeconds + Math.max(0, sets - 1) * restSeconds + 60) / 60));
+    }
+
+    function estimatePlanMinutes(items) {
+      return (items || []).filter(item => !item?._meta).reduce((total, item) => total + estimateExerciseMinutes(item), 0);
     }
 
     function renderSmartDurationPicker() {
@@ -13262,8 +13282,6 @@
       const midMuscles = sorted.filter(e => e[1] >= 4 && e[1] < 8).map(e => e[0]);
 
       const nDays = days.length;
-      const exCount = duration <= 45 ? 4 : (duration <= 60 ? 5 : (duration <= 75 ? 6 : 7));
-
       let planConfig = {};
 
       if (nDays === 1) {
@@ -13311,6 +13329,8 @@
       const excl = profile?.exclusions || [];
 
       days.forEach(day => {
+        const dayDuration = _smartPlanState.dayDurations[day] || duration || 60;
+        const exCount = dayDuration <= 45 ? 4 : (dayDuration <= 60 ? 5 : (dayDuration <= 75 ? 6 : 7));
         const autoCfg = planConfig[day] || { type: 'strength', muscles: ['klatka', 'plecy'] };
         const requestedType = _smartPlanState.dayTypes[day] || 'auto';
         const cfg = requestedType === 'sport'
@@ -13392,7 +13412,9 @@
         }
         fullPlan[day]._meta = {
           locations: selectedLocations.map(location => ({ id: location.id, name: location.name, equipment: location.equipment || [] })),
-          equipment: dayEquip
+          equipment: dayEquip,
+          estimatedMinutes: estimatePlanMinutes(fullPlan[day]),
+          availableMinutes: dayDuration
         };
       });
 
@@ -13444,6 +13466,10 @@
               }).join('')}
             </div>
             ${dayMeta.locations?.length ? `<div class="mt-2 text-[10px] text-gray-500">📍 ${dayMeta.locations.map(location => location.name).join(', ')}</div>` : ''}
+            ${dayMeta.estimatedMinutes ? `<div class="mt-1 text-[10px] ${dayMeta.estimatedMinutes > dayMeta.availableMinutes ? 'text-amber-300' : 'text-emerald-300'}">
+              ⏱️ Szacowany czas: ${dayMeta.estimatedMinutes} min / ${dayMeta.availableMinutes} min
+              ${dayMeta.estimatedMinutes > dayMeta.availableMinutes ? ' — plan przekracza dostępny czas' : ''}
+            </div>` : ''}
             <div class="mt-2 text-[10px] text-gray-500">💡 ${isSport ? 'Dobór drilli wynika z priorytetów sportowych i wybranego czasu.' : 'Dobór ćwiczeń wynika z priorytetów partii, profilu i dostępnego sprzętu.'}</div>
           </div>`;
       }).join('');
@@ -13634,6 +13660,7 @@
     window.toggleSmartDay = toggleSmartDay;
     window.setSmartDaysPreset = setSmartDaysPreset;
     window.setSmartDuration = setSmartDuration;
+    window.setSmartDayDuration = setSmartDayDuration;
     window.setSmartSport = setSmartSport;
     window.toggleSmartSportFocus = toggleSmartSportFocus;
     window.selectSmartSportFocus = selectSmartSportFocus;
@@ -13739,6 +13766,9 @@
       _smartPlanState.days = [];
       _smartPlanState.dayLocations = {};
       _smartPlanState.dayTypes = {};
+      _smartPlanState.dayDurations = {
+        Pon: 60, Wt: 60, Śr: 60, Czw: 60, Pt: 60, Sob: 60, Niedz: 60
+      };
       _smartPlanState.planName = 'Plan Inteligentny EVOLVE';
       _smartPlanState.activeMuscle = 'klatka';
       _smartPlanState.musclePriorities = {
@@ -14153,12 +14183,17 @@
     }
 
     function selectBuilderDay(day) {
+      if (!PB_DAYS.includes(day)) return;
+      if (!_pb.days[day]) _pb.days[day] = _pbCloneEmptyDay();
       _pb.activeDay = day;
       _renderWeekGrid();
       _renderDayConfig(day);
+      document.getElementById('dayConfigPanel')?.scrollIntoView({ block: 'nearest' });
     }
 
     function _renderDayConfig(day) {
+      if (!PB_DAYS.includes(day)) return;
+      if (!_pb.days[day]) _pb.days[day] = _pbCloneEmptyDay();
       const cfg = _pb.days[day];
       const name = PB_DAY_NAMES[day];
       const panel = document.getElementById('dayConfigPanel');
