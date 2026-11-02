@@ -3978,7 +3978,7 @@
                       <svg id="basketballCourtSVG" viewBox="0 0 220 280" style="width:100%;max-width:420px;border-radius:16px;background:#1a2433;" xmlns="http://www.w3.org/2000/svg">
                         <style>.court-zone text{display:none}.court-zone circle{transition:fill .2s,stroke .2s,transform .2s}</style>
                         <!-- Court outline -->
-                        <rect x="10" y="10" width="400" height="260" rx="8" fill="#1e3a2e" stroke="#2d5a3d" stroke-width="2"/>
+                        <rect x="10" y="10" width="200" height="260" rx="8" fill="#1e3a2e" stroke="#2d5a3d" stroke-width="2"/>
                         <!-- Half-court line -->
                         <line x1="210" y1="10" x2="210" y2="270" stroke="#2d5a3d" stroke-width="1.5" stroke-dasharray="6,4"/>
                         <!-- Center circle -->
@@ -4115,12 +4115,40 @@
                   <!-- Quick insights -->
                   <div id="sportInsightsGrid" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
 
+                  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <div class="glass rounded-2xl p-5">
+                      <div class="flex items-center justify-between gap-3 mb-3">
+                        <div>
+                          <h3 class="text-sm font-bold uppercase tracking-wider" style="color:var(--cyan);">⚡ Gotowość do treningu</h3>
+                          <p id="sportReadinessHint" class="text-xs text-gray-500 mt-1">Pobieranie danych regeneracji…</p>
+                        </div>
+                        <p id="sportReadinessScore" class="text-3xl font-extrabold text-white">—</p>
+                      </div>
+                      <div class="h-2 rounded-full bg-white/5 overflow-hidden"><div id="sportReadinessBar" class="h-full rounded-full transition-all" style="width:0%;background:linear-gradient(90deg,var(--cyan),var(--violet));"></div></div>
+                      <div id="sportReadinessSignals" class="grid grid-cols-2 gap-2 mt-4"></div>
+                    </div>
+                    <div class="glass rounded-2xl p-5">
+                      <div class="flex items-center justify-between gap-3 mb-3">
+                        <div>
+                          <h3 class="text-sm font-bold uppercase tracking-wider" style="color:var(--violet);">🎯 Cel koszykarski</h3>
+                          <p id="sportGoalSummary" class="text-xs text-gray-500 mt-1">Ustaw cel, aby dopasować rekomendacje.</p>
+                        </div>
+                        <button onclick="openSportGoalEditor()" class="btn-ghost px-3 py-1.5 rounded-xl text-xs font-bold">Ustaw cel</button>
+                      </div>
+                      <div id="sportGoalProgress" class="text-xs text-gray-400">Brak aktywnego celu.</div>
+                    </div>
+                  </div>
+
                   <!-- Suggested drills -->
                   <div class="glass rounded-2xl p-5" id="sportSuggestedDrills">
                     <h3 class="text-sm font-bold uppercase tracking-wider mb-4" style="color:var(--violet);">💡 Sugerowane drille dziś</h3>
                     <div id="sportSuggestedDrillsList" class="space-y-2">
                       <p class="text-xs text-gray-500 italic">Zaloguj pierwsze sesje rzutowe aby zobaczyć sugestie…</p>
                     </div>
+                  </div>
+                  <div class="glass rounded-2xl p-5">
+                    <h3 class="text-sm font-bold uppercase tracking-wider mb-3" style="color:var(--cyan);">🧠 Dlaczego to rekomendujemy?</h3>
+                    <div id="sportRecommendationReasons" class="space-y-2"><p class="text-xs text-gray-500 italic">Uzupełnij test lub dodaj logi, aby zobaczyć uzasadnienie.</p></div>
                   </div>
 
                   <!-- Recent sessions summary -->
@@ -11742,6 +11770,8 @@
               if (typeof renderSportInsights === 'function') renderSportInsights();
               if (typeof renderSportProfileCard === 'function') renderSportProfileCard();
               if (typeof renderSportAthletePanel === 'function') renderSportAthletePanel();
+              if (typeof renderSportReadiness === 'function') renderSportReadiness();
+              if (typeof renderSportGoal === 'function') renderSportGoal();
             }, 50);
           }
           if (sub === 'drille') {
@@ -34532,6 +34562,101 @@ window.openDayItemSwap = openDayItemSwap;
         }).join('');
       }
     }
+    var reasonsEl = document.getElementById('sportRecommendationReasons');
+    if (reasonsEl) {
+      var reasons = [];
+      var athlete = athleteState();
+      var ratings = athlete.ratings || {};
+      if (!athlete.assessmentComplete) reasons.push('Oceny są zablokowane, ponieważ nie wykonano jeszcze testu początkowego.');
+      if (history.length === 0) reasons.push('Brak logów sportowych — pierwszy zapis pozwoli ustalić bazę porównawczą.');
+      if (ratings.three != null && ratings.three < 60) reasons.push('Rzuty za trzy mają ocenę poniżej 60/100, dlatego system nadaje im wyższy priorytet.');
+      if (ratings.handle != null && ratings.handle < 60) reasons.push('Kozłowanie wymaga pracy według ostatniej oceny profilu zawodnika.');
+      if (history.length >= 2) reasons.push('Rekomendacje uwzględniają ostatnie ' + Math.min(history.length, 5) + ' zapisanych sesji.');
+      reasonsEl.innerHTML = reasons.map(function(reason) {
+        return '<div class="flex items-start gap-2 text-xs text-gray-400"><span class="text-cyan-300">•</span><span>' + reason + '</span></div>';
+      }).join('') || '<p class="text-xs text-gray-500 italic">Dodaj wyniki, aby otrzymywać wyjaśnione rekomendacje.</p>';
+    }
+  };
+
+  window.renderSportReadiness = function() {
+    var scoreEl = document.getElementById('sportReadinessScore');
+    var hintEl = document.getElementById('sportReadinessHint');
+    var barEl = document.getElementById('sportReadinessBar');
+    var signalsEl = document.getElementById('sportReadinessSignals');
+    if (!scoreEl) return;
+    var token = localStorage.getItem('fitai_token');
+    if (!token) {
+      scoreEl.textContent = '—';
+      if (hintEl) hintEl.textContent = 'Zaloguj się, aby obliczyć gotowość.';
+      return;
+    }
+    fetch((window.API_BASE || '') + '/app/recovery/today', {
+      headers: { 'Authorization': 'Bearer ' + token }, cache: 'no-store',
+    }).then(function(response) { return response.ok ? response.json() : null; }).then(function(data) {
+      var score = data && data.readiness_score != null ? Math.round(data.readiness_score) : null;
+      scoreEl.textContent = score == null ? '—' : score + '/100';
+      if (barEl) barEl.style.width = (score || 0) + '%';
+      if (hintEl) hintEl.textContent = score == null
+        ? 'Uzupełnij check-in w zakładce Regeneracja.'
+        : (score >= 75 ? 'Możesz wykonać trening o pełnej intensywności.' : score >= 55 ? 'Zalecany trening techniczny o średniej intensywności.' : 'Postaw na lekki trening i regenerację.');
+      if (signalsEl) {
+        var signals = data && data.signals ? data.signals : {};
+        signalsEl.innerHTML = Object.entries(signals).slice(0, 4).map(function(entry) {
+          return '<div class="rounded-xl px-2.5 py-2" style="background:rgba(255,255,255,.03);"><p class="text-[10px] text-gray-500">' + entry[0] + '</p><p class="text-xs font-bold text-white mt-1">' + Math.round(entry[1]) + '/100</p></div>';
+        }).join('') || '<p class="text-xs text-gray-500 col-span-2">Brak wystarczających danych.</p>';
+      }
+    }).catch(function() {
+      if (hintEl) hintEl.textContent = 'Nie udało się pobrać gotowości.';
+    });
+  };
+
+  window.renderSportGoal = function() {
+    var athlete = athleteState();
+    var summary = document.getElementById('sportGoalSummary');
+    var progress = document.getElementById('sportGoalProgress');
+    var goal = athlete.goal;
+    if (!summary || !progress) return;
+    if (!goal || !goal.name) {
+      summary.textContent = 'Ustaw cel, aby dopasować rekomendacje.';
+      progress.textContent = 'Brak aktywnego celu.';
+      return;
+    }
+    summary.textContent = goal.name + (goal.deadline ? ' · do ' + goal.deadline : '');
+    var current = Number(goal.current || 0);
+    var target = Number(goal.target || 100);
+    var pct = target > 0 ? Math.min(100, Math.round(current / target * 100)) : 0;
+    progress.innerHTML = '<div class="flex justify-between mb-2"><span>Postęp</span><strong class="text-cyan-300">' + current + ' / ' + target + '</strong></div><div class="h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full" style="width:' + pct + '%;background:linear-gradient(90deg,var(--violet),var(--cyan));"></div></div>';
+  };
+
+  window.openSportGoalEditor = function() {
+    var goal = athleteState().goal || {};
+    var modal = document.createElement('div');
+    modal.id = 'sportGoalModal';
+    modal.className = 'fixed inset-0 z-[310] flex items-center justify-center p-4';
+    modal.style.cssText = 'background:rgba(0,0,0,.88);backdrop-filter:blur(16px);';
+    modal.innerHTML = '<div class="glass rounded-3xl w-full max-w-md p-6 space-y-4">'
+      + '<div class="flex items-center justify-between"><h3 class="text-lg font-extrabold text-white">🎯 Cel koszykarski</h3><button onclick="document.getElementById(\'sportGoalModal\').remove()" class="text-2xl text-gray-500">×</button></div>'
+      + '<label class="text-xs text-gray-400">Cel<select id="sportGoalName" class="w-full mt-1"><option>Poprawić rzuty za trzy</option><option>Poprawić rzuty wolne</option><option>Poprawić lewy layup</option><option>Zwiększyć wyskok</option><option>Poprawić kozłowanie</option></select></label>'
+      + '<div class="grid grid-cols-2 gap-3"><label class="text-xs text-gray-400">Wartość obecna<input id="sportGoalCurrent" type="number" min="0" value="' + (goal.current || 0) + '" class="w-full mt-1"></label><label class="text-xs text-gray-400">Cel końcowy<input id="sportGoalTarget" type="number" min="1" value="' + (goal.target || 80) + '" class="w-full mt-1"></label></div>'
+      + '<label class="text-xs text-gray-400">Termin<input id="sportGoalDeadline" type="date" value="' + (goal.deadline || '') + '" class="w-full mt-1"></label>'
+      + '<button onclick="saveSportGoal()" class="btn-neon w-full py-3 rounded-xl font-bold">Zapisz cel</button></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', function(event) { if (event.target === modal) modal.remove(); });
+    if (goal.name) document.getElementById('sportGoalName').value = goal.name;
+  };
+
+  window.saveSportGoal = function() {
+    var athlete = athleteState();
+    athlete.goal = {
+      name: document.getElementById('sportGoalName')?.value || 'Cel koszykarski',
+      current: Number(document.getElementById('sportGoalCurrent')?.value || 0),
+      target: Number(document.getElementById('sportGoalTarget')?.value || 80),
+      deadline: document.getElementById('sportGoalDeadline')?.value || '',
+    };
+    persistAthleteProfile(athlete);
+    document.getElementById('sportGoalModal')?.remove();
+    renderSportGoal();
+    if (typeof showToast === 'function') showToast('✅ Cel koszykarski zapisany!');
   };
 
   // ── openQuickShotModal — Quick shot entry modal ───────────────────────
