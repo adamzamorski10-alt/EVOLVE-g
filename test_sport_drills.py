@@ -64,3 +64,25 @@ def test_drill_search_and_target_bonus():
     history_search = client.get("/app/drills/search?q=rzut", headers=headers)
     assert history_search.status_code == 200
     assert history_search.json()["user_drills"][0]["total_sessions"] == 1
+
+
+def test_drill_result_can_be_deleted_only_by_owner():
+    headers = _headers()
+    logged = client.post(
+        "/app/drill-result",
+        headers=headers,
+        json={
+            "drill_name": "Test usuwania",
+            "drill_sport": "koszykówka",
+            "drill_category": "rzuty",
+            "success_count": 5,
+            "total_attempts": 10,
+            "rpe": 5,
+        },
+    )
+    assert logged.status_code == 200
+    result_id = logged.json()["drill"]["id"]
+
+    deleted = client.delete(f"/app/drill-result/{result_id}", headers=headers)
+    assert deleted.status_code == 200
+    assert client.delete(f"/app/drill-result/{result_id}", headers=headers).status_code == 404

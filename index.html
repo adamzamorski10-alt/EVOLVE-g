@@ -34918,6 +34918,15 @@ window.openDayItemSwap = openDayItemSwap;
       st.drill_history.splice(idx, 1);
     }
     saveSt(st);
+    var token = localStorage.getItem('fitai_token');
+    if (id && token && !String(id).startsWith('sl_') && !String(id).startsWith('al_')) {
+      fetch((window.API_BASE || '') + '/app/drill-result/' + encodeURIComponent(id), {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token },
+      }).catch(function(error) {
+        console.warn('[Sport] Nie udało się usunąć wyniku z serwera:', error);
+      });
+    }
     renderSportLogs();
     if (typeof showToast === 'function') showToast('🗑️ Wpis usunięty');
   };

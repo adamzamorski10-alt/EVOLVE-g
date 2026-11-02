@@ -1521,12 +1521,33 @@ def get_drill_history(
         }
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail="Database error — please try again later") from exc
+
+
     except Exception as exc:
         print(
             f"[FitAI][get_drill_history] ERROR user_id={user.id} drill='{drill_name}' "
             f"— {type(exc).__name__}: {exc}"
         )
         return {"results": [], "progressions": {}}
+
+
+@router.delete("/drill-result/{drill_id}", tags=["sport"])
+def delete_drill_result(
+    drill_id: str,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Usuń wyłącznie własny wynik drilla."""
+    drill = session.get(DrillResultDB, drill_id)
+    if not drill or drill.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Wynik drilla nie został znaleziony")
+    try:
+        session.delete(drill)
+        session.commit()
+    except SQLAlchemyError as exc:
+        session.rollback()
+        raise HTTPException(status_code=500, detail="Błąd usuwania wyniku drilla") from exc
+    return {"status": "ok", "deleted_id": drill_id}
 
 
 @router.post("/sport-config")
