@@ -3921,6 +3921,13 @@
               <!-- Sport > Informacje (Basketball Court + Insights) -->
               <div class="plan-tab-panel" id="panel-sport-informacje">
                 <div class="space-y-5">
+                  <div class="glass rounded-2xl p-3 flex flex-wrap items-center gap-2" style="border:1px solid rgba(0,229,255,0.14);">
+                    <span class="text-[11px] font-bold uppercase tracking-wider mr-1" style="color:var(--muted);">Sport</span>
+                    <button class="px-4 py-2 rounded-xl text-xs font-bold" onclick="switchPlanTab('sport','informacje')" style="background:rgba(0,229,255,0.12);border:1px solid rgba(0,229,255,0.35);color:var(--cyan);">🏀 Koszykówka</button>
+                    <button class="px-4 py-2 rounded-xl text-xs font-bold opacity-50 cursor-not-allowed" disabled>⚽ Piłka nożna · wkrótce</button>
+                    <button class="px-4 py-2 rounded-xl text-xs font-bold opacity-50 cursor-not-allowed" disabled>🎾 Tenis · wkrótce</button>
+                    <button class="px-4 py-2 rounded-xl text-xs font-bold opacity-50 cursor-not-allowed" disabled>🏐 Siatkówka · wkrótce</button>
+                  </div>
                   <!-- Sport header -->
                   <div class="flex items-center gap-4 flex-wrap">
                     <div class="flex items-center gap-3 flex-1">
@@ -3940,6 +3947,22 @@
                     </div>
                   </div>
 
+                  <div id="sportAthletePanel" class="glass rounded-3xl p-5" style="border:1px solid rgba(124,58,237,0.28);background:linear-gradient(135deg,rgba(124,58,237,0.07),rgba(0,229,255,0.03));">
+                    <div class="flex items-start justify-between gap-4 flex-wrap">
+                      <div>
+                        <p class="text-[11px] font-bold uppercase tracking-widest" style="color:var(--violet);">Panel zawodnika</p>
+                        <h3 id="sportAthleteTitle" class="text-lg font-extrabold text-white mt-1">Profil wymaga uzupełnienia</h3>
+                        <p id="sportAthleteStatus" class="text-xs mt-1" style="color:var(--muted);">Uzupełnij dane i wykonaj test początkowy, aby odblokować ocenę.</p>
+                      </div>
+                      <div class="flex gap-2 flex-wrap">
+                        <button onclick="openSportAthleteAssessment()" class="btn-neon px-4 py-2.5 rounded-xl text-xs font-bold">🧪 Wykonaj test początkowy</button>
+                        <button onclick="openSportAthleteEditor()" class="btn-ghost px-4 py-2.5 rounded-xl text-xs font-bold">✏️ Edytuj dane</button>
+                      </div>
+                    </div>
+                    <div id="sportAthleteRatingGrid" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 mt-5"></div>
+                    <div id="sportAthleteDetails" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4"></div>
+                  </div>
+
                   <!-- Basketball Court SVG -->
                   <div class="glass rounded-3xl p-5" style="background:linear-gradient(135deg,rgba(0,229,255,0.04) 0%,rgba(124,58,237,0.06) 100%);border:1px solid rgba(0,229,255,0.15);">
                     <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -3952,7 +3975,8 @@
                     </div>
                     <!-- SVG Basketball Court -->
                     <div class="w-full flex justify-center">
-                      <svg id="basketballCourtSVG" viewBox="0 0 420 280" style="width:100%;max-width:560px;border-radius:16px;background:#1a2433;" xmlns="http://www.w3.org/2000/svg">
+                      <svg id="basketballCourtSVG" viewBox="0 0 220 280" style="width:100%;max-width:420px;border-radius:16px;background:#1a2433;" xmlns="http://www.w3.org/2000/svg">
+                        <style>.court-zone text{display:none}.court-zone circle{transition:fill .2s,stroke .2s,transform .2s}</style>
                         <!-- Court outline -->
                         <rect x="10" y="10" width="400" height="260" rx="8" fill="#1e3a2e" stroke="#2d5a3d" stroke-width="2"/>
                         <!-- Half-court line -->
@@ -3981,49 +4005,49 @@
                         <!-- ── Shot Zone Hotspots (interactive) ── -->
                         <!-- Zone: Free Throws (FT) -->
                         <g class="court-zone" data-zone="ft" onclick="courtZoneClick('ft')" style="cursor:pointer;">
-                          <circle id="zone-ft" cx="100" cy="140" r="22" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
+                          <circle id="zone-ft" cx="100" cy="140" r="6" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
                           <text x="100" y="136" text-anchor="middle" font-size="8" fill="#94a3b8" font-family="Inter,sans-serif">FT</text>
                           <text id="zone-ft-pct" x="100" y="147" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Inter,sans-serif" font-weight="bold">-</text>
                         </g>
                         <!-- Zone: Left Corner 3 -->
                         <g class="court-zone" data-zone="corner_l" onclick="courtZoneClick('corner_l')" style="cursor:pointer;">
-                          <circle id="zone-corner_l" cx="28" cy="58" r="18" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
+                          <circle id="zone-corner_l" cx="28" cy="58" r="6" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
                           <text x="28" y="54" text-anchor="middle" font-size="7" fill="#94a3b8" font-family="Inter,sans-serif">Rogi</text>
                           <text id="zone-corner_l-pct" x="28" y="64" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Inter,sans-serif" font-weight="bold">-</text>
                         </g>
                         <!-- Zone: Right Corner 3 (mirrored) -->
                         <g class="court-zone" data-zone="corner_r" onclick="courtZoneClick('corner_r')" style="cursor:pointer;">
-                          <circle id="zone-corner_r" cx="28" cy="222" r="18" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
+                          <circle id="zone-corner_r" cx="28" cy="222" r="6" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
                           <text x="28" y="218" text-anchor="middle" font-size="7" fill="#94a3b8" font-family="Inter,sans-serif">Rogi</text>
                           <text id="zone-corner_r-pct" x="28" y="228" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Inter,sans-serif" font-weight="bold">-</text>
                         </g>
                         <!-- Zone: Wing 3 Left -->
                         <g class="court-zone" data-zone="wing_l" onclick="courtZoneClick('wing_l')" style="cursor:pointer;">
-                          <circle id="zone-wing_l" cx="125" cy="55" r="20" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
+                          <circle id="zone-wing_l" cx="125" cy="55" r="6" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
                           <text x="125" y="51" text-anchor="middle" font-size="7" fill="#94a3b8" font-family="Inter,sans-serif">Skrzydła</text>
                           <text id="zone-wing_l-pct" x="125" y="62" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Inter,sans-serif" font-weight="bold">-</text>
                         </g>
                         <!-- Zone: Wing 3 Right -->
                         <g class="court-zone" data-zone="wing_r" onclick="courtZoneClick('wing_r')" style="cursor:pointer;">
-                          <circle id="zone-wing_r" cx="125" cy="225" r="20" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
+                          <circle id="zone-wing_r" cx="125" cy="225" r="6" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
                           <text x="125" y="221" text-anchor="middle" font-size="7" fill="#94a3b8" font-family="Inter,sans-serif">Skrzydła</text>
                           <text id="zone-wing_r-pct" x="125" y="232" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Inter,sans-serif" font-weight="bold">-</text>
                         </g>
                         <!-- Zone: Top 3 -->
                         <g class="court-zone" data-zone="top3" onclick="courtZoneClick('top3')" style="cursor:pointer;">
-                          <circle id="zone-top3" cx="178" cy="140" r="22" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
+                          <circle id="zone-top3" cx="178" cy="140" r="6" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
                           <text x="178" y="136" text-anchor="middle" font-size="7" fill="#94a3b8" font-family="Inter,sans-serif">Szczyt 3</text>
                           <text id="zone-top3-pct" x="178" y="147" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Inter,sans-serif" font-weight="bold">-</text>
                         </g>
                         <!-- Zone: Mid-range -->
                         <g class="court-zone" data-zone="mid" onclick="courtZoneClick('mid')" style="cursor:pointer;">
-                          <circle id="zone-mid" cx="145" cy="140" r="18" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
+                          <circle id="zone-mid" cx="145" cy="140" r="6" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
                           <text x="145" y="136" text-anchor="middle" font-size="6" fill="#94a3b8" font-family="Inter,sans-serif">Mid</text>
                           <text id="zone-mid-pct" x="145" y="146" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Inter,sans-serif" font-weight="bold">-</text>
                         </g>
                         <!-- Zone: Paint / Close Range -->
                         <g class="court-zone" data-zone="paint" onclick="courtZoneClick('paint')" style="cursor:pointer;">
-                          <circle id="zone-paint" cx="68" cy="140" r="18" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
+                          <circle id="zone-paint" cx="68" cy="140" r="6" fill="rgba(100,116,139,0.3)" stroke="rgba(100,116,139,0.5)" stroke-width="1.5" class="zone-circle"/>
                           <text x="68" y="136" text-anchor="middle" font-size="6" fill="#94a3b8" font-family="Inter,sans-serif">Paint</text>
                           <text id="zone-paint-pct" x="68" y="146" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Inter,sans-serif" font-weight="bold">-</text>
                         </g>
@@ -4123,6 +4147,15 @@
                   <div class="glass p-5 rounded-2xl">
                     <p class="text-xs font-bold uppercase mb-3" style="color:var(--muted);">Filtruj wg dyscypliny</p>
                     <div id="sportSelectorGrid" class="grid grid-cols-4 sm:grid-cols-8 gap-3"></div>
+                    <div class="flex flex-wrap gap-2 mt-4">
+                      <input id="sportDrillSearch" type="search" placeholder="🔍 Szukaj drilla…" oninput="renderSportDrills()" class="flex-1 min-w-[180px] text-sm">
+                      <select id="sportDrillCategory" onchange="renderSportDrills()" class="text-sm">
+                        <option value="">Wszystkie kategorie</option>
+                        <option value="rzuty">Rzuty</option><option value="drybling">Kozłowanie</option>
+                        <option value="podania">Podania</option><option value="obrona">Obrona</option>
+                        <option value="motoryka">Motoryka</option>
+                      </select>
+                    </div>
                   </div>
                   <!-- Drills catalog -->
                   <div id="sport-drills" class="space-y-4">
@@ -11708,6 +11741,7 @@
               if (typeof renderBasketballCourt === 'function') renderBasketballCourt();
               if (typeof renderSportInsights === 'function') renderSportInsights();
               if (typeof renderSportProfileCard === 'function') renderSportProfileCard();
+              if (typeof renderSportAthletePanel === 'function') renderSportAthletePanel();
             }, 50);
           }
           if (sub === 'drille') {
@@ -24405,7 +24439,15 @@
 
       if (sportData) {
         // build header + categories
-        const categories = Object.entries(sportData).filter(([k]) => k !== 'emoji');
+        const drillQuery = (document.getElementById('sportDrillSearch')?.value || '').trim().toLowerCase();
+        const drillCategory = (document.getElementById('sportDrillCategory')?.value || '').trim().toLowerCase();
+        const categories = Object.entries(sportData).filter(([k]) => k !== 'emoji').map(([catKey, cat]) => [
+          catKey,
+          { ...cat, drills: (cat.drills || []).filter(d => {
+            const text = `${d.name || ''} ${d.description || ''} ${catKey}`.toLowerCase();
+            return (!drillQuery || text.includes(drillQuery)) && (!drillCategory || catKey.toLowerCase().includes(drillCategory));
+          }) },
+        ]).filter(([, cat]) => cat.drills.length > 0);
         const sportTotal = categories.reduce((s, [, c]) => s + ((c.drills && c.drills.length) || 0), 0);
         const headerHtml = `<div class="glass rounded-2xl p-4 mb-4 flex items-center justify-between"><div class="flex items-center gap-3"><div style="font-size:1.6rem">${sportData.emoji || '🏅'}</div><div><div class="font-bold text-white" style="font-family:'Syne',sans-serif;">${sportData.label || (selectedSportKey.charAt(0).toUpperCase() + selectedSportKey.slice(1))}</div><div class="text-xs text-gray-400">Liczba drilli w tej dyscyplinie: <strong>${sportTotal}</strong></div></div></div><div class="text-xs text-gray-500">Przegląd kategorii i pojedynczych drilli</div></div>`;
 
@@ -24437,10 +24479,18 @@
         window._sportDrillsGridClickHandler = function (e) {
           const info = (e.target.dataset.drillInfo || '').split('::');
           const add = (e.target.dataset.drillAdd || '').split('::');
+          const currentQuery = (document.getElementById('sportDrillSearch')?.value || '').trim().toLowerCase();
+          const currentCategory = (document.getElementById('sportDrillCategory')?.value || '').trim().toLowerCase();
+          const filteredDrills = function(catKey) {
+            return (sd[selectedSportKey][catKey].drills || []).filter(function(d) {
+              const text = `${d.name || ''} ${d.description || ''} ${catKey}`.toLowerCase();
+              return (!currentQuery || text.includes(currentQuery)) && (!currentCategory || catKey.toLowerCase().includes(currentCategory));
+            });
+          };
           if (info && info.length === 2) {
-            const [catKey, idx] = info; const drill = (sd[selectedSportKey][catKey].drills || [])[Number(idx)]; if (drill && typeof window.showDrillInfo === 'function') window.showDrillInfo(drill);
+            const [catKey, idx] = info; const drill = filteredDrills(catKey)[Number(idx)]; if (drill && typeof window.showDrillInfo === 'function') window.showDrillInfo(drill);
           } else if (add && add.length === 2) {
-            const [catKey, idx] = add; const drill = (sd[selectedSportKey][catKey].drills || [])[Number(idx)]; if (drill) { window._pendingDrill = drill; if (typeof window.openTrainingExerciseAddModal === 'function') window.openTrainingExerciseAddModal(); }
+            const [catKey, idx] = add; const drill = filteredDrills(catKey)[Number(idx)]; if (drill) { window._pendingDrill = drill; if (typeof window.openTrainingExerciseAddModal === 'function') window.openTrainingExerciseAddModal(); }
           }
         };
         container.addEventListener('click', window._sportDrillsGridClickHandler);
@@ -34298,14 +34348,13 @@ window.openDayItemSwap = openDayItemSwap;
     Object.keys(ZONE_META).forEach(function(id) { stats[id] = { made: 0, attempts: 0 }; });
     (history || []).forEach(function(r) {
       var name = (r.drill_name || '').toLowerCase();
-      var zone = null;
+      var zone = r.zone && stats[r.zone] ? r.zone : null;
       if (name.includes('free throw') || name.includes('osobiste')) zone = 'ft';
       else if (name.includes('corner') || name.includes('rogi')) {
-        // alternate between corner_l and corner_r for balance
-        zone = (Math.random() > 0.5) ? 'corner_l' : 'corner_r';
+        zone = r.zone === 'corner_r' ? 'corner_r' : 'corner_l';
       }
       else if (name.includes('wing') || name.includes('skrzydł')) {
-        zone = (Math.random() > 0.5) ? 'wing_l' : 'wing_r';
+        zone = r.zone === 'wing_r' ? 'wing_r' : 'wing_l';
       }
       else if (name.includes('top') || name.includes('szczyt')) zone = 'top3';
       else if (name.includes('mid') || name.includes('półdystans') || name.includes('poldystans')) zone = 'mid';
@@ -34988,6 +35037,187 @@ window.openDayItemSwap = openDayItemSwap;
     a.href = url; a.download = 'sport_logi_' + new Date().toISOString().split('T')[0] + '.csv';
     a.click(); URL.revokeObjectURL(url);
     if (typeof showToast === 'function') showToast('📤 Eksport CSV gotowy!');
+  };
+
+  var ATHLETE_SKILLS = [
+    ['three', 'Rzut za 3'], ['mid', 'Mid range'], ['free', 'Osobiste'],
+    ['layup', 'Layup'], ['handle', 'Kozłowanie'], ['vertical', 'Wyskok'],
+    ['speed', 'Szybkość'], ['defense', 'Obrona'],
+  ];
+
+  function athleteState() {
+    var st = loadSt();
+    st.athlete = st.athlete || {};
+    return st.athlete;
+  }
+
+  function escapeAthlete(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch) {
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch];
+    });
+  }
+
+  function suggestedPosition(data) {
+    data = data || {};
+    var height = Number(data.height) || 0;
+    var age = Number(data.age) || 0;
+    var weight = Number(data.weight) || 0;
+    var relativeHeight = height && age ? height - (age <= 12 ? 155 : age <= 14 ? 168 : age <= 16 ? 178 : 182) : 0;
+    if (relativeHeight >= 8 || weight >= 90) return 'C — Center';
+    if (relativeHeight >= 2 || weight >= 78) return 'PF — Silny skrzydłowy';
+    if (relativeHeight <= -4) return 'PG — Rozgrywający';
+    return 'SG — Rzucający obrońca';
+  }
+
+  window.renderSportAthletePanel = function() {
+    var athlete = athleteState();
+    var profile = typeof getCurrentProfile === 'function' ? getCurrentProfile() : {};
+    var ratings = athlete.ratings || {};
+    var locked = !athlete.assessmentComplete;
+    var title = document.getElementById('sportAthleteTitle');
+    var status = document.getElementById('sportAthleteStatus');
+    var grid = document.getElementById('sportAthleteRatingGrid');
+    var details = document.getElementById('sportAthleteDetails');
+    if (!grid || !details) return;
+
+    if (title) title.textContent = locked ? 'Profil wymaga uzupełnienia' : 'Profil zawodnika gotowy';
+    if (status) status.textContent = locked
+      ? 'Uzupełnij dane i wykonaj test początkowy, aby odblokować ocenę.'
+      : 'Ocena jest aktualizowana na podstawie testów, drillów i logów.';
+
+    var overall = ratings.overall;
+    var cards = [['overall', 'Ocena ogólna', overall]].concat(ATHLETE_SKILLS.map(function(item) {
+      return [item[0], item[1], ratings[item[0]]];
+    }));
+    grid.innerHTML = cards.map(function(card) {
+      var value = locked || card[2] == null ? '—' : Math.round(card[2]);
+      var color = locked ? '#64748b' : (Number(card[2]) >= 70 ? '#34d399' : Number(card[2]) >= 50 ? '#fbbf24' : '#f87171');
+      return '<div class="rounded-2xl p-3 text-center" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);">'
+        + '<p class="text-xl font-extrabold" style="color:' + color + ';">' + value + '</p>'
+        + '<p class="text-[10px] mt-1 text-gray-500">' + escapeAthlete(card[1]) + '</p></div>';
+    }).join('');
+
+    var data = {
+      'Pozycja': athlete.position || 'Nieustalona',
+      'Sugestia': athlete.suggestedPosition || suggestedPosition({
+        age: athlete.age || profile.age, height: athlete.height || profile.height, weight: athlete.weight || profile.weight,
+      }),
+      'Wiek': (athlete.age || profile.age) ? (athlete.age || profile.age) + ' lat' : 'Brak danych',
+      'Wzrost': (athlete.height || profile.height) ? (athlete.height || profile.height) + ' cm' : 'Brak danych',
+      'Waga': (athlete.weight || profile.weight) ? (athlete.weight || profile.weight) + ' kg' : 'Brak danych',
+      'Płeć': athlete.gender || profile.gender || 'Brak danych',
+      'Wyskok': athlete.verticalJump ? athlete.verticalJump + ' cm' : 'Brak danych',
+      'Pewność': locked ? 'Brak danych' : (athlete.confidence || 'Niska'),
+      'Cel': athlete.goal || 'Ustaw podczas edycji',
+    };
+    details.innerHTML = Object.entries(data).map(function(entry) {
+      return '<div class="rounded-xl px-3 py-2" style="background:rgba(255,255,255,0.025);">'
+        + '<p class="text-[10px] uppercase tracking-wider text-gray-500">' + entry[0] + '</p>'
+        + '<p class="text-xs font-bold text-white mt-1">' + escapeAthlete(entry[1]) + '</p></div>';
+    }).join('');
+  };
+
+  window.openSportAthleteEditor = function() {
+    var athlete = athleteState();
+    var profile = typeof getCurrentProfile === 'function' ? getCurrentProfile() : {};
+    var modal = document.createElement('div');
+    modal.id = 'sportAthleteEditorModal';
+    modal.className = 'fixed inset-0 z-[310] flex items-center justify-center p-4';
+    modal.style.cssText = 'background:rgba(0,0,0,.88);backdrop-filter:blur(16px);';
+    modal.innerHTML = '<div class="glass rounded-3xl w-full max-w-lg p-6 space-y-5" style="max-height:92vh;overflow:auto;">'
+      + '<div class="flex items-start justify-between"><div><p class="text-[11px] uppercase tracking-widest" style="color:var(--cyan);">Dane sportowe</p><h3 class="text-xl font-extrabold text-white mt-1">Profil zawodnika</h3><p class="text-xs text-gray-400 mt-1">Zmiany są zapisywane tylko w module Sport.</p></div><button onclick="document.getElementById(\'sportAthleteEditorModal\').remove()" class="text-2xl text-gray-500">×</button></div>'
+      + '<div class="grid grid-cols-2 gap-3">'
+      + '<label class="text-xs text-gray-400">Wiek<input id="sportAge" type="number" min="5" max="100" value="' + (profile.age || '') + '" class="w-full mt-1"></label>'
+      + '<label class="text-xs text-gray-400">Wzrost (cm)<input id="sportHeight" type="number" min="80" max="250" value="' + (profile.height || '') + '" class="w-full mt-1"></label>'
+      + '<label class="text-xs text-gray-400">Waga (kg)<input id="sportWeight" type="number" min="20" max="300" value="' + (profile.weight || '') + '" class="w-full mt-1"></label>'
+      + '<label class="text-xs text-gray-400">Płeć<input id="sportGender" type="text" value="' + escapeAthlete(profile.gender || '') + '" class="w-full mt-1"></label>'
+      + '<label class="text-xs text-gray-400">Zasięg stojąc (cm)<input id="sportReach" type="number" min="80" max="350" value="' + (athlete.reach || '') + '" class="w-full mt-1"></label>'
+      + '<label class="text-xs text-gray-400">Wyskok (cm)<input id="sportVertical" type="number" min="0" max="150" value="' + (athlete.verticalJump || '') + '" class="w-full mt-1"></label>'
+      + '<label class="text-xs text-gray-400 col-span-2">Pozycja<select id="sportPosition" class="w-full mt-1"><option value="">Zasugeruj na podstawie danych</option><option>PG — Rozgrywający</option><option>SG — Rzucający obrońca</option><option>SF — Niski skrzydłowy</option><option>PF — Silny skrzydłowy</option><option>C — Center</option></select></label>'
+      + '</div><p id="sportPositionSuggestion" class="text-xs text-cyan-300"></p>'
+      + '<button onclick="saveSportAthleteEditor()" class="btn-neon w-full py-3 rounded-xl font-bold">Zapisz dane sportowe</button></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', function(event) { if (event.target === modal) modal.remove(); });
+    var pos = document.getElementById('sportPosition');
+    var suggestion = suggestedPosition({
+      age: document.getElementById('sportAge')?.value || profile.age,
+      height: document.getElementById('sportHeight')?.value || profile.height,
+      weight: document.getElementById('sportWeight')?.value || profile.weight,
+    });
+    if (pos && athlete.position) pos.value = athlete.position;
+    var suggestionEl = document.getElementById('sportPositionSuggestion');
+    if (suggestionEl) suggestionEl.textContent = 'Sugestia programu: ' + suggestion;
+  };
+
+  window.saveSportAthleteEditor = function() {
+    var st = loadSt();
+    var athlete = st.athlete || {};
+    var number = function(id) { var value = Number(document.getElementById(id)?.value); return Number.isFinite(value) && value > 0 ? value : null; };
+    var age = number('sportAge'), height = number('sportHeight'), weight = number('sportWeight');
+    athlete.age = age; athlete.height = height; athlete.weight = weight;
+    athlete.gender = document.getElementById('sportGender')?.value?.trim() || '';
+    athlete.reach = number('sportReach');
+    athlete.verticalJump = number('sportVertical');
+    athlete.position = document.getElementById('sportPosition')?.value || suggestedPosition({ age: age, height: height, weight: weight });
+    athlete.suggestedPosition = suggestedPosition({ age: age, height: height, weight: weight });
+    st.athlete = athlete;
+    saveSt(st);
+    document.getElementById('sportAthleteEditorModal')?.remove();
+    renderSportAthletePanel();
+    if (typeof showToast === 'function') showToast('✅ Dane sportowe zapisane!');
+  };
+
+  window.openSportAthleteAssessment = function() {
+    var athlete = athleteState();
+    var profile = typeof getCurrentProfile === 'function' ? getCurrentProfile() : {};
+    var modal = document.createElement('div');
+    modal.id = 'sportAthleteAssessmentModal';
+    modal.className = 'fixed inset-0 z-[310] flex items-center justify-center p-4';
+    modal.style.cssText = 'background:rgba(0,0,0,.88);backdrop-filter:blur(16px);';
+    modal.innerHTML = '<div class="glass rounded-3xl w-full max-w-lg p-6 space-y-5" style="max-height:92vh;overflow:auto;">'
+      + '<div class="flex items-start justify-between"><div><p class="text-[11px] uppercase tracking-widest" style="color:var(--violet);">Test podstaw koszykówki</p><h3 class="text-xl font-extrabold text-white mt-1">Odblokuj pierwszą ocenę</h3><p class="text-xs text-gray-400 mt-1">Wpisz wyniki, które znasz. Pozostałe możesz uzupełnić później.</p></div><button onclick="document.getElementById(\'sportAthleteAssessmentModal\').remove()" class="text-2xl text-gray-500">×</button></div>'
+      + '<div class="grid grid-cols-2 gap-3">'
+      + '<label class="text-xs text-gray-400">Rzuty za 3 (%)<input id="assessThree" type="number" min="0" max="100" value="' + (athlete.ratings?.three || '') + '" class="w-full mt-1"></label>'
+      + '<label class="text-xs text-gray-400">Osobiste (%)<input id="assessFree" type="number" min="0" max="100" value="' + (athlete.ratings?.free || '') + '" class="w-full mt-1"></label>'
+      + '<label class="text-xs text-gray-400">Layup (%)<input id="assessLayup" type="number" min="0" max="100" value="' + (athlete.ratings?.layup || '') + '" class="w-full mt-1"></label>'
+      + '<label class="text-xs text-gray-400">Kozłowanie (1–100)<input id="assessHandle" type="number" min="0" max="100" value="' + (athlete.ratings?.handle || '') + '" class="w-full mt-1"></label>'
+      + '<label class="text-xs text-gray-400">Wyskok (cm)<input id="assessVertical" type="number" min="0" max="150" value="' + (athlete.verticalJump || '') + '" class="w-full mt-1"></label>'
+      + '<label class="text-xs text-gray-400">Pozycja<select id="assessPosition" class="w-full mt-1"><option value="">Zasugeruj</option><option value="PG — Rozgrywający">PG — Rozgrywający</option><option value="SG — Rzucający obrońca">SG — Rzucający obrońca</option><option value="SF — Niski skrzydłowy">SF — Niski skrzydłowy</option><option value="PF — Silny skrzydłowy">PF — Silny skrzydłowy</option><option value="C — Center">C — Center</option></select></label>'
+      + '</div><p id="sportAssessmentFeedback" class="text-xs text-gray-400"></p>'
+      + '<button onclick="saveSportAthleteAssessment()" class="btn-neon w-full py-3 rounded-xl font-bold">Zapisz test i odblokuj ocenę</button></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', function(event) { if (event.target === modal) modal.remove(); });
+    var position = document.getElementById('assessPosition');
+    if (position && athlete.position) position.value = athlete.position;
+  };
+
+  window.saveSportAthleteAssessment = function() {
+    var st = loadSt();
+    var athlete = st.athlete || {};
+    var profile = typeof getCurrentProfile === 'function' ? getCurrentProfile() : {};
+    var value = function(id) { var el = document.getElementById(id); return el ? Number(el.value) : 0; };
+    var ratings = athlete.ratings || {};
+    [['three','assessThree'],['free','assessFree'],['layup','assessLayup'],['handle','assessHandle']].forEach(function(pair) {
+      var n = value(pair[1]); if (n > 0) ratings[pair[0]] = Math.min(100, n);
+    });
+    var known = Object.values(ratings).filter(function(n) { return typeof n === 'number'; });
+    if (!known.length && !value('assessVertical')) {
+      var feedback = document.getElementById('sportAssessmentFeedback');
+      if (feedback) feedback.textContent = 'Wpisz przynajmniej jeden wynik testu.';
+      return;
+    }
+    ratings.overall = Math.round(known.reduce(function(sum, n) { return sum + n; }, 0) / Math.max(known.length, 1));
+    athlete.ratings = ratings;
+    athlete.verticalJump = value('assessVertical') || athlete.verticalJump || null;
+    athlete.position = document.getElementById('assessPosition')?.value || suggestedPosition(profile);
+    athlete.suggestedPosition = suggestedPosition(profile);
+    athlete.assessmentComplete = true;
+    athlete.confidence = known.length >= 3 ? 'Średnia' : 'Niska';
+    st.athlete = athlete;
+    saveSt(st);
+    document.getElementById('sportAthleteAssessmentModal')?.remove();
+    renderSportAthletePanel();
+    if (typeof showToast === 'function') showToast('✅ Profil zawodnika został zaktualizowany!');
   };
 
 })();
