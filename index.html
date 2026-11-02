@@ -13756,8 +13756,7 @@
         panel.innerHTML = `
           <div class="text-center py-8 text-gray-500">
             <p class="text-sm">Plan wyczyszczony. Kliknij dzień aby go skonfigurować.</p>
-          </div>          `;
-        if (cfg.type === 'strength') renderPBExerciseCatalog(day);
+          </div>`;
       }
 
       // 2. Reset stanu kreatora inteligentnego (_smartPlanState)
@@ -14251,6 +14250,7 @@
     <div id="pbDayTypeContent_${day}">${_renderDayTypeContent(day)}</div>
     ${_renderPinnedItems(day)}
   `;
+      if (cfg.type === 'strength') renderPBExerciseCatalog(day);
     }
 
     function _renderPBLocationPicker(day) {
@@ -14605,7 +14605,7 @@
     }
 
     function _getPBExerciseMatches(day, query = '') {
-      const db = window.EXERCISE_DB || {};
+      const db = window.EXERCISE_DB || (typeof EXERCISE_DB !== 'undefined' ? EXERCISE_DB : {});
       const cfg = _pb.days[day] || {};
       const q = String(query || '').trim().toLowerCase();
       const muscles = cfg.muscles || [];
