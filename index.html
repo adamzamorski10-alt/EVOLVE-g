@@ -34685,6 +34685,7 @@ window.openDayItemSwap = openDayItemSwap;
 
   // ── renderSportStats ──────────────────────────────────────────────────
   window.renderSportStats = function() {
+    syncSportHistory();
     var st = loadSt();
     var all = st.drill_history || [];
 
@@ -34849,6 +34850,7 @@ window.openDayItemSwap = openDayItemSwap;
 
   // ── renderSportLogs ───────────────────────────────────────────────────
   window.renderSportLogs = function() {
+    syncSportHistory();
     var st = loadSt();
     var history = st.drill_history || [];
     var q = (document.getElementById('logsSearchInput') || {}).value || '';
@@ -35042,7 +35044,7 @@ window.openDayItemSwap = openDayItemSwap;
   var ATHLETE_SKILLS = [
     ['three', 'Rzut za 3'], ['mid', 'Mid range'], ['free', 'Osobiste'],
     ['layup', 'Layup'], ['handle', 'Kozłowanie'], ['vertical', 'Wyskok'],
-    ['speed', 'Szybkość'], ['defense', 'Obrona'],
+    ['speed', 'Szybkość'], ['defense', 'Obrona'], ['condition', 'Kondycja'],
   ];
 
   function athleteState() {
@@ -35087,6 +35089,45 @@ window.openDayItemSwap = openDayItemSwap;
     });
   }
 
+  var sportHistorySyncStarted = false;
+  function syncSportHistory() {
+    if (sportHistorySyncStarted) return;
+    var token = localStorage.getItem('fitai_token');
+    if (!token) return;
+    sportHistorySyncStarted = true;
+    fetch((window.API_BASE || '') + '/app/drill-history?limit=200', {
+      headers: { 'Authorization': 'Bearer ' + token },
+      cache: 'no-store',
+    }).then(function(response) {
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      return response.json();
+    }).then(function(payload) {
+      var remote = Array.isArray(payload.results) ? payload.results : [];
+      var st = loadSt();
+      var local = Array.isArray(st.drill_history) ? st.drill_history : [];
+      var seen = {};
+      local.forEach(function(item) {
+        seen[item.id || [item.drill_name, item.session_date, item.success_count, item.total_attempts].join('|')] = true;
+      });
+      remote.forEach(function(item) {
+        var key = item.id || [item.drill_name, item.session_date, item.success_count, item.total_attempts].join('|');
+        if (!seen[key]) { local.push(item); seen[key] = true; }
+      });
+      local.sort(function(a, b) {
+        return String(b.logged_at || b.session_date || '').localeCompare(String(a.logged_at || a.session_date || ''));
+      });
+      st.drill_history = local.slice(0, 200);
+      saveSt(st);
+      renderSportAthletePanel();
+      if (typeof renderBasketballCourt === 'function') renderBasketballCourt();
+      if (typeof renderSportInsights === 'function') renderSportInsights();
+      if (typeof renderSportStats === 'function') renderSportStats();
+      if (typeof renderSportLogs === 'function') renderSportLogs();
+    }).catch(function(error) {
+      console.warn('[Sport] Nie udało się zsynchronizować historii:', error);
+    });
+  }
+
   function escapeAthlete(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch) {
       return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch];
@@ -35107,9 +35148,35 @@ window.openDayItemSwap = openDayItemSwap;
 
   window.renderSportAthletePanel = function() {
     syncAthleteProfile();
+    syncSportHistory();
     var athlete = athleteState();
     var profile = typeof getCurrentProfile === 'function' ? getCurrentProfile() : {};
     var ratings = athlete.ratings || {};
+    var history = (loadSt().drill_history || []).filter(function(item) {
+      return item.drill_sport === 'koszykówka' || item.drill_sport === 'basketball' || !item.drill_sport;
+    });
+    if (athlete.assessmentComplete && history.length) {
+      var skillRows = {};
+      history.forEach(function(item) {
+        var name = String(item.drill_name || '').toLowerCase();
+        var skill = name.includes('3') || name.includes('trój') ? 'three'
+          : name.includes('woln') || name.includes('free') || name.includes('osob') ? 'free'
+          : name.includes('lay') || name.includes('wejści') ? 'layup'
+          : name.includes('mid') || name.includes('półdyst') ? 'mid'
+          : name.includes('koz') || name.includes('drib') || name.includes('crossover') ? 'handle'
+          : null;
+        if (!skill || !(item.total_attempts > 0)) return;
+        if (!skillRows[skill]) skillRows[skill] = { made: 0, attempts: 0 };
+        skillRows[skill].made += Number(item.success_count || 0);
+        skillRows[skill].attempts += Number(item.total_attempts || 0);
+      });
+      Object.keys(skillRows).forEach(function(skill) {
+        var row = skillRows[skill];
+        if (row.attempts) ratings[skill] = Math.round(row.made / row.attempts * 100);
+      });
+      var measured = Object.keys(ratings).filter(function(key) { return key !== 'overall' && Number.isFinite(Number(ratings[key])); });
+      if (measured.length) ratings.overall = Math.round(measured.reduce(function(sum, key) { return sum + Number(ratings[key]); }, 0) / measured.length);
+    }
     var locked = !athlete.assessmentComplete;
     var title = document.getElementById('sportAthleteTitle');
     var status = document.getElementById('sportAthleteStatus');
@@ -35218,6 +35285,8 @@ window.openDayItemSwap = openDayItemSwap;
       + '<label class="text-xs text-gray-400">Layup (%)<input id="assessLayup" type="number" min="0" max="100" value="' + (athlete.ratings?.layup || '') + '" class="w-full mt-1"></label>'
       + '<label class="text-xs text-gray-400">Kozłowanie (1–100)<input id="assessHandle" type="number" min="0" max="100" value="' + (athlete.ratings?.handle || '') + '" class="w-full mt-1"></label>'
       + '<label class="text-xs text-gray-400">Wyskok (cm)<input id="assessVertical" type="number" min="0" max="150" value="' + (athlete.verticalJump || '') + '" class="w-full mt-1"></label>'
+      + '<label class="text-xs text-gray-400">Sprint 30 m (s)<input id="assessSprint" type="number" min="1" max="30" step="0.01" value="' + (athlete.sprint30m || '') + '" class="w-full mt-1"></label>'
+      + '<label class="text-xs text-gray-400">Kondycja (1–100)<input id="assessCondition" type="number" min="1" max="100" value="' + (athlete.ratings?.condition || '') + '" class="w-full mt-1"></label>'
       + '<label class="text-xs text-gray-400">Pozycja<select id="assessPosition" class="w-full mt-1"><option value="">Zasugeruj</option><option value="PG — Rozgrywający">PG — Rozgrywający</option><option value="SG — Rzucający obrońca">SG — Rzucający obrońca</option><option value="SF — Niski skrzydłowy">SF — Niski skrzydłowy</option><option value="PF — Silny skrzydłowy">PF — Silny skrzydłowy</option><option value="C — Center">C — Center</option></select></label>'
       + '</div><p id="sportAssessmentFeedback" class="text-xs text-gray-400"></p>'
       + '<button onclick="saveSportAthleteAssessment()" class="btn-neon w-full py-3 rounded-xl font-bold">Zapisz test i odblokuj ocenę</button></div>';
@@ -35237,7 +35306,9 @@ window.openDayItemSwap = openDayItemSwap;
       var n = value(pair[1]); if (n > 0) ratings[pair[0]] = Math.min(100, n);
     });
     var known = Object.values(ratings).filter(function(n) { return typeof n === 'number'; });
-    if (!known.length && !value('assessVertical')) {
+    var sprint = value('assessSprint');
+    var condition = value('assessCondition');
+    if (!known.length && !value('assessVertical') && !sprint && !condition) {
       var feedback = document.getElementById('sportAssessmentFeedback');
       if (feedback) feedback.textContent = 'Wpisz przynajmniej jeden wynik testu.';
       return;
@@ -35245,10 +35316,16 @@ window.openDayItemSwap = openDayItemSwap;
     ratings.overall = Math.round(known.reduce(function(sum, n) { return sum + n; }, 0) / Math.max(known.length, 1));
     athlete.ratings = ratings;
     athlete.verticalJump = value('assessVertical') || athlete.verticalJump || null;
+    athlete.sprint30m = sprint || athlete.sprint30m || null;
+    if (condition) ratings.condition = Math.min(100, condition);
+    if (athlete.verticalJump) ratings.vertical = Math.min(100, Math.round(Number(athlete.verticalJump) / 1.2));
+    if (athlete.sprint30m) ratings.speed = Math.min(100, Math.max(1, Math.round(100 - (Number(athlete.sprint30m) - 3.5) * 12)));
+    var measuredRatings = Object.keys(ratings).filter(function(key) { return key !== 'overall' && Number.isFinite(Number(ratings[key])); });
+    if (measuredRatings.length) ratings.overall = Math.round(measuredRatings.reduce(function(sum, key) { return sum + Number(ratings[key]); }, 0) / measuredRatings.length);
     athlete.position = document.getElementById('assessPosition')?.value || suggestedPosition(profile);
     athlete.suggestedPosition = suggestedPosition(profile);
     athlete.assessmentComplete = true;
-    athlete.confidence = known.length >= 3 ? 'Średnia' : 'Niska';
+    athlete.confidence = known.length >= 3 || sprint || condition ? 'Średnia' : 'Niska';
     persistAthleteProfile(athlete);
     document.getElementById('sportAthleteAssessmentModal')?.remove();
     renderSportAthletePanel();
