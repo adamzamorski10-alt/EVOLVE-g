@@ -142,6 +142,7 @@ def _ensure_legacy_sqlite_columns():
             "equipment": "TEXT",
             "health_limitations": "TEXT",
             "training_locations_json": "TEXT DEFAULT '[]'",
+            "basketball_profile_json": "TEXT DEFAULT '{}'",
         },
         "daily_logs": {
             "meals_json": "TEXT DEFAULT '[]'",

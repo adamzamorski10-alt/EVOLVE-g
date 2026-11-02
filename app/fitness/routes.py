@@ -905,6 +905,12 @@ def update_profile(
             db_user.set_list("training_locations_json", payload.training_locations)
             changed = True
 
+        if payload.basketball_profile is not None:
+            if not isinstance(payload.basketball_profile, dict):
+                raise HTTPException(status_code=422, detail="Nieprawidłowy profil koszykarski")
+            db_user.set_dict("basketball_profile_json", payload.basketball_profile)
+            changed = True
+
         if not changed:
             raise HTTPException(status_code=422, detail="Nie podano żadnego pola do aktualizacji")
 

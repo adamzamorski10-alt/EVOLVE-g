@@ -71,6 +71,34 @@ def test_sport_profile_round_trips_through_get_and_put():
     assert {key: fetched.json()[key] for key in payload} == payload
 
 
+def test_basketball_profile_assessment_round_trips_without_changing_biometrics():
+    ctx = _register_profile_user()
+    headers = _headers(ctx["token"])
+    payload = {
+        "age": 31,
+        "height": 188,
+        "weight": 82,
+        "basketball_profile": {
+            "position": "SG — Rzucający obrońca",
+            "assessmentComplete": True,
+            "ratings": {"overall": 72, "three": 68},
+            "confidence": "Niska",
+        },
+    }
+
+    updated = client.put("/app/profile", json=payload, headers=headers)
+    assert updated.status_code == 200, updated.text
+    profile = updated.json()["profile"]
+    assert profile["basketball_profile"] == payload["basketball_profile"]
+    assert profile["age"] == payload["age"]
+    assert profile["height"] == payload["height"]
+    assert profile["weight"] == payload["weight"]
+
+    fetched = client.get("/app/profile", headers=headers)
+    assert fetched.status_code == 200, fetched.text
+    assert fetched.json()["basketball_profile"] == payload["basketball_profile"]
+
+
 def test_sport_profile_is_in_plan_provenance_and_marks_plan_stale():
     ctx = _register_profile_user()
     headers = _headers(ctx["token"])

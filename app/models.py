@@ -106,6 +106,7 @@ class UserDB(SQLModel, table=True):
     training_experience: Optional[str] = "intermediate" # "beginner"|"intermediate"|"advanced"|"elite"
     equipment: Optional[str] = "gym_full"               # "gym_full"|"gym_free"|"dumbbells"|"bodyweight"|"court"|"hybrid"
     health_limitations: Optional[str] = None            # pełen tekst ograniczeń zdrowotnych
+    basketball_profile_json: str = "{}"                # sport-only athlete profile and assessment
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
@@ -200,6 +201,7 @@ class UserDB(SQLModel, table=True):
             "level": _xp_to_level(self.total_xp),
             "injuries": [i.strip() for i in self.injuries.split(",") if i.strip()],
             "health_limitations": self.health_limitations or "",
+            "basketball_profile": self.get_dict("basketball_profile_json"),
             "basketball_position": self.basketball_position or "",
             "training_experience": self.training_experience or "intermediate",
             "equipment": self.equipment or "gym_full",

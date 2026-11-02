@@ -35051,6 +35051,42 @@ window.openDayItemSwap = openDayItemSwap;
     return st.athlete;
   }
 
+  function persistAthleteProfile(athlete) {
+    var st = loadSt();
+    st.athlete = athlete;
+    saveSt(st);
+    var token = localStorage.getItem('fitai_token');
+    if (!token) return;
+    fetch((window.API_BASE || '') + '/app/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ basketball_profile: athlete }),
+    }).catch(function(error) { console.warn('[Sport] Nie udało się zsynchronizować profilu:', error); });
+  }
+
+  var athleteSyncStarted = false;
+  function syncAthleteProfile() {
+    if (athleteSyncStarted) return;
+    var token = localStorage.getItem('fitai_token');
+    if (!token) return;
+    athleteSyncStarted = true;
+    fetch((window.API_BASE || '') + '/app/profile', {
+      headers: { 'Authorization': 'Bearer ' + token },
+      cache: 'no-store',
+    }).then(function(response) {
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      return response.json();
+    }).then(function(profile) {
+      if (!profile.basketball_profile || typeof profile.basketball_profile !== 'object') return;
+      var st = loadSt();
+      st.athlete = Object.assign({}, st.athlete || {}, profile.basketball_profile);
+      saveSt(st);
+      renderSportAthletePanel();
+    }).catch(function(error) {
+      console.warn('[Sport] Nie udało się pobrać profilu koszykarskiego:', error);
+    });
+  }
+
   function escapeAthlete(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch) {
       return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch];
@@ -35070,6 +35106,7 @@ window.openDayItemSwap = openDayItemSwap;
   }
 
   window.renderSportAthletePanel = function() {
+    syncAthleteProfile();
     var athlete = athleteState();
     var profile = typeof getCurrentProfile === 'function' ? getCurrentProfile() : {};
     var ratings = athlete.ratings || {};
@@ -35160,8 +35197,7 @@ window.openDayItemSwap = openDayItemSwap;
     athlete.verticalJump = number('sportVertical');
     athlete.position = document.getElementById('sportPosition')?.value || suggestedPosition({ age: age, height: height, weight: weight });
     athlete.suggestedPosition = suggestedPosition({ age: age, height: height, weight: weight });
-    st.athlete = athlete;
-    saveSt(st);
+    persistAthleteProfile(athlete);
     document.getElementById('sportAthleteEditorModal')?.remove();
     renderSportAthletePanel();
     if (typeof showToast === 'function') showToast('✅ Dane sportowe zapisane!');
@@ -35213,8 +35249,7 @@ window.openDayItemSwap = openDayItemSwap;
     athlete.suggestedPosition = suggestedPosition(profile);
     athlete.assessmentComplete = true;
     athlete.confidence = known.length >= 3 ? 'Średnia' : 'Niska';
-    st.athlete = athlete;
-    saveSt(st);
+    persistAthleteProfile(athlete);
     document.getElementById('sportAthleteAssessmentModal')?.remove();
     renderSportAthletePanel();
     if (typeof showToast === 'function') showToast('✅ Profil zawodnika został zaktualizowany!');
