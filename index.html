@@ -14260,29 +14260,6 @@
         return '<div class="mb-5 p-3 rounded-xl text-xs text-gray-500" style="border:1px solid rgba(255,255,255,0.07);">Dodaj miejsca treningowe w profilu, aby ograniczyć ćwiczenia do dostępnego sprzętu.</div>';
       }
 
-      function _renderPBRecommendationInsights(day) {
-        const cfg = _pb.days[day];
-        if (!cfg || cfg.type === 'rest') return '';
-        const locations = (cfg.locations || [])
-          .map(id => getProfileLocations().find(location => String(location.id || location.name) === String(id)))
-          .filter(Boolean);
-        const equipment = locations.length ? [...new Set(locations.flatMap(location => location.equipment || []))] : (getCurrentProfile()?.equipment || []);
-        const issues = [];
-        const notes = [];
-        if (!locations.length) notes.push('Brak przypisanego miejsca — używam sprzętu globalnego z profilu.');
-        if (locations.length && equipment.length === 0) issues.push('Wybrane miejsce nie ma przypisanego sprzętu.');
-        const previous = PB_DAYS.slice(0, PB_DAYS.indexOf(day)).map(d => _pb.days[d]).filter(item => item?.type === 'strength');
-        const repeated = previous.some(item => (item.muscles || []).some(muscle => (cfg.muscles || []).includes(muscle)));
-        if (repeated) issues.push('Ten sam obszar mięśniowy pojawia się także w poprzednim dniu — zaplanuj regenerację.');
-        if (cfg.type === 'strength' && cfg.muscles?.length) {
-          notes.push(`Rekomendacja: ${cfg.muscles.slice(0, 3).join(', ')} + ${cfg.exCount || 5} ćwiczeń.`);
-        }
-        const color = issues.length ? '#fbbf24' : '#4ade80';
-        return `<div class="mb-4 p-3 rounded-xl text-xs" style="background:${issues.length ? 'rgba(251,191,36,0.07)' : 'rgba(74,222,128,0.06)'};border:1px solid ${color}40;">
-          <div class="font-bold mb-1" style="color:${color};">${issues.length ? '⚠️ Ostrzeżenia planu' : '✅ Rekomendacja EVOLVE'}</div>
-          ${issues.concat(notes).map(item => `<div class="text-gray-400 mt-1">${item}</div>`).join('')}
-        </div>`;
-      }
       const selected = new Set(cfg.locations || []);
       return `<div class="mb-5">
         <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Miejsce i sprzęt tego dnia</p>
@@ -14297,6 +14274,30 @@
             ${location.icon || '📍'} ${location.name}
           </label>`;
         }).join('')}</div>
+      </div>`;
+    }
+
+    function _renderPBRecommendationInsights(day) {
+      const cfg = _pb.days[day];
+      if (!cfg || cfg.type === 'rest') return '';
+      const locations = (cfg.locations || [])
+        .map(id => getProfileLocations().find(location => String(location.id || location.name) === String(id)))
+        .filter(Boolean);
+      const equipment = locations.length ? [...new Set(locations.flatMap(location => location.equipment || []))] : (getCurrentProfile()?.equipment || []);
+      const issues = [];
+      const notes = [];
+      if (!locations.length) notes.push('Brak przypisanego miejsca — używam sprzętu globalnego z profilu.');
+      if (locations.length && equipment.length === 0) issues.push('Wybrane miejsce nie ma przypisanego sprzętu.');
+      const previous = PB_DAYS.slice(0, PB_DAYS.indexOf(day)).map(d => _pb.days[d]).filter(item => item?.type === 'strength');
+      const repeated = previous.some(item => (item.muscles || []).some(muscle => (cfg.muscles || []).includes(muscle)));
+      if (repeated) issues.push('Ten sam obszar mięśniowy pojawia się także w poprzednim dniu — zaplanuj regenerację.');
+      if (cfg.type === 'strength' && cfg.muscles?.length) {
+        notes.push(`Rekomendacja: ${cfg.muscles.slice(0, 3).join(', ')} + ${cfg.exCount || 5} ćwiczeń.`);
+      }
+      const color = issues.length ? '#fbbf24' : '#4ade80';
+      return `<div class="mb-4 p-3 rounded-xl text-xs" style="background:${issues.length ? 'rgba(251,191,36,0.07)' : 'rgba(74,222,128,0.06)'};border:1px solid ${color}40;">
+        <div class="font-bold mb-1" style="color:${color};">${issues.length ? '⚠️ Ostrzeżenia planu' : '✅ Rekomendacja EVOLVE'}</div>
+        ${issues.concat(notes).map(item => `<div class="text-gray-400 mt-1">${item}</div>`).join('')}
       </div>`;
     }
 
