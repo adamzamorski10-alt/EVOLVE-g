@@ -1084,8 +1084,6 @@ Zakładkę można uznać za finalną dopiero po spełnieniu wszystkich poniższy
 
 **IN PROGRESS**
 
-- połączenie testu diagnostycznego i logów z aktywnym treningiem;
-- rozbudowane statystyki i trendy;
 - pełne ręczne testy UI w przeglądarce;
 - dopracowanie pustych stanów i responsywności.
 
@@ -1096,7 +1094,6 @@ Zakładkę można uznać za finalną dopiero po spełnieniu wszystkich poniższy
 
 **NEXT**
 
-1. Zintegrować wyniki aktywnego treningu z logami Sport.
-2. Dodać trendy 7/30/90 dni, stabilność wyników i jakość danych.
-3. Przejść scenariusze ręczne w przeglądarce i poprawić wykryte problemy.
-4. Dopiero po tych krokach uznać zakładkę Sport za finalną.
+1. Przejść scenariusze ręczne w przeglądarce i poprawić wykryte problemy.
+2. Potwierdzić responsywność przy szerokościach 375, 768, 1024 i 1440 px.
+3. Dopiero po tych krokach uznać zakładkę Sport za finalną.

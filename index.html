@@ -4196,6 +4196,7 @@
                   </div>
                   <!-- Summary cards -->
                   <div id="statsSummaryCards" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+                  <div id="statsQualityPanel" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
                   <!-- Zone breakdown table -->
                   <div class="glass rounded-2xl p-5">
                     <h3 class="text-sm font-bold uppercase tracking-wider mb-4" style="color:var(--cyan);">🏀 Skuteczność według strefy</h3>
@@ -34926,6 +34927,44 @@ window.openDayItemSwap = openDayItemSwap;
     var totalMade  = filtered.reduce(function(s, r) { return s + (r.success_count  || 0); }, 0);
     var avgAcc = totalShots > 0 ? Math.round(totalMade / totalShots * 100) : 0;
     var best = total > 0 ? Math.max.apply(null, filtered.map(function(r) { return r.accuracy_pct || 0; })) : 0;
+    var dated = filtered.map(function(r) { return r.date || r.session_date || ''; }).filter(Boolean).sort();
+    var previous = [];
+    if (days !== 'all') {
+      var previousCutoff = new Date();
+      previousCutoff.setDate(previousCutoff.getDate() - (parseInt(days) * 2));
+      var previousStart = previousCutoff.toISOString().split('T')[0];
+      var currentStart = new Date();
+      currentStart.setDate(currentStart.getDate() - parseInt(days));
+      var currentStartStr = currentStart.toISOString().split('T')[0];
+      previous = all.filter(function(r) {
+        var date = r.date || r.session_date || '';
+        return date >= previousStart && date < currentStartStr;
+      });
+    }
+    var previousShots = previous.reduce(function(sum, r) { return sum + Number(r.total_attempts || 0); }, 0);
+    var previousMade = previous.reduce(function(sum, r) { return sum + Number(r.success_count || 0); }, 0);
+    var previousAcc = previousShots ? Math.round(previousMade / previousShots * 100) : null;
+    var trendDelta = previousAcc == null ? null : avgAcc - previousAcc;
+    var dailyAccuracies = Object.values(filtered.reduce(function(map, row) {
+      var date = row.date || row.session_date || '';
+      if (!date) return map;
+      if (!map[date]) map[date] = { made: 0, attempts: 0 };
+      map[date].made += Number(row.success_count || 0);
+      map[date].attempts += Number(row.total_attempts || 0);
+      return map;
+    }, {})).filter(function(row) { return row.attempts > 0; }).map(function(row) {
+      return row.made / row.attempts * 100;
+    });
+    var mean = dailyAccuracies.length ? dailyAccuracies.reduce(function(sum, value) { return sum + value; }, 0) / dailyAccuracies.length : 0;
+    var variance = dailyAccuracies.length > 1
+      ? dailyAccuracies.reduce(function(sum, value) { return sum + Math.pow(value - mean, 2); }, 0) / dailyAccuracies.length
+      : 0;
+    var stability = dailyAccuracies.length > 1 ? Math.max(0, Math.round(100 - Math.sqrt(variance))) : null;
+    var dataQuality = total > 0 ? Math.min(100, Math.round(
+      (Math.min(total, 5) / 5 * 40)
+      + (Math.min(totalShots, 100) / 100 * 35)
+      + (dated.length ? 25 : 0)
+    )) : 0;
 
     // Summary cards
     var cardsEl = document.getElementById('statsSummaryCards');
@@ -34940,6 +34979,21 @@ window.openDayItemSwap = openDayItemSwap;
           + '<p class="text-2xl font-extrabold mb-1" style="font-family:\'Syne\',sans-serif;color:' + c.color + ';">' + c.val + '</p>'
           + '<p class="text-xs text-gray-500">' + c.icon + ' ' + c.label + '</p>'
           + '</div>';
+      }).join('');
+    }
+    var qualityEl = document.getElementById('statsQualityPanel');
+    if (qualityEl) {
+      var deltaLabel = trendDelta == null ? 'Brak poprzedniego okresu' : (trendDelta > 0 ? '+' : '') + trendDelta + ' pp vs poprzedni okres';
+      var deltaColor = trendDelta == null ? '#64748b' : trendDelta >= 0 ? '#34d399' : '#f87171';
+      qualityEl.innerHTML = [
+        { label: 'Trend skuteczności', value: deltaLabel, detail: previousAcc == null ? 'Dodaj dane z co najmniej dwóch okresów.' : 'Obecnie ' + avgAcc + '% · wcześniej ' + previousAcc + '%', color: deltaColor },
+        { label: 'Stabilność wyników', value: stability == null ? '—' : stability + '/100', detail: dailyAccuracies.length > 1 ? 'Odchylenie między dniami: ' + Math.round(Math.sqrt(variance)) + ' pp' : 'Potrzeba minimum 2 dni z wynikami.', color: stability == null ? '#64748b' : stability >= 75 ? '#34d399' : stability >= 50 ? '#fbbf24' : '#f87171' },
+        { label: 'Jakość danych', value: dataQuality + '/100', detail: total + ' sesji · ' + totalShots + ' prób · ' + (dated.length || 0) + ' dni', color: dataQuality >= 75 ? '#34d399' : dataQuality >= 45 ? '#fbbf24' : '#f87171' },
+      ].map(function(card) {
+        return '<div class="glass rounded-2xl p-4" style="border:1px solid rgba(255,255,255,.07);">'
+          + '<p class="text-[10px] uppercase tracking-wider text-gray-500">' + card.label + '</p>'
+          + '<p class="text-lg font-extrabold mt-2" style="color:' + card.color + ';">' + card.value + '</p>'
+          + '<p class="text-[11px] text-gray-500 mt-1">' + card.detail + '</p></div>';
       }).join('');
     }
 
