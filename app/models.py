@@ -604,6 +604,52 @@ class DrillResultDB(SQLModel, table=True):
             base["weight_kg"] = self.weight_kg
         return base
 
+
+class SportAttemptDB(SQLModel, table=True):
+    """Canonical basketball measurements and shot attempts."""
+    __tablename__ = "sport_attempts"
+    __table_args__ = (
+        UniqueConstraint("user_id", "client_id", name="uq_sport_attempts_user_client"),
+        Index("ix_sport_attempts_user_date", "user_id", "attempt_date"),
+    )
+
+    id: Optional[str] = Field(default_factory=lambda: str(_uuid_mod.uuid4()), primary_key=True)
+    user_id: str = Field(foreign_key="users.id", index=True)
+    attempt_date: date = Field(default_factory=date.today, index=True)
+    source: str = Field(default="manual", index=True)
+    test_run_id: Optional[str] = Field(default=None, index=True)
+    category: str = Field(index=True)
+    zone: Optional[str] = Field(default=None, index=True)
+    made: Optional[int] = None
+    attempts: Optional[int] = None
+    errors: Optional[int] = None
+    value: Optional[float] = None
+    unit: Optional[str] = None
+    drill_name: Optional[str] = None
+    notes: str = ""
+    client_id: str = Field(index=True)
+    created_at: datetime = Field(default_factory=datetime.now, index=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "date": self.attempt_date.isoformat(),
+            "source": self.source,
+            "test_run_id": self.test_run_id,
+            "category": self.category,
+            "zone": self.zone,
+            "made": self.made,
+            "attempts": self.attempts,
+            "errors": self.errors,
+            "value": self.value,
+            "unit": self.unit,
+            "drill_name": self.drill_name,
+            "notes": self.notes,
+            "client_id": self.client_id,
+            "created_at": self.created_at.isoformat(),
+        }
+
 class AssessmentDB(SQLModel, table=True):
     """Versioned baseline assessment owned by one authenticated user."""
 

@@ -354,6 +354,87 @@ class DrillResultRequest(BaseModel):
         return self.attempts if self.attempts is not None else self.total_attempts
 
 
+SPORT_CATEGORIES = {
+    "shot", "handle", "speed", "jump", "defense", "condition", "free", "mid",
+    "three", "layup",
+}
+SPORT_ZONES = {"paint", "ft", "mid", "corner_l", "corner_r", "wing_l", "wing_r", "top3"}
+SPORT_SOURCES = {"test", "training", "manual"}
+
+
+class SportAttemptRequest(BaseModel):
+    date: Optional[str] = None
+    source: str = "manual"
+    test_run_id: Optional[str] = None
+    category: str
+    zone: Optional[str] = None
+    made: Optional[int] = Field(default=None, ge=0)
+    attempts: Optional[int] = Field(default=None, ge=0)
+    errors: Optional[int] = Field(default=None, ge=0)
+    value: Optional[float] = None
+    unit: Optional[str] = Field(default=None, max_length=30)
+    drill_name: Optional[str] = Field(default=None, max_length=200)
+    notes: str = Field(default="", max_length=3000)
+    client_id: str = Field(min_length=1, max_length=200)
+
+    @field_validator("source")
+    @classmethod
+    def valid_source(cls, value: str) -> str:
+        if value not in SPORT_SOURCES:
+            raise ValueError("Nieprawidłowe źródło próby")
+        return value
+
+    @field_validator("category")
+    @classmethod
+    def valid_category(cls, value: str) -> str:
+        if value not in SPORT_CATEGORIES:
+            raise ValueError("Nieprawidłowa kategoria sportowa")
+        return value
+
+    @field_validator("zone")
+    @classmethod
+    def valid_zone(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and value not in SPORT_ZONES:
+            raise ValueError("Nieprawidłowa strefa rzutu")
+        return value
+
+    @field_validator("unit")
+    @classmethod
+    def valid_unit(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and value not in {"seconds", "cm"}:
+            raise ValueError("Nieprawidłowa jednostka pomiaru")
+        return value
+
+    def validate_measurement(self) -> None:
+        if self.made is not None and self.attempts is None:
+            raise ValueError("made wymaga attempts")
+        if self.made is not None and self.attempts is not None and self.made > self.attempts:
+            raise ValueError("made nie może przekraczać attempts")
+        if self.errors is not None and self.attempts is not None and self.errors > self.attempts:
+            raise ValueError("errors nie może przekraczać attempts")
+        if self.category in {"speed", "jump"}:
+            if self.value is None or self.unit not in {"seconds", "cm"}:
+                raise ValueError("Sprint i wyskok wymagają value oraz unit")
+            if self.category == "speed" and not 1 <= self.value <= 60:
+                raise ValueError("Czas sprintu poza sensownym zakresem")
+            if self.category == "jump" and not 10 <= self.value <= 200:
+                raise ValueError("Wyskok poza sensownym zakresem")
+
+
+class SportAttemptBatchRequest(BaseModel):
+    attempts: list[SportAttemptRequest] = Field(min_length=1, max_length=100)
+
+
+class SportRatingResponse(BaseModel):
+    ratings: dict[str, Optional[float]]
+    details: dict[str, dict]
+    overall: Optional[float]
+    overall_reason: Optional[str] = None
+    confidence: str
+    trend: dict[str, Optional[float]]
+    calibration: dict[str, bool]
+
+
 class TrainingAvailabilityWindow(BaseModel):
     """A local clock-time window during which a workout can be scheduled."""
     start: str = Field(pattern=r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")

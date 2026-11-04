@@ -40,7 +40,8 @@ from app.fitness.dashboard import (
     compute_streak_days_from_logs,
     get_user_logs,
 )
-from app.models import AssessmentDB, DailyLogDB, DrillResultDB, ExerciseResultDB, GoalDB, TrainingSetResultDB, UserDB
+from app.models import AssessmentDB, DailyLogDB, DrillResultDB, ExerciseResultDB, GoalDB, SportAttemptDB, TrainingSetResultDB, UserDB
+from app.fitness.sport_scoring import calculate_sport_ratings
 from app.schemas import (
     AppDailyCheckinRequest,
     AppOnboardingRequest,
@@ -53,11 +54,90 @@ from app.schemas import (
     NicknameChangeRequest,
     ProfileUpdateRequest,
     SportConfigRequest,
+    SportAttemptBatchRequest,
+    SportAttemptRequest,
     WaterLogRequest,
 )
 from app.fitness.utils import upsert_user_from_profile
 
 router = APIRouter(prefix="/app", tags=["fitness"])
+
+_SPORT_VALID_CATEGORIES = {"shot", "handle", "speed", "jump", "defense", "condition", "free", "mid", "three", "layup"}
+
+
+def _legacy_sport_attempts(user: UserDB, session: Session) -> None:
+    """Materialize the old assessment blob once, without deleting the source."""
+    profile = user.get_dict("basketball_profile_json")
+    assessment = profile.get("assessment")
+    if not isinstance(assessment, dict):
+        return
+    existing = {
+        row.client_id
+        for row in session.exec(select(SportAttemptDB).where(SportAttemptDB.user_id == user.id)).all()
+    }
+    today = str(profile.get("assessmentDate") or date.today())
+    entries: list[dict] = []
+    for key, category in (("three", "three"), ("mid", "mid"), ("free", "free"), ("layup", "layup")):
+        item = assessment.get(key)
+        if isinstance(item, dict) and item.get("attempts") is not None:
+            entries.append({"category": category, "made": item.get("made", 0), "attempts": item["attempts"]})
+    handle = assessment.get("inOut") or assessment.get("cross")
+    if isinstance(handle, dict) and handle.get("attempts") is not None:
+        entries.append({"category": "handle", "errors": handle.get("errors", 0), "attempts": handle["attempts"]})
+    if isinstance(assessment.get("sprint"), dict) and assessment["sprint"].get("seconds") is not None:
+        entries.append({"category": "speed", "value": assessment["sprint"]["seconds"], "unit": "seconds"})
+    if isinstance(assessment.get("vertical"), dict) and assessment["vertical"].get("cm") is not None:
+        entries.append({"category": "jump", "value": assessment["vertical"]["cm"], "unit": "cm"})
+    for index, entry in enumerate(entries):
+        client_id = f"legacy-assessment:{user.id}:{today}:{index}"
+        if client_id in existing:
+            continue
+        session.add(SportAttemptDB(
+            user_id=user.id,
+            attempt_date=date.fromisoformat(today) if len(today) == 10 else date.today(),
+            source="test",
+            test_run_id=f"legacy-assessment:{user.id}:{today}",
+            client_id=client_id,
+            **entry,
+        ))
+    if entries:
+        session.commit()
+
+
+def _save_sport_attempt(req: SportAttemptRequest, user: UserDB, session: Session) -> SportAttemptDB:
+    try:
+        req.validate_measurement()
+        attempt_date = date.fromisoformat(req.date) if req.date else date.today()
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    existing = session.exec(
+        select(SportAttemptDB).where(
+            SportAttemptDB.user_id == user.id,
+            SportAttemptDB.client_id == req.client_id,
+        )
+    ).first()
+    if existing:
+        return existing
+    row = SportAttemptDB(
+        user_id=user.id,
+        attempt_date=attempt_date,
+        source=req.source,
+        test_run_id=req.test_run_id,
+        category=req.category,
+        zone=req.zone,
+        made=req.made,
+        attempts=req.attempts,
+        errors=req.errors,
+        value=req.value,
+        unit=req.unit,
+        drill_name=req.drill_name,
+        notes=req.notes,
+        client_id=req.client_id,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return row
 
 
 _DAY_LABELS_PL = {0: "Pon", 1: "Wt", 2: "Śr", 3: "Czw", 4: "Pt", 5: "Sob", 6: "Niedz"}
@@ -1353,6 +1433,79 @@ def get_xp(user: UserDB = Depends(get_current_user)):
         **_xp_to_next_level(user.total_xp),
         "injuries": [item.strip() for item in (user.injuries or "").split(",") if item.strip()],
     }
+
+
+@router.post("/sport/attempt", tags=["sport"])
+def create_sport_attempt(
+    payload: SportAttemptRequest,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    row = _save_sport_attempt(payload, user, session)
+    return {"status": "ok", "attempt": row.to_dict(), "idempotent": row.client_id == payload.client_id}
+
+
+@router.post("/sport/attempts", tags=["sport"])
+def create_sport_attempts(
+    payload: SportAttemptBatchRequest,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    rows = [_save_sport_attempt(item, user, session) for item in payload.attempts]
+    return {"status": "ok", "attempts": [row.to_dict() for row in rows]}
+
+
+@router.post("/sport/test-run", tags=["sport"])
+def create_sport_test_run(
+    payload: SportAttemptBatchRequest,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    test_run_id = f"test_{uuid4().hex}"
+    rows = []
+    for item in payload.attempts:
+        item.test_run_id = item.test_run_id or test_run_id
+        item.source = "test"
+        rows.append(_save_sport_attempt(item, user, session))
+    return {"status": "ok", "test_run_id": test_run_id, "attempts": [row.to_dict() for row in rows]}
+
+
+@router.get("/sport/attempts", tags=["sport"])
+def get_sport_attempts(
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    _legacy_sport_attempts(user, session)
+    rows = session.exec(
+        select(SportAttemptDB)
+        .where(SportAttemptDB.user_id == user.id)
+        .order_by(SportAttemptDB.attempt_date.desc(), SportAttemptDB.created_at.desc())
+    ).all()
+    return {"attempts": [row.to_dict() for row in rows]}
+
+
+@router.delete("/sport/attempt/{attempt_id}", tags=["sport"])
+def delete_sport_attempt(
+    attempt_id: str,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    row = session.get(SportAttemptDB, attempt_id)
+    if not row or row.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Próba nie istnieje")
+    session.delete(row)
+    session.commit()
+    return {"status": "ok"}
+
+
+@router.get("/sport/ratings", tags=["sport"])
+def get_sport_ratings(
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    _legacy_sport_attempts(user, session)
+    rows = session.exec(select(SportAttemptDB).where(SportAttemptDB.user_id == user.id)).all()
+    return calculate_sport_ratings(rows)
 
 
 @router.post("/drill-result")
