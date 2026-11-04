@@ -212,7 +212,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
-      - run: python -m pytest -q test_diet.py test_macros.py test_main.py test_etap1.py test_etap2_structure.py test_etap3_full.py test_etap4.py test_day_tracker.py test_weekly_analysis.py test_sport_drills.py test_exercise_descriptions.py
+      - run: python -m pytest -q test_diet.py test_macros.py test_main.py test_etap1.py test_etap2_structure.py test_etap3_full.py test_etap4.py test_day_tracker.py test_weekly_analysis.py test_sport_drills.py test_sport_data_integrity.py test_exercise_descriptions.py
 
   migration-integrity:
     name: Alembic clean-database integrity
