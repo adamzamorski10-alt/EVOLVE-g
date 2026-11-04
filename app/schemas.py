@@ -408,6 +408,8 @@ class SportAttemptRequest(BaseModel):
     def validate_measurement(self) -> None:
         if self.made is not None and self.attempts is None:
             raise ValueError("made wymaga attempts")
+        if self.errors is not None and self.attempts is None:
+            raise ValueError("errors wymaga attempts")
         if self.made is not None and self.attempts is not None and self.made > self.attempts:
             raise ValueError("made nie może przekraczać attempts")
         if self.errors is not None and self.attempts is not None and self.errors > self.attempts:
