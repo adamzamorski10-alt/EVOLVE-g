@@ -671,6 +671,12 @@ def _create_composite_indexes():
         logger.warning(f"[FitAI] Ostrzeżenie: nie udało się utworzyć indeksu kompozytowego: {exc}")
 
 
+# Legacy tests and importers create rows before FastAPI startup hooks run.
+# Keep the legacy SQLite bootstrap available at import time; every operation is
+# idempotent and the regular startup hook still performs the same safety check.
+create_db_and_tables()
+
+
 # ─── App setup ────────────────────────────────────────────────────────────────
 
 app = FastAPI(title="FitAI API", version="2.0")
