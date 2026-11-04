@@ -35176,16 +35176,21 @@ window.openDayItemSwap = openDayItemSwap;
     if (!confirm('Usunąć ten wpis z historii?')) return;
     var st = loadSt();
     if (!Array.isArray(st.drill_history)) return;
+    var selected = st.drill_history.find(function(r, position) {
+      return (id && (r.id === id || r.server_id === id)) || (!id && position === idx);
+    });
+    var serverId = selected && (selected.server_id || selected.id);
     if (id) {
-      st.drill_history = st.drill_history.filter(function(r) { return r.id !== id; });
+      st.drill_history = st.drill_history.filter(function(r) { return r.id !== id && r.server_id !== id; });
     } else {
       st.drill_history.splice(idx, 1);
     }
     saveSt(st);
     var token = localStorage.getItem('fitai_token');
-    if (id && token && !String(id).startsWith('sl_')) {
-      var deletePath = String(id).startsWith('al_') ? '/app/sport/attempt/' : '/app/drill-result/';
-      fetch((window.API_BASE || '') + deletePath + encodeURIComponent(id), {
+    if (serverId && token && !String(serverId).startsWith('sl_') && !String(serverId).startsWith('al_')) {
+      var deletePath = selected && (selected.client_id || String(serverId).startsWith('al_'))
+        ? '/app/sport/attempt/' : '/app/drill-result/';
+      fetch((window.API_BASE || '') + deletePath + encodeURIComponent(serverId), {
         method: 'DELETE',
         headers: { 'Authorization': 'Bearer ' + token },
       }).catch(function(error) {
@@ -35394,9 +35399,63 @@ window.openDayItemSwap = openDayItemSwap;
     var token = localStorage.getItem('fitai_token');
     if (!token) return;
     sportHistorySyncStarted = true;
-    fetch((window.API_BASE || '') + '/app/drill-history?limit=200', {
+    var pendingUploads = [];
+    try {
+      var localState = loadSt();
+      pendingUploads = (localState.drill_history || []).filter(function(item) {
+        return String(item.id || '').startsWith('al_') && item.sync_status !== 'synced';
+      });
+    } catch (error) {
+      console.warn('[Sport] Nie udało się odczytać lokalnych logów do migracji:', error);
+    }
+    var uploadPromise = Promise.all(pendingUploads.map(function(item) {
+      var attempts = Number(item.attempts != null ? item.attempts : item.total_attempts || 0);
+      var made = Number(item.made != null ? item.made : item.success_count || 0);
+      var category = item.category || (item.zone === 'ft' ? 'free' : item.zone === 'mid' ? 'mid' : item.zone ? 'three' : 'shot');
+      return fetch((window.API_BASE || '') + '/app/sport/attempt', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: item.date || item.session_date,
+          source: 'manual',
+          category: category,
+          zone: item.zone || null,
+          made: made,
+          attempts: attempts,
+          notes: item.notes || '',
+          drill_name: item.drill_name || null,
+          client_id: item.client_id || item.id,
+        }),
+      }).then(function(response) {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.json();
+      }).then(function(payload) {
+        item.client_id = item.client_id || item.id;
+        item.server_id = payload.attempt && payload.attempt.id;
+        item.sync_status = 'synced';
+      });
+    })).then(function() {
+      if (!pendingUploads.length) return;
+      var state = loadSt();
+      state.drill_history = state.drill_history || [];
+      pendingUploads.forEach(function(uploaded) {
+        var local = state.drill_history.find(function(item) {
+          return item.id === uploaded.id || item.client_id === uploaded.client_id;
+        });
+        if (local) {
+          local.client_id = uploaded.client_id;
+          local.server_id = uploaded.server_id;
+          local.sync_status = uploaded.sync_status;
+        }
+      });
+      saveSt(state);
+    });
+
+    uploadPromise.then(function() {
+      return fetch((window.API_BASE || '') + '/app/drill-history?limit=200', {
       headers: { 'Authorization': 'Bearer ' + token },
       cache: 'no-store',
+      });
     }).then(function(response) {
       if (!response.ok) throw new Error('HTTP ' + response.status);
       return response.json();
