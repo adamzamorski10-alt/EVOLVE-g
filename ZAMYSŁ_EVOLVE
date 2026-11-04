@@ -1005,3 +1005,98 @@ Brzmi ono:
 **„Czy EVOLVE pomaga użytkownikowi podejmować lepsze decyzje, trenować regularnie, rozumieć własne postępy i osiągać cele skuteczniej niż bez tej aplikacji?”**
 
 Wszystkie decyzje produktowe, architektoniczne i implementacyjne powinny służyć temu celowi.
+
+---
+
+# 15. Aktualizacja wizji — stan zakładki Sport (4 listopada 2026)
+
+## 15.1. Ustalenia obowiązujące dla wersji koszykarskiej
+
+Pierwszym rozwijanym sportem pozostaje koszykówka. Zakładka Sport ma być osobnym, wiarygodnym centrum rozwoju zawodnika, a nie tylko listą drillów i ręcznie wpisywanych wyników.
+
+Panel zawodnika powinien:
+
+- blokować ocenę ogólną do czasu wykonania testu podstaw koszykówki;
+- pokazywać dużą ocenę ogólną oraz mniejsze oceny segmentowe;
+- przechowywać wyniki diagnostyczne jako rzeczywiste próby, a nie wyłącznie gotowe procenty;
+- rozdzielać dane sportowe od głównego profilu biometrycznego;
+- sugerować pozycję na podstawie danych użytkownika, ale wymagać jej zatwierdzenia;
+- pokazywać poziom pewności oceny, gotowość do treningu i aktywny cel;
+- aktualizować oceny na podstawie kolejnych testów i logów treningowych.
+
+## 15.2. Obowiązujący test podstaw koszykówki
+
+Test diagnostyczny ma zawierać co najmniej:
+
+1. 20 rzutów spod kosza — liczba trafionych.
+2. 20 rzutów osobistych — liczba trafionych.
+3. 20 rzutów z mid range — liczba trafionych.
+4. 20 dwutaktów — liczba trafionych.
+5. 20 layupów pod presją — zwód, pachołek lub przeciwnik — liczba trafionych.
+6. Sprint całe boisko tam i z powrotem — zmierzony czas.
+7. 30 powtórzeń in & out + cross — liczba pomyłek lub niepłynnych wykonań.
+8. 30 powtórzeń cross + in & out — liczba pomyłek lub niepłynnych wykonań.
+
+Każdy wynik musi mieć walidację zakresu, możliwość częściowego uzupełnienia i jasne przeliczenie na ocenę. Wynik testu powinien mieć datę oraz poziom pewności zależny od liczby ukończonych prób.
+
+## 15.3. Docelowy wygląd panelu zawodnika
+
+Ocena ogólna ma być wizualnym punktem centralnym panelu. Oceny rzutów, wykończenia, kozłowania, szybkości, wyskoku, obrony i kondycji mają być mniejsze, czytelne i porównywalne. Pusty stan ma wyjaśniać, dlaczego ocena jest zablokowana i prowadzić do testu.
+
+Mapa rzutów ma przedstawiać czytelną połowę boiska z małymi, klikalnymi punktami w istotnych strefach:
+
+- paint i okolice kosza;
+- rzuty osobiste;
+- mid range;
+- lewy i prawy kąt;
+- lewe i prawe skrzydło 45°;
+- szczyt za trzy.
+
+Kolor punktu oznacza skuteczność, ale nie jest jedynym nośnikiem informacji. Po kliknięciu użytkownik powinien zobaczyć procent skuteczności, liczbę prób, liczbę trafień i kontekst ostatnich sesji.
+
+## 15.4. Kryteria ukończenia zakładki Sport
+
+Zakładkę można uznać za finalną dopiero po spełnieniu wszystkich poniższych warunków:
+
+- test diagnostyczny zapisuje pełne wyniki i poprawnie aktualizuje profil;
+- wyniki testu i wyniki treningów są spójne w ocenach, statystykach i mapie;
+- przycisk „Rozpocznij trening” zapisuje wyniki drillów jako logi sportowe;
+- rekomendacje wskazują nie tylko co trenować, ale również dlaczego;
+- gotowość uwzględnia dostępne dane regeneracji i ostatnie obciążenie;
+- cele mają wartość początkową, docelową, termin i mierzalny postęp;
+- statystyki pokazują trendy, jakość danych i zmianę względem poprzedniego okresu;
+- mapa, test i panel ocen działają responsywnie na telefonie, tablecie i szerokim ekranie;
+- krytyczne ścieżki są sprawdzone testami automatycznymi oraz ręcznie w przeglądarce;
+- dokumentacja stanu rozdziela funkcje DONE, IN PROGRESS, BLOCKED i NEXT.
+
+## 15.5. Stan prac na 4 listopada 2026
+
+**DONE**
+
+- profil koszykarski zapisujący się trwale;
+- blokada oceny przed testem;
+- test z próbami rzutowymi, sprintem i testami kozłowania;
+- ocena ogólna i oceny segmentowe;
+- klikalna mapa połowy boiska;
+- historia drillów i usuwanie logów z kontrolą właściciela;
+- panel gotowości, cele i uzasadnienie rekomendacji;
+- podstawowe testy regresji Sport i hostingu.
+
+**IN PROGRESS**
+
+- połączenie testu diagnostycznego i logów z aktywnym treningiem;
+- rozbudowane statystyki i trendy;
+- pełne ręczne testy UI w przeglądarce;
+- dopracowanie pustych stanów i responsywności.
+
+**BLOCKED**
+
+- brak udostępnionej aktywnej strony przeglądarki do wykonania pełnego testu wizualnego w tej sesji;
+- brak potwierdzenia środowiska produkcyjnego i trwałości danych poza testami lokalnymi.
+
+**NEXT**
+
+1. Zintegrować wyniki aktywnego treningu z logami Sport.
+2. Dodać trendy 7/30/90 dni, stabilność wyników i jakość danych.
+3. Przejść scenariusze ręczne w przeglądarce i poprawić wykryte problemy.
+4. Dopiero po tych krokach uznać zakładkę Sport za finalną.
