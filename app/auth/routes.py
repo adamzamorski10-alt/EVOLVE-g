@@ -282,14 +282,12 @@ def refresh_access_token(payload: RefreshAccessRequest, session: Session = Depen
 
 
 def ensure_demo_user_session(session: Session) -> dict:
-    """Pobiera lub tworzy użytkownika demonstracyjnego i zwraca gotową sesję z access_token."""
+    """Pobiera lub tworzy dedykowanego użytkownika demonstracyjnego demo@evolve.app."""
     user = session.exec(select(UserDB).where(UserDB.email == "demo@evolve.app")).first()
-    if not user:
-        user = session.exec(select(UserDB)).first()
     if not user:
         user = UserDB(
             user_key="native:user:demo",
-            user_number=1,
+            user_number=999999,
             email="demo@evolve.app",
             name="Zawodnik EVOLVE",
             role="pro_user",
@@ -315,7 +313,7 @@ def ensure_demo_user_session(session: Session) -> dict:
         "access_token": token,
         "token": token,
         "user_id": str(user.id),
-        "user_number": user.user_number or 1,
+        "user_number": user.user_number or 999999,
         "display_name": user.name or "Zawodnik EVOLVE",
         "name": user.name or "Zawodnik EVOLVE",
         "role": user.role or "pro_user",
@@ -328,7 +326,15 @@ def ensure_demo_user_session(session: Session) -> dict:
 @router.get("/demo-token")
 @router.post("/demo-login")
 def demo_login(session: Session = Depends(get_session)):
-    """Tymczasowy endpoint demo do natychmiastowego wejścia do aplikacji bez ręcznego logowania."""
+    """Tymczasowy endpoint demo - dostępny wyłącznie w środowisku development za jawną flagą."""
+    import os
+    env = os.getenv("ENV", "development").lower()
+    allow_demo = os.getenv("ALLOW_DEMO_LOGIN", "false").lower() == "true"
+    if env != "development" or not allow_demo:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Endpoint niedostępny",
+        )
     return ensure_demo_user_session(session)
 
 
