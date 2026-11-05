@@ -22,11 +22,13 @@ from app.auth.jwt_utils import create_refresh_token, decode_token
 from app.config import JWT_EXPIRE_MINUTES
 from app.database import engine, get_session
 from app.fitness.calculations import calc_calories, calc_protein
-from app.models import UserDB, UserNumberSequenceDB
+from app.models import RefreshTokenDB, UserDB, UserNumberSequenceDB
 from app.schemas import (
     ChangePasswordRequest,
     LoginRequest,
+    LogoutRequest,
     RefreshAccessRequest,
+    RefreshAccessResponse,
     RegisterRequest,
     TokenResponse,
     UserProfile,
@@ -112,8 +114,9 @@ def register(request: Request, payload: RegisterRequest):
                 detail=f"Błąd bazy danych: {exc}",
             )
 
-        token = create_access_token(user.id, user.email, user.role)
-        refresh_tok = create_refresh_token(user.id)
+        token = create_access_token(user.id, user.email, user.role, token_version=user.token_version)
+        refresh_tok = create_refresh_token(user.id, token_version=user.token_version, session=session)
+        session.commit()
         return TokenResponse(
             access_token=token,
             refresh_token=refresh_tok,
@@ -160,8 +163,9 @@ def login(request: Request, payload: LoginRequest):
         if not verify_password(payload.password, user.hashed_password):
             raise _INVALID
 
-        token = create_access_token(user.id, user.email, user.role)
-        refresh_tok = create_refresh_token(user.id)
+        token = create_access_token(user.id, user.email, user.role, token_version=user.token_version)
+        refresh_tok = create_refresh_token(user.id, token_version=user.token_version, session=session)
+        session.commit()
         return TokenResponse(
             access_token=token,
             refresh_token=refresh_tok,
@@ -204,8 +208,19 @@ def change_password(
     with Session(engine) as session:
         db_user = session.get(UserDB, user.id)
         db_user.hashed_password = hash_password(payload.new_password)
+        db_user.token_version = (db_user.token_version or 1) + 1
         db_user.updated_at = datetime.now()
         session.add(db_user)
+        
+        # Unieważnij wszystkie aktywne refresh tokeny tego użytkownika
+        active_tokens = session.exec(
+            select(RefreshTokenDB)
+            .where(RefreshTokenDB.user_id == db_user.id)
+            .where(RefreshTokenDB.revoked == False)
+        ).all()
+        for rt in active_tokens:
+            rt.revoked = True
+            session.add(rt)
         session.commit()
     return {"status": "ok", "message": "Hasło zostało zmienione"}
 
@@ -213,12 +228,14 @@ def change_password(
 @router.post("/refresh", response_model=TokenResponse)
 def refresh(user: UserDB = Depends(get_current_user)):
     """
-    Odświeżenie tokena — klient wysyła stary (wciąż ważny) token,
-    dostaje nowy z przesuniętym `exp`. Bezpieczne zastępstwo refresh tokenów
-    dla aplikacji SPA bez backendu sesji.
+    Odświeżenie tokena z zachowaniem wersji tokena i rotacją refresh tokena w bazie.
     """
-    token = create_access_token(user.id, user.email, user.role)
-    refresh_tok = create_refresh_token(user.id)
+    with Session(engine) as session:
+        db_user = session.get(UserDB, user.id)
+        current_version = db_user.token_version if db_user else 1
+        token = create_access_token(user.id, user.email, user.role, token_version=current_version)
+        refresh_tok = create_refresh_token(user.id, token_version=current_version, session=session)
+        session.commit()
     return TokenResponse(
         access_token=token,
         refresh_token=refresh_tok,
@@ -250,11 +267,11 @@ def check_nickname(nickname: str, session: Session = Depends(get_session)):
     }
 
 
-@router.post("/refresh-access", response_model=dict)
+@router.post("/refresh-access", response_model=RefreshAccessResponse)
 def refresh_access_token(payload: RefreshAccessRequest, session: Session = Depends(get_session)):
     """
-    Wymienia długotrwały refresh token na nowy, krótkotrwały access token.
-    Używane automatycznie przez frontend w tle — realizuje "Zapamiętaj urządzenie".
+    Wymienia długotrwały refresh token na nowy access token ORAZ nowy refresh token (rotacja).
+    Weryfikuje typ tokena, wersję sesji (token_version) oraz jednorazowość jti.
     """
     try:
         decoded = decode_token(payload.refresh_token)
@@ -267,18 +284,87 @@ def refresh_access_token(payload: RefreshAccessRequest, session: Session = Depen
     if decoded.get("type") != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Nieprawidłowy typ tokenu",
+            detail="Nieprawidłowy typ tokenu — wymagany refresh token",
         )
 
-    user = session.get(UserDB, decoded["sub"])
+    user = session.get(UserDB, decoded.get("sub"))
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Konto nieaktywne",
+            detail="Konto nieaktywne lub nie istnieje",
         )
 
-    new_access = create_access_token(user.id, user.email, user.role)
-    return {"access_token": new_access, "expires_in": JWT_EXPIRE_MINUTES * 60}
+    # Weryfikacja wersji sesji (unieważnienie po zmianie hasła)
+    if decoded.get("token_version") != user.token_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sesja wygasła lub hasło zostało zmienione — zaloguj się ponownie",
+        )
+
+    jti = decoded.get("jti")
+    if not jti:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Nieprawidłowy token — brak jti",
+        )
+
+    stored = session.exec(select(RefreshTokenDB).where(RefreshTokenDB.jti == jti)).first()
+    if not stored or stored.revoked:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sesja wygasła lub została unieważniona",
+        )
+
+    # Unieważnij poprzedni refresh token (rotacja — ochrona przed ponownym użyciem)
+    stored.revoked = True
+    session.add(stored)
+
+    new_access = create_access_token(user.id, user.email, user.role, token_version=user.token_version)
+    new_refresh = create_refresh_token(user.id, token_version=user.token_version, session=session)
+    session.commit()
+
+    return RefreshAccessResponse(
+        access_token=new_access,
+        refresh_token=new_refresh,
+        token_type="bearer",
+        expires_in=JWT_EXPIRE_MINUTES * 60,
+    )
+
+
+@router.post("/logout")
+def auth_logout(
+    payload: Optional[LogoutRequest] = None,
+    session: Session = Depends(get_session),
+):
+    """
+    Wylogowanie: unieważnia refresh token w bazie i zwraca pełną listę kluczy storage do wyczyszczenia.
+    """
+    if payload and payload.refresh_token:
+        try:
+            decoded = decode_token(payload.refresh_token)
+            jti = decoded.get("jti")
+            if jti:
+                stored = session.exec(select(RefreshTokenDB).where(RefreshTokenDB.jti == jti)).first()
+                if stored:
+                    stored.revoked = True
+                    session.add(stored)
+                    session.commit()
+        except Exception:
+            pass
+
+    return {
+        "status": "logged_out",
+        "message": "Wylogowano pomyślnie",
+        "clear_storage": [
+            "fitai_token", "fitai_refresh_token", "fitai_user", "fitai_identity_id",
+            "fitai_user_id", "fitai_user_number", "fitai_display_name", "fitai_name",
+            "fitai_role", "fitai_plan", "fitai_kcal_target", "fitai_protein_target",
+            "fitai_nickname", "fitai_user_data", "fitai_profiles_v3", "fitai_profile_cache",
+            "fitai_weekly_plan", "fitai_logs_v3", "fitai_checked_v3", "fitai_day_checked",
+            "fitai_extras_v3", "fitai_training_plan", "fitai_diet_plan", "fitai_prefs",
+            "fitai_training_locations", "fitai_sport_profile", "fitai_sport_v1",
+        ],
+    }
 
 
 def ensure_demo_user_session(session: Session) -> dict:

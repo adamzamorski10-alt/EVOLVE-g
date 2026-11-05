@@ -51,6 +51,17 @@ class RefreshAccessRequest(BaseModel):
     refresh_token: str
 
 
+class RefreshAccessResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int = JWT_EXPIRE_MINUTES * 60
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: Optional[str] = None
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy.orm import relationship
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy import Index, UniqueConstraint, text
+from sqlalchemy import Index, Text, UniqueConstraint, text
 
 if TYPE_CHECKING:
     from app.fitness.calculations import _xp_to_level  # avoid circular import
@@ -92,11 +92,14 @@ class UserDB(SQLModel, table=True):
     sport_specialization: Optional[str] = None         # np. "rzuty"
     sport_training_days_json: str = "[]"               # np. ["Środa", "Sobota"]
     training_availability_json: str = "{}"             # optional weekly day-level availability contract
-    training_locations_json: str = "[]"                # user-defined places with catalog equipment
+    training_locations_json: str = Field(default="[]", sa_type=Text)                # user-defined places with catalog equipment
     sport_training_schedule_json: str = "{}"          # optional reserved sports-session time windows
     # ─── Auth (dodane w v2.1) ───────────────────────────────────────────────
     hashed_password: Optional[str] = None             # None = konto Netlify Identity (stare)
     is_active: bool = True                             # możliwość blokowania konta
+    token_version: int = Field(default=1, nullable=False)  # wersja sesji/tokenów — inkrementowana przy zmianie hasła
+    password_reset_token_hash: Optional[str] = None   # SHA-256 hash jednorazowego tokena resetu hasła
+    password_reset_expires_at: Optional[datetime] = None  # Czas wygaśnięcia tokena resetu hasła
     # ─── Gamification & safety ───────────────────────────────────────────────
     total_xp: int = 0                                  # łączne punkty XP
     injuries: str = ""                                 # przecinkowy string: "kolano lewe,bark"
@@ -106,7 +109,7 @@ class UserDB(SQLModel, table=True):
     training_experience: Optional[str] = "intermediate" # "beginner"|"intermediate"|"advanced"|"elite"
     equipment: Optional[str] = "gym_full"               # "gym_full"|"gym_free"|"dumbbells"|"bodyweight"|"court"|"hybrid"
     health_limitations: Optional[str] = None            # pełen tekst ograniczeń zdrowotnych
-    basketball_profile_json: str = "{}"                # sport-only athlete profile and assessment
+    basketball_profile_json: str = Field(default="{}", sa_type=Text)                # sport-only athlete profile and assessment
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
@@ -253,6 +256,12 @@ class DailyLogDB(SQLModel, table=True):
     meals_eaten: Optional[int] = None        # liczba zjedzonych posiłków
     workouts_done: Optional[int] = None      # liczba wykonanych ćwiczeń
     notes: Optional[str] = None              # notatka do dnia
+    sleep_duration_minutes: Optional[int] = None
+    training_rpe: Optional[int] = None
+    waist_cm: Optional[float] = None
+    chest_cm: Optional[float] = None
+    photo_path: Optional[str] = None
+    eaten_meals_json: str = "[]"
     logged_at: datetime = Field(default_factory=datetime.now)  # Rzeczywisty datetime
 
     user: "app.models.UserDB" = Relationship(
@@ -626,7 +635,7 @@ class SportAttemptDB(SQLModel, table=True):
     value: Optional[float] = None
     unit: Optional[str] = None
     drill_name: Optional[str] = None
-    notes: str = ""
+    notes: str = Field(default="", sa_type=Text)
     client_id: str = Field(index=True)
     created_at: datetime = Field(default_factory=datetime.now, index=True)
 
@@ -681,3 +690,17 @@ class AssessmentDB(SQLModel, table=True):
             return value if isinstance(value, dict) else {}
         except (TypeError, json.JSONDecodeError):
             return {}
+
+
+class RefreshTokenDB(SQLModel, table=True):
+    __tablename__ = "refresh_tokens"
+
+    id: Optional[str] = Field(
+        default_factory=lambda: str(_uuid_mod.uuid4()),
+        primary_key=True,
+    )
+    user_id: str = Field(foreign_key="users.id", index=True)
+    jti: str = Field(unique=True, index=True)
+    expires_at: datetime
+    revoked: bool = Field(default=False, index=True)
+    created_at: datetime = Field(default_factory=datetime.now)

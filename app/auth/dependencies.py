@@ -43,11 +43,6 @@ def get_current_user(
 ) -> UserDB:
     """
     FastAPI Dependency — wyciąga użytkownika z Bearer tokena.
-
-    Użycie w endpointach:
-        @app.get("/app/profile")
-        def profile(user: UserDB = Depends(get_current_user)):
-            return user.to_profile_dict()
     """
     if credentials is None:
         raise HTTPException(
@@ -57,13 +52,11 @@ def get_current_user(
         )
     payload = decode_token(credentials.credentials)
 
-    # Odrzuć refresh tokeny użyte jako access token.
-    # type == None = stare tokeny bez pola (kompatybilność wsteczna) — OK.
-    token_type = payload.get("type")
-    if token_type is not None and token_type != "access":
+    # Odrzuć tokeny o nieprawidłowym typie lub braku typu (wymagany jawny access token)
+    if payload.get("type") != "access":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Nieprawidłowy typ tokenu — użyj access token",
+            detail="Nieprawidłowy typ tokenu — wymagany access token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -81,6 +74,21 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Użytkownik z tokena nie istnieje",
         )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Konto zostało zablokowane",
+        )
+
+    # Weryfikacja wersji sesji (unieważnienie po zmianie hasła)
+    token_ver = payload.get("token_version")
+    if token_ver is None or int(token_ver) != int(user.token_version or 1):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sesja wygasła lub hasło zostało zmienione — zaloguj się ponownie",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     return user
 
 

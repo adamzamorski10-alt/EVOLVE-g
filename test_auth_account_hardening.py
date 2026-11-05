@@ -94,3 +94,110 @@ def test_k1_demo_token_never_picks_first_existing_user_when_demo_missing():
         result = auth_routes.ensure_demo_user_session(session)
         assert result["user_id"] != str(owner.id)
         assert result.get("email") != owner.email
+
+
+# ─── S1: Password Change Invalidates Tokens ───────────────────────────────────
+
+def test_s1_change_password_invalidates_old_access_and_refresh_tokens():
+    """
+    Po POST /auth/change-password:
+    - stary access token musi zwracać 401 przy próbie użycia (np. /auth/me)
+    - stary refresh token musi zwracać 401 w /auth/refresh-access
+    - nowe hasło pozwala się zalogować i uzyskać nowe, działające tokeny.
+    """
+    raw_email = f"passchange-{uuid.uuid4().hex[:6]}@example.com"
+    initial_password = "OldSecurePassword123!"
+    new_password = "NewSecurePassword456!"
+
+    # 1. Rejestracja
+    reg_res = client.post("/auth/register", json={
+        "email": raw_email,
+        "password": initial_password,
+        "name": "Password Changer",
+    })
+    assert reg_res.status_code == 200, reg_res.text
+    old_access_token = reg_res.json()["access_token"]
+    old_refresh_token = reg_res.json()["refresh_token"]
+
+    # 2. Sprawdźmy, że tokeny działają przed zmianą
+    me_res = client.get("/auth/me", headers={"Authorization": f"Bearer {old_access_token}"})
+    assert me_res.status_code == 200
+
+    ref_res = client.post("/auth/refresh-access", json={"refresh_token": old_refresh_token})
+    assert ref_res.status_code == 200
+
+    # 3. Zmiana hasła
+    change_res = client.post(
+        "/auth/change-password",
+        headers={"Authorization": f"Bearer {old_access_token}"},
+        json={
+            "current_password": initial_password,
+            "new_password": new_password,
+        },
+    )
+    assert change_res.status_code == 200, change_res.text
+
+    # 4. WERYFIKACJA UNIEWAŻNIENIA:
+    # Stary access token musi natychmiast dać 401
+    me_after = client.get("/auth/me", headers={"Authorization": f"Bearer {old_access_token}"})
+    assert me_after.status_code == 401, f"Expected 401 for old access token, got {me_after.status_code}"
+
+    # Stary refresh token musi dać 401
+    ref_after = client.post("/auth/refresh-access", json={"refresh_token": old_refresh_token})
+    assert ref_after.status_code == 401, f"Expected 401 for old refresh token, got {ref_after.status_code}"
+
+    # 5. Logowanie nowym hasłem działa
+    login_res = client.post("/auth/login", json={
+        "email": raw_email,
+        "password": new_password,
+    })
+    assert login_res.status_code == 200
+    new_access = login_res.json()["access_token"]
+    me_new = client.get("/auth/me", headers={"Authorization": f"Bearer {new_access}"})
+    assert me_new.status_code == 200
+
+
+# ─── S2: Refresh Token Rotation & Invalidation ────────────────────────────────
+
+def test_s2_refresh_token_rotation_and_logout():
+    """
+    S2:
+    - POST /auth/refresh-access wykonuje rotację refresh tokena (zwraca nowy refresh token)
+    - Poprzedni refresh token staje się nieważny (ponowne użycie daje 401)
+    - Endpoint wylogowania POST /auth/logout unieważnia refresh token.
+    """
+    raw_email = f"rotation-{uuid.uuid4().hex[:6]}@example.com"
+    password = "RotationPassword123!"
+
+    reg_res = client.post("/auth/register", json={
+        "email": raw_email,
+        "password": password,
+    })
+    assert reg_res.status_code == 200
+    rt1 = reg_res.json()["refresh_token"]
+
+    # 1. Wymiana rt1 na nowy zestaw (rotacja)
+    rot_res = client.post("/auth/refresh-access", json={"refresh_token": rt1})
+    assert rot_res.status_code == 200, rot_res.text
+    rot_data = rot_res.json()
+    assert "access_token" in rot_data
+    assert "refresh_token" in rot_data
+    rt2 = rot_data["refresh_token"]
+    assert rt2 != rt1
+
+    # 2. Ponowna próba użycia rt1 (replay attack) musi zostać odrzucona (401)
+    replay_res = client.post("/auth/refresh-access", json={"refresh_token": rt1})
+    assert replay_res.status_code == 401, f"Replay of rotated refresh token must fail with 401, got {replay_res.status_code}"
+
+    # 3. Użycie rt2 działa
+    rot2_res = client.post("/auth/refresh-access", json={"refresh_token": rt2})
+    assert rot2_res.status_code == 200
+    rt3 = rot2_res.json()["refresh_token"]
+
+    # 4. Wylogowanie POST /auth/logout unieważnia rt3
+    logout_res = client.post("/auth/logout", json={"refresh_token": rt3})
+    assert logout_res.status_code == 200
+
+    # Próba odświeżenia po wylogowaniu daje 401
+    after_logout_res = client.post("/auth/refresh-access", json={"refresh_token": rt3})
+    assert after_logout_res.status_code == 401
