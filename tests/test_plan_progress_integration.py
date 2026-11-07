@@ -16,6 +16,7 @@ def _user():
         sport_training_days_json='["poniedziałek", "środa", "piątek"]',
         improvement_areas_json="[]",
         available_equipment_json='["siłownia"]',
+        training_locations_json="[]",
         avoid_exercises_json="[]",
         preferred_foods_json="[]",
         avoid_foods_json="[]",
