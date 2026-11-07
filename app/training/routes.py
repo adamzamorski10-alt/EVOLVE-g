@@ -7,6 +7,15 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
+
+_TZ_WARSAW = ZoneInfo("Europe/Warsaw")
+
+
+def _today_warsaw() -> date:
+    """Return the current date in Europe/Warsaw timezone."""
+    return datetime.now(_TZ_WARSAW).date()
+
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -279,7 +288,7 @@ def _effective_plan(
             session.exec(
                 select(DailyLogDB)
                 .where(DailyLogDB.user_id == user.id)
-                .where(DailyLogDB.log_date == date.today())
+                .where(DailyLogDB.log_date == _today_warsaw())
             ).first()
         )
         resolved, recovery_constraint = _apply_recovery_constraint(resolved, recovery)
@@ -394,7 +403,7 @@ def get_training_consistency(
         else:
             streaks[-1].append(day)
     longest = max((len(group) for group in streaks), default=0)
-    current = len(streaks[0]) if streaks and streaks[0][0] == date.today() else 0
+    current = len(streaks[0]) if streaks and streaks[0][0] == _today_warsaw() else 0
     if len(unique_days) >= 2:
         span_days = max(1, (unique_days[0] - unique_days[-1]).days + 1)
         weeks = max(1 / 7, span_days / 7)
@@ -789,7 +798,7 @@ def get_training_today(
     session: Session = Depends(get_session),
 ):
     """Return the authenticated user's effective training plan for today."""
-    target = date.today()
+    target = _today_warsaw()
     base_plan = _load_base_plan(user)
     plan_stale = _base_plan_is_stale(user, session, base_plan)
     plan, meta = _effective_plan(user, session)
@@ -859,7 +868,7 @@ def start_training_session(
     user: UserDB = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    target_date = date.today()
+    target_date = _today_warsaw()
 
     decision = decision_for_user(user=user, db=session)
     execution_allowed = training_start_allowed(decision)
