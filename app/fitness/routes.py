@@ -1753,48 +1753,7 @@ def configure_sport(
 # Etap E — Postępy: Cele i agregacje statystyk
 # ────────────────────────────────────────────────────────────────────────────
 
-@router.post("/goals")
-def create_goal(
-    req: GoalCreateRequest,
-    user: UserDB = Depends(get_current_user),
-    session: Session = Depends(get_session),
-):
-    """Utwórz mierzalny cel (siła, wyskok, skuteczność rzutu, itp.)."""
-    try:
-        db_user = session.get(UserDB, user.id)
-        if not db_user:
-            raise HTTPException(status_code=404, detail="Użytkownik nie znaleziony")
 
-        goal = GoalDB(
-            user_id=db_user.id,
-            goal_type=req.goal_type,
-            title=req.title,
-            description=req.description,
-            priority=req.priority,
-            metric_key=req.metric_key,
-            baseline_value=req.baseline_value,
-            target_value=req.target_value,
-        )
-        session.add(goal)
-        session.commit()
-        session.refresh(goal)
-    except SQLAlchemyError as exc:
-        session.rollback()
-        raise HTTPException(status_code=500, detail="Database error") from exc
-
-    return {
-        "status": "ok",
-        "goal": {
-            "id": goal.id,
-            "goal_type": goal.goal_type,
-            "title": goal.title,
-            "metric_key": goal.metric_key,
-            "baseline_value": goal.baseline_value,
-            "target_value": goal.target_value,
-            "priority": goal.priority,
-            "status": goal.status,
-        },
-    }
 
 
 def _estimate_1rm(weight_kg: float, reps: int) -> float:

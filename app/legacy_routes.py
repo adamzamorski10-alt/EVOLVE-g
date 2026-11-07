@@ -3260,13 +3260,7 @@ def _compute_user_stats(user: UserDB, session: Session, days: int = 30) -> dict:
     }
 
 
-@router.get("/app/stats", tags=["stats"])
-def app_get_stats(days: int = 30, user: UserDB = Depends(get_current_user)):
-    """
-    Agreguje dane postępów użytkownika z DailyLogDB i ExerciseResultDB.
-    """
-    with Session(engine) as session:
-        return _compute_user_stats(user, session, days=days)
+
 
 
 @router.get("/app/stats/{identity_id}", tags=["stats"])

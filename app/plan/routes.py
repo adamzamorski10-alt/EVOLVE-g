@@ -38,7 +38,7 @@ _EQUIPMENT_CATALOG = [
 
 
 @router.get("/equipment-catalog", tags=["plan"])
-def get_equipment_catalog():
+def get_equipment_catalog(user: UserDB = Depends(get_current_user)):
     return {"items": _EQUIPMENT_CATALOG}
 
 
