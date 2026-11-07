@@ -2056,8 +2056,32 @@
       </div>
     </aside>
 
+    <!-- MOBILE BOTTOM NAVIGATION (≤ 768px) -->
+    <nav id="mobileBottomNav" class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0d121f]/95 backdrop-blur-md border-t border-slate-800 flex items-center justify-around px-2 py-1.5 shadow-2xl" aria-label="Nawigacja mobilna" style="box-shadow: 0 -4px 20px rgba(0,0,0,0.5);">
+      <button type="button" onclick="showTab('my-day')" class="flex flex-col items-center justify-center p-1 rounded-xl text-xs font-semibold text-cyan-400 active:scale-95 transition-all" style="min-width:44px;min-height:44px;" title="Dziś">
+        <span class="text-base">⚡</span>
+        <span class="text-[10px] tracking-tight">Dziś</span>
+      </button>
+      <button type="button" onclick="showTab('training')" class="flex flex-col items-center justify-center p-1 rounded-xl text-xs font-semibold text-gray-400 hover:text-white active:scale-95 transition-all" style="min-width:44px;min-height:44px;" title="Plan">
+        <span class="text-base">📅</span>
+        <span class="text-[10px] tracking-tight">Plan</span>
+      </button>
+      <button type="button" onclick="window.evolveStartTraining()" class="flex flex-col items-center justify-center p-1 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-cyan-500/20 to-violet-500/20 border border-cyan-500/40 active:scale-95 transition-all" style="min-width:44px;min-height:44px;" title="Rozpocznij Trening">
+        <span class="text-base">🏋️</span>
+        <span class="text-[10px] tracking-tight text-cyan-300">Trening</span>
+      </button>
+      <button type="button" onclick="showTab('postepy')" class="flex flex-col items-center justify-center p-1 rounded-xl text-xs font-semibold text-gray-400 hover:text-white active:scale-95 transition-all" style="min-width:44px;min-height:44px;" title="Postępy">
+        <span class="text-base">📈</span>
+        <span class="text-[10px] tracking-tight">Postępy</span>
+      </button>
+      <button type="button" onclick="showTab('profile')" class="flex flex-col items-center justify-center p-1 rounded-xl text-xs font-semibold text-gray-400 hover:text-white active:scale-95 transition-all" style="min-width:44px;min-height:44px;" title="Profil">
+        <span class="text-base">👤</span>
+        <span class="text-[10px] tracking-tight">Profil</span>
+      </button>
+    </nav>
+
     <!-- MAIN CONTENT -->
-    <main id="mainContent" class="flex-1 p-4 md:p-8 md:ml-64 w-full overflow-y-auto" style="height:calc(100vh - 64px);">
+    <main id="mainContent" class="flex-1 p-4 pb-20 md:p-8 md:pb-8 md:ml-64 w-full overflow-y-auto" style="height:calc(100vh - 64px);">
 
       <!-- Greeting Header -->
       <header class="mb-8">
@@ -33221,23 +33245,7 @@ window.openDayItemSwap = openDayItemSwap;
     }
   };
 
-  window.evolveStartTraining = async function () {
-    if (!token()) {
-      notify('Zaloguj się, aby rozpocząć trening.', 'error');
-      return;
-    }
-    try {
-      var result = await api('/app/training/sessions/start', { method: 'POST', body: '{}' });
-      session = result.session;
-      ensureModal();
-      var exercises = (session.planned && session.planned.exercises) || [];
-      await loadGhostWeights(exercises);
-      renderSession();
-      if (result.status === 'resumed') notify('↩ Wznowiono aktywną sesję', 'success');
-    } catch (e) {
-      notify(e.message, 'error');
-    }
-  };
+
 
   function injectStartButton() {
     var list = document.getElementById('activeDayExerciseList');
