@@ -429,6 +429,7 @@ class TrainingSetResultDB(SQLModel, table=True):
     id: Optional[str] = Field(default_factory=lambda: str(_uuid_mod.uuid4()), primary_key=True)
     session_id: str = Field(foreign_key="training_sessions.id", index=True)
     user_id: str = Field(foreign_key="users.id", index=True)
+    client_id: Optional[str] = Field(default=None, index=True)
     exercise_key: str = Field(index=True)
     exercise_name: str
     set_number: int = Field(ge=1)

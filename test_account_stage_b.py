@@ -167,6 +167,106 @@ def test_b1_password_reset_confirm_rejects_expired_token():
     assert res.status_code in {400, 422}
 
 
+def test_b1_password_reset_request_production_caplog_never_contains_token_or_email(monkeypatch, caplog):
+    """2.1: W konfiguracji produkcyjnej caplog po żądaniu resetu NIE ZAWIERA
+    ani tokenu resetu hasła, ani pełnego adresu e-mail."""
+    import logging
+    monkeypatch.setenv("ENV", "production")
+    monkeypatch.delenv("LOG_RESET_TOKENS", raising=False)
+
+    unique_email = f"prod-reset-{uuid.uuid4().hex[:8]}@example.com"
+    user = _create_user(unique_email)
+
+    with caplog.at_level(logging.DEBUG):
+        res = client.post("/auth/password-reset/request", json={"email": unique_email})
+        assert res.status_code == 200
+
+        with Session(engine) as session:
+            db_user = session.get(UserDB, user.id)
+            assert db_user.password_reset_token_hash is not None
+
+        captured = caplog.text
+        assert unique_email not in captured, "Bezpieczeństwo: pełny adres e-mail trafił do logów!"
+        assert "[AUTH_PASSWORD_RESET]" not in captured, "Bezpieczeństwo: znacznik logowania tokena w produkcji!"
+        assert "Brak skonfigurowanego dostawcy e-mail" in captured
+
+
+def test_b1_password_reset_request_dev_logs_token_only_with_explicit_flag(monkeypatch, caplog):
+    """2.1: W dev token logowany jest tylko, gdy flaga LOG_RESET_TOKENS=true jest jawna."""
+    import logging
+    monkeypatch.setenv("ENV", "development")
+    monkeypatch.setenv("LOG_RESET_TOKENS", "true")
+
+    dev_email = f"dev-reset-{uuid.uuid4().hex[:8]}@example.com"
+    _create_user(dev_email)
+
+    with caplog.at_level(logging.INFO):
+        res = client.post("/auth/password-reset/request", json={"email": dev_email})
+        assert res.status_code == 200
+        assert "[AUTH_PASSWORD_RESET_DEV] Token resetu:" in caplog.text
+
+
+def test_b1_password_reset_confirm_revokes_all_refresh_tokens_and_increments_version():
+    """2.2: Potwierdzenie resetu hasła podbija token_version i unieważnia wszystkie refresh tokeny."""
+    email = f"revokeall-{uuid.uuid4().hex[:6]}@example.com"
+    user = _create_user(email, password="InitialPassword123!")
+    initial_version = user.token_version or 1
+
+    with Session(engine) as session:
+        rt1 = RefreshTokenDB(
+            user_id=user.id,
+            jti=f"jti_token_1_{uuid.uuid4().hex}",
+            expires_at=datetime.utcnow() + timedelta(days=30),
+            revoked=False
+        )
+        rt2 = RefreshTokenDB(
+            user_id=user.id,
+            jti=f"jti_token_2_{uuid.uuid4().hex}",
+            expires_at=datetime.utcnow() + timedelta(days=30),
+            revoked=False
+        )
+        session.add(rt1)
+        session.add(rt2)
+        session.commit()
+
+    raw_token = f"reset-token-{uuid.uuid4().hex}"
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+    with Session(engine) as session:
+        db_u = session.get(UserDB, user.id)
+        db_u.password_reset_token_hash = token_hash
+        db_u.password_reset_expires_at = datetime.utcnow() + timedelta(hours=1)
+        session.add(db_u)
+        session.commit()
+
+    res = client.post(
+        "/auth/password-reset/confirm",
+        json={"token": raw_token, "new_password": "NewConfirmedPassword123!"},
+    )
+    assert res.status_code == 200
+
+    with Session(engine) as session:
+        db_u = session.get(UserDB, user.id)
+        # 1. token_version rośnie
+        assert db_u.token_version > initial_version
+        # 2. Wszystkie refresh tokeny są unieważnione
+        rts = session.exec(select(RefreshTokenDB).where(RefreshTokenDB.user_id == user.id)).all()
+        assert len(rts) >= 2
+        for rt in rts:
+            assert rt.revoked is True
+        # 3. Token resetu usunięty z bazy
+        assert db_u.password_reset_token_hash is None
+        assert db_u.password_reset_expires_at is None
+
+    # 4. Drugie użycie tokenu daje błąd (jednorazowy)
+    res_reuse = client.post(
+        "/auth/password-reset/confirm",
+        json={"token": raw_token, "new_password": "YetAnotherPassword123!"},
+    )
+    assert res_reuse.status_code == 400
+
+
+
 # ─── B3: Usuwanie Konta ───────────────────────────────────────────────────────
 
 def test_b3_delete_account_requires_password_and_cleans_up_all_data():

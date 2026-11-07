@@ -20,10 +20,17 @@
   <script>
     window.API_BASE = window.API_BASE || (
       location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-        ? (location.port === '8000' ? window.location.origin : 'http://localhost:8000')
+        ? window.location.origin
         : (location.protocol !== 'file:' ? window.location.origin : 'http://localhost:8000')
     );
     window.IS_LIVE_SITE = (location.protocol !== 'file:');
+    window.FEATURE_FLAGS = {
+      strength: true,
+      sport: false,
+      nutrition: false,
+      recovery: false,
+      kuchnia_ai: false
+    };
   </script>
   <style>
     * {
@@ -2397,7 +2404,7 @@
             </div>
 
             <!-- Koszykówka -->
-            <div class="glass p-5 rounded-2xl flex flex-col justify-between" style="border-color:rgba(0,229,255,0.25);background:rgba(0,229,255,0.03);">
+            <div id="todayBasketballCard" class="glass p-5 rounded-2xl flex flex-col justify-between non-strength-module" style="border-color:rgba(0,229,255,0.25);background:rgba(0,229,255,0.03);">
               <div>
                 <div class="flex items-center justify-between mb-2">
                   <span class="text-xs uppercase font-bold text-cyan-400">🏀 Koszykówka & Motoryka</span>
@@ -2430,7 +2437,7 @@
           </div>
 
           <!-- Karta Dieta na dziś -->
-          <div class="glass mt-4 p-5 rounded-2xl" style="border-color:rgba(34,197,94,0.2);background:rgba(34,197,94,0.03);">
+          <div id="todayDietCard" class="glass mt-4 p-5 rounded-2xl non-strength-module" style="border-color:rgba(34,197,94,0.2);background:rgba(34,197,94,0.03);">
             <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div class="flex items-center gap-2">
                 <span class="text-xs uppercase font-bold text-green-400">🥗 Dieta na dziś</span>
@@ -9848,6 +9855,16 @@
 
 
     function showTabFromHash() {
+      var rawCheck = decodeURIComponent(window.location.hash.replace(/^#/, ''));
+      if (window.FEATURE_FLAGS) {
+        if (!window.FEATURE_FLAGS.sport && (rawCheck === 'sport' || rawCheck === 'basketball')) {
+          window.location.hash = '#my-day';
+        } else if (!window.FEATURE_FLAGS.nutrition && (rawCheck === 'diet' || rawCheck === 'dieta' || rawCheck === 'kuchnia_ai')) {
+          window.location.hash = '#my-day';
+        } else if (!window.FEATURE_FLAGS.recovery && rawCheck === 'recovery') {
+          window.location.hash = '#my-day';
+        }
+      }
       let rawTab = decodeURIComponent(window.location.hash.replace(/^#/, ''));
       let tabId = rawTab;
       if (tabId === 'training') {
@@ -10634,6 +10651,18 @@
      * Wywoływane jako fallback gdy serwer jest niedostępny, lub po pomyślnym wylogowaniu.
      */
     function clearLocalData() {
+      try {
+        var toRemove = [];
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (!k) continue;
+          if (k.startsWith('fitai_set_queue_')) continue; // nie kasuj kolejki offline
+          if (k.startsWith('fitai_') || k.includes('plan') || k.includes('profile') || k.includes('profil') || k.includes('sport')) {
+            toRemove.push(k);
+          }
+        }
+        toRemove.forEach(function(key) { localStorage.removeItem(key); });
+      } catch(e) {}
       FITAI_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
     }
 
@@ -10642,6 +10671,13 @@
      * czyści storage według listy z odpowiedzi, pokazuje toast i przeładowuje stronę.
      */
     async function logoutUser() {
+      if (window.FitAIOfflineQueue) {
+        var pendingCount = window.FitAIOfflineQueue.getPendingCount();
+        if (pendingCount > 0) {
+          var confirmLogout = confirm('Masz ' + pendingCount + ' niewysłanych serii w kolejce offline. Wylogowanie uniemożliwi ich natychmiastowe wysłanie do serwera. Czy chcesz kontynuować wylogowanie?');
+          if (!confirmLogout) return;
+        }
+      }
       const token = localStorage.getItem('fitai_token');
       const apiBase = window.API_BASE || 'http://localhost:8000';
 
@@ -11593,6 +11629,15 @@
 
     // ========== TAB SWITCHING ==========
     function showTab(tabId) {
+      if (window.FEATURE_FLAGS) {
+        if (!window.FEATURE_FLAGS.sport && (tabId === 'basketball' || tabId === 'sport')) {
+          tabId = 'my-day';
+        } else if (!window.FEATURE_FLAGS.nutrition && (tabId === 'diet' || tabId === 'dieta' || tabId === 'kuchnia_ai')) {
+          tabId = 'my-day';
+        } else if (!window.FEATURE_FLAGS.recovery && tabId === 'recovery') {
+          tabId = 'my-day';
+        }
+      }
       if (tabId === 'training') {
         state.planCategory = 'trening';
         showTab('plan');
@@ -30930,7 +30975,10 @@
 
       if (sub) sub.textContent = 'Zresetuj swoje hasło';
       if (btn) btn.textContent = 'Wyślij instrukcję resetu';
-      if (info) info.style.display = 'none';
+      if (info) {
+        info.innerHTML = 'Podaj adres e-mail powiązany z kontem.<br><span style="color:#f59e0b;font-size:11px;">⚠️ W środowisku produkcyjnym odzyskanie hasła wymaga kontaktu z administratorem, jeśli dostawca poczty e-mail nie został skonfigurowany.</span>';
+        info.style.display = 'block';
+      }
       if (forgotBox) forgotBox.innerHTML = '<button type="button" onclick="switchAuthTab(\'login\')" style="background:none;border:none;color:#00e5ff;font-size:12px;cursor:pointer;text-decoration:underline;">← Wróć do logowania</button>';
       if (pwdBox) pwdBox.style.display = 'none';
       if (codeBox) codeBox.style.display = 'none';
@@ -31126,6 +31174,7 @@
       }
 
       // ─── POKAŻ PANEL ─────────────────────────────────────────────────────────
+      var isReg = (_currentTab === 'register');
       if (typeof enterDashboard === 'function') {
         enterDashboard();
       } else if (typeof showPanel === 'function') {
@@ -31137,6 +31186,10 @@
       } else {
         window.location.hash = '#panel';
         window.location.reload();
+        return;
+      }
+      if (isReg && typeof showTab === 'function') {
+        showTab('profile');
       }
 
     } catch (err) {
@@ -33965,6 +34018,222 @@ window.openDayItemSwap = openDayItemSwap;
   // WORKOUT RUNNER — LIVE WORKOUT EXECUTION MODAL
   // ═══════════════════════════════════════════════════════════════════
 
+  // ═══════════════════════════════════════════════════════════════════
+  // FITAI OFFLINE QUEUE MANAGER (Etap 3 — Zapis i synchronizacja offline)
+  // ═══════════════════════════════════════════════════════════════════
+  window.FitAIOfflineQueue = (function() {
+    var _isSyncing = false;
+
+    function getUserId() {
+      return localStorage.getItem("fitai_user_id") || "default_user";
+    }
+
+    function getQueueKey(uid) {
+      return "fitai_set_queue_" + (uid || getUserId());
+    }
+
+    function getQueue(uid) {
+      try {
+        var raw = localStorage.getItem(getQueueKey(uid));
+        return raw ? JSON.parse(raw) : [];
+      } catch(e) {
+        return [];
+      }
+    }
+
+    function saveQueue(queue, uid) {
+      try {
+        localStorage.setItem(getQueueKey(uid), JSON.stringify(queue));
+      } catch(e) {
+        console.warn("[FitAI Offline] Błąd zapisu kolejki do localStorage:", e);
+      }
+      updateQueueBadge();
+    }
+
+    function enqueueSet(payload) {
+      var uid = getUserId();
+      var queue = getQueue(uid);
+      var idx = queue.findIndex(function(it) {
+        return (payload.client_id && it.client_id === payload.client_id) ||
+               (it.session_id === payload.session_id && it.exercise_key === payload.exercise_key && it.set_number === payload.set_number);
+      });
+      if (idx >= 0) {
+        queue[idx] = payload;
+      } else {
+        queue.push(payload);
+      }
+      saveQueue(queue, uid);
+      return payload;
+    }
+
+    function removeSet(clientId, uid) {
+      var u = uid || getUserId();
+      var queue = getQueue(u).filter(function(it) { return it.client_id !== clientId; });
+      saveQueue(queue, u);
+    }
+
+    function getPendingCount(sessionId, uid) {
+      var q = getQueue(uid || getUserId());
+      if (sessionId) {
+        return q.filter(function(it) { return it.session_id === sessionId; }).length;
+      }
+      return q.length;
+    }
+
+    async function flushQueue() {
+      if (_isSyncing) return;
+      var uid = getUserId();
+      var queue = getQueue(uid);
+      if (!queue.length) {
+        updateQueueBadge();
+        return;
+      }
+      if (!navigator.onLine) {
+        updateQueueBadge();
+        return;
+      }
+
+      _isSyncing = true;
+      updateQueueBadge();
+
+      try {
+        var token = localStorage.getItem("fitai_token");
+        var items = queue.slice();
+        for (var i = 0; i < items.length; i++) {
+          var item = items[i];
+          try {
+            var url = (window.API_BASE || "") + "/app/training/sessions/" + encodeURIComponent(item.session_id) + "/sets";
+            var res = await fetch(url, {
+              method: "POST",
+              headers: {
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                client_id: item.client_id,
+                exercise_key: item.exercise_key,
+                set_number: item.set_number,
+                actual_reps: item.actual_reps,
+                actual_weight_kg: item.actual_weight_kg,
+                actual_rpe: item.actual_rpe,
+                completed: item.completed !== false,
+                note: item.note || "",
+                logged_at: item.logged_at
+              })
+            });
+
+            if (res.status === 401) {
+              // Ciche odświeżenie tokenu
+              var rt = localStorage.getItem("fitai_refresh_token");
+              var refreshed = false;
+              if (rt) {
+                var refRes = await fetch((window.API_BASE || "") + "/auth/refresh", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ refresh_token: rt })
+                }).catch(function() { return null; });
+                if (refRes && refRes.ok) {
+                  var rData = await refRes.json().catch(function() { return {}; });
+                  if (rData.access_token) {
+                    token = rData.access_token;
+                    localStorage.setItem("fitai_token", token);
+                    refreshed = true;
+                    // Ponów próbę z nowym tokenem
+                    var retryRes = await fetch(url, {
+                      method: "POST",
+                      headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+                      body: JSON.stringify(item)
+                    });
+                    if (retryRes.ok) {
+                      removeSet(item.client_id, uid);
+                      continue;
+                    }
+                  }
+                }
+              }
+              if (!refreshed) {
+                // Pozostaw kolejkę w localStorage — nie usuwaj bez wysłania
+                break;
+              }
+            }
+
+            if (res.ok) {
+              removeSet(item.client_id, uid);
+              var btn = document.querySelector('.btn-save-set[data-exkey="' + item.exercise_key + '"][data-setnum="' + item.set_number + '"]');
+              if (btn) {
+                btn.textContent = "✓ Zapisano";
+                btn.style.background = "rgba(34,197,94,0.2)";
+                btn.style.color = "#4ade80";
+              }
+              var row = document.getElementById("setrow-" + item.exercise_key + "-" + item.set_number);
+              if (row) {
+                row.style.background = "rgba(34,197,94,0.06)";
+                row.style.borderColor = "rgba(34,197,94,0.3)";
+              }
+            } else if (res.status >= 500) {
+              // Błąd serwera — zatrzymaj wysyłkę, ponów później
+              break;
+            } else {
+              // Inny błąd klienta (np. 409 lub 422) — usuń z kolejki, by nie blokować reszty
+              removeSet(item.client_id, uid);
+            }
+          } catch(netErr) {
+            // Brak sieci (TypeError) — zatrzymaj flush, serie czekają w kolejce
+            break;
+          }
+        }
+      } finally {
+        _isSyncing = false;
+        updateQueueBadge();
+      }
+    }
+
+    function updateQueueBadge() {
+      var count = getPendingCount();
+      var badge = document.getElementById("offlineQueueBadge");
+      if (!badge) {
+        badge = document.createElement("div");
+        badge.id = "offlineQueueBadge";
+        badge.style.cssText = "position:fixed;bottom:76px;right:16px;z-index:99999;transition:all 0.3s;display:none;";
+        document.body.appendChild(badge);
+      }
+      if (count > 0) {
+        badge.style.display = "block";
+        badge.innerHTML = '<div style="background:#1e1b4b;border:1px solid #6366f1;color:#c7d2fe;padding:8px 14px;border-radius:12px;font-size:12px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,0.6);">' +
+          '<span>📡 Czeka na sieć · ' + count + ' ' + (count === 1 ? "seria" : (count < 5 ? "serie" : "serii")) + '</span>' +
+          '<button type="button" id="btnManualSyncQueue" style="background:#6366f1;color:#fff;border:none;padding:4px 10px;border-radius:8px;font-weight:700;cursor:pointer;">Wyślij teraz</button>' +
+          '</div>';
+        var btn = document.getElementById("btnManualSyncQueue");
+        if (btn) {
+          btn.onclick = function() {
+            btn.textContent = "⏳";
+            flushQueue();
+          };
+        }
+      } else {
+        badge.style.display = "none";
+      }
+    }
+
+    window.addEventListener("online", function() {
+      flushQueue();
+    });
+
+    setInterval(function() {
+      if (navigator.onLine && getPendingCount() > 0 && !_isSyncing) {
+        flushQueue();
+      }
+    }, 10000);
+
+    return {
+      enqueueSet: enqueueSet,
+      getQueue: getQueue,
+      getPendingCount: getPendingCount,
+      flushQueue: flushQueue,
+      updateQueueBadge: updateQueueBadge
+    };
+  })();
+
   window.evolveStartTraining = async function() {
     var token = localStorage.getItem('fitai_token');
     if (!token) {
@@ -34047,6 +34316,15 @@ window.openDayItemSwap = openDayItemSwap;
     var planned = curSession.planned || {};
     var exercises = planned.exercises || [];
     var plannedSetsCount = exercises.reduce(function(acc, ex) { return acc + Math.max(0, Number(ex.sets || 0)); }, 0);
+
+    if (window.FitAIOfflineQueue) {
+      var offlineSets = window.FitAIOfflineQueue.getQueue().filter(function(s) { return s.session_id === curSession.id; });
+      if (!curSession.sets) curSession.sets = [];
+      offlineSets.forEach(function(os) {
+        var existing = curSession.sets.find(function(s) { return String(s.exercise_key) === String(os.exercise_key) && s.set_number === os.set_number; });
+        if (!existing) curSession.sets.push(os);
+      });
+    }
 
     modal.innerHTML = `
       <div style="width:100%;max-width:680px;max-height:92vh;background:#0d0f18;border:1px solid rgba(139,92,246,0.3);border-radius:24px;box-shadow:0 25px 75px rgba(0,0,0,0.8);display:flex;flex-direction:column;overflow:hidden;">
@@ -34267,7 +34545,7 @@ window.openDayItemSwap = openDayItemSwap;
         listEl.appendChild(card);
       });
 
-      // Podłącz zdarzenia zapisu serii
+      // Podłącz zdarzenia zapisu serii (z obsługą offline queue i client_id)
       listEl.querySelectorAll('.btn-save-set').forEach(function(btn) {
         btn.addEventListener('click', async function() {
           var k = btn.dataset.exkey;
@@ -34280,9 +34558,49 @@ window.openDayItemSwap = openDayItemSwap;
           var actWeight = parseFloat(weightInput ? weightInput.value : '0') || 0.0;
           var actRpe = parseInt(rpeInput ? rpeInput.value : '7') || 7;
 
-          btn.disabled = true;
-          btn.textContent = '⏳';
+          var clientId = btn.dataset.clientid || (crypto.randomUUID ? crypto.randomUUID() : ('cid_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)));
+          btn.dataset.clientid = clientId;
 
+          var payload = {
+            client_id: clientId,
+            session_id: curSession.id,
+            exercise_key: k,
+            set_number: n,
+            actual_reps: actReps,
+            actual_weight_kg: actWeight,
+            actual_rpe: actRpe,
+            completed: true,
+            note: '',
+            logged_at: new Date().toISOString()
+          };
+
+          // 1. Zapis do lokalnej kolejki offline
+          if (window.FitAIOfflineQueue) {
+            window.FitAIOfflineQueue.enqueueSet(payload);
+          }
+
+          // 2. Aktualizacja w pamięci
+          if (!curSession.sets) curSession.sets = [];
+          var existIdx = curSession.sets.findIndex(function(s) { return String(s.exercise_key) === String(k) && s.set_number === n; });
+          if (existIdx >= 0) {
+            curSession.sets[existIdx] = payload;
+          } else {
+            curSession.sets.push(payload);
+          }
+
+          var rowEl = document.getElementById('setrow-' + k + '-' + n);
+          if (rowEl) {
+            rowEl.style.background = 'rgba(99,102,241,0.08)';
+            rowEl.style.borderColor = 'rgba(99,102,241,0.4)';
+          }
+          btn.style.background = 'rgba(99,102,241,0.2)';
+          btn.style.color = '#a5b4fc';
+          btn.textContent = 'Czeka na sieć';
+          updateProgress();
+
+          btn.disabled = true;
+
+          // 3. Próba wysyłki do serwera
           try {
             var setRes = await fetch((window.API_BASE || '') + '/app/training/sessions/' + encodeURIComponent(curSession.id) + '/sets', {
               method: 'POST',
@@ -34290,41 +34608,32 @@ window.openDayItemSwap = openDayItemSwap;
                 'Authorization': 'Bearer ' + token,
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify({
-                exercise_key: k,
-                set_number: n,
-                actual_reps: actReps,
-                actual_weight_kg: actWeight,
-                actual_rpe: actRpe,
-                completed: true
-              })
+              body: JSON.stringify(payload)
             });
             var setData = await setRes.json().catch(function() { return {}; });
-            if (!setRes.ok) throw new Error(setData.detail || 'Błąd zapisu serii');
 
-            // Zaktualizuj stan lokalny sesji
-            if (!curSession.sets) curSession.sets = [];
-            var existIdx = curSession.sets.findIndex(function(s) { return String(s.exercise_key) === String(k) && s.set_number === n; });
-            if (existIdx >= 0) {
-              curSession.sets[existIdx] = setData.set;
+            if (setRes.ok) {
+              if (window.FitAIOfflineQueue) {
+                window.FitAIOfflineQueue.removeSet(clientId);
+              }
+              if (setData.set) {
+                curSession.sets[existIdx >= 0 ? existIdx : curSession.sets.length - 1] = setData.set;
+              }
+              if (rowEl) {
+                rowEl.style.background = 'rgba(34,197,94,0.06)';
+                rowEl.style.borderColor = 'rgba(34,197,94,0.3)';
+              }
+              btn.style.background = 'rgba(34,197,94,0.2)';
+              btn.style.color = '#4ade80';
+              btn.textContent = '✓ Zapisano';
+              startRestTimer(90);
             } else {
-              curSession.sets.push(setData.set);
+              btn.textContent = 'Czeka na sieć';
+              if (window.FitAIOfflineQueue) window.FitAIOfflineQueue.updateQueueBadge();
             }
-
-            var rowEl = document.getElementById('setrow-' + k + '-' + n);
-            if (rowEl) {
-              rowEl.style.background = 'rgba(34,197,94,0.06)';
-              rowEl.style.borderColor = 'rgba(34,197,94,0.3)';
-            }
-            btn.style.background = 'rgba(34,197,94,0.2)';
-            btn.style.color = '#4ade80';
-            btn.textContent = '✓ Zapisano';
-
-            updateProgress();
-            startRestTimer(90);
           } catch(err) {
-            btn.textContent = 'Błąd!';
-            if (typeof showToast === 'function') showToast('Błąd: ' + err.message, 'error');
+            btn.textContent = 'Czeka na sieć';
+            if (window.FitAIOfflineQueue) window.FitAIOfflineQueue.updateQueueBadge();
           } finally {
             btn.disabled = false;
           }
@@ -34334,6 +34643,13 @@ window.openDayItemSwap = openDayItemSwap;
 
     // Obsługa zakończenia treningu
     document.getElementById('btnFinishWorkout')?.addEventListener('click', async function() {
+      if (window.FitAIOfflineQueue) {
+        var pendingCount = window.FitAIOfflineQueue.getPendingCount(curSession.id);
+        if (pendingCount > 0) {
+          var ok = confirm('Masz niewysłane serie (' + pendingCount + '). Zakończenie sesji przed ich wysłaniem może spowodować utratę tych serii. Czy na pewno chcesz zakończyć?');
+          if (!ok) return;
+        }
+      }
       var finBtn = document.getElementById('btnFinishWorkout');
       var rpeVal = parseInt(document.getElementById('runnerFinalRpeInput')?.value || '7') || 7;
       var notesVal = (document.getElementById('runnerFinalNotes')?.value || '').trim();

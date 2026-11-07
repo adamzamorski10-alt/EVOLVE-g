@@ -125,15 +125,21 @@ def test_a2_env_defaults_to_production_when_unset(monkeypatch):
     A2: Gdy zmienna ENV nie jest ustawiona, aplikacja traktuje środowisko jako produkcję
     (brak docs, brak demo, bezpieczne reguły).
     """
+    from app.config import get_env, is_development, is_production
+
     monkeypatch.delenv("ENV", raising=False)
     
-    # 1. Reguła docs: w produkcji wyłączone
-    is_dev = os.getenv("ENV", "production").lower() == "development"
-    assert not is_dev, "Bez ENV aplikacja nie może uznać środowiska za development!"
+    # 1. Reguła fail-closed: get_env() zwraca 'production'
+    assert get_env() == "production"
+    assert is_production() is True
+    assert is_development() is False
 
-    # 2. Reguła demo: w produkcji wyłączone
-    demo_env = os.getenv("ENV", "production").lower()
-    assert demo_env == "production"
+    # 2. Bez ENV endpointy demo zwracają 404
+    monkeypatch.setenv("ALLOW_DEMO_LOGIN", "true")  # nawet przy fladze demo brak ENV=development musi blokować
+    res_get = client.get("/auth/demo-token")
+    assert res_get.status_code == 404, f"Oczekiwano 404 bez ENV=development, otrzymano {res_get.status_code}"
+    res_post = client.post("/auth/demo-login")
+    assert res_post.status_code == 404
 
 
 # ─── A3: Bezpieczeństwo Endpointów Demo ───────────────────────────────────────

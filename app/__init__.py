@@ -33,7 +33,16 @@ from app.auth.routes import router as auth_router
 from app.assessment.routes import router as assessment_router
 from app.health.routes import router as health_router
 from app.goals.routes import router as goals_router
-from app.config import CORS_ORIGINS, APP_NAME, APP_VERSION, DEBUG, DISCORD_TOKEN
+from app.config import (
+    CORS_ORIGINS,
+    APP_NAME,
+    APP_VERSION,
+    DEBUG,
+    DISCORD_TOKEN,
+    get_env,
+    is_development,
+    FEATURE_FLAGS,
+)
 from app.database import create_db_and_tables
 from app.decision_routes import router as decision_router
 from app.today_routes import router as today_router
@@ -53,7 +62,7 @@ if os.getenv("EVOLVE_ALEMBIC_CONTEXT") != "1":
     create_db_and_tables()
 
 # Initialize FastAPI app
-_is_dev = os.getenv("ENV") == "development"
+_is_dev = is_development()
 app = FastAPI(
     title=APP_NAME,
     version=APP_VERSION,

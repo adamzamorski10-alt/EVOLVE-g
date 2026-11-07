@@ -3,6 +3,7 @@ FitAI Schemas — Pydantic request/response models for FastAPI
 """
 
 import re  # kept for potential future validators
+from datetime import datetime
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -569,6 +570,8 @@ class DiscordLinkRequest(BaseModel):
 # ─── Training Execution Schemas ───────────────────────────────────────────────
 
 class TrainingSetResultRequest(BaseModel):
+    client_id: Optional[str] = Field(default=None, max_length=200)
+    logged_at: Optional[datetime] = None
     exercise_key: str = Field(min_length=1, max_length=200)
     set_number: int = Field(ge=1, le=100)
     actual_reps: int = Field(ge=0, le=1000)

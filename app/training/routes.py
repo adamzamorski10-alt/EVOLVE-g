@@ -150,6 +150,7 @@ def _serialize_session(session: TrainingSessionDB, sets: list[TrainingSetResultD
         "sets": [
             {
                 "id": item.id,
+                "client_id": item.client_id,
                 "exercise_key": item.exercise_key,
                 "exercise_name": item.exercise_name,
                 "set_number": item.set_number,
@@ -853,6 +854,7 @@ def get_training_today(
                 if planned_sets else 0
             ),
         },
+        "active_session_id": active.id if active else None,
         "message": (
             "Plan jest nieaktualny względem profilu lub assessmentu. Wygeneruj aktualny plan przed rozpoczęciem nowego treningu."
             if plan_stale and not active
@@ -1029,13 +1031,23 @@ def log_training_set(
     if planned_sets and payload.set_number > planned_sets:
         raise HTTPException(status_code=422, detail="Numer serii wykracza poza zaplanowaną liczbę serii")
 
-    existing = session.exec(
-        select(TrainingSetResultDB)
-        .where(TrainingSetResultDB.session_id == row.id)
-        .where(TrainingSetResultDB.user_id == user.id)
-        .where(TrainingSetResultDB.exercise_key == payload.exercise_key)
-        .where(TrainingSetResultDB.set_number == payload.set_number)
-    ).first()
+    existing = None
+    if payload.client_id:
+        existing = session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == row.id)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.client_id == payload.client_id)
+        ).first()
+
+    if existing is None:
+        existing = session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == row.id)
+            .where(TrainingSetResultDB.user_id == user.id)
+            .where(TrainingSetResultDB.exercise_key == payload.exercise_key)
+            .where(TrainingSetResultDB.set_number == payload.set_number)
+        ).first()
 
     # Revalidate the active state atomically before mutating any set result.
     # The conditional UPDATE holds the database write/row lock until commit,
@@ -1053,16 +1065,21 @@ def log_training_set(
         raise HTTPException(status_code=409, detail="Zakończona sesja nie może być edytowana")
 
     if existing:
+        if payload.client_id:
+            existing.client_id = payload.client_id
         existing.actual_reps = payload.actual_reps
         existing.actual_weight_kg = payload.actual_weight_kg
         existing.actual_rpe = payload.actual_rpe
         existing.completed = payload.completed
         existing.note = payload.note
+        if payload.logged_at:
+            existing.logged_at = payload.logged_at
         result = existing
     else:
         result = TrainingSetResultDB(
             session_id=row.id,
             user_id=user.id,
+            client_id=payload.client_id,
             exercise_key=payload.exercise_key,
             exercise_name=str(planned.get("exercise_name") or "Ćwiczenie"),
             set_number=payload.set_number,
@@ -1073,6 +1090,7 @@ def log_training_set(
             actual_rpe=payload.actual_rpe,
             completed=payload.completed,
             note=payload.note,
+            logged_at=payload.logged_at or datetime.now(),
         )
     session.add(result)
     row.updated_at = datetime.now()
@@ -1124,6 +1142,7 @@ def log_training_set(
         "status": "updated" if existing else "created",
         "set": {
             "id": result.id,
+            "client_id": result.client_id,
             "exercise_key": result.exercise_key,
             "exercise_name": result.exercise_name,
             "set_number": result.set_number,

@@ -22,7 +22,8 @@ from app.auth import (
     verify_password,
 )
 from app.auth.jwt_utils import create_refresh_token, decode_token
-from app.config import JWT_EXPIRE_MINUTES
+from app.auth.mailer import send_password_reset
+from app.config import JWT_EXPIRE_MINUTES, get_env
 from app.database import engine, get_session
 from app.fitness.calculations import calc_calories, calc_protein
 from app.models import (
@@ -313,8 +314,7 @@ def password_reset_request(
         user.password_reset_expires_at = datetime.utcnow() + timedelta(hours=1)
         session.add(user)
         session.commit()
-        # W dev/test logujemy token
-        logger.info(f"[AUTH_PASSWORD_RESET] Token for {clean_email}: {token}")
+        send_password_reset(clean_email, token)
 
     return {
         "status": "ok",
@@ -611,7 +611,7 @@ def ensure_demo_user_session(session: Session) -> dict:
 def demo_login(session: Session = Depends(get_session)):
     """Tymczasowy endpoint demo - dostępny wyłącznie w środowisku development za jawną flagą."""
     import os
-    env = (os.getenv("ENV") or "production").lower()
+    env = get_env()
     allow_demo = os.getenv("ALLOW_DEMO_LOGIN", "false").lower() == "true"
     if env != "development" or not allow_demo:
         raise HTTPException(

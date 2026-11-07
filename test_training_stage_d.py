@@ -306,3 +306,102 @@ def test_d8_complete_session_and_get_progression():
         data = r_prog.json()
         r_prog2 = client.get(f"/app/training/sessions/{sess.id}/progression", headers=headers)
         assert r_prog2.json() == data, "Progression must be deterministic"
+
+
+# ── ETAP 3: Odporność offline i idempotencja client_id ────────────────────────
+
+def test_d4_client_id_idempotency_same_client_id_does_not_duplicate():
+    """3.1: Każda seria zapisywana w aktywnej sesji może mieć client_id.
+    Ponowne wysłanie tej samej serii z tym samym client_id jest idempotentne (upsert)."""
+    user = _create_user(f"d4cid-{uuid.uuid4().hex[:6]}@test.com")
+    headers = _auth_headers(user)
+    today = datetime.now(ZoneInfo("Europe/Warsaw")).date()
+    sess = _make_active_session(user, today)
+    client_set_id = str(uuid.uuid4())
+
+    payload = {
+        "client_id": client_set_id,
+        "exercise_key": "squat",
+        "set_number": 1,
+        "actual_reps": 5,
+        "actual_weight_kg": 100.0,
+        "actual_rpe": 8,
+        "completed": True,
+        "note": "Seria offline 1",
+    }
+
+    # Pierwsze wysłanie
+    r1 = client.post(f"/app/training/sessions/{sess.id}/sets", json=payload, headers=headers)
+    assert r1.status_code == 200, r1.text
+    d1 = r1.json()
+    assert d1["status"] in ("created", "updated")
+    assert d1["set"]["client_id"] == client_set_id
+    first_db_id = d1["set"]["id"]
+
+    # Drugie wysłanie tego samego client_id (np. ponowienie po powrocie sieci)
+    payload["actual_weight_kg"] = 105.0  # ewentualna korekta
+    r2 = client.post(f"/app/training/sessions/{sess.id}/sets", json=payload, headers=headers)
+    assert r2.status_code == 200, r2.text
+    d2 = r2.json()
+    assert d2["status"] == "updated"
+    assert d2["set"]["client_id"] == client_set_id
+    assert d2["set"]["id"] == first_db_id
+    assert d2["set"]["actual_weight_kg"] == 105.0
+
+    # Weryfikacja w bazie: dokładnie 1 wiersz dla tej serii
+    with Session(engine) as session:
+        sets = session.exec(
+            select(TrainingSetResultDB)
+            .where(TrainingSetResultDB.session_id == sess.id)
+            .where(TrainingSetResultDB.exercise_key == "squat")
+        ).all()
+        assert len(sets) == 1
+        assert sets[0].client_id == client_set_id
+        assert sets[0].actual_weight_kg == 105.0
+
+
+def test_d4_client_id_and_set_ordering_with_past_timestamps():
+    """3.6: Serie zarejestrowane offline z przeszłą datą zachowują logged_at i kolejność."""
+    from datetime import timedelta
+    user = _create_user(f"d4order-{uuid.uuid4().hex[:6]}@test.com")
+    headers = _auth_headers(user)
+    today = datetime.now(ZoneInfo("Europe/Warsaw")).date()
+    sess = _make_active_session(user, today)
+
+    t1 = datetime.utcnow() - timedelta(minutes=20)
+    t2 = datetime.utcnow() - timedelta(minutes=15)
+    t3 = datetime.utcnow() - timedelta(minutes=10)
+
+    cid1 = str(uuid.uuid4())
+    cid2 = str(uuid.uuid4())
+    cid3 = str(uuid.uuid4())
+
+    r1 = client.post(f"/app/training/sessions/{sess.id}/sets", json={
+        "client_id": cid1, "exercise_key": "squat", "set_number": 1,
+        "actual_reps": 8, "actual_weight_kg": 80.0, "actual_rpe": 7,
+        "completed": True, "note": "s1", "logged_at": t1.isoformat()
+    }, headers=headers)
+    assert r1.status_code == 200
+
+    r2 = client.post(f"/app/training/sessions/{sess.id}/sets", json={
+        "client_id": cid2, "exercise_key": "squat", "set_number": 2,
+        "actual_reps": 8, "actual_weight_kg": 85.0, "actual_rpe": 8,
+        "completed": True, "note": "s2", "logged_at": t2.isoformat()
+    }, headers=headers)
+    assert r2.status_code == 200
+
+    r3 = client.post(f"/app/training/sessions/{sess.id}/sets", json={
+        "client_id": cid3, "exercise_key": "squat", "set_number": 3,
+        "actual_reps": 8, "actual_weight_kg": 90.0, "actual_rpe": 9,
+        "completed": True, "note": "s3", "logged_at": t3.isoformat()
+    }, headers=headers)
+    assert r3.status_code == 200
+
+    # Pobierz sesję z endpointu
+    sess_res = client.get(f"/app/training/sessions/{sess.id}", headers=headers)
+    assert sess_res.status_code == 200
+    sets = sess_res.json()["session"]["sets"]
+    assert len(sets) == 3
+    assert [s["client_id"] for s in sets] == [cid1, cid2, cid3]
+    assert [s["set_number"] for s in sets] == [1, 2, 3]
+

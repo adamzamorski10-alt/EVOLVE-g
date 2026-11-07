@@ -11,11 +11,30 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def get_env() -> str:
+    """Ujednolicone pobieranie nazwy środowiska.
+
+    Fail-closed: domyślnie 'production'. Środowisko 'development' jest włączane
+    wyłącznie jawnie przez zmienną środowiskową ENV=development.
+    """
+    raw = os.getenv("ENV", "production").strip().lower()
+    return raw if raw else "production"
+
+
+def is_production() -> bool:
+    return get_env() == "production"
+
+
+def is_development() -> bool:
+    return get_env() == "development"
+
+
 # ─── Database ─────────────────────────────────────────────────────────────────
 _raw_database_url = os.getenv("DATABASE_URL", "").strip()
 
-_env = os.getenv("ENV", "development").lower()
-_is_production = _env == "production"
+_env = get_env()
+_is_production = is_production()
 
 if not _raw_database_url:
     if _is_production:
@@ -59,8 +78,7 @@ if _is_production:
 # ─── JWT / Auth ────────────────────────────────────────────────────────────────
 _jwt_secret = os.getenv("JWT_SECRET_KEY", "")
 if not _jwt_secret:
-    import sys
-    if os.getenv("ENV", "development") == "production":
+    if _is_production:
         print("KRYTYCZNY BŁĄD: JWT_SECRET_KEY nie jest ustawiony w produkcji!", file=sys.stderr)
         sys.exit(1)
     else:
@@ -86,10 +104,9 @@ DISCORD_TOKEN: str = os.getenv("DISCORD_TOKEN", "")  # pusty = bot nie startuje 
 # ─── Cron / Scheduler ─────────────────────────────────────────────────────────
 _cron_secret = os.getenv("CRON_SECRET", "")
 if not _cron_secret:
-    import sys as _sys
-    if os.getenv("ENV", "development") == "production":
-        print("KRYTYCZNY BŁĄD: CRON_SECRET nie jest ustawiony w produkcji!", file=_sys.stderr)
-        _sys.exit(1)
+    if _is_production:
+        print("KRYTYCZNY BŁĄD: CRON_SECRET nie jest ustawiony w produkcji!", file=sys.stderr)
+        sys.exit(1)
     else:
         _cron_secret = secrets.token_hex(16)
         print(f"OSTRZEŻENIE: CRON_SECRET nie ustawiony — używam losowego klucza (tylko dev!): {_cron_secret}")
@@ -109,7 +126,7 @@ _XP_STREAK_BONUS = 10
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 _raw_cors = os.getenv("CORS_ORIGINS", "").strip()
 if not _raw_cors or _raw_cors == "*":
-    if _is_production or os.getenv("ENV") == "production":
+    if _is_production:
         print(
             "KRYTYCZNY BŁĄD: CORS_ORIGINS nie może być puste ani '*' w środowisku produkcyjnym!",
             file=sys.stderr,
@@ -125,3 +142,10 @@ APP_NAME = "FitAI"
 
 # ─── Feature Flags ────────────────────────────────────────────────────────────
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+FEATURE_FLAGS = {
+    "strength": True,
+    "sport": False,
+    "nutrition": False,
+    "recovery": False,
+    "kuchnia_ai": False,
+}
