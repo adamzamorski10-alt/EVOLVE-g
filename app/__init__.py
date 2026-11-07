@@ -49,12 +49,14 @@ if os.getenv("EVOLVE_ALEMBIC_CONTEXT") != "1":
     create_db_and_tables()
 
 # Initialize FastAPI app
+_is_dev = os.getenv("ENV", "development") == "development"
 app = FastAPI(
     title=APP_NAME,
     version=APP_VERSION,
     description="FitAI Backend API v2.0 — Fitness, Nutrition, Progressive Overload",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if _is_dev else None,
+    redoc_url="/redoc" if _is_dev else None,
+    openapi_url="/openapi.json" if _is_dev else None,
 )
 
 # Rate limiting

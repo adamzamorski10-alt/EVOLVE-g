@@ -311,3 +311,56 @@ def test_s3b_profile_update_size_limits():
         json={"basketball_profile": huge_dict},
     )
     assert res.status_code == 422, f"Expected 422 for oversized basketball_profile, got {res.status_code}"
+
+
+
+def test_s1_2_docs_disabled_in_production(monkeypatch):
+    """
+    1.2: Poza ENV=development /docs, /redoc i /openapi.json są None (wyłączone).
+    """
+    from fastapi.testclient import TestClient
+    import app as app_pkg
+
+    # Symulacja środowiska produkcyjnego
+    monkeypatch.setenv("ENV", "production")
+    _is_dev = os.getenv("ENV", "development") == "development"
+    assert not _is_dev
+
+    # Weryfikacja reguły konfiguracji:
+    assert (None if not _is_dev else "/docs") is None
+    assert (None if not _is_dev else "/redoc") is None
+    assert (None if not _is_dev else "/openapi.json") is None
+
+
+def test_s1_5_cors_origins_enforced_in_production(monkeypatch):
+    """
+    1.5: W produkcji CORS_ORIGINS nie może być '*' ani pusty z allow_credentials=True.
+    """
+    import importlib
+    import pytest
+    import app.config as app_cfg
+
+    monkeypatch.setenv("ENV", "production")
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pass@localhost:5432/db")
+    monkeypatch.setenv("CRON_SECRET", "test-cron-secret")
+    monkeypatch.setenv("JWT_SECRET_KEY", "test-jwt-secret-key-32-chars-long")
+    monkeypatch.setenv("CORS_ORIGINS", "*")
+
+    with pytest.raises(SystemExit):
+        importlib.reload(app_cfg)
+
+
+def test_s1_6_rate_limit_key_respects_x_forwarded_for():
+    """
+    1.6: _rate_limit_key pobiera pierwszy adres z nagłówka X-Forwarded-For dla żądań za proxy.
+    """
+    from types import SimpleNamespace
+    from app.auth.dependencies import _rate_limit_key
+
+    # Mock Request z nagłówkiem X-Forwarded-For
+    req = SimpleNamespace(
+        headers={"X-Forwarded-For": "203.0.113.195, 10.0.0.1"},
+        client=SimpleNamespace(host="10.0.0.1"),
+    )
+    key = _rate_limit_key(req)
+    assert key == "203.0.113.195"

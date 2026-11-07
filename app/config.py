@@ -107,7 +107,17 @@ _XP_DRILL_COMPLETED = 100
 _XP_STREAK_BONUS = 10
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
+_raw_cors = os.getenv("CORS_ORIGINS", "").strip()
+if not _raw_cors or _raw_cors == "*":
+    if _is_production:
+        print(
+            "KRYTYCZNY BŁĄD: CORS_ORIGINS nie może być puste ani '*' w środowisku produkcyjnym!",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    CORS_ORIGINS = ["*"]
+else:
+    CORS_ORIGINS = [orig.strip() for orig in _raw_cors.split(",") if orig.strip()]
 
 # ─── App Info ──────────────────────────────────────────────────────────────────
 APP_VERSION = "2.1.0"

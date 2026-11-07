@@ -35,6 +35,11 @@ def _rate_limit_key(request: Request) -> str:
             return f"user:{payload['sub']}"
         except Exception:
             pass
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+        if client_ip:
+            return client_ip
     return get_remote_address(request)
 
 
