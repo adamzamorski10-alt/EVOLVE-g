@@ -294,6 +294,16 @@ aiohttp>=3.9.0
 
 ---
 
+
+---
+
+## Kopia zapasowa i odzyskiwanie danych (Backup & Restore)
+
+System EVOLVE posiada dedykowane narzędzia i procedury zabezpieczania danych produkcyjnych:
+- **Skrypt tworzenia kopii zapasowej:** `scripts/backup_db.sh` wykonuje pełny zrzut bazy PostgreSQL za pomocą `pg_dump`, pakuje go do `.sql.gz` oraz generuje sumę kontrolną SHA-256.
+- **Procedura odzyskiwania bazy:** Pełna instrukcja krok po kroku oraz weryfikacja schematu Alembic znajduje się w pliku [`RESTORE.md`](RESTORE.md).
+- **Zarządzanie kopiami w chmurze (Render):** W planach płatnych Render wykonuje automatyczne codzienne kopie w zakładce Backups instancji PostgreSQL.
+
 ## Rozbudowa
 
 Możliwe kolejne kroki:
