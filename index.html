@@ -304,6 +304,9 @@
       color: var(--text);
     }
 
+    /* Strength MVP: hide non-strength modules */
+    .non-strength-module { display: none !important; }
+
     /* ── AI Plan output ─────────────────────────────────────────────── */
     .ai-plan-output {
       min-height: 60px;
@@ -1736,7 +1739,7 @@
   </style>
 </head>
 
-<body>
+<body class="strength-mvp">
 
   <!-- ======= NAVBAR ======= -->
   <nav id="mainNav" class="fixed top-0 left-0 right-0 z-50 glass-nav px-4 md:px-8 py-3">
@@ -2018,10 +2021,10 @@
       <nav class="space-y-1 flex-1" aria-label="Główna nawigacja">
         <p class="px-3 py-1 text-xs font-bold uppercase tracking-wider" style="color:var(--cyan);letter-spacing:0.12em;">Performance OS</p>
         <a href="#my-day" onclick="showTab('my-day'); return false;" data-tab="my-day" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-cyan-400 active" title="Dzisiejsze centrum dowodzenia"><span>⚡</span><span>1. Dziś (Today)</span></a>
-        <a href="#" onclick="showTab('sport'); return false;" data-tab="basketball" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Umiejętności sportowe, motoryka i drille"><span>🏀</span><span>2. Sport</span></a>
+        <a href="#" onclick="showTab('sport'); return false;" data-tab="basketball" class="nav-item non-strength-module flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Umiejętności sportowe, motoryka i drille"><span>🏀</span><span>2. Sport</span></a>
         <a href="#" onclick="showTab('training'); return false;" data-tab="training" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Tygodniowy plan: siła, motoryka, sport"><span>📅</span><span>3. Plan</span></a>
-        <a href="#" onclick="showTab('diet'); return false;" data-tab="diet" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Paliwo sportowe i makroskładniki"><span>🥗</span><span>4. Odżywianie</span></a>
-        <a href="#" onclick="showTab('recovery'); return false;" data-tab="recovery" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Sen, gotowość i zmęczenie"><span>🔋</span><span>5. Regeneracja</span></a>
+        <a href="#" onclick="showTab('diet'); return false;" data-tab="diet" class="nav-item non-strength-module flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Paliwo sportowe i makroskładniki"><span>🥗</span><span>4. Odżywianie</span></a>
+        <a href="#" onclick="showTab('recovery'); return false;" data-tab="recovery" class="nav-item non-strength-module flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Sen, gotowość i zmęczenie"><span>🔋</span><span>5. Regeneracja</span></a>
         <a href="#" onclick="showTab('postepy'); return false;" data-tab="postepy" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Wykresy wyskoku, siły i celności"><span>📈</span><span>6. Postępy</span></a>
         <a href="#" onclick="showTab('assessment'); return false;" data-tab="assessment" class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white" title="Ocena wyjściowa i generowanie planu"><span>📋</span><span>7. Assessment & Baza</span></a>
         <div style="height:1px;background:rgba(255,255,255,0.06);margin:8px 0;"></div>
@@ -28713,9 +28716,10 @@
                 const sBox = document.createElement('div');
                 sBox.className = 'p-2 rounded-lg';
                 sBox.style.cssText = 'background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);';
-                sBox.innerHTML = '<span class="font-bold text-gray-300 block truncate">' + (s.exercise_name || s.exercise_key) + '</span>'
-                  + '<span class="text-cyan-400 font-extrabold">S' + s.set_number + ': ' + s.actual_weight_kg + 'kg × ' + s.actual_reps + '</span>'
-                  + '<span class="text-gray-500 block text-[10px]">RPE ' + (s.actual_rpe || 7) + '</span>';
+                const _escH = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+                sBox.innerHTML = '<span class="font-bold text-gray-300 block truncate">' + _escH(s.exercise_name || s.exercise_key) + '</span>'
+                  + '<span class="text-cyan-400 font-extrabold">S' + Number(s.set_number) + ': ' + Number(s.actual_weight_kg) + 'kg × ' + Number(s.actual_reps) + '</span>'
+                  + '<span class="text-gray-500 block text-[10px]">RPE ' + Number(s.actual_rpe || 7) + '</span>';
                 grid.appendChild(sBox);
               });
               setsWrap.appendChild(grid);
