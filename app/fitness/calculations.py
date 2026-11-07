@@ -10,10 +10,18 @@ from app.models import DrillResultDB, ExerciseResultDB, UserDB
 
 
 def calc_calories(p: dict | UserDB) -> int:
-    """Mifflin-St Jeor + TDEE. Accepts both dict and ORM object."""
+    """Mifflin-St Jeor + TDEE. Accepts both dict and ORM object. Returns 0 if biometrics missing."""
     if isinstance(p, UserDB):
         p = p.to_profile_dict()
-    w, h, a = p.get("weight", 75), p.get("height", 175), p.get("age", 25)
+    w = p.get("weight")
+    h = p.get("height")
+    a = p.get("age")
+    if w is None or h is None or a is None:
+        return 0
+    try:
+        w, h, a = float(w), float(h), int(a)
+    except (ValueError, TypeError):
+        return 0
     gender = str(p.get("gender", "")).lower()
     bmr = (
         10 * w
@@ -34,13 +42,17 @@ def calc_calories(p: dict | UserDB) -> int:
         x in goal
         for x in ["redukcj", "odchudzani", "schud", "cut", "weight_loss", "fat_loss"]
     ):
-        tdee -= 400
+        # Bezpieczeństwo dla niepełnoletnich: poniżej 18 roku życia nie tworzymy planu redukcji (tylko utrzymanie/masa)
+        if a < 18:
+            pass
+        else:
+            tdee -= 400
     elif any(
         x in goal
         for x in ["masa", "budow", "przyty", "bulk", "muscle", "gain", "build"]
     ):
         tdee += 300
-    return tdee
+    return max(1200, tdee)
 
 
 def calc_protein(p: dict | UserDB) -> int:
@@ -61,7 +73,13 @@ def calc_protein(p: dict | UserDB) -> int:
     if isinstance(p, UserDB):
         p = p.to_profile_dict()
 
-    w = p.get("weight", 75)
+    w = p.get("weight")
+    if w is None:
+        return 0
+    try:
+        w = float(w)
+    except (ValueError, TypeError):
+        return 0
     goal = str(p.get("goal", "")).lower()
     diet = str(p.get("diet", "")).lower()
 
@@ -131,6 +149,14 @@ def calc_daily_macros(base_calories: int, day_type_key: str) -> dict:
       moderate → base, 40% / 30% / 30%
       rest   → -200 kcal, 20% carbs / 35% protein / 45% fat (higher fat)
     """
+    if not base_calories or base_calories <= 0:
+        return {
+            "kcal": 0,
+            "carbs_g": 0,
+            "protein_g": 0,
+            "fat_g": 0,
+            "day_type": day_type_key,
+        }
     adjustments = {"heavy": 200, "moderate": 0, "rest": -200}
     macros_pct = {
         "heavy": {"carbs": 0.50, "protein": 0.30, "fat": 0.20},

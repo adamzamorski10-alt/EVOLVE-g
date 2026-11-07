@@ -27,16 +27,16 @@ class UserDB(SQLModel, table=True):
     email: Optional[str] = Field(default=None, index=True)
     nickname: Optional[str] = Field(default=None, unique=True, index=True)
     user_number: Optional[int] = Field(default=None, unique=True, index=True)
-    name: str
-    age: int
-    height: float
-    weight: float
-    start_weight: float
-    target_weight: float
-    gender: str = "mężczyzna"
-    goal: str
-    frequency: str
-    diet: str
+    name: str = ""
+    age: Optional[int] = None
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    start_weight: Optional[float] = None
+    target_weight: Optional[float] = None
+    gender: Optional[str] = "mężczyzna"
+    goal: Optional[str] = None
+    frequency: Optional[str] = None
+    diet: Optional[str] = None
     allergies: str = ""
     meals_per_day: int = 4
     notes: str = ""

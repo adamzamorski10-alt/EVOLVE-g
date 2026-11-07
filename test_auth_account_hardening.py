@@ -30,7 +30,7 @@ def _disable_rate_limits():
 def _create_user(email: str, name: str = "Test User") -> UserDB:
     with Session(engine) as session:
         user = UserDB(
-            user_key=f"native:user:{uuid.uuid4().hex[:8]}",
+            user_key=f"native:user:pending-{uuid.uuid4().hex[:8]}",
             email=email.lower().strip(),
             name=name,
             hashed_password=hash_password("SuperSecret123!"),
@@ -48,6 +48,13 @@ def _create_user(email: str, name: str = "Test User") -> UserDB:
             plan="free",
         )
         session.add(user)
+        session.flush()
+        from app.models import UserNumberSequenceDB
+        seq = UserNumberSequenceDB(user_id=user.id)
+        session.add(seq)
+        session.flush()
+        user.user_number = seq.id
+        user.user_key = f"native:user:{seq.id}"
         session.commit()
         session.refresh(user)
         return user
@@ -201,3 +208,106 @@ def test_s2_refresh_token_rotation_and_logout():
     # Próba odświeżenia po wylogowaniu daje 401
     after_logout_res = client.post("/auth/refresh-access", json={"refresh_token": rt3})
     assert after_logout_res.status_code == 401
+
+
+# ─── S3 & S3b: Biometrics Validation, No Guessing, Under-18 Calorie Safety ─────
+
+def test_s3_register_rejects_absurd_biometrics():
+    """Absurdalne wartości biometryczne (ujemny wiek, ujemny wzrost, waga 0) muszą dać 422."""
+    raw_email = f"absurd-{uuid.uuid4().hex[:6]}@example.com"
+    res = client.post("/auth/register", json={
+        "email": raw_email,
+        "password": "ValidPassword123!",
+        "age": -5,
+        "height": -10,
+        "weight": 0,
+    })
+    assert res.status_code == 422, f"Expected 422 for absurd biometrics, got {res.status_code}: {res.text}"
+
+
+def test_s3_register_without_biometrics_does_not_guess_defaults():
+    """
+    Przy rejestracji bez podania wieku/wzrostu/wagi backend NIE zgaduje 25/170/70.
+    Wartości biometryczne w profilu to null/None, a cele żywieniowe nie są wyliczane (0/null).
+    """
+    raw_email = f"nobiometrics-{uuid.uuid4().hex[:6]}@example.com"
+    res = client.post("/auth/register", json={
+        "email": raw_email,
+        "password": "ValidPassword123!",
+    })
+    assert res.status_code == 200, res.text
+    token = res.json()["access_token"]
+
+    profile_res = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert profile_res.status_code == 200
+    p = profile_res.json()
+    assert p["age"] is None, f"Age should be None, got {p['age']}"
+    assert p["height"] is None, f"Height should be None, got {p['height']}"
+    assert p["weight"] is None, f"Weight should be None, got {p['weight']}"
+    assert p["calories_target"] in (0, None)
+    assert p["protein_target"] in (0, None)
+
+
+def test_s3_under_18_no_calorie_reduction():
+    """
+    Dla użytkownika poniżej 18 roku życia z celem redukcji, system nie generuje
+    deficytu kalorycznego (tylko utrzymanie/masę).
+    """
+    from app.fitness.calculations import calc_calories
+
+    adult_user = {
+        "age": 25,
+        "height": 180,
+        "weight": 80,
+        "gender": "mężczyzna",
+        "frequency": "3-4",
+        "goal": "redukcja",
+    }
+    minor_user = {
+        "age": 16,
+        "height": 180,
+        "weight": 80,
+        "gender": "mężczyzna",
+        "frequency": "3-4",
+        "goal": "redukcja",
+    }
+    adult_maintenance = {
+        "age": 25,
+        "height": 180,
+        "weight": 80,
+        "gender": "mężczyzna",
+        "frequency": "3-4",
+        "goal": "utrzymanie",
+    }
+
+    minor_maintenance = {
+        "age": 16,
+        "height": 180,
+        "weight": 80,
+        "gender": "mężczyzna",
+        "frequency": "3-4",
+        "goal": "utrzymanie",
+    }
+
+    # Dorosły na redukcji ma 400 kcal mniej niż na utrzymaniu
+    assert calc_calories(adult_user) == calc_calories(adult_maintenance) - 400
+
+    # Nastolatek (<18) na redukcji ma kalorie utrzymania (zero deficytu)
+    assert calc_calories(minor_user) == calc_calories(minor_maintenance)
+
+
+def test_s3b_profile_update_size_limits():
+    """
+    PUT /app/profile odrzuca gigantyczny payload basketball_profile (np. > 64KB JSON).
+    """
+    raw_email = f"profilesize-{uuid.uuid4().hex[:6]}@example.com"
+    reg = client.post("/auth/register", json={"email": raw_email, "password": "Password123!"})
+    token = reg.json()["access_token"]
+
+    huge_dict = {"data": "A" * 70000}
+    res = client.put(
+        "/app/profile",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"basketball_profile": huge_dict},
+    )
+    assert res.status_code == 422, f"Expected 422 for oversized basketball_profile, got {res.status_code}"

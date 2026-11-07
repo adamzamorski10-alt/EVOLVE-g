@@ -64,19 +64,24 @@ def register(request: Request, payload: RegisterRequest):
             user_number=None,                       # nadany atomowo przez sekwencję
             hashed_password=hash_password(payload.password),
             name=payload.name or "",                # tymczasowe — nadpisane po flush()
-            age=payload.age or 25,
-            height=payload.height or 170.0,
-            weight=payload.weight or 70.0,
-            start_weight=payload.weight or 70.0,
-            target_weight=payload.target_weight or 70.0,
-            gender=payload.gender,
+            age=payload.age,
+            height=payload.height,
+            weight=payload.weight,
+            start_weight=payload.weight,
+            target_weight=payload.target_weight,
+            gender=payload.gender or "mężczyzna",
             goal=payload.goal,
             frequency=payload.frequency,
             diet=payload.diet,
             is_active=True,
+            token_version=1,
         )
-        user.calories_target = calc_calories(user)
-        user.protein_target = calc_protein(user)
+        if user.weight and user.height and user.age:
+            user.calories_target = calc_calories(user)
+            user.protein_target = calc_protein(user)
+        else:
+            user.calories_target = 0
+            user.protein_target = 0
         session.add(user)
         session.flush()  # user.id jest teraz dostępne, transakcja jeszcze otwarta
 

@@ -15,16 +15,16 @@ from app.config import JWT_EXPIRE_MINUTES
 class RegisterRequest(BaseModel):
     email: str
     password: str
-    # Dane profilu — opcjonalne, można uzupełnić później
-    name: Optional[str] = "Użytkownik"
-    age: Optional[int] = 25
-    height: Optional[float] = 170.0
-    weight: Optional[float] = 70.0
-    target_weight: Optional[float] = 70.0
-    gender: str = "mężczyzna"
-    goal: str = "Utrzymanie wagi"
-    frequency: str = "3-4 razy w tygodniu"
-    diet: str = "Brak preferencji"
+    # Dane profilu — opcjonalne; przy braku NIE zgadujemy domyślnych wartości
+    name: Optional[str] = Field(default=None, max_length=120)
+    age: Optional[int] = Field(default=None, ge=13, le=100)
+    height: Optional[float] = Field(default=None, ge=100.0, le=250.0)
+    weight: Optional[float] = Field(default=None, ge=30.0, le=350.0)
+    target_weight: Optional[float] = Field(default=None, ge=30.0, le=350.0)
+    gender: Optional[str] = Field(default=None, max_length=50)
+    goal: Optional[str] = Field(default=None, max_length=120)
+    frequency: Optional[str] = Field(default=None, max_length=80)
+    diet: Optional[str] = Field(default=None, max_length=120)
 
     @field_validator("password")
     @classmethod
@@ -140,6 +140,26 @@ class ProfileUpdateRequest(BaseModel):
     health_limitations: Optional[str] = Field(default=None, max_length=2000)
     basketball_profile: Optional[dict[str, Any]] = None
     training_locations: Optional[list[dict[str, Any]]] = None
+
+    @field_validator("basketball_profile")
+    @classmethod
+    def validate_basketball_profile(cls, v: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+        if v is not None:
+            import json
+            raw = json.dumps(v)
+            if len(raw) > 65536:
+                raise ValueError("Profil koszykarski przekracza dozwolony limit rozmiaru (64KB)")
+        return v
+
+    @field_validator("training_locations")
+    @classmethod
+    def validate_training_locations(cls, v: Optional[list[dict[str, Any]]]) -> Optional[list[dict[str, Any]]]:
+        if v is not None:
+            import json
+            raw = json.dumps(v)
+            if len(raw) > 65536:
+                raise ValueError("Lokalizacje treningowe przekraczają dozwolony limit rozmiaru (64KB)")
+        return v
 
 
 class AssessmentRequest(BaseModel):

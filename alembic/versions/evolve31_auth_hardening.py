@@ -1,4 +1,4 @@
-"""auth hardening: token_version, refresh_tokens, password reset, email unique
+"""auth hardening: token_version, refresh_tokens, password reset, email unique, nullable biometrics
 
 Revision ID: evolve31authhardening
 Revises: evolve30restorelegacyfields
@@ -22,12 +22,23 @@ _SPORT_INDEXES = (
     "zone",
 )
 
+_BIOMETRIC_COLUMNS = (
+    "age",
+    "height",
+    "weight",
+    "start_weight",
+    "target_weight",
+    "goal",
+    "frequency",
+    "diet",
+)
+
 
 def upgrade() -> None:
     bind = op.get_bind()
     insp = sa.inspect(bind)
 
-    # 1. users columns
+    # 1. users columns & nullable biometrics
     existing_user_cols = {col["name"] for col in insp.get_columns("users")}
     with op.batch_alter_table("users") as batch_op:
         if "token_version" not in existing_user_cols:
@@ -42,6 +53,11 @@ def upgrade() -> None:
             batch_op.add_column(
                 sa.Column("password_reset_expires_at", sa.DateTime(), nullable=True)
             )
+
+        # Allow NULL for biometrics so we don't guess default values
+        for col_name in _BIOMETRIC_COLUMNS:
+            if col_name in existing_user_cols:
+                batch_op.alter_column(col_name, nullable=True)
 
     # 2. refresh_tokens table
     tables = insp.get_table_names()
@@ -85,9 +101,12 @@ def downgrade() -> None:
     if "refresh_tokens" in tables:
         op.drop_table("refresh_tokens")
 
-    # 3. drop users columns
+    # 3. drop users columns & restore nullable
     existing_user_cols = {col["name"] for col in insp.get_columns("users")}
     with op.batch_alter_table("users") as batch_op:
+        for col_name in _BIOMETRIC_COLUMNS:
+            if col_name in existing_user_cols:
+                batch_op.alter_column(col_name, nullable=False)
         if "password_reset_expires_at" in existing_user_cols:
             batch_op.drop_column("password_reset_expires_at")
         if "password_reset_token_hash" in existing_user_cols:
