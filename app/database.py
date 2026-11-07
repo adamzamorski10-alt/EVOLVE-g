@@ -102,6 +102,7 @@ def create_db_and_tables():
                     SELECT id, user_number FROM users
                     WHERE user_number IS NOT NULL
                     AND id NOT IN (SELECT user_id FROM user_number_sequence)
+                    AND user_number NOT IN (SELECT id FROM user_number_sequence)
                 """)
             ).fetchall()
             for uid, unum in rows:
@@ -109,9 +110,26 @@ def create_db_and_tables():
                     _text("INSERT INTO user_number_sequence (id, user_id) VALUES (:id, :uid)"),
                     {"id": unum, "uid": uid},
                 )
+            max_user_num = conn.execute(_text("SELECT MAX(user_number) FROM users")).scalar() or 1000000
+            max_seq_id = conn.execute(_text("SELECT MAX(id) FROM user_number_sequence")).scalar() or 0
+            target_seq = max(max_user_num, max_seq_id)
+            if engine.dialect.name == "sqlite":
+                has_seq_table = conn.execute(
+                    _text("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='sqlite_sequence'")
+                ).scalar() > 0
+                if has_seq_table:
+                    conn.execute(
+                        _text("INSERT OR REPLACE INTO sqlite_sequence (name, seq) VALUES ('user_number_sequence', :seq)"),
+                        {"seq": target_seq},
+                    )
+            elif engine.dialect.name == "postgresql":
+                conn.execute(
+                    _text("SELECT setval(pg_get_serial_sequence('user_number_sequence', 'id'), :seq)"),
+                    {"seq": target_seq},
+                )
+            conn.commit()
             if rows:
-                conn.commit()
-                print(f"[FitAI] Zsynchronizowano user_number_sequence dla {len(rows)} kont")
+                print(f"[FitAI] Zsynchronizowano user_number_sequence dla {len(rows)} kont (sekwencja na {target_seq})")
     except Exception as exc:
         print(f"[FitAI] Ostrzeżenie — sync user_number_sequence: {exc}")
 
