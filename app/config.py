@@ -14,7 +14,7 @@ load_dotenv()
 # ─── Database ─────────────────────────────────────────────────────────────────
 _raw_database_url = os.getenv("DATABASE_URL", "").strip()
 
-_env = os.getenv("ENV", "development")
+_env = os.getenv("ENV", "development").lower()
 _is_production = _env == "production"
 
 if not _raw_database_url:
@@ -109,7 +109,7 @@ _XP_STREAK_BONUS = 10
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 _raw_cors = os.getenv("CORS_ORIGINS", "").strip()
 if not _raw_cors or _raw_cors == "*":
-    if _is_production:
+    if _is_production or os.getenv("ENV") == "production":
         print(
             "KRYTYCZNY BŁĄD: CORS_ORIGINS nie może być puste ani '*' w środowisku produkcyjnym!",
             file=sys.stderr,

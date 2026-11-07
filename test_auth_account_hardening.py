@@ -350,17 +350,17 @@ def test_s1_5_cors_origins_enforced_in_production(monkeypatch):
         importlib.reload(app_cfg)
 
 
-def test_s1_6_rate_limit_key_respects_x_forwarded_for():
+def test_s1_6_rate_limit_key_does_not_trust_client_x_forwarded_for():
     """
-    1.6: _rate_limit_key pobiera pierwszy adres z nagłówka X-Forwarded-For dla żądań za proxy.
+    1.6 / A1: _rate_limit_key NIE ufa nagłówkowi X-Forwarded-For od klienta (zapobieganie obejściu limitów).
+    Polega na request.client.host ustawianym przez zaufane proxy (uvicorn --proxy-headers --forwarded-allow-ips="*").
     """
     from types import SimpleNamespace
     from app.auth.dependencies import _rate_limit_key
 
-    # Mock Request z nagłówkiem X-Forwarded-For
     req = SimpleNamespace(
-        headers={"X-Forwarded-For": "203.0.113.195, 10.0.0.1"},
+        headers={"X-Forwarded-For": "attacker.spoofed.ip, 10.0.0.1"},
         client=SimpleNamespace(host="10.0.0.1"),
     )
     key = _rate_limit_key(req)
-    assert key == "203.0.113.195"
+    assert key == "10.0.0.1"

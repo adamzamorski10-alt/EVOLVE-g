@@ -49,7 +49,7 @@ if os.getenv("EVOLVE_ALEMBIC_CONTEXT") != "1":
     create_db_and_tables()
 
 # Initialize FastAPI app
-_is_dev = os.getenv("ENV", "development") == "development"
+_is_dev = os.getenv("ENV") == "development"
 app = FastAPI(
     title=APP_NAME,
     version=APP_VERSION,

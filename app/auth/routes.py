@@ -419,7 +419,7 @@ def ensure_demo_user_session(session: Session) -> dict:
 def demo_login(session: Session = Depends(get_session)):
     """Tymczasowy endpoint demo - dostępny wyłącznie w środowisku development za jawną flagą."""
     import os
-    env = os.getenv("ENV", "development").lower()
+    env = (os.getenv("ENV") or "production").lower()
     allow_demo = os.getenv("ALLOW_DEMO_LOGIN", "false").lower() == "true"
     if env != "development" or not allow_demo:
         raise HTTPException(

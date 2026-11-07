@@ -1,3 +1,5 @@
+import os
+os.environ.setdefault('ENV', 'development')
 import pytest
 
 from app.auth import routes as auth_routes

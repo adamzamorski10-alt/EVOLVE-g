@@ -19,27 +19,29 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def _rate_limit_key(request: Request) -> str:
-    """Use Bearer sub (user UUID) if present, otherwise fall back to client IP."""
-    from slowapi.util import get_remote_address
+    """Use Bearer sub (user UUID) only if properly signed and not expired; otherwise fall back to client IP.
     
+    Render proxy headers are handled at uvicorn level (--proxy-headers --forwarded-allow-ips="*"),
+    so client IP is safely extracted from request.client.host via get_remote_address.
+    Client-controlled X-Forwarded-For is never trusted directly here.
+    """
+    from slowapi.util import get_remote_address
+
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
-        token = auth_header[7:]
+        token = auth_header[7:].strip()
         try:
             payload = jwt.decode(
                 token,
                 JWT_SECRET_KEY,
                 algorithms=[JWT_ALGORITHM],
-                options={"verify_exp": False},   # key only — expiry checked elsewhere
+                options={"verify_exp": True},
             )
-            return f"user:{payload['sub']}"
+            sub = payload.get("sub")
+            if sub:
+                return f"user:{sub}"
         except Exception:
             pass
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        client_ip = forwarded.split(",")[0].strip()
-        if client_ip:
-            return client_ip
     return get_remote_address(request)
 
 
