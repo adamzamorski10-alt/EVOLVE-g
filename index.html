@@ -5453,27 +5453,95 @@
             </div>
           </div>
 
-          <!-- Bezpieczeństwo i zarządzanie danymi -->
+          <!-- Zmiana hasła (B2) -->
+          <div class="glass rounded-3xl p-6 space-y-4" style="border:1px solid rgba(0,229,255,0.15);">
+            <h4 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <span>🔑</span> Zmiana hasła
+            </h4>
+            <div class="grid sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Aktualne hasło</label>
+                <input type="password" id="changePwdCurrent" placeholder="••••••••" autocomplete="current-password"
+                  class="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm outline-none focus:border-cyan-400">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Nowe hasło (min. 8 znaków)</label>
+                <input type="password" id="changePwdNew" placeholder="••••••••" autocomplete="new-password"
+                  class="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm outline-none focus:border-cyan-400">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Powtórz nowe hasło</label>
+                <input type="password" id="changePwdConfirm" placeholder="••••••••" autocomplete="new-password"
+                  class="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm outline-none focus:border-cyan-400">
+              </div>
+            </div>
+            <div id="changePwdStatus" class="hidden text-xs py-2.5 px-3 rounded-xl font-medium"></div>
+            <div>
+              <button type="button" onclick="submitPasswordChange()" class="btn-outline-cyan px-5 py-2.5 rounded-xl text-xs font-bold transition-all">
+                Zapisz nowe hasło
+              </button>
+            </div>
+          </div>
+
+          <!-- Bezpieczeństwo, Kopia Danych & Usuwanie konta (B3, B4) -->
           <div class="glass rounded-3xl p-6 space-y-4" style="border:1px solid rgba(255,255,255,0.08);">
             <h4 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <span>🛡️</span> Bezpieczeństwo i Kopia Danych
+              <span>🛡️</span> Bezpieczeństwo i Zarządzanie Kontem
             </h4>
-            <div class="grid sm:grid-cols-2 gap-4">
-              <button type="button" onclick="exportProfileBackup()"
+            <div class="grid sm:grid-cols-3 gap-4">
+              <button type="button" onclick="exportAllUserData()"
                 class="p-4 rounded-2xl border text-left transition-all duration-200 hover:border-cyan-400/40"
-                style="background:rgba(255,255,255,0.02);border-color:rgba(255,255,255,0.08);">
+                style="background:rgba(0,229,255,0.03);border-color:rgba(0,229,255,0.2);">
                 <span class="text-xl block mb-1">💾</span>
-                <span class="text-xs font-bold text-white block">Eksportuj kopię profilu (JSON)</span>
-                <span class="text-[11px] text-gray-500">Pobierz kopię zapasową swoich ustawień i historii.</span>
+                <span class="text-xs font-bold text-white block">Eksportuj wszystkie dane (JSON)</span>
+                <span class="text-[11px] text-gray-400">Pobierz pełną kopię profilu, sesji treningowych i logów z bazy danych.</span>
               </button>
 
               <button type="button" onclick="logout()"
-                class="p-4 rounded-2xl border text-left transition-all duration-200 hover:border-red-500/40"
-                style="background:rgba(239,68,68,0.03);border-color:rgba(239,68,68,0.2);">
+                class="p-4 rounded-2xl border text-left transition-all duration-200 hover:border-gray-400/40"
+                style="background:rgba(255,255,255,0.02);border-color:rgba(255,255,255,0.08);">
                 <span class="text-xl block mb-1">🚪</span>
-                <span class="text-xs font-bold text-red-400 block">Wyloguj się z aplikacji</span>
-                <span class="text-[11px] text-gray-500">Bezpiecznie zakończ aktualną sesję w EVOLVE.</span>
+                <span class="text-xs font-bold text-white block">Wyloguj się</span>
+                <span class="text-[11px] text-gray-500">Bezpiecznie zakończ sesję na tym urządzeniu.</span>
               </button>
+
+              <button type="button" onclick="openDeleteAccountModal()"
+                class="p-4 rounded-2xl border text-left transition-all duration-200 hover:border-red-500/40"
+                style="background:rgba(239,68,68,0.04);border-color:rgba(239,68,68,0.25);">
+                <span class="text-xl block mb-1">⚠️</span>
+                <span class="text-xs font-bold text-red-400 block">Usuń konto na zawsze</span>
+                <span class="text-[11px] text-gray-500">Trwale usuwa profil, historię treningów i wszystkie dane.</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- MODAL USUWANIA KONTA (B3) -->
+          <div id="deleteAccountModal" class="hidden fixed inset-0 z-[120] flex items-center justify-center p-4 modal-backdrop"
+            style="background:rgba(5,6,10,0.85);backdrop-filter:blur(10px);">
+            <div class="glass rounded-3xl w-full max-w-md p-6 space-y-4" style="border:1px solid rgba(239,68,68,0.4);background:rgba(15,16,24,0.98);">
+              <div class="flex justify-between items-center pb-2 border-b border-white/10">
+                <h4 class="text-base font-bold text-red-400 flex items-center gap-2">
+                  <span>⚠️</span> Potwierdź usunięcie konta
+                </h4>
+                <button type="button" onclick="closeDeleteAccountModal()" class="text-gray-400 hover:text-white text-lg">✕</button>
+              </div>
+              <p class="text-xs text-gray-300 leading-relaxed">
+                Ta operacja jest <strong>nieodwracalna</strong>. Twoje konto, historia treningów, serie, cele i logi zostaną bezpowrotnie usunięte z bazy danych.
+              </p>
+              <div>
+                <label class="block text-xs font-semibold text-gray-400 mb-1">Wpisz swoje hasło, aby potwierdzić:</label>
+                <input type="password" id="deleteAccountPassword" autocomplete="current-password" placeholder="Twoje aktualne hasło"
+                  class="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/15 text-white text-sm outline-none focus:border-red-500">
+              </div>
+              <div id="deleteAccountError" class="hidden text-xs py-2 px-3 rounded-lg text-red-400 bg-red-500/10 border border-red-500/20"></div>
+              <div class="flex gap-2 justify-end pt-2">
+                <button type="button" onclick="closeDeleteAccountModal()" class="btn-ghost px-4 py-2 rounded-xl text-xs font-bold">
+                  Anuluj
+                </button>
+                <button type="button" onclick="confirmDeleteAccount()" class="px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-500 text-white transition-all">
+                  Tak, usuń trwale moje konto
+                </button>
+              </div>
             </div>
           </div>
 
@@ -30748,6 +30816,22 @@
         </div>
       </div>
 
+      <!-- Link Zapomniałem hasła (B1) -->
+      <div id="auth-forgot-link-box" style="text-align:right;margin-top:-6px;">
+        <button type="button" onclick="switchAuthTab('reset')" style="background:none;border:none;color:#00e5ff;font-size:12px;cursor:pointer;text-decoration:underline;">
+          Nie pamiętasz hasła?
+        </button>
+      </div>
+
+      <!-- Pole kodu resetu hasła (widoczne tylko w trybie confirm) -->
+      <div id="auth-reset-code-box" style="display:none;">
+        <label style="display:block;font-size:11px;color:#9ca3af;margin-bottom:6px;letter-spacing:.06em;text-transform:uppercase;">
+          Token / Kod resetu
+        </label>
+        <input type="text" id="auth-reset-token" placeholder="Wklej otrzymany token"
+          style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px 14px;color:#f3f4f6;font-size:14px;outline:none;" />
+      </div>
+
       <!-- Błąd -->
       <div id="auth-error" style="
         display:none;
@@ -30830,6 +30914,36 @@
   }
 
   function switchAuthTab(tab) {
+    if (tab === 'reset') {
+      _currentTab = 'reset';
+      var sub = document.getElementById('auth-modal-subtitle');
+      var btn = document.getElementById('auth-submit-text');
+      var info = document.getElementById('auth-register-info');
+      var forgotBox = document.getElementById('auth-forgot-link-box');
+      var pwdBox = document.getElementById('auth-password')?.parentElement?.parentElement;
+      var codeBox = document.getElementById('auth-reset-code-box');
+      var err = document.getElementById('auth-error');
+
+      if (sub) sub.textContent = 'Zresetuj swoje hasło';
+      if (btn) btn.textContent = 'Wyślij instrukcję resetu';
+      if (info) info.style.display = 'none';
+      if (forgotBox) forgotBox.innerHTML = '<button type="button" onclick="switchAuthTab(\'login\')" style="background:none;border:none;color:#00e5ff;font-size:12px;cursor:pointer;text-decoration:underline;">← Wróć do logowania</button>';
+      if (pwdBox) pwdBox.style.display = 'none';
+      if (codeBox) codeBox.style.display = 'none';
+      if (err) { err.style.display = 'none'; err.textContent = ''; }
+      return;
+    }
+    var pwdBox = document.getElementById('auth-password')?.parentElement?.parentElement;
+    var forgotBox = document.getElementById('auth-forgot-link-box');
+    var codeBox = document.getElementById('auth-reset-code-box');
+    if (pwdBox) pwdBox.style.display = 'block';
+    if (codeBox) codeBox.style.display = 'none';
+    if (forgotBox) {
+      forgotBox.innerHTML = tab === 'login'
+        ? '<button type="button" onclick="switchAuthTab(\'reset\')" style="background:none;border:none;color:#00e5ff;font-size:12px;cursor:pointer;text-decoration:underline;">Nie pamiętasz hasła?</button>'
+        : '';
+    }
+
     _currentTab = tab;
     var isLogin = tab === 'login';
 
@@ -30896,6 +31010,29 @@
     }
 
     setAuthLoading(true);
+    if (_currentTab === 'reset') {
+      try {
+        var BASE = window.API_BASE || '';
+        var res = await fetch(BASE + '/auth/password-reset/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email })
+        });
+        var data = await res.json();
+        setAuthLoading(false);
+        showAuthError(data.message || 'Jeśli konto istnieje, instrukcja została wysłana.');
+        var errEl = document.getElementById('auth-error');
+        if (errEl) {
+          errEl.style.background = 'rgba(34,197,94,0.1)';
+          errEl.style.borderColor = 'rgba(34,197,94,0.3)';
+          errEl.style.color = '#4ade80';
+        }
+      } catch (e) {
+        setAuthLoading(false);
+        showAuthError('Błąd połączenia. Spróbuj ponownie.');
+      }
+      return;
+    }
     var endpoint = _currentTab === 'login' ? '/auth/login' : '/auth/register';
 
     try {
@@ -36026,6 +36163,127 @@ window.openDayItemSwap = openDayItemSwap;
     window._selectProductByIndex = _selectProductByIndex;
     window.updateFoodCalcPreview = updateFoodCalcPreview;
     window.confirmAddProductToDay = confirmAddProductToDay;
+
+    // ==========================================
+    // ACCOUNT HARDENING & SECURITY (STAGE B)
+    // ==========================================
+    window.submitPasswordChange = async function() {
+      const cur = (document.getElementById('changePwdCurrent')?.value || '').trim();
+      const n1 = (document.getElementById('changePwdNew')?.value || '').trim();
+      const n2 = (document.getElementById('changePwdConfirm')?.value || '').trim();
+      const statusEl = document.getElementById('changePwdStatus');
+
+      function showStatus(msg, isErr) {
+        if (!statusEl) return;
+        statusEl.textContent = msg;
+        statusEl.className = 'text-xs py-2.5 px-3 rounded-xl font-medium ' +
+          (isErr ? 'text-red-400 bg-red-500/10 border border-red-500/25' : 'text-green-400 bg-green-500/10 border border-green-500/25');
+        statusEl.classList.remove('hidden');
+      }
+
+      if (!cur) return showStatus('Podaj aktualne hasło.', true);
+      if (n1.length < 8) return showStatus('Nowe hasło musi mieć co najmniej 8 znaków.', true);
+      if (n1 !== n2) return showStatus('Nowe hasła nie są identyczne.', true);
+
+      const token = localStorage.getItem('fitai_token');
+      if (!token) return showStatus('Musisz być zalogowany.', true);
+
+      try {
+        const res = await fetch((window.API_BASE || '') + '/auth/change-password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ current_password: cur, new_password: n1 })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showStatus(data.detail || 'Błąd podczas zmiany hasła.', true);
+        } else {
+          showStatus('✅ Hasło zostało zmienione. Zaloguj się ponownie nowym hasłem.', false);
+          document.getElementById('changePwdCurrent').value = '';
+          document.getElementById('changePwdNew').value = '';
+          document.getElementById('changePwdConfirm').value = '';
+          setTimeout(function() { if (typeof logout === 'function') logout(); }, 2000);
+        }
+      } catch (err) {
+        showStatus('Błąd połączenia: ' + err.message, true);
+      }
+    };
+
+    window.exportAllUserData = async function() {
+      const token = localStorage.getItem('fitai_token');
+      if (!token) {
+        alert('Musisz być zalogowany, aby pobrać kopię danych.');
+        return;
+      }
+      try {
+        const res = await fetch((window.API_BASE || '') + '/app/export', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) throw new Error('Serwer zwrócił kod ' + res.status);
+        const data = await res.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `evolve_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        alert('Nie udało się wyeksportować danych: ' + e.message);
+      }
+    };
+
+    window.openDeleteAccountModal = function() {
+      const m = document.getElementById('deleteAccountModal');
+      if (m) m.classList.remove('hidden');
+      const err = document.getElementById('deleteAccountError');
+      if (err) { err.textContent = ''; err.classList.add('hidden'); }
+      const inp = document.getElementById('deleteAccountPassword');
+      if (inp) { inp.value = ''; inp.focus(); }
+    };
+
+    window.closeDeleteAccountModal = function() {
+      const m = document.getElementById('deleteAccountModal');
+      if (m) m.classList.add('hidden');
+    };
+
+    window.confirmDeleteAccount = async function() {
+      const pwd = (document.getElementById('deleteAccountPassword')?.value || '').trim();
+      const errEl = document.getElementById('deleteAccountError');
+      if (!pwd) {
+        if (errEl) { errEl.textContent = 'Wpisz swoje hasło, aby potwierdzić.'; errEl.classList.remove('hidden'); }
+        return;
+      }
+      const token = localStorage.getItem('fitai_token');
+      if (!token) return;
+
+      try {
+        const res = await fetch((window.API_BASE || '') + '/auth/me', {
+          method: 'DELETE',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ password: pwd })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (errEl) { errEl.textContent = data.detail || 'Nieprawidłowe hasło.'; errEl.classList.remove('hidden'); }
+          return;
+        }
+        alert('Twoje konto i wszystkie dane zostały trwale usunięte.');
+        if (typeof logout === 'function') logout();
+        else location.reload();
+      } catch (err) {
+        if (errEl) { errEl.textContent = 'Błąd połączenia: ' + err.message; errEl.classList.remove('hidden'); }
+      }
+    };
+
 
     </script>
 </body>

@@ -47,6 +47,34 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class PasswordResetRequest(BaseModel):
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        value = value.strip().lower()
+        if "@" not in value or "." not in value.split("@")[-1]:
+            raise ValueError("Nieprawidłowy adres email")
+        return value
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    token: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        if len(value) < 8:
+            raise ValueError("Nowe hasło musi mieć co najmniej 8 znaków")
+        return value
+
+
+class DeleteAccountRequest(BaseModel):
+    password: str
+
+
 class RefreshAccessRequest(BaseModel):
     refresh_token: str
 

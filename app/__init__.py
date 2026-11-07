@@ -16,7 +16,11 @@ Struktura:
 import os
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
+from sqlmodel import Session
+from app.auth import get_current_user
+from app.database import get_session
+from app.models import UserDB
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -1295,6 +1299,16 @@ document.addEventListener('DOMContentLoaded', function () {
     return HTMLResponse(html, media_type="text/html")
 
 # Root route — serve index.html for SPA
+
+@app.get("/app/export", tags=["export"])
+def app_export(
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Bezpieczny eksport danych zalogowanego użytkownika (B4)."""
+    from app.auth.routes import _build_user_export
+    return _build_user_export(user, session)
+
 @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
 async def serve_root():
     """Serve main index.html for single-page app."""
@@ -1330,7 +1344,7 @@ async def serve_spa(path: str):
         return JSONResponse({"error": "File not found"}, status_code=404)
 
     # Unmatched API or auth routes should return 404 JSON instead of HTML
-    if path.startswith("api/") or path.startswith("auth/") or (path.startswith("app/") and path not in {"app", "app/"} and not path.endswith((".html", ".htm"))):
+    if path in {"api", "auth"} or path.startswith("api/") or path.startswith("auth/") or (path.startswith("app/") and path not in {"app", "app/"} and not path.endswith((".html", ".htm"))):
         return JSONResponse({"error": "API route not found", "path": path}, status_code=404)
     
     # For all other paths, serve index.html (SPA routing)

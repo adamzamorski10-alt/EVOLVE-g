@@ -1,9 +1,12 @@
 """
-Auth Routes — registration, login, password change, token refresh
+Auth Routes — registration, login, password change, password reset, account deletion, token refresh, export
 """
 
+import hashlib
+import logging
 import re
-from datetime import datetime
+import secrets
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -22,17 +25,37 @@ from app.auth.jwt_utils import create_refresh_token, decode_token
 from app.config import JWT_EXPIRE_MINUTES
 from app.database import engine, get_session
 from app.fitness.calculations import calc_calories, calc_protein
-from app.models import RefreshTokenDB, UserDB, UserNumberSequenceDB
+from app.models import (
+    AdaptivePlanRevisionDB,
+    AssessmentDB,
+    DailyLogDB,
+    DrillResultDB,
+    ExerciseResultDB,
+    GoalDB,
+    NutritionAdaptationDB,
+    NutritionEntryDB,
+    RefreshTokenDB,
+    SportAttemptDB,
+    TrainingSessionDB,
+    TrainingSetResultDB,
+    UserDB,
+    UserNumberSequenceDB,
+)
 from app.schemas import (
     ChangePasswordRequest,
+    DeleteAccountRequest,
     LoginRequest,
     LogoutRequest,
+    PasswordResetConfirmRequest,
+    PasswordResetRequest,
     RefreshAccessRequest,
     RefreshAccessResponse,
     RegisterRequest,
     TokenResponse,
     UserProfile,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 limiter = Limiter(key_func=_rate_limit_key)
@@ -58,66 +81,54 @@ def register(request: Request, payload: RegisterRequest):
 
         # Utwórz użytkownika BEZ user_number na razie — zostanie nadany atomowo poniżej
         user = UserDB(
-            user_key="native:user:pending",        # tymczasowy — nadpisany po flush()
+            user_key=f"native:user:pending-{secrets.token_hex(8)}",
             email=payload.email.lower().strip(),
-            nickname=None,                          # Nick nie jest wymagany
-            user_number=None,                       # nadany atomowo przez sekwencję
+            name=payload.name or "Zawodnik",
             hashed_password=hash_password(payload.password),
-            name=payload.name or "",                # tymczasowe — nadpisane po flush()
+            is_active=True,
+            token_version=1,
+            # Dane profilu: tylko jeśli podano w żądaniu; przy braku pozostają None
             age=payload.age,
             height=payload.height,
             weight=payload.weight,
             start_weight=payload.weight,
             target_weight=payload.target_weight,
-            gender=payload.gender or "mężczyzna",
+            gender=payload.gender,
             goal=payload.goal,
             frequency=payload.frequency,
             diet=payload.diet,
-            is_active=True,
-            token_version=1,
+            role="free_user",
+            plan="free",
         )
-        if user.weight and user.height and user.age:
-            user.calories_target = calc_calories(user)
-            user.protein_target = calc_protein(user)
-        else:
-            user.calories_target = 0
-            user.protein_target = 0
+
+        # Oblicz kalorie/białko TYLKO jeśli użytkownik podał komplet danych biometrycznych
+        if user.weight and user.height and user.age and user.gender:
+            user.calories_target = calc_calories(
+                weight=user.weight,
+                height=user.height,
+                age=user.age,
+                gender=user.gender,
+                goal=user.goal or "maintain",
+                frequency=user.frequency or "3",
+            )
+            user.protein_target = calc_protein(
+                weight=user.weight,
+                goal=user.goal or "maintain",
+            )
+
         session.add(user)
-        session.flush()  # user.id jest teraz dostępne, transakcja jeszcze otwarta
+        session.flush()
 
-        # Atomowe przydzielenie numeru przez AUTOINCREMENT SQLite
-        seq_row = UserNumberSequenceDB(user_id=user.id)
-        session.add(seq_row)
-        session.flush()  # seq_row.id zostaje nadany atomowo przez SQLite
+        # Atomowy numer użytkownika przez dedykowaną tabelę sekwencji
+        seq_entry = UserNumberSequenceDB(user_id=user.id)
+        session.add(seq_entry)
+        session.flush()
 
-        user.user_number = seq_row.id
-        user.user_key = f"native:user:{seq_row.id}"
-        user.name = payload.name or f"Użytkownik#{seq_row.id:04d}"
-
-        try:
-            session.commit()
-            session.refresh(user)
-        except IntegrityError:
-            session.rollback()
-            # Sprawdź PRAWDZIWĄ przyczynę konfliktu
-            existing_email = session.exec(
-                select(UserDB).where(UserDB.email == payload.email.lower().strip())
-            ).first()
-            if existing_email:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Konto z tym e-mailem już istnieje",
-                )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Nie udało się utworzyć konta — spróbuj ponownie",
-            )
-        except SQLAlchemyError as exc:
-            session.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Błąd bazy danych: {exc}",
-            )
+        seq_num = seq_entry.id
+        user.user_number = seq_num
+        user.user_key = f"native:user:{seq_num}"
+        session.commit()
+        session.refresh(user)
 
         token = create_access_token(user.id, user.email, user.role, token_version=user.token_version)
         refresh_tok = create_refresh_token(user.id, token_version=user.token_version, session=session)
@@ -189,6 +200,58 @@ def me(user: UserDB = Depends(get_current_user)):
     return user.to_profile_dict()
 
 
+@router.delete("/me")
+def delete_account(
+    payload: DeleteAccountRequest,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """
+    Trwałe usunięcie konta użytkownika i wszystkich powiązanych danych.
+    Wymaga podania aktualnego hasła w celu weryfikacji tożsamości.
+    """
+    if not user.hashed_password or not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Podane hasło jest nieprawidłowe",
+        )
+
+    user_id = user.id
+
+    # Usuwamy kaskadowo wszystkie powiązane rekordy użytkownika
+    models_with_user_id = [
+        DailyLogDB,
+        NutritionEntryDB,
+        NutritionAdaptationDB,
+        TrainingSetResultDB,
+        ExerciseResultDB,
+        TrainingSessionDB,
+        GoalDB,
+        AdaptivePlanRevisionDB,
+        DrillResultDB,
+        SportAttemptDB,
+        AssessmentDB,
+        RefreshTokenDB,
+    ]
+    for model in models_with_user_id:
+        records = session.exec(select(model).where(model.user_id == user_id)).all()
+        for r in records:
+            session.delete(r)
+
+    # Sekwencja numeru
+    sequences = session.exec(select(UserNumberSequenceDB).where(UserNumberSequenceDB.user_id == user_id)).all()
+    for seq in sequences:
+        session.delete(seq)
+
+    # Rekord użytkownika
+    db_user = session.get(UserDB, user_id)
+    if db_user:
+        session.delete(db_user)
+
+    session.commit()
+    return {"status": "ok", "message": "Konto oraz wszystkie powiązane dane zostały trwale usunięte."}
+
+
 @router.post("/change-password")
 def change_password(
     payload: ChangePasswordRequest,
@@ -214,7 +277,7 @@ def change_password(
         db_user = session.get(UserDB, user.id)
         db_user.hashed_password = hash_password(payload.new_password)
         db_user.token_version = (db_user.token_version or 1) + 1
-        db_user.updated_at = datetime.now()
+        db_user.updated_at = datetime.utcnow()
         session.add(db_user)
         
         # Unieważnij wszystkie aktywne refresh tokeny tego użytkownika
@@ -228,6 +291,135 @@ def change_password(
             session.add(rt)
         session.commit()
     return {"status": "ok", "message": "Hasło zostało zmienione"}
+
+
+@router.post("/password-reset/request")
+@limiter.limit("5/hour")
+def password_reset_request(
+    request: Request,
+    payload: PasswordResetRequest,
+    session: Session = Depends(get_session),
+):
+    """
+    Żądanie resetu hasła.
+    Celowo zwraca zawsze identyczny komunikat (brak ujawniania czy email istnieje w bazie).
+    """
+    clean_email = payload.email.lower().strip()
+    user = session.exec(select(UserDB).where(UserDB.email == clean_email)).first()
+    if user and user.is_active:
+        token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        user.password_reset_token_hash = token_hash
+        user.password_reset_expires_at = datetime.utcnow() + timedelta(hours=1)
+        session.add(user)
+        session.commit()
+        # W dev/test logujemy token
+        logger.info(f"[AUTH_PASSWORD_RESET] Token for {clean_email}: {token}")
+
+    return {
+        "status": "ok",
+        "message": "Jeśli konto powiązane z tym adresem e-mail istnieje, instrukcja resetu hasła została wysłana.",
+    }
+
+
+@router.post("/password-reset/confirm")
+@limiter.limit("5/hour")
+def password_reset_confirm(
+    request: Request,
+    payload: PasswordResetConfirmRequest,
+    session: Session = Depends(get_session),
+):
+    """Potwierdzenie resetu hasła jednorazowym tokenem i ustawienie nowego hasła."""
+    if len(payload.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Nowe hasło musi mieć co najmniej 8 znaków",
+        )
+    token_hash = hashlib.sha256(payload.token.strip().encode("utf-8")).hexdigest()
+    user = session.exec(
+        select(UserDB).where(UserDB.password_reset_token_hash == token_hash)
+    ).first()
+
+    now = datetime.utcnow()
+    if not user or not user.password_reset_expires_at or user.password_reset_expires_at < now:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token resetu hasła jest nieprawidłowy lub wygasł",
+        )
+
+    user.hashed_password = hash_password(payload.new_password)
+    user.password_reset_token_hash = None
+    user.password_reset_expires_at = None
+    user.token_version = (user.token_version or 1) + 1
+    user.updated_at = now
+    session.add(user)
+
+    # Unieważnij wszystkie aktywne refresh tokeny
+    active_tokens = session.exec(
+        select(RefreshTokenDB)
+        .where(RefreshTokenDB.user_id == user.id)
+        .where(RefreshTokenDB.revoked == False)
+    ).all()
+    for rt in active_tokens:
+        rt.revoked = True
+        session.add(rt)
+
+    session.commit()
+    return {"status": "ok", "message": "Hasło zostało pomyślnie zresetowane. Możesz się zalogować."}
+
+
+def _build_user_export(user: UserDB, session: Session) -> dict:
+    """Buduje bezpieczny słownik ze wszystkimi danymi użytkownika (bez haseł i tokenów)."""
+    profile = user.to_profile_dict()
+    profile.pop("hashed_password", None)
+    profile.pop("password_reset_token_hash", None)
+    profile.pop("token_version", None)
+
+    daily_logs = [
+        log.model_dump()
+        for log in session.exec(select(DailyLogDB).where(DailyLogDB.user_id == user.id)).all()
+    ]
+    sessions = [
+        s.model_dump()
+        for s in session.exec(select(TrainingSessionDB).where(TrainingSessionDB.user_id == user.id)).all()
+    ]
+    sets = [
+        st.model_dump()
+        for st in session.exec(select(TrainingSetResultDB).where(TrainingSetResultDB.user_id == user.id)).all()
+    ]
+    goals = [
+        g.model_dump()
+        for g in session.exec(select(GoalDB).where(GoalDB.user_id == user.id)).all()
+    ]
+    nutrition = [
+        n.model_dump()
+        for n in session.exec(select(NutritionEntryDB).where(NutritionEntryDB.user_id == user.id)).all()
+    ]
+    assessments = [
+        a.model_dump()
+        for a in session.exec(select(AssessmentDB).where(AssessmentDB.user_id == user.id)).all()
+    ]
+
+    return {
+        "export_date": datetime.utcnow().isoformat(),
+        "user_id": user.id,
+        "profile": profile,
+        "daily_logs": daily_logs,
+        "training_sessions": sessions,
+        "training_set_results": sets,
+        "goals": goals,
+        "nutrition_entries": nutrition,
+        "assessments": assessments,
+    }
+
+
+@router.get("/export")
+def export_user_data_auth(
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Eksportuje wszystkie dane użytkownika w formacie JSON."""
+    return _build_user_export(user, session)
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -427,7 +619,6 @@ def demo_login(session: Session = Depends(get_session)):
             detail="Endpoint niedostępny",
         )
     return ensure_demo_user_session(session)
-
 
 
 @router.post("/users/{user_id}", deprecated=True)
