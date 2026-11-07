@@ -110,6 +110,8 @@ def create_synthetic_sqlite_db(
     adaptive_plan_revisions: Optional[list[dict[str, Any]]] = None,
     drill_results: Optional[list[dict[str, Any]]] = None,
     assessments: Optional[list[dict[str, Any]]] = None,
+    refresh_tokens: Optional[list[dict[str, Any]]] = None,
+    sport_attempts: Optional[list[dict[str, Any]]] = None,
 ) -> None:
     """Tworzy syntetyczną bazę SQLite ze wskazanymi danymi testowymi."""
     engine = create_engine(f"sqlite:///{db_path.as_posix()}")
@@ -142,6 +144,10 @@ def create_synthetic_sqlite_db(
                 conn.execute(SQLModel.metadata.tables["drill_results"].insert(), dr)
             for a in assessments or []:
                 conn.execute(SQLModel.metadata.tables["assessments"].insert(), a)
+            for rt in refresh_tokens or []:
+                conn.execute(SQLModel.metadata.tables["refresh_tokens"].insert(), rt)
+            for sa in sport_attempts or []:
+                conn.execute(SQLModel.metadata.tables["sport_attempts"].insert(), sa)
     engine.dispose()
 
 
@@ -491,6 +497,8 @@ def test_foreign_keys_are_derived_from_model_metadata():
         "training_set_results",
         "exercise_results",
         "user_number_sequence",
+        "refresh_tokens",
+        "sport_attempts",
     }
 
 
@@ -1010,6 +1018,27 @@ def full_migration_fixture_rows() -> dict[str, list[dict[str, Any]]]:
             "notes": "",
             "created_at": datetime.datetime(2026, 5, 1, 9, 0),
         }],
+        "refresh_tokens": [{
+            "id": "rt-uuid-1",
+            "user_id": "user-uuid-1",
+            "jti": "jti-uuid-1",
+            "expires_at": datetime.datetime(2026, 6, 1, 0, 0),
+            "revoked": 0,
+            "created_at": datetime.datetime(2026, 5, 10, 0, 0),
+        }],
+        "sport_attempts": [{
+            "id": "sa-uuid-1",
+            "user_id": "user-uuid-1",
+            "attempt_date": datetime.date(2026, 5, 10),
+            "source": "manual",
+            "test_run_id": None,
+            "attempt_type": "free_throw",
+            "zone": "center",
+            "made": 8,
+            "total_attempts": 10,
+            "client_id": "client-uuid-1",
+            "created_at": datetime.datetime(2026, 5, 10, 18, 0),
+        }],
     }
 
 
@@ -1030,6 +1059,8 @@ def build_migration_source_db(db_path: Path) -> None:
         adaptive_plan_revisions=rows["adaptive_plan_revisions"],
         drill_results=rows["drill_results"],
         assessments=rows["assessments"],
+        refresh_tokens=rows.get("refresh_tokens"),
+        sport_attempts=rows.get("sport_attempts"),
     )
 
 

@@ -95,6 +95,8 @@ TABLE_ORDER: list[str] = [
     "assessments",
     "training_set_results",
     "exercise_results",
+    "refresh_tokens",
+    "sport_attempts",
 ]
 
 REQUIRED_SOURCE_TABLES: set[str] = {
