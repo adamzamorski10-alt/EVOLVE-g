@@ -53,7 +53,7 @@ def _day_matches(value: Any, target: date) -> bool:
         "czw": 3, "czwartek": 3,
         "pt": 4, "piatek": 4, "piątek": 4,
         "sob": 5, "sobota": 5,
-        "niedz": 6, "nd": 6, "niedziela": 6,
+        "niedz": 6, "nd": 6, "ndz": 6, "niedziela": 6,
     }
     return value == target.isoformat() or aliases.get(value) == target.weekday()
 

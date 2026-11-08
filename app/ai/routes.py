@@ -11,14 +11,14 @@ from sqlmodel import Session, select
 
 from app.auth import get_current_user, _rate_limit_key
 from app.ai.service import ask_ai, AIError, fallback_diet_plan, fallback_workout_plan
-from app.config import AI_RATE_PER_HOUR, AI_RATE_PER_MINUTE
+from app.config import AI_RATE_PER_HOUR, AI_RATE_PER_MINUTE, RATE_LIMIT_ENABLED
 from app.database import engine
 from app.fitness.calculations import calc_calories, calc_daily_macros, day_type, day_type_label
 from app.models import DailyLogDB, ExerciseResultDB, UserDB
 from app.schemas import AIRequest
 
 router = APIRouter(prefix="/ai", tags=["ai"])
-limiter = Limiter(key_func=_rate_limit_key)
+limiter = Limiter(key_func=_rate_limit_key, enabled=RATE_LIMIT_ENABLED)
 
 
 @router.post("/diet")

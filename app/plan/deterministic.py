@@ -43,7 +43,7 @@ def _normalize_weekday(value: Any) -> str | None:
         "czw": "Czwartek", "czwartek": "Czwartek",
         "pt": "Piątek", "piatek": "Piątek", "piątek": "Piątek",
         "sob": "Sobota", "sobota": "Sobota",
-        "nd": "Niedziela", "niedz": "Niedziela", "niedziela": "Niedziela",
+        "nd": "Niedziela", "ndz": "Niedziela", "niedz": "Niedziela", "niedziela": "Niedziela",
     }
     return aliases.get(normalized)
 

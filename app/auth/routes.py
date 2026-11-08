@@ -58,8 +58,10 @@ from app.schemas import (
 
 logger = logging.getLogger(__name__)
 
+from app.config import RATE_LIMIT_ENABLED
+
 router = APIRouter(prefix="/auth", tags=["auth"])
-limiter = Limiter(key_func=_rate_limit_key)
+limiter = Limiter(key_func=_rate_limit_key, enabled=RATE_LIMIT_ENABLED)
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -84,7 +86,7 @@ def register(request: Request, payload: RegisterRequest):
         user = UserDB(
             user_key=f"native:user:pending-{secrets.token_hex(8)}",
             email=payload.email.lower().strip(),
-            name=payload.name or "Zawodnik",
+            name=(payload.name.strip() if payload.name and payload.name.strip() else "Użytkownik"),
             hashed_password=hash_password(payload.password),
             is_active=True,
             token_version=1,
@@ -104,18 +106,8 @@ def register(request: Request, payload: RegisterRequest):
 
         # Oblicz kalorie/białko TYLKO jeśli użytkownik podał komplet danych biometrycznych
         if user.weight and user.height and user.age and user.gender:
-            user.calories_target = calc_calories(
-                weight=user.weight,
-                height=user.height,
-                age=user.age,
-                gender=user.gender,
-                goal=user.goal or "maintain",
-                frequency=user.frequency or "3",
-            )
-            user.protein_target = calc_protein(
-                weight=user.weight,
-                goal=user.goal or "maintain",
-            )
+            user.calories_target = calc_calories(user)
+            user.protein_target = calc_protein(user)
 
         session.add(user)
         session.flush()

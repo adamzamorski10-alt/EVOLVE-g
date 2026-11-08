@@ -170,6 +170,7 @@ _DAY_ALIASES_PL = {
     "sobota": 5,
     "niedz": 6,
     "nd": 6,
+    "ndz": 6,
     "niedziela": 6,
 }
 

@@ -24,6 +24,8 @@ _WEEKDAY_ALIASES_PL = {
     "pt": "piątek",
     "sob": "sobota",
     "niedz": "niedziela",
+    "nd": "niedziela",
+    "ndz": "niedziela",
 }
 
 

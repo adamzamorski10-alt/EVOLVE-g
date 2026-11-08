@@ -73,7 +73,8 @@ app = FastAPI(
 )
 
 # Rate limiting
-limiter = Limiter(key_func=_rate_limit_key)
+from app.config import RATE_LIMIT_ENABLED
+limiter = Limiter(key_func=_rate_limit_key, enabled=RATE_LIMIT_ENABLED)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -1199,13 +1200,16 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
     if 'id="evolve-nutrition-shell-integration"' not in html:
         html = _insert_before_document_body_end(html, nutrition_shell_integration)
 
-    demo_script = ""
+    demo_script = """<script id="evolve-auto-auth">window._evolveDemoToken = "";</script>"""
     try:
         from sqlmodel import Session
         from app.database import engine
         from app.auth.routes import ensure_demo_user_session
-        with Session(engine) as session:
-            demo_data = ensure_demo_user_session(session)
+        from app.config import get_settings
+        settings = get_settings()
+        if settings.ALLOW_DEMO_LOGIN and not settings.is_production:
+            with Session(engine) as session:
+                demo_data = ensure_demo_user_session(session)
         demo_script = f"""<script id="evolve-auto-auth">
 (function () {{
   try {{

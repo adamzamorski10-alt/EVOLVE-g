@@ -32,10 +32,11 @@ def reload_database():
     saved_env = {key: os.environ.get(key) for key in _ENV_KEYS}
     real_load_dotenv = dotenv.load_dotenv
 
-    def _reload(database_url):
+    def _reload(database_url, env="development"):
         os.environ.pop("DATABASE_URL", None)
         os.environ.pop("ENV", None)
         os.environ["DATABASE_URL"] = database_url
+        os.environ["ENV"] = env
         # Izolacja od lokalnego pliku .env — test w pełni kontroluje środowisko.
         dotenv.load_dotenv = lambda: None
         importlib.reload(app_config)

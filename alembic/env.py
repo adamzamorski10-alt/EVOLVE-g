@@ -25,7 +25,10 @@ from app.config import DATABASE_URL
 target_metadata = SQLModel.metadata
 
 # Set the sqlalchemy.url in the config
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+current_url = config.get_main_option("sqlalchemy.url")
+live_url = os.getenv("DATABASE_URL") or DATABASE_URL
+if not current_url or "driver://user:pass" in current_url:
+    config.set_main_option("sqlalchemy.url", live_url)
 
 
 def run_migrations_offline() -> None:

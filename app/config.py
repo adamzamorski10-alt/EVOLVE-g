@@ -90,6 +90,7 @@ JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MIN", "30"))          # access to
 JWT_REFRESH_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_EXPIRE_DAYS", "60"))  # refresh token: 60 dni
 
 # ─── Rate Limiting ─────────────────────────────────────────────────────────────
+RATE_LIMIT_ENABLED: bool = os.getenv("RATE_LIMIT_ENABLED", "true").lower() in ("true", "1", "yes")
 AI_RATE_PER_MINUTE: str = os.getenv("AI_RATE_PER_MINUTE", "10/minute")
 AI_RATE_PER_HOUR: str = os.getenv("AI_RATE_PER_HOUR", "50/hour")
 

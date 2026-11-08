@@ -13,6 +13,10 @@ fitai_users.json
 *.db
 *.db-shm
 *.db-wal
+patch_*
+fix_*
+inspect_*
+scratch_*
 
 # Testy
 .pytest_cache/

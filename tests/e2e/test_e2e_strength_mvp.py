@@ -40,7 +40,7 @@ VIEWPORTS = {
     "desktop": {"width": 1440, "height": 900},
 }
 
-ALL_DAYS = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Ndz"]
+ALL_DAYS = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Niedz"]
 
 MOCK_FULL_WEEK_PLAN = {
     "plan": {
@@ -61,6 +61,9 @@ MOCK_FULL_WEEK_PLAN = {
 }
 
 
+import subprocess
+import sys
+
 @pytest.fixture(scope="session")
 def live_server():
     """Uruchamia niezależny serwer FastAPI na losowym porcie z czystą bazą SQLite w tempdir."""
@@ -73,58 +76,73 @@ def live_server():
     db_path = os.path.join(temp_dir.name, "e2e_clean.db")
     db_url = f"sqlite:///{db_path}"
 
-    old_env = {
-        "DATABASE_URL": os.environ.get("DATABASE_URL"),
-        "ENV": os.environ.get("ENV"),
-        "JWT_SECRET_KEY": os.environ.get("JWT_SECRET_KEY"),
-        "CRON_SECRET": os.environ.get("CRON_SECRET"),
-    }
+    child_env = os.environ.copy()
+    child_env["DATABASE_URL"] = db_url
+    child_env["ENV"] = "development"
+    child_env["JWT_SECRET_KEY"] = "e2e-playwright-secret-32-bytes-long-key!"
+    child_env["CRON_SECRET"] = "cron-secret-e2e"
+    child_env["ALLOW_DEMO_LOGIN"] = "false"
+    child_env["RATE_LIMIT_ENABLED"] = "false"
 
-    os.environ["DATABASE_URL"] = db_url
-    os.environ["ENV"] = "development"
-    os.environ["JWT_SECRET_KEY"] = "e2e-playwright-secret-32-bytes-long-key!"
-    os.environ["CRON_SECRET"] = "cron-secret-e2e"
+    # Wykonaj migracje Alembic na odizolowanej bazie w procesie potomnym
+    alembic_res = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        env=child_env,
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    if alembic_res.returncode != 0:
+        raise RuntimeError(
+            f"Alembic upgrade failed on isolated SQLite: {alembic_res.stderr}\n{alembic_res.stdout}"
+        )
 
-    from alembic import command
-    from alembic.config import Config
-    alembic_cfg = Config(str(REPO_ROOT / "alembic.ini"))
-    alembic_cfg.set_main_option("sqlalchemy.url", db_url)
-    command.upgrade(alembic_cfg, "head")
-
-    import uvicorn
-    from main import app
-
-    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
-    server = uvicorn.Server(config)
-    thread = threading.Thread(target=server.run, daemon=True)
-    thread.start()
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "main:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--log-level",
+            "warning",
+        ],
+        env=child_env,
+        cwd=str(REPO_ROOT),
+    )
 
     # Poczekaj na gotowość serwera
-    for _ in range(50):
+    ready = False
+    for _ in range(100):
         try:
             with socket.create_connection(("127.0.0.1", port), timeout=0.1):
+                ready = True
                 break
         except OSError:
             time.sleep(0.05)
 
+    if not ready:
+        proc.terminate()
+        proc.wait(timeout=5)
+        raise RuntimeError(f"Server on port {port} failed to start within timeout")
+
     base_url = f"http://127.0.0.1:{port}"
     yield base_url
 
-    server.should_exit = True
-    thread.join(timeout=2)
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=2)
 
-    from app.database import engine
-    engine.dispose()
     try:
         temp_dir.cleanup()
     except Exception:
         pass
-
-    for k, v in old_env.items():
-        if v is None:
-            os.environ.pop(k, None)
-        else:
-            os.environ[k] = v
 
 
 @pytest.fixture(scope="session")
@@ -150,10 +168,14 @@ def browser_instance():
 
 @pytest.mark.parametrize("vp_name", ["phone", "tablet", "desktop"])
 def test_4_1_full_strength_scenario_per_viewport(live_server, browser_instance, vp_name):
-    """4.1 & 4.7: Rejestracja → Profil → Plan → Dziś → Start → Zapis serii → Zakończenie → Historia → Nowy kontekst."""
+    """4.1 & 4.7: Rejestracja → Profil → Plan → Dziś → Start → Zapis serii → Zakończenie → Historia → Nowy kontekst.
+
+    Zapisuje kompletne zrzuty ekranu dla każdego ekranu x viewport do docs/qa/.
+    """
     vp = VIEWPORTS[vp_name]
     context = browser_instance.new_context(viewport=vp, service_workers="block")
     page = context.new_page()
+    page.on("dialog", lambda d: d.accept())
 
     try:
         page.goto(live_server, wait_until="domcontentloaded")
@@ -163,15 +185,17 @@ def test_4_1_full_strength_scenario_per_viewport(live_server, browser_instance, 
         user_email = f"e2e_{vp_name}_{uuid.uuid4().hex[:6]}@example.com"
         page.evaluate("() => window.openAuthModal('register')")
         page.wait_for_selector("#auth-email", state="visible")
+
+        # Zrzut ekranu: Rejestracja / Onboarding (4.7)
+        page.screenshot(path=str(DOCS_QA / f"01_onboarding_{vp_name}.png"))
+        page.screenshot(path=str(DOCS_QA / f"01_registered_{vp_name}.png"))
+
         page.fill("#auth-email", user_email)
         page.fill("#auth-password", "StrongPassword123!")
         page.click("#auth-submit-btn")
 
         # Czekaj na zapis tokena i wejście do aplikacji
         page.wait_for_function("() => !!localStorage.getItem('fitai_token')", timeout=8000)
-
-        # Zrzut ekranu po rejestracji / na ekranie profilu (4.7)
-        page.screenshot(path=str(DOCS_QA / f"01_registered_{vp_name}.png"))
 
         # 2. Uzupełnienie profilu
         token = page.evaluate("() => localStorage.getItem('fitai_token')")
@@ -180,7 +204,7 @@ def test_4_1_full_strength_scenario_per_viewport(live_server, browser_instance, 
                 method: 'PUT',
                 headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    name: 'Zawodnik E2E',
+                    name: 'Użytkownik E2E',
                     weight: 82.5,
                     height: 180,
                     goal: 'strength',
@@ -197,11 +221,22 @@ def test_4_1_full_strength_scenario_per_viewport(live_server, browser_instance, 
                 headers: { 'Authorization': 'Bearer ' + args.tok, 'Content-Type': 'application/json' },
                 body: JSON.stringify(args.planPayload)
             });
+            if (typeof window.syncProfileFromBackend === 'function') {
+                await window.syncProfileFromBackend();
+            }
         }""", {"tok": token, "planPayload": MOCK_FULL_WEEK_PLAN})
+
+        # Zrzut ekranu: Kreator planu (4.7)
+        page.evaluate("() => window.showTab('training')")
+        page.wait_for_selector("#tab-plan", state="visible")
+        page.wait_for_timeout(450)
+        page.screenshot(path=str(DOCS_QA / f"03_plan_{vp_name}.png"))
 
         # 4. Przejście do widoku Mój Dzień
         page.evaluate("() => window.showTab('my-day')")
         page.wait_for_selector("#tab-my-day", state="visible")
+        page.wait_for_function("() => !document.getElementById('tab-my-day').classList.contains('tab-anim')")
+        page.wait_for_timeout(450)
 
         # Zrzut ekranu ekranu Dziś (4.7)
         page.screenshot(path=str(DOCS_QA / f"02_my_day_{vp_name}.png"))
@@ -210,25 +245,39 @@ def test_4_1_full_strength_scenario_per_viewport(live_server, browser_instance, 
         page.evaluate("async () => { await window.evolveStartTraining(); }")
         page.wait_for_selector("#liveWorkoutModal", state="visible", timeout=10000)
 
-        # Zrzut ekranu aktywnej sesji treningowej (4.7)
-        page.screenshot(path=str(DOCS_QA / f"03_live_workout_{vp_name}.png"))
-
         # 6. Zapisz serie dla ćwiczeń
         save_buttons = page.locator(".btn-save-set")
         btn_count = save_buttons.count()
         assert btn_count >= 1, "Brak przycisków zapisu serii w modal treningu"
 
-        # Kliknij pierwsze 3 przyciski serii
+        # Kliknij pierwszą serię, aby uruchomić stoper przerw i stan zapisany
+        first_btn = save_buttons.first
+        first_btn.scroll_into_view_if_needed()
+        first_btn.click()
+        page.wait_for_selector("#runnerRestBanner", state="visible", timeout=5000)
+
+        # Zrzut ekranu aktywnej sesji treningowej ze stoperem (4.7)
+        page.screenshot(path=str(DOCS_QA / f"04_workout_{vp_name}.png"))
+        page.screenshot(path=str(DOCS_QA / f"03_live_workout_{vp_name}.png"))
+
+        # Kliknij pozostałe serie
         to_click = min(btn_count, 3)
-        for i in range(to_click):
+        for i in range(1, to_click):
             btn = save_buttons.nth(i)
             btn.scroll_into_view_if_needed()
             btn.click()
-            time.sleep(0.3)
+            page.wait_for_timeout(600)
+
+        # Poczekaj na zapisanie serii
+        page.wait_for_function("() => !window.FitAIOfflineQueue || window.FitAIOfflineQueue.getPendingCount() === 0", timeout=10000)
 
         # 7. Zakończenie treningu
         finish_btn = page.locator("#btnFinishWorkout")
         finish_btn.scroll_into_view_if_needed()
+
+        # Zrzut ekranu: Podsumowanie treningu (4.7)
+        page.screenshot(path=str(DOCS_QA / f"05_summary_{vp_name}.png"))
+
         finish_btn.click()
 
         # Modal powinien zniknąć po zakończeniu
@@ -236,8 +285,16 @@ def test_4_1_full_strength_scenario_per_viewport(live_server, browser_instance, 
 
         # 8. Otwórz historię i sprawdź zapis
         page.evaluate("() => window.showTab('postepy')")
-        time.sleep(0.5)
+        page.wait_for_selector("#tab-progress, #tab-postepy", state="visible")
+        page.wait_for_timeout(450)
+        page.screenshot(path=str(DOCS_QA / f"06_history_{vp_name}.png"))
         page.screenshot(path=str(DOCS_QA / f"04_history_{vp_name}.png"))
+
+        # Zrzut ekranu: Profil użytkownika (4.7)
+        page.evaluate("() => window.showTab('profile')")
+        page.wait_for_selector("#tab-profile", state="visible")
+        page.wait_for_timeout(450)
+        page.screenshot(path=str(DOCS_QA / f"07_profile_{vp_name}.png"))
 
         # 9. Nowy kontekst przeglądarki — dane wracają z serwera
         new_ctx = browser_instance.new_context(viewport=vp, service_workers="block")
@@ -275,6 +332,7 @@ def test_4_2_viewport_layout_and_elements(live_server, browser_instance, vp_name
     vp = VIEWPORTS[vp_name]
     context = browser_instance.new_context(viewport=vp, service_workers="block")
     page = context.new_page()
+    page.on("dialog", lambda d: d.accept())
 
     try:
         page.goto(live_server, wait_until="domcontentloaded")
@@ -351,6 +409,9 @@ def test_4_3_two_contexts_same_account_cross_device(live_server, browser_instanc
             headers: { 'Authorization': 'Bearer ' + args.tok, 'Content-Type': 'application/json' },
             body: JSON.stringify(args.planPayload)
         });
+        if (typeof window.syncProfileFromBackend === 'function') {
+            await window.syncProfileFromBackend();
+        }
     }""", {"tok": tok, "planPayload": MOCK_FULL_WEEK_PLAN})
 
     # Kontekst B: Komputer
@@ -528,6 +589,9 @@ def test_3_6_offline_queue_simulation(live_server, browser_instance):
                 headers: { 'Authorization': 'Bearer ' + args.tok, 'Content-Type': 'application/json' },
                 body: JSON.stringify(args.planPayload)
             });
+            if (typeof window.syncProfileFromBackend === 'function') {
+                await window.syncProfileFromBackend();
+            }
         }""", {"tok": tok, "planPayload": MOCK_FULL_WEEK_PLAN})
 
         # 2. Rozpocznij trening na serwerze
@@ -549,7 +613,8 @@ def test_3_6_offline_queue_simulation(live_server, browser_instance):
         assert pending_count == count, f"Kolejka offline powinna zawierać {count} serii, zawiera: {pending_count}"
 
         # 4. Odśwież stronę w trybie OFFLINE (symulacja zamknięcia/odświeżenia karty na siłowni)
-        # Zezwól na reload lokalnego HTML
+        # Zablokuj wysyłkę ZANIM włączysz sieć, aby zdarzenie 'online' nie wysłało serii przed reloadem
+        page.route("**/app/training/sessions/*/sets", lambda route: route.abort("failed"))
         context.set_offline(False)
         page.reload(wait_until="domcontentloaded")
         page.evaluate("() => { if (typeof enterDashboard === 'function') enterDashboard(); window.showTab('my-day'); }")
@@ -563,6 +628,7 @@ def test_3_6_offline_queue_simulation(live_server, browser_instance):
         )
 
         # 5. Przywróć sieć
+        page.unroute("**/app/training/sessions/*/sets")
         context.set_offline(False)
 
         # 6. Wywołaj synchronizację
@@ -618,6 +684,148 @@ def test_5_1_feature_flags_and_hash_redirect(live_server, browser_instance):
 
         diet_card = page.locator("#todayDietCard")
         assert not diet_card.is_visible(), "Karta diety powinna być ukryta na Dziś"
+
+    finally:
+        context.close()
+
+
+# ─── 3.3: Izolacja kolejki offline przy wylogowaniu i zmianie konta ────────────
+
+def test_offline_queue_isolation_on_logout_and_account_switch(live_server, browser_instance):
+    """3.3: Niewysłane serie nie znikają przy wylogowaniu bez pytania użytkownika,
+
+    a po zalogowaniu na INNE konto kolejka poprzedniego konta nie jest wysyłana.
+    """
+    context = browser_instance.new_context(viewport=VIEWPORTS["phone"], service_workers="block")
+    page = context.new_page()
+
+    try:
+        page.goto(live_server, wait_until="domcontentloaded")
+
+        # 1. Rejestracja Użytkownika A
+        email_a = f"queue_a_{uuid.uuid4().hex[:6]}@example.com"
+        page.evaluate("() => window.openAuthModal('register')")
+        page.wait_for_selector("#auth-email", state="visible")
+        page.fill("#auth-email", email_a)
+        page.fill("#auth-password", "StrongPassA123!")
+        page.click("#auth-submit-btn")
+        page.wait_for_function("() => !!localStorage.getItem('fitai_token')", timeout=8000)
+
+        # Profil i Plan dla Użytkownika A
+        tok_a = page.evaluate("() => localStorage.getItem('fitai_token')")
+        uid_a = page.evaluate("() => localStorage.getItem('fitai_user_id')")
+        page.evaluate("""async (args) => {
+            await fetch((window.API_BASE || '') + '/app/profile', {
+                method: 'PUT',
+                headers: { 'Authorization': 'Bearer ' + args.tok, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: 'Użytkownik A',
+                    weight: 80.0,
+                    height: 180,
+                    goal: 'strength',
+                    equipment: 'full_gym',
+                    training_experience: 'intermediate'
+                })
+            });
+            await fetch((window.API_BASE || '') + '/app/plan/current', {
+                method: 'PUT',
+                headers: { 'Authorization': 'Bearer ' + args.tok, 'Content-Type': 'application/json' },
+                body: JSON.stringify(args.planPayload)
+            });
+            if (typeof window.syncProfileFromBackend === 'function') {
+                await window.syncProfileFromBackend();
+            }
+        }""", {"tok": tok_a, "planPayload": MOCK_FULL_WEEK_PLAN})
+
+        # Przejdź do Dziś, aby załadować plan do stanu
+        page.evaluate("() => window.showTab('my-day')")
+        page.wait_for_selector("#tab-my-day", state="visible")
+        page.wait_for_timeout(400)
+
+        # Rozpocznij trening i zapisz 1 serię w trybie OFFLINE
+        page.evaluate("async () => { await window.evolveStartTraining(); }")
+        page.wait_for_selector("#liveWorkoutModal", state="visible", timeout=10000)
+
+        context.set_offline(True)
+        save_btn = page.locator(".btn-save-set").first
+        save_btn.click()
+        time.sleep(0.3)
+
+        # Kolejka offline A ma co najmniej 1 serię
+        pending_a = page.evaluate("() => window.FitAIOfflineQueue.getPendingCount()")
+        assert pending_a >= 1, "Seria powinna trafić do kolejki offline użytkownika A"
+
+        # 2. Próba wylogowania z anulowaniem w dialogu confirm -> serie NIE znikają
+        dialog_handled = []
+        def handle_cancel_dialog(dialog):
+            dialog_handled.append(dialog.message)
+            dialog.dismiss()
+
+        page.once("dialog", handle_cancel_dialog)
+        page.evaluate("() => window.logoutUser()")
+        time.sleep(0.5)
+
+        # Dialog ostrzegł o niewysłanych seriach i został anulowany
+        assert len(dialog_handled) == 1, "Wylogowanie z niewysłanymi seriami musi wywołać confirm"
+        assert "niewysłanych serii" in dialog_handled[0]
+        # Token nadal istnieje (wylogowanie przerwane)
+        still_logged_in = page.evaluate("() => !!localStorage.getItem('fitai_token')")
+        assert still_logged_in, "Wylogowanie powinno zostać anulowane po kliknięciu Cancel"
+        assert page.evaluate("() => window.FitAIOfflineQueue.getPendingCount()") >= 1
+
+        # 3. Wylogowanie z akceptacją dialogu
+        # Włącz sieć dla wylogowania i przeładowania strony, blokując wysyłkę serii A
+        page.route("**/app/training/sessions/*/sets", lambda route: route.abort("failed"))
+        context.set_offline(False)
+        page.once("dialog", lambda d: d.accept())
+        page.evaluate("() => window.logoutUser()")
+        time.sleep(1.2)
+        page.wait_for_load_state("domcontentloaded")
+        page.wait_for_selector("#landingPage, #auth-modal", state="attached", timeout=10000)
+
+        # Sprawdź, czy kolejka A nadal jest zachowana w localStorage
+        queue_key_a = f"fitai_set_queue_{uid_a}"
+        saved_queue_a = page.evaluate(f"() => localStorage.getItem('{queue_key_a}')")
+        assert saved_queue_a is not None and len(saved_queue_a) > 5, (
+            "Kolejka offline użytkownika A nie może zniknąć po wylogowaniu"
+        )
+
+        # 4. Rejestracja/logowanie Użytkownika B
+        page.unroute("**/app/training/sessions/*/sets")
+        email_b = f"queue_b_{uuid.uuid4().hex[:6]}@example.com"
+        page.evaluate("() => window.openAuthModal('register')")
+        page.wait_for_selector("#auth-email", state="visible")
+        page.fill("#auth-email", email_b)
+        page.fill("#auth-password", "StrongPassB123!")
+        page.click("#auth-submit-btn")
+        page.wait_for_function("() => !!localStorage.getItem('fitai_token')", timeout=8000)
+
+        tok_b = page.evaluate("() => localStorage.getItem('fitai_token')")
+        uid_b = page.evaluate("() => localStorage.getItem('fitai_user_id')")
+        assert uid_b != uid_a
+
+        # Sprawdź kolejkę użytkownika B — musi być pusta
+        pending_b = page.evaluate("() => window.FitAIOfflineQueue.getPendingCount()")
+        assert pending_b == 0, "Kolejka offline nowego użytkownika B powinna być pusta"
+
+        # Próba synchronizacji na koncie B NIE MOŻE wysłać serii użytkownika A
+        page.evaluate("async () => { await window.FitAIOfflineQueue.flushQueue(); }")
+        time.sleep(0.5)
+
+        # Sprawdź na serwerze: użytkownik B ma 0 serii
+        b_today = page.evaluate("""async (tok) => {
+            const res = await fetch((window.API_BASE || '') + '/app/training/today', {
+                headers: { 'Authorization': 'Bearer ' + tok }
+            });
+            return res.json();
+        }""", tok_b)
+        assert not b_today.get("active_session_id") and not (b_today.get("session") or {}).get("sets"), (
+            "Konto B nie może otrzymać serii z kolejki konta A"
+        )
+
+        # Kolejka konta A nadal nienaruszona
+        saved_queue_a_post = page.evaluate(f"() => localStorage.getItem('{queue_key_a}')")
+        assert saved_queue_a_post == saved_queue_a, "Kolejka konta A została zmodyfikowana przez konto B"
 
     finally:
         context.close()

@@ -297,6 +297,41 @@ aiohttp>=3.9.0
 
 ---
 
+## Wdrożenie produkcyjne (EVOLVE Strength MVP)
+
+Szczegółowy przewodnik znajduje się w [`docs/DEPLOY_CHECKLIST.md`](docs/DEPLOY_CHECKLIST.md).
+
+### Wymagane zmienne środowiskowe w produkcji (`ENV=production`):
+- `ENV=production` — tryb fail-closed (blokada SQLite, wyłączone `/docs`, rygorystyczny CORS, brak demo auth).
+- `DATABASE_URL` — adres URL bazy PostgreSQL (np. `postgresql+psycopg://user:pass@host:5432/db`).
+- `JWT_SECRET_KEY` — minimum 32-znakowy sekret do tokenów JWT.
+- `CRON_SECRET` — minimum 16-znakowy sekret do webhooków zadań cyklicznych.
+- `CORS_ORIGINS` — dokładny adres frontendu produkcyjnego (brak `*` w produkcji).
+
+### Flagi konfiguracyjne:
+- `ALLOW_DEMO_LOGIN` — (`true`/`false`) zezwala na logowanie kontem demo tylko w dev (`ENV=development`). W produkcji endpoint zwraca 404.
+- `LOG_RESET_TOKENS` — (`true`/`false`) logowanie tokenów resetu hasła do konsoli wyłącznie w dev przy braku SMTP. W produkcji wyłączone.
+- `RATE_LIMIT_ENABLED` — (`true`/`false`) ochrona brute-force SlowAPI (domyślnie `true`).
+
+### Uruchomienie testów lokalnie w czystym środowisku:
+```bash
+# Linux / macOS:
+env -i PATH="$PATH" DATABASE_URL="sqlite:///./ci_test.db" ENV="development" JWT_SECRET_KEY="ci-jwt-secret-key-32-bytes-minimum-for-tests" CRON_SECRET="ci-cron-secret" RATE_LIMIT_ENABLED="false" python -m pytest -v
+
+# Windows (PowerShell):
+if (Test-Path .env) { Rename-Item .env .env.bak }
+try {
+    $env:DATABASE_URL="sqlite:///./ci_test.db"
+    $env:ENV="development"
+    $env:JWT_SECRET_KEY="ci-jwt-secret-key-32-bytes-minimum-for-tests"
+    $env:CRON_SECRET="ci-cron-secret"
+    $env:RATE_LIMIT_ENABLED="false"
+    python -m pytest -v
+} finally {
+    if (Test-Path .env.bak) { Rename-Item .env.bak .env }
+}
+```
+
 ## Kopia zapasowa i odzyskiwanie danych (Backup & Restore)
 
 System EVOLVE posiada dedykowane narzędzia i procedury zabezpieczania danych produkcyjnych:
