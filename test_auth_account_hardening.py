@@ -64,43 +64,29 @@ def _create_user(email: str, name: str = "Test User") -> UserDB:
 
 def test_k1_demo_token_disabled_or_safe_in_production(monkeypatch):
     """
-    W produkcyjnej konfiguracji (ENV=production lub domyślnie bezpiecznej):
+    W produkcyjnej i developerskiej konfiguracji:
     1. Rejestrujemy lub tworzymy dwóch prawdziwych użytkowników.
-    2. GET /auth/demo-token oraz POST /auth/demo-login NIE MOGĄ zwrócić tokena
-       żadnego istniejącego użytkownika (powinny zwrócić 404 lub 403).
+    2. Trasy /auth/demo-token oraz /auth/demo-login zostały całkowicie usunięte
+       i zwracają 404.
     """
-    monkeypatch.setenv("ENV", "production")
-    user1 = _create_user(f"owner-{uuid.uuid4().hex[:6]}@example.com", name="Owner")
-    user2 = _create_user(f"athlete-{uuid.uuid4().hex[:6]}@example.com", name="Athlete")
+    for env_name in ["production", "development"]:
+        monkeypatch.setenv("ENV", env_name)
+        user1 = _create_user(f"owner-{uuid.uuid4().hex[:6]}@example.com", name="Owner")
+        user2 = _create_user(f"athlete-{uuid.uuid4().hex[:6]}@example.com", name="Athlete")
 
-    res_get = client.get("/auth/demo-token")
-    assert res_get.status_code in {403, 404}, f"Expected 403/404 in production, got {res_get.status_code}: {res_get.text}"
+        res_get = client.get("/auth/demo-token")
+        assert res_get.status_code == 404, f"Expected 404 for GET /auth/demo-token in {env_name}, got {res_get.status_code}"
 
-    res_post = client.post("/auth/demo-login")
-    assert res_post.status_code in {403, 404}, f"Expected 403/404 in production, got {res_post.status_code}: {res_post.text}"
+        res_post = client.post("/auth/demo-login")
+        assert res_post.status_code == 404, f"Expected 404 for POST /auth/demo-login in {env_name}, got {res_post.status_code}"
 
 
 def test_k1_demo_token_never_picks_first_existing_user_when_demo_missing():
     """
-    Nawet jeśli endpoint byłby wywołany w środowisku dev,
-    gdy brak użytkownika demo@evolve.app, NIGDY nie wolno wybrać pierwszego
-    istniejącego użytkownika (UserDB.first()) i wydać na niego tokena!
+    Funkcja ensure_demo_user_session została całkowicie usunięta,
+    a endpointy demo nie istnieją (404) — zero ryzyka impersonacji pierwszego użytkownika.
     """
-    # Upewniamy się, że w bazie jest prawdziwy user
-    owner = _create_user(f"realowner-{uuid.uuid4().hex[:6]}@example.com", name="Real Owner")
-    
-    # Wywołanie wewnętrznej funkcji ensure_demo_user_session
-    with Session(engine) as session:
-        # Usuńmy potencjalnego demo usera jeśli istnieje
-        demo = session.exec(select(UserDB).where(UserDB.email == "demo@evolve.app")).first()
-        if demo:
-            session.delete(demo)
-            session.commit()
-
-        # Wywołanie ensure_demo_user_session NIE MOŻE zwrócić id ani emaila realnego użytkownika
-        result = auth_routes.ensure_demo_user_session(session)
-        assert result["user_id"] != str(owner.id)
-        assert result.get("email") != owner.email
+    assert not hasattr(auth_routes, "ensure_demo_user_session")
 
 
 # ─── S1: Password Change Invalidates Tokens ───────────────────────────────────

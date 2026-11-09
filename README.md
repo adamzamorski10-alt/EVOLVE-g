@@ -309,9 +309,18 @@ Szczegółowy przewodnik znajduje się w [`docs/DEPLOY_CHECKLIST.md`](docs/DEPLO
 - `CORS_ORIGINS` — dokładny adres frontendu produkcyjnego (brak `*` w produkcji).
 
 ### Flagi konfiguracyjne:
-- `ALLOW_DEMO_LOGIN` — (`true`/`false`) zezwala na logowanie kontem demo tylko w dev (`ENV=development`). W produkcji endpoint zwraca 404.
 - `LOG_RESET_TOKENS` — (`true`/`false`) logowanie tokenów resetu hasła do konsoli wyłącznie w dev przy braku SMTP. W produkcji wyłączone.
 - `RATE_LIMIT_ENABLED` — (`true`/`false`) ochrona brute-force SlowAPI (domyślnie `true`).
+
+### Ważna informacja o bezpieczeństwie konta #01 (Współdzielone konto demo):
+Konto #01 (oraz wcześniejsze konta demonstracyjne) mogło być przez pewien czas publicznie dostępne w starszych wersjach aplikacji ze względu na automatyczne logowanie (`evolve-auto-auth`). Wszelkie dane znajdujące się na tym koncie należy traktować jako **niezaufane**. Do bezpiecznego wyzerowania profilu, usunięcia powiązanych rekordów lub ustawienia nowego silnego hasła służy skrypt:
+```bash
+# Podgląd operacji (dry-run):
+python scripts/reset_shared_demo_account.py --email <email_konta> --dry-run
+
+# Wykonanie zerowania danych treningowych i ustawienie nowego hasła:
+python scripts/reset_shared_demo_account.py --email <email_konta> --reset-data --password <nowe_hasło> --execute
+```
 
 ### Uruchomienie testów lokalnie w czystym środowisku:
 ```bash

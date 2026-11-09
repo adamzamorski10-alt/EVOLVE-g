@@ -20,10 +20,10 @@ W środowisku produkcyjnym aplikacja działa w trybie **fail-closed** (`get_env(
 
 ## 2. Flagi Pomocnicze i Bezpieczeństwo
 
-### `ALLOW_DEMO_LOGIN`
-- **Domyślnie:** `false` (w produkcji).
-- **Działanie:** Jeśli włączone (`true`) oraz `ENV != "production"`, endpoint `/auth/demo-token` zwraca token konta demo dla celów testowych/prezentacyjnych.
-- **Bezpieczeństwo produkcyjne:** W produkcji (`ENV=production`) endpoint `/auth/demo-token` ZAWSZE zwraca **404 Not Found**, a wstrzykiwanie tokenu demo w HTML jest całkowicie zablokowane niezależnie od wartości flagi.
+### Całkowite Usunięcie Demo-Loginu (Iteracja 5)
+- Endpointy `/auth/demo-token` i `/auth/demo-login` oraz mechanizm automatycznego logowania `evolve-auto-auth` zostały **trwale i bezwarunkowo usunięte** z backendu oraz frontendu.
+- Flaga `ALLOW_DEMO_LOGIN` została wycofana z konfiguracji. Aplikacja nie posiada kont współdzielonych ani demo.
+- Sprawdzenie: żądanie do `/auth/demo-token` lub `/auth/demo-login` w każdym środowisku zwraca standardowy kod **404 Not Found**.
 
 ### `LOG_RESET_TOKENS`
 - **Domyślnie:** `false`.
@@ -33,6 +33,55 @@ W środowisku produkcyjnym aplikacja działa w trybie **fail-closed** (`get_env(
 ### `RATE_LIMIT_ENABLED`
 - **Domyślnie:** `true`.
 - **Działanie:** Aktywuje ochronę przed brute-force przez SlowAPI (`5/hour` na rejestrację i reset hasła, `10/min` na logowanie). W testach E2E/lokalnych może być ustawione na `false`.
+
+---
+
+## 3. Postępowanie z Kontem #01 i Rotacja Kluczy Po Wdrożeniu
+
+### KROK 1: Kopia zapasowa bazy danych PRZED wdrożeniem
+Przed rozpoczęciem deployu należy wykonać pełny zrzut bazy produkcyjnej:
+```bash
+python scripts/backup_postgres.py --output backups/pre_iteration5_backup.sql
+```
+
+### KROK 2: Rotacja `JWT_SECRET_KEY` (KRYTYCZNE)
+Ze względu na to, że w starszych wersjach token konta #01 mógł wyciec do przeglądarek przez automatyczne wstrzykiwanie w HTML, po wdrożeniu należy **natychmiast zrotować klucz JWT**:
+1. Wygeneruj nowy, kryptograficznie bezpieczny klucz 32-bajtowy:
+   ```bash
+   openssl rand -hex 32
+   ```
+2. Zaktualizuj zmienną środowiskową `JWT_SECRET_KEY` w panelu Render (Environment).
+3. Zrestartuj usługę — rotacja klucza natychmiast unieważni wszystkie wcześniej wygenerowane tokeny JWT (żaden stary token nie zadziała).
+
+### KROK 3: Założenie własnego konta właściciela
+1. Otwórz stronę produkcyjną w przeglądarce.
+2. Zarejestruj własne, dedykowane konto właściciela za pomocą formularza rejestracji (`POST /auth/register`).
+3. Uzupełnij profil i wygeneruj spersonalizowany plan siłowy.
+
+### KROK 4: Decyzja i obsługa konta #01 (Współdzielone konto demo)
+Konto #01 mogło zawierać przypadkowe serie treningowe wprowadzone przez odwiedzających.
+Aby zabezpieczyć lub wyczyścić konto #01, uruchom z linii poleceń skrypt administracyjny:
+```bash
+# 1. Podgląd powiązanych rekordów (tryb bezpieczny dry-run):
+python scripts/reset_shared_demo_account.py --email shared01@example.com --dry-run
+# lub po numerze:
+python scripts/reset_shared_demo_account.py --user-number 1 --dry-run
+
+# 2. Opcja A: Zerowanie danych treningowych i ustawienie nowego hasła:
+python scripts/reset_shared_demo_account.py --email shared01@example.com --reset-data --password "NoweSilneHaslo123!" --execute
+
+# 2. Opcja B: Usunięcie kaskadowe konta #01:
+python scripts/reset_shared_demo_account.py --email shared01@example.com --cascade-delete --execute
+```
+
+### KROK 5: Procedura wycofania (Rollback)
+W razie konieczności wycofania zmian:
+1. Przywróć poprzedni commit w repozytorium na gałęzi produkcyjnej.
+2. W razie potrzeby przywróć bazę z backupu:
+   ```bash
+   psql "$DATABASE_URL" < backups/pre_iteration5_backup.sql
+   ```
+3. Przywróć poprzedni `JWT_SECRET_KEY` (jeśli zachodzi konieczność podtrzymania sesji).
 
 ---
 

@@ -81,7 +81,6 @@ def live_server():
     child_env["ENV"] = "development"
     child_env["JWT_SECRET_KEY"] = "e2e-playwright-secret-32-bytes-long-key!"
     child_env["CRON_SECRET"] = "cron-secret-e2e"
-    child_env["ALLOW_DEMO_LOGIN"] = "false"
     child_env["RATE_LIMIT_ENABLED"] = "false"
 
     # Wykonaj migracje Alembic na odizolowanej bazie w procesie potomnym

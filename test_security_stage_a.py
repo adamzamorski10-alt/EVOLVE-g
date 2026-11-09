@@ -134,8 +134,7 @@ def test_a2_env_defaults_to_production_when_unset(monkeypatch):
     assert is_production() is True
     assert is_development() is False
 
-    # 2. Bez ENV endpointy demo zwracają 404
-    monkeypatch.setenv("ALLOW_DEMO_LOGIN", "true")  # nawet przy fladze demo brak ENV=development musi blokować
+    # 2. Bez ENV endpointy demo zwracają 404 (nie istnieją w ogóle)
     res_get = client.get("/auth/demo-token")
     assert res_get.status_code == 404, f"Oczekiwano 404 bez ENV=development, otrzymano {res_get.status_code}"
     res_post = client.post("/auth/demo-login")
@@ -145,40 +144,24 @@ def test_a2_env_defaults_to_production_when_unset(monkeypatch):
 # ─── A3: Bezpieczeństwo Endpointów Demo ───────────────────────────────────────
 
 
-def test_a3_demo_token_returns_404_in_production(monkeypatch):
+def test_a3_demo_token_returns_404_in_all_configurations(monkeypatch):
     """
-    A3: Endpointy /auth/demo-token i /auth/demo-login w konfiguracji produkcyjnej
-    zwracają kod 404 Not Found.
+    A3: Endpointy /auth/demo-token i /auth/demo-login w każdej konfiguracji
+    zwracają kod 404 Not Found (usunięte z routingu).
     """
-    monkeypatch.setenv("ENV", "production")
-    monkeypatch.setenv("ALLOW_DEMO_LOGIN", "false")
+    for env_val in ["production", "development"]:
+        monkeypatch.setenv("ENV", env_val)
+        res_get = client.get("/auth/demo-token")
+        assert res_get.status_code == 404, f"Oczekiwano 404 dla demo w {env_val}, otrzymano {res_get.status_code}"
 
-    res_get = client.get("/auth/demo-token")
-    assert res_get.status_code == 404, f"Oczekiwano 404 dla demo w produkcji, otrzymano {res_get.status_code}"
-
-    res_post = client.post("/auth/demo-login")
-    assert res_post.status_code == 404, f"Oczekiwano 404 dla demo w produkcji, otrzymano {res_post.status_code}"
+        res_post = client.post("/auth/demo-login")
+        assert res_post.status_code == 404, f"Oczekiwano 404 dla demo w {env_val}, otrzymano {res_post.status_code}"
 
 
-def test_a3_demo_token_never_impersonates_existing_user(monkeypatch):
+def test_a3_demo_token_completely_removed():
     """
-    A3: Nawet w development endpoint demo nigdy nie kradnie tożsamości innego, istniejącego konta.
-    Jeśli użytkownik demo@evolve.app nie istnieje, tworzone jest wyłącznie dedykowane konto demo.
+    A3: Endpointy demo i ensure_demo_user_session zostały całkowicie usunięte
+    — zero możliwości wygenerowania tokenu bez uwierzytelnienia.
     """
-    monkeypatch.setenv("ENV", "development")
-    monkeypatch.setenv("ALLOW_DEMO_LOGIN", "true")
-
-    # Załóż zwykłego użytkownika
-    real_email = f"realuser-{uuid.uuid4().hex[:6]}@example.com"
-    reg = client.post("/auth/register", json={"email": real_email, "password": "Password123!"})
-    assert reg.status_code == 200, reg.text
-    real_uid = reg.json()["user_id"]
-
-    # Wywołaj demo-token
-    demo_res = client.get("/auth/demo-token")
-    assert demo_res.status_code == 200, demo_res.text
-    demo_data = demo_res.json()
-
-    # Sprawdź, że demo NIE zwróciło tokena/id prawdziwego użytkownika
-    assert demo_data["user_id"] != real_uid
-    assert demo_data["display_name"] == "Zawodnik EVOLVE"
+    import app.auth.routes as auth_routes
+    assert not hasattr(auth_routes, "ensure_demo_user_session")

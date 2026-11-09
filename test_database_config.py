@@ -15,7 +15,7 @@ import pytest
 
 import app.config as app_config
 
-_ENV_KEYS = ("DATABASE_URL", "ENV", "CRON_SECRET", "JWT_SECRET_KEY", "CORS_ORIGINS", "ALLOW_DEMO_LOGIN")
+_ENV_KEYS = ("DATABASE_URL", "ENV", "CRON_SECRET", "JWT_SECRET_KEY", "CORS_ORIGINS")
 
 
 @pytest.fixture
@@ -220,8 +220,7 @@ def test_missing_env_behaves_as_production_rejects_sqlite_disables_docs_and_demo
     assert module.is_production() is True
     assert module.is_development() is False
 
-    # 3. Weryfikacja docs i demo endpointu w trybie produkcyjnym
-    os.environ["ALLOW_DEMO_LOGIN"] = "true"  # nawet jeśli flaga demo jest True, ENV!=development blokuje
+    # 3. Weryfikacja docs i usuniętego demo endpointu w trybie produkcyjnym
     probe_app = FastAPI(docs_url="/docs" if module.is_development() else None)
     probe_app.include_router(auth_router)
     probe_app.dependency_overrides[get_session] = lambda: None
@@ -232,4 +231,3 @@ def test_missing_env_behaves_as_production_rejects_sqlite_disables_docs_and_demo
 
     demo_res = client.get("/auth/demo-token")
     assert demo_res.status_code == 404
-    assert demo_res.json()["detail"] == "Endpoint niedostępny"

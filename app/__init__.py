@@ -16,7 +16,7 @@ Struktura:
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from sqlmodel import Session
 from app.auth import get_current_user
 from app.database import get_session
@@ -186,9 +186,31 @@ def _frontend_index_response(index_path: Path):
         if fallback_path.exists():
             html = fallback_path.read_text(encoding="utf-8")
 
-    dashboard_first_bootstrap = """<style id="evolve-dashboard-first-style">
+    dashboard_first_bootstrap = """<script id="evolve-auth-sync">
+(function() {
+  try {
+    var token = localStorage.getItem('fitai_token');
+    if (token && token.length > 20) {
+      document.documentElement.classList.add('auth-in', 'evolve-dashboard-first');
+      document.documentElement.classList.remove('auth-out');
+    } else {
+      document.documentElement.classList.add('auth-out');
+      document.documentElement.classList.remove('auth-in', 'evolve-dashboard-first');
+    }
+  } catch(e) {
+    document.documentElement.classList.add('auth-out');
+  }
+})();
+</script>
+<style id="evolve-dashboard-first-style">
+html.auth-in #landingPage { display: none !important; }
+html.auth-in #dashboardPage { display: flex !important; }
+html.auth-out #landingPage { display: block !important; }
+html.auth-out #dashboardPage { display: none !important; }
 html.evolve-dashboard-first #landingPage { display: none !important; }
 html.evolve-dashboard-first #dashboardPage { display: flex !important; }
+html:not(.auth-in):not(.auth-out) #landingPage,
+html:not(.auth-in):not(.auth-out) #dashboardPage { display: none !important; }
 </style>"""
 
     evolve_shell_integration = """<script id="evolve-my-day-shell-integration">
@@ -1200,47 +1222,6 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
     if 'id="evolve-nutrition-shell-integration"' not in html:
         html = _insert_before_document_body_end(html, nutrition_shell_integration)
 
-    demo_script = """<script id="evolve-auto-auth">window._evolveDemoToken = "";</script>"""
-    try:
-        from sqlmodel import Session
-        from app.database import engine
-        from app.auth.routes import ensure_demo_user_session
-        from app.config import get_settings
-        settings = get_settings()
-        if settings.ALLOW_DEMO_LOGIN and not settings.is_production:
-            with Session(engine) as session:
-                demo_data = ensure_demo_user_session(session)
-        demo_script = f"""<script id="evolve-auto-auth">
-(function () {{
-  try {{
-    var storedToken = localStorage.getItem('fitai_token');
-    var demoToken = "{demo_data['access_token']}";
-    window._evolveDemoToken = demoToken;
-    if (!storedToken && demoToken) {{
-      localStorage.setItem('fitai_token', demoToken);
-      localStorage.setItem('fitai_user_id', "{demo_data.get('user_id', '')}");
-      localStorage.setItem('fitai_display_name', "{demo_data.get('display_name', 'Zawodnik EVOLVE')}");
-      localStorage.setItem('fitai_name', "{demo_data.get('name', 'Zawodnik EVOLVE')}");
-      localStorage.setItem('fitai_role', "{demo_data.get('role', 'pro_user')}");
-      localStorage.setItem('fitai_plan', "{demo_data.get('plan', 'pro')}");
-      localStorage.setItem('fitai_user_number', "{demo_data.get('user_number', '1')}");
-    }}
-    window._fitaiToken = localStorage.getItem('fitai_token') || demoToken;
-  }} catch (e) {{
-    console.warn('[EVOLVE] Auto-auth:', e);
-  }}
-}})();
-</script>"""
-    except Exception:
-        demo_script = """<script id="evolve-auto-auth">window._evolveDemoToken = "";</script>"""
-
-    if 'id="evolve-auto-auth"' not in html:
-        pos = html.find("</head>")
-        if pos != -1:
-            html = html[:pos] + demo_script + "\n" + html[pos:]
-        else:
-            html = demo_script + "\n" + html
-
     if 'id="evolve-dashboard-first-style"' not in html:
         pos = html.find("</head>")
         if pos != -1:
@@ -1250,58 +1231,91 @@ html.evolve-dashboard-first #dashboardPage { display: flex !important; }
 
     dashboard_boot = """<script id="evolve-dashboard-first-boot">
 document.addEventListener('DOMContentLoaded', function () {
-  // Deep links may identify a dashboard tab, but authentication still gates the app.
-  var hasToken = Boolean(localStorage.getItem('fitai_token'));
+  var token = localStorage.getItem('fitai_token');
+  var hasToken = Boolean(token && token.length > 20);
   var landing = document.getElementById('landingPage');
   var dashboard = document.getElementById('dashboardPage');
-  function showAuthenticatedShell(authenticated) {
+
+  function setAuthState(authenticated) {
+    document.documentElement.classList.toggle('auth-in', authenticated);
     document.documentElement.classList.toggle('evolve-dashboard-first', authenticated);
-    if (landing && !authenticated) {
-      landing.style.display = '';
-      landing.removeAttribute('aria-hidden');
-    } else if (landing) {
-      landing.style.display = 'none';
-      landing.setAttribute('aria-hidden', 'true');
+    document.documentElement.classList.toggle('auth-out', !authenticated);
+    if (landing) {
+      landing.style.display = authenticated ? 'none' : 'block';
+      if (authenticated) landing.setAttribute('aria-hidden', 'true');
+      else landing.removeAttribute('aria-hidden');
     }
-    if (dashboard && authenticated) {
-      dashboard.style.display = 'flex';
-      dashboard.removeAttribute('aria-hidden');
-    } else if (dashboard) {
-      dashboard.style.display = 'none';
-      dashboard.setAttribute('aria-hidden', 'true');
+    if (dashboard) {
+      dashboard.style.display = authenticated ? 'flex' : 'none';
+      if (authenticated) dashboard.removeAttribute('aria-hidden');
+      else dashboard.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  function clearSessionAndShowLogin(message) {
+    [
+      'fitai_token', 'fitai_refresh_token', 'fitai_user_id',
+      'fitai_display_name', 'fitai_name', 'fitai_role', 'fitai_plan',
+      'fitai_user_number', 'fitai_profile_cache', 'fitai_weekly_plan',
+      'fitai_sport', 'fitai_sport_v1'
+    ].forEach(function(k) { localStorage.removeItem(k); });
+    setAuthState(false);
+    if (typeof openAuthModal === 'function') {
+      openAuthModal('login');
+      if (message) {
+        var errEl = document.getElementById('auth-error');
+        if (errEl) {
+          errEl.textContent = message;
+          errEl.classList.remove('hidden');
+        }
+      }
     }
   }
 
   if (!hasToken) {
-    if (window._evolveDemoToken) {
-      localStorage.setItem('fitai_token', window._evolveDemoToken);
-      hasToken = true;
-    } else {
-      showAuthenticatedShell(false);
-      return;
-    }
+    setAuthState(false);
+    return;
   }
 
   fetch('/app/profile', {
-    headers: { Authorization: 'Bearer ' + localStorage.getItem('fitai_token') },
+    headers: { Authorization: 'Bearer ' + token },
     cache: 'no-store'
   }).then(function (response) {
     if (response.status === 401 || response.status === 403) {
-      localStorage.removeItem('fitai_token');
-      if (window._evolveDemoToken) {
-        localStorage.setItem('fitai_token', window._evolveDemoToken);
-        showAuthenticatedShell(true);
-        if (typeof initApp === 'function') initApp();
+      var rt = localStorage.getItem('fitai_refresh_token');
+      if (rt) {
+        return fetch('/auth/refresh-access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: rt })
+        }).then(function (refRes) {
+          if (refRes.ok) {
+            return refRes.json().then(function (data) {
+              if (data && data.access_token) {
+                localStorage.setItem('fitai_token', data.access_token);
+                if (data.refresh_token) localStorage.setItem('fitai_refresh_token', data.refresh_token);
+                setAuthState(true);
+                if (typeof initApp === 'function') initApp();
+                return;
+              }
+              clearSessionAndShowLogin('Sesja wygasła. Zaloguj się ponownie.');
+            });
+          } else {
+            clearSessionAndShowLogin('Sesja wygasła. Zaloguj się ponownie.');
+          }
+        }).catch(function () {
+          clearSessionAndShowLogin('Sesja wygasła. Zaloguj się ponownie.');
+        });
+      } else {
+        clearSessionAndShowLogin('Sesja wygasła. Zaloguj się ponownie.');
         return;
       }
-      showAuthenticatedShell(false);
-      return;
     }
-    showAuthenticatedShell(true);
+    setAuthState(true);
     if (typeof initApp === 'function') initApp();
   }).catch(function () {
-    // Keep a valid-looking session during temporary network or offline failures.
-    showAuthenticatedShell(true);
+    // Keep valid-looking session during temporary network or offline failures.
+    setAuthState(true);
     if (typeof initApp === 'function') initApp();
   });
 });
@@ -1332,12 +1346,19 @@ async def serve_root():
 
 
 # Catch-all for SPA routing — serve index.html for any unmatched path
-@app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
-async def serve_spa(path: str):
+@app.api_route("/{path:path}", methods=["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH"], include_in_schema=False)
+async def serve_spa(path: str, request: Request):
     """
     Fallback route for SPA routing. Serves static files if found in STATIC_DIR,
     otherwise serves index.html for client-side routing.
     """
+    # Unmatched API or auth routes should return 404 JSON instead of HTML regardless of method
+    if path in {"api", "auth"} or path.startswith("api/") or path.startswith("auth/") or (path.startswith("app/") and path not in {"app", "app/"} and not path.endswith((".html", ".htm"))):
+        return JSONResponse({"error": "API route not found", "path": path}, status_code=404)
+
+    if request.method not in ("GET", "HEAD"):
+        return JSONResponse({"error": "Method not allowed"}, status_code=405)
+
     safe_path = Path(path)
     if ".." not in safe_path.parts:
         target = STATIC_DIR / safe_path
@@ -1355,10 +1376,6 @@ async def serve_spa(path: str):
     skip_exts = {".json", ".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".woff", ".woff2", ".map"}
     if any(path.endswith(ext) for ext in skip_exts):
         return JSONResponse({"error": "File not found"}, status_code=404)
-
-    # Unmatched API or auth routes should return 404 JSON instead of HTML
-    if path in {"api", "auth"} or path.startswith("api/") or path.startswith("auth/") or (path.startswith("app/") and path not in {"app", "app/"} and not path.endswith((".html", ".htm"))):
-        return JSONResponse({"error": "API route not found", "path": path}, status_code=404)
     
     # For all other paths, serve index.html (SPA routing)
     index_path = STATIC_DIR / "index.html"

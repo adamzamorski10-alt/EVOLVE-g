@@ -556,63 +556,6 @@ def auth_logout(
     }
 
 
-def ensure_demo_user_session(session: Session) -> dict:
-    """Pobiera lub tworzy dedykowanego użytkownika demonstracyjnego demo@evolve.app."""
-    user = session.exec(select(UserDB).where(UserDB.email == "demo@evolve.app")).first()
-    if not user:
-        user = UserDB(
-            user_key="native:user:demo",
-            user_number=999999,
-            email="demo@evolve.app",
-            name="Zawodnik EVOLVE",
-            role="pro_user",
-            plan="pro",
-            is_active=True,
-            age=25,
-            height=188.0,
-            weight=84.0,
-            start_weight=84.0,
-            target_weight=84.0,
-            goal="strength_hypertrophy",
-            frequency="4",
-            diet="zbilansowana",
-            calories_target=2800,
-            protein_target=170,
-        )
-        session.add(user)
-        session.commit()
-        session.refresh(user)
-
-    token = create_access_token(str(user.id), user.email or "demo@evolve.app", user.role or "pro_user")
-    return {
-        "access_token": token,
-        "token": token,
-        "user_id": str(user.id),
-        "user_number": user.user_number or 999999,
-        "display_name": user.name or "Zawodnik EVOLVE",
-        "name": user.name or "Zawodnik EVOLVE",
-        "role": user.role or "pro_user",
-        "plan": user.plan or "pro",
-        "kcal_target": user.calories_target or 2800,
-        "protein_target": user.protein_target or 170,
-    }
-
-
-@router.get("/demo-token")
-@router.post("/demo-login")
-def demo_login(session: Session = Depends(get_session)):
-    """Tymczasowy endpoint demo - dostępny wyłącznie w środowisku development za jawną flagą."""
-    import os
-    env = get_env()
-    allow_demo = os.getenv("ALLOW_DEMO_LOGIN", "false").lower() == "true"
-    if env != "development" or not allow_demo:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Endpoint niedostępny",
-        )
-    return ensure_demo_user_session(session)
-
-
 @router.post("/users/{user_id}", deprecated=True)
 def create_or_update_user(user_id: str, profile: UserProfile):
     """DEPRECATED — wyłączony od FitAI v2.1. Użyj POST /auth/register."""

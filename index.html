@@ -10640,12 +10640,8 @@
       if (!tabId || !document.getElementById('tab-' + tabId)) return;
       // Deep links must not bypass authentication.
       if (!localStorage.getItem('fitai_token')) {
-        if (window._evolveDemoToken) {
-          localStorage.setItem('fitai_token', window._evolveDemoToken);
-        } else {
-          if (typeof openAuthModal === 'function') openAuthModal('login');
-          return;
-        }
+        if (typeof openAuthModal === 'function') openAuthModal('login');
+        return;
       }
       if (typeof enterDashboard === 'function') {
         enterDashboard();
@@ -31992,10 +31988,6 @@
 
       function openPanelOrAuth() {
         var token = localStorage.getItem('fitai_token');
-        if (!token && window._evolveDemoToken) {
-          localStorage.setItem('fitai_token', window._evolveDemoToken);
-          token = window._evolveDemoToken;
-        }
         if (token && token.length > 20) {
           // Mamy token — pokaż panel bezpośrednio
           if (typeof enterDashboard === 'function') enterDashboard();

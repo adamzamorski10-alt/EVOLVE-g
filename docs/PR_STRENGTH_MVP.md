@@ -17,7 +17,9 @@ Gałąź `feat/strength-mvp` implementuje kompletny fundament silnika treningu s
    - Izolacja kolejek per użytkownik (`fitai_set_queue_<user_id>`) zapobiegająca przeciekowi serii między kontami na tym samym urządzeniu.
    - Paski postępu sesji i walidacja danych wejściowych (`inputmode="decimal"` dla kg, `numeric` dla powtórzeń/RPE, powiększone pole ciężaru mieszczące min. 6 znaków).
 2. **Bezpieczeństwo & Fail-Closed Configuration:**
-   - Domyślny tryb fail-closed w produkcji (`ENV=production`): blokada startu na SQLite, wymóg PostgreSQL, wyłączenie endpointów Swagger (`/docs`, `/redoc`), wyłączenie wstrzykiwania tokenów demo (`ALLOW_DEMO_LOGIN=false` w prod zwraca 404).
+   - Domyślny tryb fail-closed w produkcji (`ENV=production`): blokada startu na SQLite, wymóg PostgreSQL, wyłączenie endpointów Swagger (`/docs`, `/redoc`), trwałe usunięcie endpointów demo (`/auth/demo-token` i `/auth/demo-login` zwracają 404).
+   - Całkowite usunięcie skryptu `evolve-auto-auth` oraz automatycznego logowania — każdy użytkownik zakłada i używa własnego konta.
+   - Narzędzie administracyjne `scripts/reset_shared_demo_account.py` do bezpiecznej obsługi konta #01.
    - Ochrona rate-limiting (SlowAPI): rate limits na `/auth/register` (5/godz), `/auth/login` (10/min), z bezpieczną detekcją IP przez reverse proxy i flagą `RATE_LIMIT_ENABLED` dla środowisk testowych.
    - Ochrona przed XSS: bezpieczne renderowanie nazw ćwiczeń, planów i notatek w UI bez podatności na wstrzyknięcie kodu HTML/JS.
 3. **Spójność UX & Nawigacja:**
