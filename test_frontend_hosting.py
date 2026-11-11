@@ -26,15 +26,16 @@ def test_dashboard_first_targets_actual_legacy_shell_ids():
     assert 'id="evolve-dashboard-first-boot"' in APP_INIT
     assert "var landing = document.getElementById('landingPage');" in APP_INIT
     assert "var dashboard = document.getElementById('dashboardPage');" in APP_INIT
-    assert "landing.style.display = 'none';" in APP_INIT
-    assert "landing.setAttribute('aria-hidden', 'true');" in APP_INIT
-    assert "dashboard.style.display = 'flex';" in APP_INIT
+    assert "landing.style.display = authenticated ? 'none' : 'block';" in APP_INIT
+    assert "landing.setAttribute('aria-hidden', authenticated ? 'true' : 'false');" in APP_INIT
+    assert "dashboard.style.display = authenticated ? 'flex' : 'none';" in APP_INIT
 
 
 def test_dashboard_boot_does_not_bypass_authentication():
-    assert "var hasToken = Boolean(localStorage.getItem('fitai_token'));" in APP_INIT
+    assert "var token = localStorage.getItem('fitai_token');" in APP_INIT
     assert "fetch('/app/profile'" in APP_INIT
-    assert "if (response.status === 401 || response.status === 403)" in APP_INIT
+    assert "error.status !== 401 && error.status !== 403" in APP_INIT
+    assert "await validateAccessToken(refreshed.access_token)" in APP_INIT
     assert "if (typeof initApp === 'function') initApp();" in APP_INIT
 
 
@@ -88,7 +89,7 @@ def test_frontend_has_fallback_when_generated_index_is_empty():
 def test_service_worker_does_not_cache_same_origin_api_responses_as_shell_assets():
     sw = (ROOT / "sw.js").read_text(encoding="utf-8")
 
-    assert "const CACHE_VERSION = 'fitai-v3.3.2';" in sw
+    assert "const CACHE_VERSION = 'fitai-v3.3.3';" in sw
     assert "const isSameOriginApi = url.origin === self.location.origin" in sw
     assert "request.mode !== 'navigate'" in sw
     assert "(path.startsWith('/app/') || path.startsWith('/auth/'))" in sw

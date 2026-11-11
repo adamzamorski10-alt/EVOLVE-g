@@ -1,5 +1,5 @@
 /**
- * FitAI — Service Worker v3.2.1
+ * FitAI — Service Worker v3.3.3
  * ─────────────────────────────────────────────────────────────────────────────
  * Strategie cachowania:
  *   • HTML (nawigacja)        → Network-First + fallback do cache
@@ -26,7 +26,7 @@
  */
 
 // ── Wersja — zmień przy każdym deploymencie ───────────────────────────────────
-const CACHE_VERSION = 'fitai-v3.3.2';
+const CACHE_VERSION = 'fitai-v3.3.3';
 const API_BASE = 'https://fitai-backend-l918.onrender.com';
 
 // ── Nazwy bucketów cache ───────────────────────────────────────────────────────

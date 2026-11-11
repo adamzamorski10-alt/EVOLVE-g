@@ -548,10 +548,7 @@ def auth_logout(
             "fitai_token", "fitai_refresh_token", "fitai_user", "fitai_identity_id",
             "fitai_user_id", "fitai_user_number", "fitai_display_name", "fitai_name",
             "fitai_role", "fitai_plan", "fitai_kcal_target", "fitai_protein_target",
-            "fitai_nickname", "fitai_user_data", "fitai_profiles_v3", "fitai_profile_cache",
-            "fitai_weekly_plan", "fitai_logs_v3", "fitai_checked_v3", "fitai_day_checked",
-            "fitai_extras_v3", "fitai_training_plan", "fitai_diet_plan", "fitai_prefs",
-            "fitai_training_locations", "fitai_sport_profile", "fitai_sport_v1",
+            "fitai_nickname",
         ],
     }
 

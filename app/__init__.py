@@ -1239,81 +1239,81 @@ document.addEventListener('DOMContentLoaded', function () {
     document.documentElement.classList.toggle('auth-out', !authenticated);
     if (landing) {
       landing.style.display = authenticated ? 'none' : 'block';
-      if (authenticated) landing.setAttribute('aria-hidden', 'true');
-      else landing.removeAttribute('aria-hidden');
+      landing.setAttribute('aria-hidden', authenticated ? 'true' : 'false');
     }
     if (dashboard) {
       dashboard.style.display = authenticated ? 'flex' : 'none';
-      if (authenticated) dashboard.removeAttribute('aria-hidden');
-      else dashboard.setAttribute('aria-hidden', 'true');
+      dashboard.setAttribute('aria-hidden', authenticated ? 'false' : 'true');
     }
   }
 
-  function clearSessionAndShowLogin(message) {
-    localStorage.removeItem('fitai_token');
+  function clearSessionAndShowLanding() {
     [
       'fitai_token', 'fitai_refresh_token', 'fitai_user_id',
       'fitai_display_name', 'fitai_name', 'fitai_role', 'fitai_plan',
-      'fitai_user_number', 'fitai_profile_cache', 'fitai_weekly_plan',
-      'fitai_sport', 'fitai_sport_v1'
+      'fitai_user_number', 'fitai_kcal_target', 'fitai_protein_target'
     ].forEach(function(k) { localStorage.removeItem(k); });
+    window.EVOLVE_AUTH_STATE = 'anonymous';
     setAuthState(false);
-    if (typeof openAuthModal === 'function') {
-      openAuthModal('login');
-      if (message) {
-        var errEl = document.getElementById('auth-error');
-        if (errEl) {
-          errEl.textContent = message;
-          errEl.classList.remove('hidden');
-        }
+  }
+
+  function validateAccessToken(accessToken) {
+    return fetch('/app/profile', {
+      headers: { Authorization: 'Bearer ' + accessToken },
+      cache: 'no-store'
+    }).then(function (response) {
+      if (!response.ok) {
+        var error = new Error('Session validation failed');
+        error.status = response.status;
+        throw error;
       }
+      return response;
+    });
+  }
+
+  function finishAuthenticatedBoot() {
+    window.EVOLVE_AUTH_STATE = 'authenticated';
+    setAuthState(true);
+    if (typeof initApp === 'function') initApp();
+    if (window.location.hash && typeof showTabFromHash === 'function') showTabFromHash();
+    else if (typeof showTab === 'function') showTab('my-day');
+  }
+
+  window.EVOLVE_AUTH_STATE = 'loading';
+  window.EVOLVE_AUTH_READY = (async function () {
+    if (!hasToken) {
+      clearSessionAndShowLanding();
+      return;
     }
-  }
 
-  if (!hasToken) {
-    setAuthState(false);
-    return;
-  }
-
-  fetch('/app/profile', {
-    headers: { Authorization: 'Bearer ' + token },
-    cache: 'no-store'
-  }).then(function (response) {
-    if (response.status === 401 || response.status === 403) {
-      var rt = localStorage.getItem('fitai_refresh_token');
-      if (rt) {
-        return fetch('/auth/refresh-access', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: rt })
-        }).then(function (refRes) {
-          if (refRes.ok) {
-            return refRes.json().then(function (data) {
-              if (data && data.access_token) {
-                localStorage.setItem('fitai_token', data.access_token);
-                if (data.refresh_token) localStorage.setItem('fitai_refresh_token', data.refresh_token);
-                setAuthState(true);
-                if (typeof initApp === 'function') initApp();
-                return;
-              }
-              clearSessionAndShowLogin('Sesja wygasła. Zaloguj się ponownie.');
-            });
-          } else {
-            clearSessionAndShowLogin('Sesja wygasła. Zaloguj się ponownie.');
-          }
-        }).catch(function () {
-          clearSessionAndShowLogin('Sesja wygasła. Zaloguj się ponownie.');
-        });
-      } else {
-        clearSessionAndShowLogin('Sesja wygasła. Zaloguj się ponownie.');
+    try {
+      await validateAccessToken(token);
+      finishAuthenticatedBoot();
+      return;
+    } catch (error) {
+      if ((error.status !== 401 && error.status !== 403) || !localStorage.getItem('fitai_refresh_token')) {
+        clearSessionAndShowLanding();
         return;
       }
     }
-    setAuthState(true);
-    if (typeof initApp === 'function') initApp();
-  }).catch(function () {
-    clearSessionAndShowLogin('Nie udało się zweryfikować sesji. Spróbuj zalogować się ponownie.');
-  });
+
+    try {
+      var refreshResponse = await fetch((window.API_BASE || '') + '/auth/refresh-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: localStorage.getItem('fitai_refresh_token') })
+      });
+      if (!refreshResponse.ok) throw new Error('Refresh failed');
+      var refreshed = await refreshResponse.json();
+      if (!refreshed || !refreshed.access_token || !refreshed.refresh_token) throw new Error('Invalid refresh response');
+      localStorage.setItem('fitai_token', refreshed.access_token);
+      localStorage.setItem('fitai_refresh_token', refreshed.refresh_token);
+      await validateAccessToken(refreshed.access_token);
+      finishAuthenticatedBoot();
+    } catch (error) {
+      clearSessionAndShowLanding();
+    }
+  })();
 });
 </script>"""
     if 'id="evolve-dashboard-first-boot"' not in html:

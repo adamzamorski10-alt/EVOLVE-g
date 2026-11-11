@@ -460,7 +460,7 @@ def test_4_3_two_contexts_same_account_cross_device(live_server, browser_instanc
 # ─── 4.4: Izolacja danych przy przełączaniu kont ──────────────────────────────
 
 def test_4_4_account_switching_data_isolation(live_server, browser_instance):
-    """4.4: Wylogowanie czyści dane lokalne, konto B nie widzi danych konta A."""
+    """4.4: Wylogowanie czyści sesję, ale zachowuje dane konta A."""
     context = browser_instance.new_context(viewport=VIEWPORTS["desktop"], service_workers="block")
     page = context.new_page()
 
@@ -490,7 +490,7 @@ def test_4_4_account_switching_data_isolation(live_server, browser_instance):
             };
         }""")
         assert storage_check["token"] is None
-        assert storage_check["custom"] is None
+        assert storage_check["custom"] == "secret_user_a"
 
     finally:
         context.close()

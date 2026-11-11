@@ -1787,6 +1787,19 @@
       flex-direction: column;
     }
   </style>
+  <style id="evolve-auth-shell-style">
+    html.auth-in #landingPage { display: none !important; }
+    html.auth-in #dashboardPage { display: flex !important; }
+    html.auth-out #landingPage { display: block !important; }
+    html.auth-out #dashboardPage { display: none !important; }
+    html.auth-loading #landingPage,
+    html.auth-loading #dashboardPage { display: none !important; }
+    html:not(.auth-in):not(.auth-out) #landingPage,
+    html:not(.auth-in):not(.auth-out) #dashboardPage { display: none !important; }
+  </style>
+  <script id="evolve-auth-shell-bootstrap">
+    document.documentElement.classList.add('auth-loading');
+  </script>
 </head>
 
 <body class="strength-mvp">
@@ -1823,10 +1836,10 @@
               background:linear-gradient(135deg,var(--cyan-dim),var(--violet-dim));
               border:1px solid var(--cyan-border);
               color:var(--cyan);white-space:nowrap;
-            ">#01</div>
+            "></div>
             <span id="nav-display-name"
               style="font:600 13px 'Plus Jakarta Sans',sans-serif;color:var(--text-primary);white-space:nowrap;"
-              class="inline-block">Użytkownik</span>
+              class="inline-block">—</span>
           </div>
           <button onclick="logoutUser()"
             class="flex items-center gap-1.5 px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-colors font-medium btn-ghost"
@@ -1862,18 +1875,17 @@
             class="inline-flex items-center gap-2 px-4 py-2 glass rounded-full mb-6 text-sm font-medium text-cyan-400"
             style="border-color:var(--border-cyan)!important;">
             <span class="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></span>
-            Platforma SaaS v3.0 — Ultimate Edition
+            Prywatny coaching treningowy dla Twojego progresu
           </div>
           <h1 class="text-5xl md:text-7xl font-bold leading-tight mb-6" style="font-family:'Syne',sans-serif;">
             Trenuj<br><span class="text-gradient">inteligentnie.</span><br>Żyj lepiej.
           </h1>
-          <p class="text-gray-400 text-lg md:text-xl leading-relaxed mb-8">FitAI to zaawansowana platforma zarządzania
-            dietą i treningiem z silnikiem AI, multi-profilami i planem dopasowanym do Ciebie.</p>
+          <p class="text-gray-400 text-lg md:text-xl leading-relaxed mb-8">EVOLVE łączy plan treningowy, żywienie
+            i historię postępów w jednym spokojnym, osobistym centrum działania.</p>
           <div class="flex flex-wrap gap-4">
-            <button onclick="openAuthModal('register')"
-              class="btn-neon px-8 py-4 rounded-2xl text-base font-bold">Zacznij Teraz
-              →</button>
-            <a href="#funkcje" class="btn-ghost px-8 py-4 rounded-2xl text-base font-medium">Poznaj funkcje</a>
+            <button onclick="openAuthModal('login')"
+              class="btn-neon px-8 py-4 rounded-2xl text-base font-bold">Zaloguj się</button>
+            <button onclick="openAuthModal('register')" class="btn-ghost px-8 py-4 rounded-2xl text-base font-medium">Utwórz konto</button>
           </div>
           <div class="flex items-center gap-6 mt-8 text-sm text-gray-500">
             <span>✅ Bezpłatny start</span>
@@ -5104,7 +5116,7 @@
               <div class="flex items-center gap-2 mt-3">
                 <span id="profile-user-display"
                   style="font:700 16px 'Plus Jakarta Sans',monospace;color:var(--cyan);letter-spacing:0.03em;">
-                  Użytkownik#0001
+                  —
                 </span>
                 <span style="
                   font-size:11px;
@@ -6124,7 +6136,7 @@
                   danych.</span>
               </button>
 
-              <button type="button" onclick="logout()"
+              <button type="button" onclick="logoutUser()"
                 class="p-4 rounded-2xl border text-left transition-all duration-200 hover:border-gray-400/40"
                 style="background:rgba(255,255,255,0.02);border-color:rgba(255,255,255,0.08);">
                 <span class="text-xl block mb-1">🚪</span>
@@ -10662,7 +10674,8 @@
       }
       if (!tabId || !document.getElementById('tab-' + tabId)) return;
       // Deep links must not bypass authentication.
-      if (!localStorage.getItem('fitai_token')) {
+      if (window.EVOLVE_AUTH_STATE === 'loading') return;
+      if (window.EVOLVE_AUTH_STATE !== 'authenticated') {
         if (typeof openAuthModal === 'function') openAuthModal('login');
         return;
       }
@@ -11427,32 +11440,23 @@
 
     // ========== LOGOUT ==========
 
-    /** Klucze localStorage do wyczyszczenia — muszą zgadzać się z backend clear_storage */
-    const FITAI_STORAGE_KEYS = ['fitai_token', 'fitai_user', 'fitai_identity_id'];
+    /** Czyść wyłącznie metadane sesji; dane użytkownika pozostają lokalnie. */
+    const FITAI_AUTH_KEYS = [
+      'fitai_token', 'fitai_refresh_token', 'fitai_user', 'fitai_identity_id',
+      'fitai_user_id', 'fitai_user_number', 'fitai_display_name', 'fitai_name',
+      'fitai_role', 'fitai_plan', 'fitai_kcal_target', 'fitai_protein_target',
+      'fitai_nickname'
+    ];
 
     /**
-     * clearLocalData() — awaryjne czyszczenie danych lokalnych.
-     * Wywoływane jako fallback gdy serwer jest niedostępny, lub po pomyślnym wylogowaniu.
+     * clearLocalData() — awaryjne czyszczenie metadanych sesji.
      */
     function clearLocalData() {
-      try {
-        var toRemove = [];
-        for (var i = 0; i < localStorage.length; i++) {
-          var k = localStorage.key(i);
-          if (!k) continue;
-          if (k.startsWith('fitai_set_queue_')) continue; // nie kasuj kolejki offline
-          if (k.startsWith('fitai_') || k.includes('plan') || k.includes('profile') || k.includes('profil') || k.includes('sport')) {
-            toRemove.push(k);
-          }
-        }
-        toRemove.forEach(function (key) { localStorage.removeItem(key); });
-      } catch (e) { }
-      FITAI_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+      FITAI_AUTH_KEYS.forEach(key => localStorage.removeItem(key));
     }
 
     /**
-     * logoutUser() — wywołuje POST /app/logout na backendzie,
-     * czyści storage według listy z odpowiedzi, pokazuje toast i przeładowuje stronę.
+     * logoutUser() — unieważnia refresh token i wraca do landing page.
      */
     async function logoutUser() {
       if (window.FitAIOfflineQueue) {
@@ -11462,12 +11466,11 @@
           if (!confirmLogout) return;
         }
       }
-      const token = localStorage.getItem('fitai_token');
       const refreshToken = localStorage.getItem('fitai_refresh_token');
       const apiBase = window.API_BASE || 'http://localhost:8000';
 
       try {
-        if (token) {
+        if (refreshToken) {
           const res = await fetch(`${apiBase}/auth/logout`, {
             method: 'POST',
             headers: {
@@ -11476,30 +11479,25 @@
             body: JSON.stringify({ refresh_token: refreshToken }),
           });
 
-          if (res.ok) {
-            const data = await res.json();
-            // Iteruj po liście kluczy wskazanych przez backend
-            if (Array.isArray(data.clear_storage)) {
-              data.clear_storage.forEach(key => localStorage.removeItem(key));
-            } else {
-              // Fallback na wypadek nieoczekiwanej odpowiedzi
-              clearLocalData();
-            }
-          } else {
-            // Serwer zwrócił błąd (np. 401 — token już wygasł) — czyść lokalnie
-            console.warn(`[FitAI Logout] Serwer zwrócił ${res.status} — czyszczę dane lokalnie.`);
-            clearLocalData();
+          if (!res.ok) {
+            console.warn(`[FitAI Logout] Serwer zwrócił ${res.status} — czyszczę sesję lokalnie.`);
           }
         } else {
-          // Brak tokenu — użytkownik prawdopodobnie już wylogowany
-          clearLocalData();
+          console.info('[FitAI Logout] Brak refresh tokena — czyszczę lokalną sesję.');
         }
       } catch (err) {
-        // Błąd sieci / serwer niedostępny — wyloguj lokalnie, nie blokuj UX
-        console.warn('[FitAI Logout] Błąd sieci podczas wylogowywania:', err.message, '— czyszczę dane lokalnie.');
-        clearLocalData();
+        console.warn('[FitAI Logout] Błąd sieci:', err.message, '— czyszczę sesję lokalnie.');
       }
 
+      clearLocalData();
+      window.EVOLVE_AUTH_STATE = 'anonymous';
+      if (typeof state !== 'undefined') {
+        state.view = 'landing';
+        state.profile = null;
+        state.dayLogs = {};
+        state.dayChecked = {};
+      }
+      if (typeof exitDashboard === 'function') exitDashboard();
       // Resetuj flagi lazy-render — przy ponownym logowaniu dane będą świeże
       if (typeof _resetPlanRenderFlags === 'function') _resetPlanRenderFlags();
 
@@ -11507,8 +11505,9 @@
       if (typeof showToast === 'function') {
         showToast('✅ Wylogowano pomyślnie');
       }
-      // Krótkie opóźnienie, żeby toast zdążył się pokazać przed przeładowaniem
-      setTimeout(() => window.location.reload(), 800);
+      window.location.hash = '';
+      document.documentElement.classList.remove('auth-loading', 'auth-in', 'evolve-dashboard-first');
+      document.documentElement.classList.add('auth-out');
     }
 
     function exitDashboard() {
@@ -11541,16 +11540,13 @@
       if (oldName) oldName.textContent = p.name;
 
       // Nowe elementy navbaru
-      const dn = p.display_name
-        || (p.user_number ? ('Użytkownik#' + String(p.user_number).padStart(4, '0')) : null)
-        || p.name
-        || 'Użytkownik';
+      const dn = p.display_name || p.name || '—';
       const num = p.user_number || localStorage.getItem('fitai_user_number');
 
       const navName = document.getElementById('nav-display-name');
       const navAvatar = document.getElementById('nav-avatar');
       if (navName) navName.textContent = dn;
-      if (navAvatar && num) navAvatar.textContent = '#' + String(num).padStart(2, '0');
+      if (navAvatar) navAvatar.textContent = num ? '#' + String(num).padStart(2, '0') : '';
 
       // Profil
       const profDisplay = document.getElementById('profile-user-display');
@@ -24082,8 +24078,7 @@
       if (e.target === this) this.classList.add('hidden');
     });
 
-    // Init
-    window.addEventListener('load', initApp);
+    // Init — uruchamiane wyłącznie po zweryfikowanej sesji (boot auth).
 
     // =====================================================================
     // EDIT PLAN MODAL
@@ -31602,7 +31597,7 @@
       <div style="text-align:center;margin-bottom:24px;">
         <div style="font-size:28px;font-weight:900;letter-spacing:-0.03em;color:#f3f4f6;
                   font-family:'Syne',sans-serif;">
-          F<span style="color:#00e5ff;">it</span>AI
+          EV<span style="color:#a78bfa;">OLVE</span>
         </div>
         <p id="auth-modal-subtitle" style="font-size:13px;color:#6b7280;margin-top:4px;">
           Zaloguj się do swojego konta
@@ -31726,31 +31721,7 @@
     (function () {
       var _currentTab = 'login';
 
-      function showPreviewNotice() {
-        var existing = document.getElementById('preview-notice-toast');
-        if (existing) existing.remove();
-        var t = document.createElement('div');
-        t.id = 'preview-notice-toast';
-        t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);'
-          + 'background:rgba(10,11,16,0.95);border:1px solid rgba(0,229,255,0.25);'
-          + 'color:#e2e8f0;padding:14px 20px;border-radius:14px;font-family:\'Plus Jakarta Sans\',sans-serif;'
-          + 'font-size:14px;line-height:1.5;max-width:90vw;text-align:center;z-index:99999;'
-          + 'box-shadow:0 0 30px rgba(0,229,255,0.15);backdrop-filter:blur(12px);';
-        t.innerHTML = 'To jest podgląd lokalny. Logowanie i rejestracja są dostępne tylko na '
-          + '<a href="https://adamzamorski10-alt.github.io/Training-coach/" target="_blank" style="color:#00e5ff;text-decoration:underline;">'
-          + 'stronie live</a>.';
-        document.body.appendChild(t);
-        setTimeout(function () {
-          if (t && t.parentNode) t.remove();
-        }, 5000);
-      }
-
       function openAuthModal(tab) {
-        if (!window.IS_LIVE_SITE) {
-          showPreviewNotice();
-          if (typeof enterDashboard === 'function') enterDashboard();
-          return;
-        }
         tab = tab || 'login';
         var m = document.getElementById('auth-modal');
         if (!m) return;
@@ -31934,6 +31905,9 @@
           localStorage.setItem('fitai_plan', data.plan || 'free');
           if (data.kcal_target) localStorage.setItem('fitai_kcal_target', String(data.kcal_target));
           if (data.protein_target) localStorage.setItem('fitai_protein_target', String(data.protein_target));
+          window.EVOLVE_AUTH_STATE = 'authenticated';
+          document.documentElement.classList.remove('auth-loading', 'auth-out');
+          document.documentElement.classList.add('auth-in');
 
           // ─── AKTUALIZUJ UI (navbar + profil) od razu po zalogowaniu ────────────
           (function updateNavAfterAuth() {
@@ -32015,15 +31989,12 @@
       }
 
       function openPanelOrAuth() {
-        var token = localStorage.getItem('fitai_token');
-        if (token && token.length > 20) {
-          // Mamy token — pokaż panel bezpośrednio
+        if (window.EVOLVE_AUTH_STATE === 'authenticated') {
           if (typeof enterDashboard === 'function') enterDashboard();
           else if (typeof showPanel === 'function') showPanel();
           else if (typeof showTab === 'function') showTab('my-day');
           else if (typeof initApp === 'function') initApp();
         } else {
-          // Brak tokenu — pokaż modal auth
           openAuthModal('login');
         }
       }
@@ -37441,7 +37412,7 @@
         document.getElementById('changePwdCurrent').value = '';
         document.getElementById('changePwdNew').value = '';
         document.getElementById('changePwdConfirm').value = '';
-        setTimeout(function () { if (typeof logout === 'function') logout(); }, 2000);
+        setTimeout(function () { if (typeof logoutUser === 'function') logoutUser(); }, 2000);
       }
     } catch (err) {
       showStatus('Błąd połączenia: ' + err.message, true);
@@ -37513,7 +37484,7 @@
         return;
       }
       alert('Twoje konto i wszystkie dane zostały trwale usunięte.');
-      if (typeof logout === 'function') logout();
+      if (typeof logoutUser === 'function') logoutUser();
       else location.reload();
     } catch (err) {
       if (errEl) { errEl.textContent = 'Błąd połączenia: ' + err.message; errEl.classList.remove('hidden'); }
