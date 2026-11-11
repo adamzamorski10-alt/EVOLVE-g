@@ -189,16 +189,10 @@ def _frontend_index_response(index_path: Path):
     dashboard_first_bootstrap = """<script id="evolve-auth-sync">
 (function() {
   try {
-    var token = localStorage.getItem('fitai_token');
-    if (token && token.length > 20) {
-      document.documentElement.classList.add('auth-in', 'evolve-dashboard-first');
-      document.documentElement.classList.remove('auth-out');
-    } else {
-      document.documentElement.classList.add('auth-out');
-      document.documentElement.classList.remove('auth-in', 'evolve-dashboard-first');
-    }
+    document.documentElement.classList.add('auth-loading');
+    document.documentElement.classList.remove('auth-in', 'auth-out', 'evolve-dashboard-first');
   } catch(e) {
-    document.documentElement.classList.add('auth-out');
+    document.documentElement.classList.add('auth-loading');
   }
 })();
 </script>
@@ -207,6 +201,8 @@ html.auth-in #landingPage { display: none !important; }
 html.auth-in #dashboardPage { display: flex !important; }
 html.auth-out #landingPage { display: block !important; }
 html.auth-out #dashboardPage { display: none !important; }
+html.auth-loading #landingPage,
+html.auth-loading #dashboardPage { display: none !important; }
 html.evolve-dashboard-first #landingPage { display: none !important; }
 html.evolve-dashboard-first #dashboardPage { display: flex !important; }
 html:not(.auth-in):not(.auth-out) #landingPage,
@@ -1237,6 +1233,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var dashboard = document.getElementById('dashboardPage');
 
   function setAuthState(authenticated) {
+    document.documentElement.classList.remove('auth-loading');
     document.documentElement.classList.toggle('auth-in', authenticated);
     document.documentElement.classList.toggle('evolve-dashboard-first', authenticated);
     document.documentElement.classList.toggle('auth-out', !authenticated);
@@ -1253,6 +1250,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function clearSessionAndShowLogin(message) {
+    localStorage.removeItem('fitai_token');
     [
       'fitai_token', 'fitai_refresh_token', 'fitai_user_id',
       'fitai_display_name', 'fitai_name', 'fitai_role', 'fitai_plan',
@@ -1314,9 +1312,7 @@ document.addEventListener('DOMContentLoaded', function () {
     setAuthState(true);
     if (typeof initApp === 'function') initApp();
   }).catch(function () {
-    // Keep valid-looking session during temporary network or offline failures.
-    setAuthState(true);
-    if (typeof initApp === 'function') initApp();
+    clearSessionAndShowLogin('Nie udało się zweryfikować sesji. Spróbuj zalogować się ponownie.');
   });
 });
 </script>"""

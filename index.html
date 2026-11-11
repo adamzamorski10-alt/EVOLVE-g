@@ -10221,6 +10221,32 @@
       return { dietPlan, trainingPlan };
     }
 
+    function createEmptyProfile(id, name) {
+      return {
+        id: id || '',
+        name: name || 'Użytkownik',
+        age: null,
+        height: null,
+        weight: null,
+        targetWeight: null,
+        gender: '',
+        frequency: '',
+        dietType: '',
+        mealsPerDay: 4,
+        allergies: '',
+        goal: '',
+        goals: [],
+        equipment: [],
+        exclusions: [],
+        sports: [],
+        completed: false,
+        caloriesTarget: 0,
+        proteinTarget: 0,
+        dietPlan: {},
+        trainingPlan: {},
+      };
+    }
+
     // ========== DEFAULT PROFILE ==========
     function createDefaultProfile(id, name, age = 28, height = 182, weight = 84.5, gender = 'mężczyzna') {
       const profile = {
@@ -10241,7 +10267,7 @@
     // ========== INIT ==========
     function initApp() {
       // Ustaw identityId z persystentnego ID urządzenia
-      state.identityId = window.FITAI_USER_ID || window._fitaiDeviceId || 'user_fallback';
+      state.identityId = localStorage.getItem('fitai_user_id') || '';
 
       // Prefill display_name z localStorage (natychmiast, przed API)
       (function prefillDisplayName() {
@@ -10268,33 +10294,29 @@
       })();
 
       // ── Jedno konto = jeden profil ────────────────────────────────────────
-      const saved = localStorage.getItem('fitai_user_data')
-        || localStorage.getItem('fitai_profiles_v3'); // migracja ze starego klucza
-      const savedLogs = localStorage.getItem('fitai_logs_v3');
-      const savedChecked = localStorage.getItem('fitai_checked_v3');
+      const userId = localStorage.getItem('fitai_user_id') || '';
+      const saved = userId
+        ? localStorage.getItem('fitai_user_data:' + userId)
+        : null;
+      const savedLogs = userId ? localStorage.getItem('fitai_logs_v3:' + userId) : null;
+      const savedChecked = userId ? localStorage.getItem('fitai_checked_v3:' + userId) : null;
 
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          // Obsłuż zarówno pojedynczy obiekt (nowy format) jak i tablicę (migracja)
-          state.profile = Array.isArray(parsed) ? parsed[0] : parsed;
+            state.profile = parsed;
         } catch (e) {
           console.warn('[initApp] Błąd parsowania profilu:', e);
         }
       }
 
       if (!state.profile) {
-        // Brak zapisanego profilu — utwórz domyślny
-        const p1 = createDefaultProfile('user1', 'Użytkownik');
-        const { tdee, protein } = calculateNutrition(p1);
-        p1.caloriesTarget = tdee; p1.proteinTarget = protein;
-        state.profile = p1;
-        saveState();
+        state.profile = createEmptyProfile(userId, localStorage.getItem('fitai_name') || 'Użytkownik');
       }
 
       if (savedLogs) state.dayLogs = JSON.parse(savedLogs);
       if (savedChecked) state.dayChecked = JSON.parse(savedChecked);
-      const savedExtras = localStorage.getItem('fitai_extras_v3');
+      const savedExtras = userId ? localStorage.getItem('fitai_extras_v3:' + userId) : null;
       if (savedExtras) state.extraItems = JSON.parse(savedExtras);
 
       document.getElementById('todayDate').textContent = new Date().toLocaleDateString('pl-PL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -10329,10 +10351,9 @@
     }
 
     function saveState() {
-      // Zapisz pojedynczy profil pod nowym kluczem 'fitai_user_data'
-      localStorage.setItem('fitai_user_data', JSON.stringify(state.profile));
-      // Utrzymuj też stary klucz dla kompatybilności
-      localStorage.setItem('fitai_profiles_v3', JSON.stringify(state.profile ? [state.profile] : []));
+      // Zapisz profil wyłącznie w przestrzeni aktualnego konta.
+      var userId = localStorage.getItem('fitai_user_id');
+      if (userId) localStorage.setItem('fitai_user_data:' + userId, JSON.stringify(state.profile));
       if (typeof persistCurrentPlan === 'function') persistCurrentPlan();
     }
 
@@ -10409,10 +10430,12 @@
       });
     }
     function saveLogs() {
-      localStorage.setItem('fitai_logs_v3', JSON.stringify(state.dayLogs));
+      var userId = localStorage.getItem('fitai_user_id');
+      if (userId) localStorage.setItem('fitai_logs_v3:' + userId, JSON.stringify(state.dayLogs));
     }
     function saveChecked() {
-      localStorage.setItem('fitai_checked_v3', JSON.stringify(state.dayChecked));
+      var userId = localStorage.getItem('fitai_user_id');
+      if (userId) localStorage.setItem('fitai_checked_v3:' + userId, JSON.stringify(state.dayChecked));
     }
 
     // ========== DATE-BASED MEAL KEY HELPERS (Single Source of Truth fix) ==========
@@ -11440,16 +11463,17 @@
         }
       }
       const token = localStorage.getItem('fitai_token');
+      const refreshToken = localStorage.getItem('fitai_refresh_token');
       const apiBase = window.API_BASE || 'http://localhost:8000';
 
       try {
         if (token) {
-          const res = await fetch(`${apiBase}/app/logout`, {
+          const res = await fetch(`${apiBase}/auth/logout`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
+            body: JSON.stringify({ refresh_token: refreshToken }),
           });
 
           if (res.ok) {
@@ -11555,7 +11579,7 @@
       const gender = document.getElementById('newProfileGender')?.value || 'mężczyzna';
       const height = parseInt(document.getElementById('newProfileHeight')?.value) || 170;
       const weight = parseFloat(document.getElementById('newProfileWeight')?.value) || 70;
-      const id = (state.profile?.id) || 'user1';
+      const id = (state.profile?.id) || localStorage.getItem('fitai_user_id') || '';
       const profile = createDefaultProfile(id, name, age, height, weight, gender);
       const { tdee, protein } = calculateNutrition(profile);
       profile.caloriesTarget = tdee; profile.proteinTarget = protein;
@@ -19375,7 +19399,8 @@
         item.kcal = 0; item.protein = 0;
       }
       state.extraItems[p.id].push(item);
-      localStorage.setItem('fitai_extras_v3', JSON.stringify(state.extraItems));
+      var userId = localStorage.getItem('fitai_user_id');
+      if (userId) localStorage.setItem('fitai_extras_v3:' + userId, JSON.stringify(state.extraItems));
       renderExtraItems();
       updateDaySummaryCounters();
       updateDayProgress();
@@ -19528,7 +19553,8 @@
         item.kcal = 0; item.protein = 0;
       }
       state.extraItems[p.id].push(item);
-      localStorage.setItem('fitai_extras_v3', JSON.stringify(state.extraItems));
+      var userId = localStorage.getItem('fitai_user_id');
+      if (userId) localStorage.setItem('fitai_extras_v3:' + userId, JSON.stringify(state.extraItems));
       closeAddOtherModal();
       renderExtraItems();
       updateDaySummaryCounters();
@@ -19557,7 +19583,8 @@
       const p = getCurrentProfile();
       if (!state.extraItems[p.id]) return;
       state.extraItems[p.id].splice(idx, 1);
-      localStorage.setItem('fitai_extras_v3', JSON.stringify(state.extraItems));
+      var userId = localStorage.getItem('fitai_user_id');
+      if (userId) localStorage.setItem('fitai_extras_v3:' + userId, JSON.stringify(state.extraItems));
       renderExtraItems();
       updateDaySummaryCounters();
       updateDayProgress();
@@ -20048,7 +20075,10 @@
       // push to history
       trainingLog.push(entry);
       state.dayLogs[p.id].training = trainingLog;
-      try { localStorage.setItem('fitai_logs_v3', JSON.stringify(state.dayLogs)); } catch (e) { console.warn('Failed to save logs', e); }
+      try {
+        var userId = localStorage.getItem('fitai_user_id');
+        if (userId) localStorage.setItem('fitai_logs_v3:' + userId, JSON.stringify(state.dayLogs));
+      } catch (e) { console.warn('Failed to save logs', e); }
 
       // detect PR (compare to previous entries excluding the one we just added)
       const pr = detectPR(p.id, ex.name, entry, trainingLog.slice(0, -1));
@@ -31895,6 +31925,7 @@
 
           // ─── ZAPISZ SESJĘ ───────────────────────────────────────────────────────
           localStorage.setItem('fitai_token', data.access_token);
+          if (data.refresh_token) localStorage.setItem('fitai_refresh_token', data.refresh_token);
           localStorage.setItem('fitai_user_id', data.user_id || '');
           localStorage.setItem('fitai_user_number', String(data.user_number || ''));
           localStorage.setItem('fitai_display_name', data.display_name || 'Użytkownik');
@@ -31919,19 +31950,16 @@
           })();
 
           // ─── ZAPISZ DANE DO state.profile (jedno konto = jeden profil) ────────
-          if (typeof state !== 'undefined' && typeof createDefaultProfile === 'function') {
-            var p = state.profile;
-            if (!p) {
-              p = createDefaultProfile(
-                data.user_id || 'user1',
-                data.name || data.display_name || 'Użytkownik'
-              );
-            }
+          if (typeof state !== 'undefined' && typeof createEmptyProfile === 'function') {
+            var p = createEmptyProfile(
+              data.user_id || '',
+              data.name || data.display_name || 'Użytkownik'
+            );
             p.name = data.name || p.name;
             p.displayName = data.display_name || p.displayName;
-            p.caloriesTarget = data.kcal_target || p.caloriesTarget;
-            p.proteinTarget = data.protein_target || p.proteinTarget;
-            p.completed = true;
+            p.caloriesTarget = data.kcal_target || 0;
+            p.proteinTarget = data.protein_target || 0;
+            p.completed = Boolean(p.completed);
             state.profile = p;
             if (typeof saveState === 'function') {
               window._suppressPlanPersist = true;
