@@ -36,6 +36,71 @@ W środowisku produkcyjnym aplikacja działa w trybie **fail-closed** (`get_env(
 
 ---
 
+## 2b. Render — Konfiguracja Deployu (buildCommand, migracje, zmienne)
+
+### `render.yaml` — obowiązkowa struktura
+
+```yaml
+services:
+  - type: web
+    name: fitai-api
+    runtime: python311
+    buildCommand: pip install -r requirements.txt && EVOLVE_ALEMBIC_CONTEXT=1 python -m alembic upgrade head
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        value: "https://twoja-domena.pl,http://localhost:3000,http://127.0.0.1:3000"
+      - key: ENV
+        value: production
+```
+
+**Dlaczego `EVOLVE_ALEMBIC_CONTEXT=1` musi być w `buildCommand`, a nie w `envVars`:**
+- Flaga jest ustawiana w `alembic/env.py:21` (`os.environ["EVOLVE_ALEMBIC_CONTEXT"] = "1"`) — ale tylko wtedy, gdy import `env.py` się powiedzie.
+- Jeśli ustawisz ją jako zmienną środowiskową serwisu, będzie dostępna w czasie runtime (startCommand), ale **nie w czasie buildu** — chyba że dodasz ją do `envVars`. Jednak `envVars` są injectowane **po** buildCommand, więc nie będą dostępne w `alembic upgrade head`.
+- **Rozwiązanie:** ustaw flagę bezpośrednio w `buildCommand` (`EVOLVE_ALEMBIC_CONTEXT=1 python -m alembic upgrade head`). Jest to jedyny sposób, aby była dostępna w czasie migracji.
+
+**`DATABASE_URL` w czasie buildu:**
+- Render udostępnia `DATABASE_URL` jako zmienną `sync: false` — jest ona dostępna w czasie buildu, ale nie jest wypisywana w logach.
+- `alembic/env.py:29-31` czyta `os.getenv("DATABASE_URL")` i nadpisuje placeholder `driver://user:pass` z `alembic.ini`.
+- **Uwaga:** na Renderze `DATABASE_URL` może mieć prefiks `postgres://` (bez `+psycopg`). `app/database.py:23-28` normalizuje go automatycznie do `postgresql+psycopg://`. W `alembic/env.py` surowy URL jest przekazany do SQLAlchemy, który również radzi sobie z prefiksem `postgres://` (psycopg akceptuje oba).
+
+### Scenariusz nieudanej migracji (idempotency)
+
+**Pytanie:** Jeśli migracja `evolve31` się wywała (tabela `refresh_tokens` nie istnieje, ale `alembic_version` wskazuje na `evolve31authhardening`), czy `upgrade head` przejdzie ponownie?
+
+**Odpowiedź:** **Tak, przejdzie.** Wszystkie migracje w `alembic/versions/` są idempotentne:
+
+| Migracja | Mechanizm idempotency |
+|----------|----------------------|
+| `evolve31_auth_hardening.py:64` | `if "refresh_tokens" not in tables:` — tworzy tabelę tylko jeśli nie istnieje |
+| `evolve31_auth_hardening.py:43-60` | `batch_op.add_column(...)` z checkami `if col_name not in existing_user_cols` |
+| `evolve31_auth_hardening.py:79-84` | `if "sport_attempts" in tables:` + checki indexed |
+| `evolve32_training_set_client_id.py:22-25` | `if "client_id" not in existing_cols:` |
+| `evolve30_restore_daily_log_legacy_fields.py:29-40` | `if name not in existing:` |
+
+**Testowany scenariusz:**
+1. Ustaw `alembic_version` na `evolve30restorelegacyfields`, usuń `refresh_tokens` → `upgrade head` przechodzi (od tworzy `evolve31` + `evolve32`).
+2. Ustaw `alembic_version` na `evolve31authhardening`, usuń `refresh_tokens` → `upgrade head` pomija `evolve31` (już oznaczony jako done) i przechodzi do `evolve32`.
+
+**Krok naprawczy (jeśli kiedykolwiek wystąpi błąd):**
+```bash
+# Na serwerze Render (bash w konsoli):
+EVOLVE_ALEMBIC_CONTEXT=1 python -m alembic upgrade head
+```
+Nie ma potrzeby ręcznego usuwania tabel — wszystkie migracje są idempotentne.
+
+---
+
 ## 3. Postępowanie z Kontem #01 i Rotacja Kluczy Po Wdrożeniu
 
 ### KROK 1: Kopia zapasowa bazy danych PRZED wdrożeniem
