@@ -3,6 +3,7 @@ Health Routes — Status checks, diagnostics
 """
 
 import os
+import re
 
 from fastapi import APIRouter
 
@@ -10,6 +11,17 @@ from app.config import APP_NAME, APP_VERSION
 from app.database import engine
 
 router = APIRouter(prefix="/health", tags=["health"])
+
+
+def _safe_db_error(exc) -> str:
+    """Bezpieczny komunikat błędu bazy — bez haseł i sekretów w URL."""
+    text = str(exc) or type(exc).__name__
+    text = re.sub(
+        r"[a-zA-Z][a-zA-Z0-9+.\-]*://[^@\s]+@([^\s]+)",
+        r"\1",
+        text,
+    )
+    return text[:300]
 
 
 @router.get("/", name="Health Check")
@@ -30,7 +42,7 @@ def health_check():
             conn.exec_driver_sql("SELECT 1")
         db_status = "connected"
     except Exception as exc:
-        db_status = f"error: {str(exc)}"
+        db_status = f"error: {_safe_db_error(exc)}"
 
     # Available AI providers
     ai_modes = []

@@ -68,7 +68,12 @@ def upgrade() -> None:
             sa.Column("user_id", sa.String(), sa.ForeignKey("users.id"), nullable=False),
             sa.Column("jti", sa.String(), nullable=False),
             sa.Column("expires_at", sa.DateTime(), nullable=False),
-            sa.Column("revoked", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+            sa.Column(
+                "revoked",
+                sa.Boolean(),
+                nullable=False,
+                server_default=sa.text("false"),
+            ),
             sa.Column("created_at", sa.DateTime(), nullable=False),
         )
         op.create_index("ix_refresh_tokens_user_id", "refresh_tokens", ["user_id"])

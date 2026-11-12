@@ -11,7 +11,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from slowapi import Limiter
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 from sqlmodel import Session, select
 
 from app.auth import (
@@ -71,71 +71,88 @@ def register(request: Request, payload: RegisterRequest):
     Rejestracja nowego użytkownika — tylko email i hasło.
     Numer użytkownika generowany automatycznie.
     """
-    with Session(engine) as session:
-        # Sprawdź unikalność e-maila
-        existing = session.exec(
-            select(UserDB).where(UserDB.email == payload.email.lower().strip())
-        ).first()
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Konto z tym e-mailem już istnieje",
-            )
+    try:
+        with Session(engine) as session:
+            return _register_inner(session, payload)
+    except (SQLAlchemyError, OperationalError) as exc:
+        logger.error(
+            "Database error during registration (email=%s): %s",
+            _safe_email_for_log(payload.email),
+            _safe_db_error_message(exc),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Błąd bazy danych — spróbuj ponownie za chwilę",
+        ) from exc
 
-        # Utwórz użytkownika BEZ user_number na razie — zostanie nadany atomowo poniżej
-        user = UserDB(
-            user_key=f"native:user:pending-{secrets.token_hex(8)}",
-            email=payload.email.lower().strip(),
-            name=(payload.name.strip() if payload.name and payload.name.strip() else "Użytkownik"),
-            hashed_password=hash_password(payload.password),
-            is_active=True,
-            token_version=1,
-            # Dane profilu: tylko jeśli podano w żądaniu; przy braku pozostają None
-            age=payload.age,
-            height=payload.height,
-            weight=payload.weight,
-            start_weight=payload.weight,
-            target_weight=payload.target_weight,
-            gender=payload.gender,
-            goal=payload.goal,
-            frequency=payload.frequency,
-            diet=payload.diet,
-            role="free_user",
-            plan="free",
+
+def _register_inner(session: Session, payload: RegisterRequest) -> TokenResponse:
+    """Wewnętrzna logika rejestracji — wywoływana z bezpiecznym envelope."""
+    # Sprawdź unikalność e-maila
+    existing = session.exec(
+        select(UserDB).where(UserDB.email == payload.email.lower().strip())
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Konto z tym e-mailem już istnieje",
         )
 
-        # Oblicz kalorie/białko TYLKO jeśli użytkownik podał komplet danych biometrycznych
-        if user.weight and user.height and user.age and user.gender:
-            user.calories_target = calc_calories(user)
-            user.protein_target = calc_protein(user)
+    # Utwórz użytkownika BEZ user_number na razie — zostanie nadany atomowo poniżej
+    user = UserDB(
+        user_key=f"native:user:pending-{secrets.token_hex(8)}",
+        email=payload.email.lower().strip(),
+        name=(payload.name.strip() if payload.name and payload.name.strip() else "Użytkownik"),
+        hashed_password=hash_password(payload.password),
+        is_active=True,
+        token_version=1,
+        # Dane profilu: tylko jeśli podano w żądaniu; przy braku pozostają None
+        age=payload.age,
+        height=payload.height,
+        weight=payload.weight,
+        start_weight=payload.weight,
+        target_weight=payload.target_weight,
+        gender=payload.gender,
+        goal=payload.goal,
+        frequency=payload.frequency,
+        diet=payload.diet,
+        role="free_user",
+        plan="free",
+    )
 
-        session.add(user)
-        session.flush()
+    # Oblicz kalorie/białko TYLKO jeśli użytkownik podał komplet danych biometrycznych
+    if user.weight and user.height and user.age and user.gender:
+        user.calories_target = calc_calories(user)
+        user.protein_target = calc_protein(user)
 
-        # Atomowy numer użytkownika przez dedykowaną tabelę sekwencji
-        seq_entry = UserNumberSequenceDB(user_id=user.id)
-        session.add(seq_entry)
-        session.flush()
+    session.add(user)
+    session.flush()
 
-        seq_num = seq_entry.id
-        user.user_number = seq_num
-        user.user_key = f"native:user:{seq_num}"
-        session.commit()
-        session.refresh(user)
+    # Atomowy numer użytkownika przez dedykowaną tabelę sekwencji
+    seq_entry = UserNumberSequenceDB(user_id=user.id)
+    session.add(seq_entry)
+    session.flush()
 
-        token = create_access_token(user.id, user.email, user.role, token_version=user.token_version)
-        refresh_tok = create_refresh_token(user.id, token_version=user.token_version, session=session)
-        session.commit()
-        return TokenResponse(
-            access_token=token,
-            refresh_token=refresh_tok,
-            user_id=user.id,
-            user_number=user.user_number,
-            display_name=user.display_name,
-            name=user.name,
-            role=user.role,
-            plan=user.plan,
-        )
+    seq_num = seq_entry.id
+    user.user_number = seq_num
+    user.user_key = f"native:user:{seq_num}"
+    session.commit()
+    session.refresh(user)
+
+    token = create_access_token(user.id, user.email, user.role, token_version=user.token_version)
+    refresh_tok = create_refresh_token(user.id, token_version=user.token_version, session=session)
+    session.commit()
+    return TokenResponse(
+        access_token=token,
+        refresh_token=refresh_tok,
+        user_id=user.id,
+        user_number=user.user_number,
+        display_name=user.display_name,
+        name=user.name,
+        role=user.role,
+        plan=user.plan,
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -145,46 +162,63 @@ def login(request: Request, payload: LoginRequest):
     Logowanie email + hasło. Zwraca JWT.
     Endpoint publiczny — nie wymaga tokena.
     """
-    with Session(engine) as session:
-        user = session.exec(
-            select(UserDB).where(UserDB.email == payload.email.lower().strip())
-        ).first()
-
-        # Celowo jednolity komunikat błędu — nie ujawniamy czy email istnieje
-        _INVALID = HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Nieprawidłowy e-mail lub hasło",
-            headers={"WWW-Authenticate": "Bearer"},
+    try:
+        with Session(engine) as session:
+            return _login_inner(session, payload)
+    except (SQLAlchemyError, OperationalError) as exc:
+        logger.error(
+            "Database error during login (email=%s): %s",
+            _safe_email_for_log(payload.email),
+            _safe_db_error_message(exc),
+            exc_info=True,
         )
-        if not user:
-            raise _INVALID
-        if not user.hashed_password:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="To konto używa logowania zewnętrznego (Netlify Identity). "
-                "Użyj oryginalnego dostawcy.",
-            )
-        if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Konto zostało zablokowane. Skontaktuj się z pomocą techniczną.",
-            )
-        if not verify_password(payload.password, user.hashed_password):
-            raise _INVALID
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Błąd bazy danych — spróbuj ponownie za chwilę",
+        ) from exc
 
-        token = create_access_token(user.id, user.email, user.role, token_version=user.token_version)
-        refresh_tok = create_refresh_token(user.id, token_version=user.token_version, session=session)
-        session.commit()
-        return TokenResponse(
-            access_token=token,
-            refresh_token=refresh_tok,
-            user_id=user.id,
-            user_number=user.user_number,
-            display_name=user.display_name,
-            name=user.name,
-            role=user.role,
-            plan=user.plan,
+
+def _login_inner(session: Session, payload: LoginRequest) -> TokenResponse:
+    """Wewnętrzna logika logowania — wywoływana z bezpiecznym envelope."""
+    user = session.exec(
+        select(UserDB).where(UserDB.email == payload.email.lower().strip())
+    ).first()
+
+    # Celowo jednolity komunikat błędu — nie ujawniamy czy email istnieje
+    _INVALID = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Nieprawidłowy e-mail lub hasło",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    if not user:
+        raise _INVALID
+    if not user.hashed_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="To konto używa logowania zewnętrznego (Netlify Identity). "
+            "Użyj oryginalnego dostawcy.",
         )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Konto zostało zablokowane. Skontaktuj się z pomocą techniczną.",
+        )
+    if not verify_password(payload.password, user.hashed_password):
+        raise _INVALID
+
+    token = create_access_token(user.id, user.email, user.role, token_version=user.token_version)
+    refresh_tok = create_refresh_token(user.id, token_version=user.token_version, session=session)
+    session.commit()
+    return TokenResponse(
+        access_token=token,
+        refresh_token=refresh_tok,
+        user_id=user.id,
+        user_number=user.user_number,
+        display_name=user.display_name,
+        name=user.name,
+        role=user.role,
+        plan=user.plan,
+    )
 
 
 @router.get("/me")
@@ -560,3 +594,36 @@ def create_or_update_user(user_id: str, profile: UserProfile):
         status_code=status.HTTP_410_GONE,
         detail="Ten endpoint jest wyłączony. Użyj POST /auth/register.",
     )
+
+
+# ─── Bezpieczne logowanie błędów ──────────────────────────────────────────────
+
+def _safe_email_for_log(email: str) -> str:
+    """Zwraca e-mail w bezpiecznej formie do logów — bez wycieku detailów."""
+    if not email:
+        return "<empty>"
+    # Pokaż tylko prefix i domenę, bez pełnego adresu w logach (GDPR-ish)
+    cleaned = email.strip().lower()
+    if "@" not in cleaned:
+        return "<invalid>"
+    local, _, domain = cleaned.partition("@")
+    if len(local) <= 3:
+        masked = local[0] + "***"
+    else:
+        masked = local[:2] + "***"
+    return f"{masked}@{domain}"
+
+
+def _safe_db_error_message(exc) -> str:
+    """Zwraca opisowy komunikat błędu bazy bez wycieku haseł i sekretów.
+
+    Usuwa ewentualne fragmenty URL (user:pass@host) oraz obcina do 300 znaków.
+    """
+    text = str(exc) or type(exc).__name__
+    import re
+    text = re.sub(
+        r"[a-zA-Z][a-zA-Z0-9+.\-]*://[^@\s]+@([^\s]+)",
+        r"\1",
+        text,
+    )
+    return text[:300]

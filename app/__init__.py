@@ -116,6 +116,15 @@ app.include_router(legacy_router)
 @app.exception_handler(SQLAlchemyError)
 async def sqlalchemy_exception_handler(request, exc):
     """Handle SQLAlchemy errors with proper logging."""
+    import logging
+    _log = logging.getLogger("fitai.database")
+    _log.error(
+        "Database error on %s %s: %s",
+        request.method,
+        request.url.path,
+        _safe_db_error_message(exc),
+        exc_info=True,
+    )
     return JSONResponse(
         status_code=500,
         content={"detail": "Database error — please try again later"},
@@ -125,6 +134,15 @@ async def sqlalchemy_exception_handler(request, exc):
 @app.exception_handler(OperationalError)
 async def operational_error_handler(request, exc):
     """Handle database connection errors."""
+    import logging
+    _log = logging.getLogger("fitai.database")
+    _log.error(
+        "Database connection error on %s %s: %s",
+        request.method,
+        request.url.path,
+        _safe_db_error_message(exc),
+        exc_info=True,
+    )
     return JSONResponse(
         status_code=503,
         content={"detail": "Database connection error — please try again"},
@@ -134,6 +152,15 @@ async def operational_error_handler(request, exc):
 @app.exception_handler(Exception)
 async def generic_exception_handler(request, exc):
     """Catch-all for unexpected errors."""
+    import logging
+    _log = logging.getLogger("fitai.app")
+    _log.error(
+        "Unhandled exception on %s %s: %s",
+        request.method,
+        request.url.path,
+        _safe_error_message(exc),
+        exc_info=True,
+    )
     if DEBUG:
         return JSONResponse(
             status_code=500,
@@ -143,6 +170,25 @@ async def generic_exception_handler(request, exc):
         status_code=500,
         content={"detail": "Internal server error"},
     )
+
+
+def _safe_db_error_message(exc) -> str:
+    """Zwraca bezpieczny, opisowy komunikat błędu bazy bez wycieku sekretów.
+
+    W logach nie pojawiają się hasła, tokeny ani szczegółowe informacje
+    o konfiguracji połączenia (np. user:password@host).
+    """
+    text = str(exc) or type(exc).__name__
+    # Usuń ewentualne fragmenty URL z połączenia (user:pass@host)
+    import re
+    text = re.sub(r"[a-zA-Z][a-zA-Z0-9+.\-]*://[^@\s]+@([^\s]+)", r"\1", text)
+    return text
+
+
+def _safe_error_message(exc) -> str:
+    """Bezpieczny komunikat do logów — bez wrażliwych danych."""
+    text = str(exc) or type(exc).__name__
+    return text[:500]
 
 
 # ════════════════════════════════════════════════════════════════════════════════
