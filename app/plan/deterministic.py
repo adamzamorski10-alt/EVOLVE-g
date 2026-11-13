@@ -59,45 +59,109 @@ def _frequency_days(value: str | None) -> int:
     return max(1, min(6, max(numbers)))
 
 
+# Map polskiego nazwy sprzętu użytkownika na kanoniczne angielskie klucze z app.exercises.
+_EQUIPMENT_PL_TO_EN: dict[str, str] = {
+    "sztanga": "barbell",
+    "sztanga olimpijska": "barbell",
+    "hantle": "dumbbell",
+    "hantle regulowane": "dumbbell",
+    "kettlebell": "kettlebell",
+    "maszyny": "machine",
+    "maszyna": "machine",
+    "wyciąg": "cable",
+    "kabel": "cable",
+    "ławka": "bench",
+    "ławce": "bench",
+    "drążek": "pullup_bar",
+    "poręcz": "dip_station",
+    "poręcze": "dip_station",
+    "dip_station": "dip_station",
+    "pullup_bar": "pullup_bar",
+    "bands": "bands",
+    "taśmy": "bands",
+    "bodyweight": "bodyweight",
+    "masa własna": "bodyweight",
+    # Specjalne markery oznaczające pełny dostęp:
+    "siłownia": "gym",
+    "gym": "gym",
+    "full": "gym",
+}
+
+
 def _equipment_aliases(items: list[str]) -> set[str]:
-    aliases = {
-        "sztanga olimpijska": "sztanga",
-        "hantle regulowane": "hantle",
-        "wyciąg": "wyciąg",
-        "maszyny": "maszyny",
-        "siłownia": "siłownia",
-    }
-    return {aliases.get(item.strip().lower(), item.strip().lower()) for item in items if item and item.strip()}
+    """Zwraca kanoniczne nazwy sprzętu (angielskie klucze z app.exercises)."""
+    out: set[str] = set()
+    for item in items:
+        if not item or not item.strip():
+            continue
+        key = item.strip().lower()
+        out.add(_EQUIPMENT_PL_TO_EN.get(key, key))
+    return out
 
 
-def _exercise_required_equipment(name: str) -> set[str]:
-    n = name.lower()
-    required: set[str] = set()
-    if "sztang" in n:
-        required.add("sztanga")
-    if "hantl" in n:
-        required.add("hantle")
-    if "kettlebell" in n:
-        required.add("kettlebell")
-    if any(token in n for token in ("maszyn", "leg press", "pec deck", "hammer")):
-        required.add("maszyny")
-    if any(token in n for token in ("kabel", "brama")):
-        required.add("wyciąg")
-    if "poręcz" in n:
-        required.add("poręcze")
-    if "ławce" in n or "ławka" in n:
-        required.add("ławka")
-    return required
+def _exercise_equipment_en(name: str) -> set[str] | None:
+    """Zwraca zestaw sprzętu wymaganego przez ćwiczenie (z app.exercises) lub None gdy nieznane."""
+    from app.exercises.data import get_exercise, list_exercises
+
+    ex = get_exercise(name)  # po id (slug)
+    if ex is None:
+        key = name.strip().lower()
+        for candidate in list_exercises():
+            if candidate.name_pl.strip().lower() == key:
+                ex = candidate
+                break
+            if any(a.strip().lower() == key for a in candidate.aliases):
+                ex = candidate
+                break
+    if ex is None:
+        return None
+    return set(ex.equipment)
 
 
 def _exercise_allowed(name: str, equipment: set[str], avoid_exercises: list[str]) -> bool:
     lowered = name.lower()
     if any(term.lower() in lowered for term in avoid_exercises if term):
         return False
-    if not equipment or "siłownia" in equipment or "gym" in equipment:
+
+    # Pełna siłownia / gym → wszystko dozwolone.
+    if "gym" in equipment:
         return True
-    required = _exercise_required_equipment(name)
-    return not required or required.issubset(equipment)
+
+    # Pusta lista sprzętu = preset "masa własna" → tylko ćwiczenia bez sprzętu.
+    if not equipment:
+        req = _exercise_equipment_en(name)
+        if req is not None:
+            return req <= {"bodyweight"}
+        # Fallback dla nieznanego ćwiczenia: odrzucaj (bezpieczniej niż domyślne zezwolenie).
+        return False
+
+    req = _exercise_equipment_en(name)
+    if req is not None:
+        # Ćwiczenia własnym ciałem zawsze dozwolone (nie wymagają sprzętu).
+        if req <= {"bodyweight"}:
+            return True
+        return req.issubset(equipment)
+
+    # Fallback: starsze wnioskowanie z nazwy dla ćwiczeń spoza nowej bazy.
+    required: set[str] = set()
+    n = lowered
+    if "sztang" in n:
+        required.add("barbell")
+    if "hantl" in n:
+        required.add("dumbbell")
+    if "kettlebell" in n:
+        required.add("kettlebell")
+    if any(token in n for token in ("maszyn", "leg press", "pec deck", "hammer")):
+        required.add("machine")
+    if any(token in n for token in ("kabel", "brama")):
+        required.add("cable")
+    if "poręcz" in n or "dip" in n:
+        required.add("dip_station")
+    if "drążek" in n or "pullup" in n or "podciąg" in n:
+        required.add("pullup_bar")
+    if "ławce" in n or "ławka" in n:
+        required.add("bench")
+    return required.issubset(equipment)
 
 
 def _assessment_value(assessment: Any, field: str, default: Any = None) -> Any:

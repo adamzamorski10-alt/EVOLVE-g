@@ -532,30 +532,66 @@ def get_how_to(name: str, is_drill: bool = False) -> str:
     """
     Zwraca opis 'how_to' dla podanej nazwy ćwiczenia lub drilla.
 
+    Dla ćwiczeń (is_drill=False) czyta z jednolitego źródła danych
+    (app.exercises.data.EXERCISES). Dla drilli (is_drill=True) nadal
+    używa DRILL_HOW_TO.
+
     Algorytm:
-      1. Sprawdź dokładne dopasowanie (exact match) po lowercase.
-      2. Jeśli brak – sprawdź, czy któryś klucz w słowniku jest *zawarty* w name.lower()
-         (substring fallback, np. 'Pull-up po jednym kozie' → klucz 'pull-up').
-      3. Jeśli nadal brak – zwróć pusty string "".
+      1. Sprawdź dokładne dopasowanie (exact match) po lowercase name_pl.
+      2. Jeśli brak – sprawdź aliasy ćwiczenia.
+      3. Jeśli nadal brak – sprawdź substring fallback (klucz zawarty w name).
+      4. Jeśli nadal brak – zwróć pusty string "".
 
     Args:
         name:     Nazwa ćwiczenia/drilla (dowolna wielkość liter).
-        is_drill: True jeśli szukamy w DRILL_HOW_TO, False dla EXERCISE_HOW_TO.
+        is_drill: True jeśli szukamy w DRILL_HOW_TO, False dla ćwiczeń.
 
     Returns:
         Opis str lub "" gdy brak wpisu.
     """
-    lookup: dict[str, str] = DRILL_HOW_TO if is_drill else EXERCISE_HOW_TO
+    if is_drill:
+        lookup: dict[str, str] = DRILL_HOW_TO
+        key = name.strip().lower()
+        if key in lookup:
+            return lookup[key]
+        for dict_key, description in lookup.items():
+            if dict_key in key:
+                return description
+        return ""
+
     key = name.strip().lower()
 
-    # 1. Exact match
-    if key in lookup:
-        return lookup[key]
-
-    # 2. Substring fallback – szukamy klucza zawartego w nazwie ćwiczenia
-    for dict_key, description in lookup.items():
+    # Fallback do starego słownika EXERCISE_HOW_TO jest sprawdzany jako pierwszy
+    # (zachowuje dokładne zachowanie testów i starszych wywołań); jeśli brak wpisu,
+    # czytamy z jednolitego źródła app.exercises.
+    if key in EXERCISE_HOW_TO:
+        return EXERCISE_HOW_TO[key]
+    for dict_key, description in EXERCISE_HOW_TO.items():
         if dict_key in key:
             return description
 
-    # 3. Brak wpisu
+    # Ćwiczenia – jednolite źródło danych (app.exercises).
+    from app.exercises.data import get_exercise, list_exercises
+
+    ex = get_exercise(key)  # po id (slug)
+    if ex is None:
+        for candidate in list_exercises():
+            if candidate.name_pl.strip().lower() == key:
+                ex = candidate
+                break
+            if any(a.strip().lower() == key for a in candidate.aliases):
+                ex = candidate
+                break
+    if ex is not None and ex.description.summary:
+        return ex.description.summary
+
+    # Substring fallback w nowej bazie
+    for candidate in list_exercises():
+        cname = candidate.name_pl.strip().lower()
+        if cname and cname in key:
+            return candidate.description.summary or ""
+        for a in candidate.aliases:
+            if a.strip().lower() and a.strip().lower() in key:
+                return candidate.description.summary or ""
+
     return ""
