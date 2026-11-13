@@ -30,6 +30,11 @@ EXERCISE_POOL_DEFINITION: dict[str, list[dict]] = {
         {"exercise_id": "dips", "sets": "3", "reps": "8-12", "notes": "Łokcie blisko tułowia, nie rozchylaj ich na boki."},
         {"exercise_id": "weighted_wide_pushups", "sets": "3", "reps": "10-15", "notes": "Talerz na plecach, sztywny tułów."},
         {"exercise_id": "hammer_machine_press", "sets": "3", "reps": "10-12", "notes": "Oparcie ławki ustawione pionowo lub lekko odchylone."},
+        {"exercise_id": "floor_press", "sets": "3", "reps": "8-12", "notes": "Wyciskanie hantli leżąc na podłodze, łokcie wzdłuż tułowia."},
+        {"exercise_id": "floor_fly", "sets": "3", "reps": "10-15", "notes": "Rozpiętki hantlami na podłodze, lekko ugięte łokcie."},
+        {"exercise_id": "pushups_classic", "sets": "3", "reps": "8-15", "notes": "Ciało w jednej linii, brzuch napięty."},
+        {"exercise_id": "pushups_knee", "sets": "3", "reps": "10-15", "notes": "Łatwiejszy wariant pompek na kolanach."},
+        {"exercise_id": "pushups_feet_elevated", "sets": "3", "reps": "8-12", "notes": "Nogi na podwyższeniu, więcej pracy na górną klatkę."},
     ],
     "nogi": [
         {"exercise_id": "back_squat", "sets": "4", "reps": "6-8", "notes": "Neutralny kręgosłup, kolana podążają za stopami."},
@@ -50,6 +55,9 @@ EXERCISE_POOL_DEFINITION: dict[str, list[dict]] = {
         {"exercise_id": "lat_pulldown", "sets": "3", "reps": "10-12", "notes": "Aktywuj łopatki przed ruchem (scapular pull)."},
         {"exercise_id": "seated_cable_row", "sets": "3", "reps": "10-12", "notes": "Łokcie przy tułowiu przez cały ruch."},
         {"exercise_id": "barbell_shrugs", "sets": "3", "reps": "12-15", "notes": "Maksymalna izolacja czworobocznego."},
+        {"exercise_id": "australian_pullup", "sets": "3", "reps": "8-12", "notes": "Podciąganie australijskie pod stołem lub niską poręczą."},
+        {"exercise_id": "bent_over_row_db", "sets": "3", "reps": "8-12", "notes": "Wiosłowanie hantlami w opadzie tułowia."},
+        {"exercise_id": "one_arm_row_thigh", "sets": "3", "reps": "8-12/strona", "notes": "Wiosłowanie jednorącz z oparciem o udo."},
     ],
     "barki": [
         {"exercise_id": "overhead_press", "sets": "4", "reps": "6-8", "notes": "Brak przeprostu lędźwi, aktywny brzuch."},
@@ -59,6 +67,8 @@ EXERCISE_POOL_DEFINITION: dict[str, list[dict]] = {
         {"exercise_id": "front_raise", "sets": "3", "reps": "10-12", "notes": "Łokcie przy tułowiu przez cały ruch."},
         {"exercise_id": "face_pull", "sets": "4", "reps": "15-20", "notes": "Monitoruj tętno – sprint >85% HRmax, marsz <65%."},
         {"exercise_id": "rear_delt_fly", "sets": "3", "reps": "12-15", "notes": "Odpoczynek 30 s między seriami."},
+        {"exercise_id": "pike_pushup", "sets": "3", "reps": "6-10", "notes": "Pike push-up - barki bez sprzętu."},
+        {"exercise_id": "reverse_fly_db", "sets": "3", "reps": "12-15", "notes": "Odwodzenie hantli w opadzie - tylne deltoidy."},
     ],
     "biceps": [
         {"exercise_id": "barbell_curl", "sets": "4", "reps": "8-10", "notes": "Brak bujania tułowia, łokcie przy boku."},
@@ -75,6 +85,9 @@ EXERCISE_POOL_DEFINITION: dict[str, list[dict]] = {
         {"exercise_id": "french_press", "sets": "3", "reps": "10-12", "notes": "Łokcie blisko tułowia, nie rozchylaj ich."},
         {"exercise_id": "triceps_kickback", "sets": "3", "reps": "12-15/strona", "notes": "Ramię przy boku, nie ruszaj go podczas ruchu."},
         {"exercise_id": "dips", "sets": "3", "reps": "8-12", "notes": "Długa głowa tricepsa – ruch ponad głowę."},
+        {"exercise_id": "pushups_diamond", "sets": "3", "reps": "8-12", "notes": "Pompki diamentowe - triceps bez sprzętu."},
+        {"exercise_id": "french_press_db_two_hand", "sets": "3", "reps": "10-12", "notes": "Francuskie wyciskanie hantli oburącz zza głowy."},
+        {"exercise_id": "kickback_db_bent", "sets": "3", "reps": "10-15/strona", "notes": "Prostowanie ramion w opadzie - triceps z hantlem."},
     ],
     "brzuch": [
         {"exercise_id": "plank", "sets": "3", "reps": "45-60 s", "notes": "Linia barków-biodra-kostka, brak opadania bioder."},
@@ -84,6 +97,8 @@ EXERCISE_POOL_DEFINITION: dict[str, list[dict]] = {
         {"exercise_id": "hollow_body_hold", "sets": "3", "reps": "30-45 s", "notes": "Lędźwie DOCIŚNIJTE do podłogi przez cały ruch."},
         {"exercise_id": "cable_crunch", "sets": "3", "reps": "15-20", "notes": "Tempo średnie, 500m split ~2:20-2:40."},
         {"exercise_id": "side_plank", "sets": "3", "reps": "8/strona", "notes": "Linia barków-biodra-kostka, brak opadania bioder."},
+        {"exercise_id": "superman", "sets": "3", "reps": "10-15", "notes": "Superman - wzmacnianie dolnej części pleców."},
+        {"exercise_id": "reverse_snow_angel", "sets": "3", "reps": "10-15", "notes": "Reverse snow angel - barki i górne plecy."},
     ],
     "full body": [
         {"exercise_id": "conventional_deadlift", "sets": "4", "reps": "5-6", "notes": "Wzorzec ruchowy numer jeden – cały łańcuch tylny."},

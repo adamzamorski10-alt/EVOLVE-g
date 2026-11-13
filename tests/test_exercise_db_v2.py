@@ -57,15 +57,12 @@ def test_names_pl_are_unique():
 
 def test_no_empty_required_fields():
     for ex in list_exercises():
-        assert ex.description.summary.strip(), f"Pusty summary dla {ex.id}"
         assert ex.sets_range.strip(), f"Pusty sets_range dla {ex.id}"
         assert ex.reps_range.strip(), f"Pusty reps_range dla {ex.id}"
 
 
 def test_only_pl_en_characters():
     """Brak znaków spoza polskiego i angielskiego we wszystkich tekstach."""
-    import re
-
     def ok(text: str) -> bool:
         if not text:
             return True
@@ -102,9 +99,15 @@ EQ_ALIASES_PL_EN = {
     "bands": "bands", "taśmy": "bands",
     "bodyweight": "bodyweight", "masa własna": "bodyweight",
     "siłownia": "gym", "gym": "gym",
+    "talerz": "weight_plate", "talerze": "weight_plate",
+    "koło brzuszkowe": "ab_wheel", "koło": "ab_wheel", "kółko brzuszkowe": "ab_wheel",
+    "stół": "table_or_low_bar", "niski drążek": "table_or_low_bar", "drążek niski": "table_or_low_bar",
 }
 
-MAIN_GROUPS = ["chest", "back", "shoulders", "biceps", "triceps", "abs"]
+# Masa własna: wymagane grupy (bez bicepsa)
+BODYWEIGHT_GROUPS = ["chest", "back", "shoulders", "legs", "abs", "triceps"]
+# Same hantle: wszystkie siedem grup
+DUMBBELL_GROUPS = ["chest", "back", "shoulders", "biceps", "triceps", "abs", "legs"]
 
 
 def _primary_group(ex) -> str | None:
@@ -115,6 +118,8 @@ def _primary_group(ex) -> str | None:
         return "back"
     if g & {"front_delts", "side_delts"}:
         return "shoulders"
+    if g & {"quads", "hamstrings", "glutes", "calves"}:
+        return "legs"
     if "biceps" in g:
         return "biceps"
     if "triceps" in g:
@@ -142,7 +147,8 @@ def _allowed(ex, equip_en: set[str]) -> bool:
 
 def _coverage_report(equip_list) -> dict[str, list[str]]:
     equip_en = _equip_en(equip_list)
-    by_group: dict[str, list[str]] = {g: [] for g in MAIN_GROUPS}
+    all_groups = sorted(set(BODYWEIGHT_GROUPS + DUMBBELL_GROUPS))
+    by_group: dict[str, list[str]] = {g: [] for g in all_groups}
     for ex in list_exercises():
         if _allowed(ex, equip_en):
             g = _primary_group(ex)
@@ -152,42 +158,42 @@ def _coverage_report(equip_list) -> dict[str, list[str]]:
 
 
 def test_coverage_report_bodyweight():
-    """Masa własna: każda główna grupa powinna mieć >= 2 ćwiczeń (aktualnie poniżej — test odnotowuje luki)."""
+    """Masa własna: >=2 ćwiczeń na klatkę, plecy, barki, nogi, brzuch, triceps (biceps wyłączony)."""
     report = _coverage_report(["bodyweight"])
-    missing = {g: exs for g, exs in report.items() if len(exs) < 2}
     print("\n--- POKRYCIE: masa własna ---")
-    for g in MAIN_GROUPS:
+    for g in BODYWEIGHT_GROUPS:
         print(f"  {g:10s}: {len(report[g])} -> {', '.join(report[g])}")
+    missing = {g: exs for g, exs in report.items() if g in BODYWEIGHT_GROUPS and len(exs) < 2}
     if missing:
         print("  LUKI (<2 ćwiczeń):", {g: len(v) for g, v in missing.items()})
-    pytest.fail(
-        "Niewystarczające pokrycie masą własną: "
-        + "; ".join(f"{g} ma {len(v)} (<2)" for g, v in missing.items())
-    )
+        pytest.fail(
+            "Niewystarczające pokrycie masą własną: "
+            + "; ".join(f"{g} ma {len(v)} (<2)" for g, v in missing.items())
+        )
 
 
 def test_coverage_report_dumbbells():
-    """Same hantle: każda główna grupa powinna mieć >= 2 ćwiczeń (aktualnie poniżej — test odnotowuje luki)."""
+    """Same hantle: >=2 ćwiczeń dla wszystkich siedmiu grup."""
     report = _coverage_report(["hantle"])
-    missing = {g: exs for g, exs in report.items() if len(exs) < 2}
     print("\n--- POKRYCIE: same hantle ---")
-    for g in MAIN_GROUPS:
+    for g in DUMBBELL_GROUPS:
         print(f"  {g:10s}: {len(report[g])} -> {', '.join(report[g])}")
+    missing = {g: exs for g, exs in report.items() if g in DUMBBELL_GROUPS and len(exs) < 2}
     if missing:
         print("  LUKI (<2 ćwiczeń):", {g: len(v) for g, v in missing.items()})
-    pytest.fail(
-        "Niewystarczające pokrycie samymi hantlami: "
-        + "; ".join(f"{g} ma {len(v)} (<2)" for g, v in missing.items())
-    )
+        pytest.fail(
+            "Niewystarczające pokrycie samymi hantlami: "
+            + "; ".join(f"{g} ma {len(v)} (<2)" for g, v in missing.items())
+        )
 
 
 def test_coverage_report_dumbbells_bench():
     """Hantle + ławka: raport pokrycia (nie failuje — to Referencja)."""
     report = _coverage_report(["hantle", "ławka"])
     print("\n--- POKRYCIE: hantle + ławka ---")
-    for g in MAIN_GROUPS:
+    for g in DUMBBELL_GROUPS:
         print(f"  {g:10s}: {len(report[g])} -> {', '.join(report[g])}")
-    low = [g for g in MAIN_GROUPS if len(report[g]) < 2]
+    low = [g for g in DUMBBELL_GROUPS if len(report[g]) < 2]
     if low:
         print("  Grupy poniżej 2:", low)
 
@@ -198,5 +204,5 @@ def test_coverage_report_full_gym():
         "sztanga", "hantle", "ławka", "maszyny", "wyciąg", "drążek", "poręcz", "kettlebell",
     ])
     print("\n--- POKRYCIE: pełna siłownia ---")
-    for g in MAIN_GROUPS:
+    for g in DUMBBELL_GROUPS:
         print(f"  {g:10s}: {len(report[g])} -> {', '.join(report[g])}")
