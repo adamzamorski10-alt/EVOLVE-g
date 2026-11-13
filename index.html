@@ -26,9 +26,9 @@
     window.IS_LIVE_SITE = (location.protocol !== 'file:');
     window.FEATURE_FLAGS = {
       strength: true,
-      sport: false,
-      nutrition: false,
-      recovery: false,
+      sport: true,
+      nutrition: true,
+      recovery: true,
       kuchnia_ai: false
     };
   </script>
@@ -309,11 +309,6 @@
     .nav-item:hover:not(.active) {
       background: rgba(255, 255, 255, 0.05);
       color: var(--text);
-    }
-
-    /* Strength MVP: hide non-strength modules */
-    .non-strength-module {
-      display: none !important;
     }
 
     /* ── AI Plan output ─────────────────────────────────────────────── */
@@ -2091,26 +2086,30 @@
         <a href="#my-day" onclick="showTab('my-day'); return false;" data-tab="my-day"
           class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-cyan-400 active"
           title="Dzisiejsze centrum dowodzenia"><span>⚡</span><span>Dziś</span></a>
-        <a href="#" onclick="showTab('sport'); return false;" data-tab="basketball" class="nav-item non-strength-module flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"
-          title="Umiejętności sportowe, motoryka i drille"><span>🏀</span><span>Sport</span></a>
         <a href="#" onclick="showTab('training'); return false;" data-tab="training"
           class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"
           title="Tygodniowy plan: siła, motoryka, sport"><span>📅</span><span>Plan</span></a>
         <a href="#" onclick="window.evolveStartTraining(); return false;" data-tab="live-workout"
           class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"
           title="Rozpocznij trening na żywo"><span>🏋️</span><span>Trening</span></a>
-        <a href="#" onclick="showTab('diet'); return false;" data-tab="diet" class="nav-item non-strength-module flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"
-          title="Paliwo sportowe i makroskładniki"><span>🥗</span><span>Odżywianie</span></a>
-        <a href="#" onclick="showTab('recovery'); return false;" data-tab="recovery" class="nav-item non-strength-module flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"
-          title="Sen, gotowość i zmęczenie"><span>🔋</span><span>Regeneracja</span></a>
         <a href="#" onclick="showTab('postepy'); return false;" data-tab="postepy"
           class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"
           title="Wykresy wyskoku, siły i celności"><span>📈</span><span>Postępy</span></a>
-        <a href="#" onclick="showTab('assessment'); return false;" data-tab="assessment" class="nav-item non-strength-module flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"
-          title="Ocena wyjściowa i generowanie planu"><span>📋</span><span>Assessment & Baza</span></a>
-        <div style="height:1px;background:rgba(255,255,255,0.06);margin:8px 0;"></div>
         <a href="#" onclick="showTab('profile'); return false;" data-tab="profile"
           class="nav-item flex items-center gap-3 p-2.5 text-xs font-medium text-gray-500 hover:text-gray-300"><span>👤</span><span>Profil</span></a>
+        <div style="height:1px;background:rgba(255,255,255,0.06);margin:8px 0;"></div>
+        <a href="#" onclick="showTab('sport'); return false;" data-tab="basketball" data-flag="sport"
+          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"
+          title="Umiejętności sportowe, motoryka i drille"><span>🏀</span><span>Sport</span> <span class="text-xs bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 px-2 py-0.5 rounded ml-2">beta</span></a>
+        <a href="#" onclick="showTab('diet'); return false;" data-tab="diet" data-flag="nutrition"
+          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"
+          title="Paliwo sportowe i makroskładniki"><span>🥗</span><span>Odżywianie</span> <span class="text-xs bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 px-2 py-0.5 rounded ml-2">beta</span></a>
+        <a href="#" onclick="showTab('recovery'); return false;" data-tab="recovery" data-flag="recovery"
+          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"
+          title="Sen, gotowość i zmęczenie"><span>🔋</span><span>Regeneracja</span> <span class="text-xs bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 px-2 py-0.5 rounded ml-2">beta</span></a>
+        <a href="#" onclick="showTab('assessment'); return false;" data-tab="assessment"
+          class="nav-item flex items-center gap-3 p-3 text-sm font-medium text-gray-400 hover:text-white"
+          title="Ocena wyjściowa i generowanie planu"><span>📋</span><span>Assessment & Baza</span></a>
       </nav>
       <div class="glass rounded-2xl p-4">
         <p class="text-xs font-bold text-gray-500 uppercase mb-3">Twój Fundament</p>
@@ -2577,7 +2576,7 @@
 
             <!-- Koszykówka -->
             <div id="todayBasketballCard"
-              class="glass p-5 rounded-2xl flex flex-col justify-between non-strength-module"
+              class="glass p-5 rounded-2xl flex flex-col justify-between"
               style="border-color:rgba(0,229,255,0.25);background:rgba(0,229,255,0.03);">
               <div>
                 <div class="flex items-center justify-between mb-2">
@@ -2618,7 +2617,7 @@
           </div>
 
           <!-- Karta Dieta na dziś -->
-          <div id="todayDietCard" class="glass mt-4 p-5 rounded-2xl non-strength-module"
+          <div id="todayDietCard" class="glass mt-4 p-5 rounded-2xl"
             style="border-color:rgba(34,197,94,0.2);background:rgba(34,197,94,0.03);">
             <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div class="flex items-center gap-2">
@@ -10276,6 +10275,15 @@
       return profile;
     }
 
+    function updateNavVisibility() {
+      if (!window.FEATURE_FLAGS) return;
+      document.querySelectorAll('.nav-item[data-flag]').forEach(function (el) {
+        var flag = el.getAttribute('data-flag');
+        var visible = window.FEATURE_FLAGS[flag] !== false;
+        el.style.display = visible ? '' : 'none';
+      });
+    }
+
     // ========== INIT ==========
     function initApp() {
       // Ustaw identityId z persystentnego ID urządzenia
@@ -10360,6 +10368,8 @@
       ['pAge', 'pWeight', 'pHeight', 'pGender', 'pFrequency', 'pGoal'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', _recalcProfile);
       });
+
+      try { updateNavVisibility(); } catch (e) { console.error('[initApp] updateNavVisibility() failed:', e); }
     }
 
     function saveState() {

@@ -160,28 +160,38 @@ def test_f3_scratch_files_not_in_git():
     assert not found_scratches, f"Scratch files in git: {found_scratches}"
 
 
-# ── E2: Non-strength modules hidden in UI ────────────────────────────────────
+# ── E2: Non-strength modules gated by FEATURE flags ──────────────────────────────
 
-def test_e2_non_strength_modules_have_hide_class():
-    """Elementy nawigacji dla sport, dieta, recovery mają klasę non-strength-module."""
+def test_e2_feature_flags_enable_sport_diet_recovery():
+    """FEATURE flags sport, nutrition, recovery are enabled (true)."""
     content = INDEX_HTML.read_text(encoding="utf-8", errors="replace")
     
-    # CSS rule must exist
-    assert "non-strength-module" in content, "CSS class non-strength-module not found"
+    assert "sport: true" in content, "FEATURE_FLAGS.sport must be true"
+    assert "nutrition: true" in content, "FEATURE_FLAGS.nutrition must be true"
+    assert "recovery: true" in content, "FEATURE_FLAGS.recovery must be true"
+
+
+def test_e2_non_strength_module_css_rule_removed():
+    """CSS rule .non-strength-module { display: none !important } is removed from index.html."""
+    content = INDEX_HTML.read_text(encoding="utf-8", errors="replace")
     
-    # Sport nav item must have class
-    assert 'data-tab="basketball" class="nav-item non-strength-module' in content, (
-        "Sport nav item missing non-strength-module class"
+    assert "non-strength-module" not in content, (
+        "CSS class non-strength-module must be removed; visibility is now driven by FEATURE_FLAGS"
     )
+
+
+def test_e2_nav_items_have_data_flag():
+    """Sport, diet, recovery nav items carry data-flag attributes."""
+    content = INDEX_HTML.read_text(encoding="utf-8", errors="replace")
     
-    # Diet nav item must have class
-    assert 'data-tab="diet" class="nav-item non-strength-module' in content, (
-        "Diet nav item missing non-strength-module class"
+    assert 'data-tab="basketball" data-flag="sport"' in content, (
+        "Sport nav item missing data-flag=\"sport\""
     )
-    
-    # Recovery nav item must have class
-    assert 'data-tab="recovery" class="nav-item non-strength-module' in content, (
-        "Recovery nav item missing non-strength-module class"
+    assert 'data-tab="diet" data-flag="nutrition"' in content, (
+        "Diet nav item missing data-flag=\"nutrition\""
+    )
+    assert 'data-tab="recovery" data-flag="recovery"' in content, (
+        "Recovery nav item missing data-flag=\"recovery\""
     )
 
 

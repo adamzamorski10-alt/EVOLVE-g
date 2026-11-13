@@ -40,10 +40,10 @@ def test_2_2_sidebar_navigation_order_and_clean_labels():
     assert "6. Postępy" not in sidebar_html
     assert "7. Assessment" not in sidebar_html
 
-    # 2. Assessment ukryty za non-strength-module
+    # 2. Assessment nie używa już klasy non-strength-module (flaga FEATURE_FLAGS jest źródłem prawdy)
     assessment_match = re.search(r'<a[^>]*data-tab="assessment"[^>]*>', sidebar_html)
     assert assessment_match, "Brak linku assessment w sidebarze"
-    assert "non-strength-module" in assessment_match.group(0), "Assessment musi mieć klasę non-strength-module"
+    assert "non-strength-module" not in assessment_match.group(0), "Assessment nie powinien już używać klasy non-strength-module"
 
     # 3. Kolejność pozycji: Dziś, Plan, Trening, Postępy, Profil
     # Sprawdzamy kolejność występowania znaczników w nawigacji
