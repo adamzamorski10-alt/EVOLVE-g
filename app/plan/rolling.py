@@ -51,7 +51,7 @@ def build_rolling_plan_contract(
     plan_version: str = ROLLING_PLAN_VERSION,
     source: str = "deterministic_rolling",
 ) -> dict[str, Any]:
-    """Expand a weekly template across a dated 7–14 day window."""
+    """Expand a weekly template across a dated 7-14 day window."""
     safe_days = _safe_horizon_days(horizon_days)
     end = horizon_start + timedelta(days=safe_days - 1)
     completed_by_date: dict[date, list[dict[str, Any]]] = {}

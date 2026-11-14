@@ -11,6 +11,7 @@ from typing import Any
 import json
 
 from app.exercise_descriptions import get_how_to
+from app.exercises.loader import KNOWN_GROUPS, muscle_group_for_exercise
 from app.plan.performance_signals import build_performance_signals, prioritize_sport_drills
 from app.legacy_routes import (
     SPORT_DRILLS_DB,
@@ -131,11 +132,11 @@ def _exercise_allowed(name: str, equipment: set[str], avoid_exercises: list[str]
     if any(term.lower() in lowered for term in avoid_exercises if term):
         return False
 
-    # Pełna siłownia / gym → wszystko dozwolone.
+    # Pełna siłownia / gym - wszystko dozwolone.
     if "gym" in equipment:
         return True
 
-    # Pusta lista sprzętu = preset "masa własna" → tylko ćwiczenia bez sprzętu.
+    # Pusta lista sprzętu = preset "masa własna" - tylko ćwiczenia bez sprzętu.
     if not equipment:
         req = _exercise_equipment_en(name)
         if req is not None:
@@ -470,6 +471,9 @@ def build_deterministic_plan(
         return 2
 
     days: list[dict] = []
+    group_day_count: dict[str, int] = {g: 0 for g in KNOWN_GROUPS}
+    prev_exercise_names: set[str] = set()
+    reduced_days: list[str] = []
     for day_index, (day_name, is_sunday_rest) in enumerate(_DAY_SCHEDULE):
         is_selected = day_name in selected_days
         is_sport_day = is_selected and bool(sport_drills) and day_name in configured_sport_days
@@ -497,7 +501,7 @@ def build_deterministic_plan(
                     "how_to": get_how_to(drill["name"], is_drill=True) or drill.get("progression_tip", ""),
                     "alternatives": [],
                 })
-            workout_title = f"Sesja Sportowa – {sport_focus.title()} ({sport_specialization.title() or 'Specjalistyczna'})"
+            workout_title = f"Sesja Sportowa - {sport_focus.title()} ({sport_specialization.title() or 'Specjalistyczna'})"
             is_sport_session = True
         else:
             raw_focus = next(focus_iter, preferred[0])
@@ -506,38 +510,63 @@ def build_deterministic_plan(
                 focus_key = "klatka"
             day_type = _day_type(day_name, focus_key)
 
-            available = [
-                ex for ex in exercise_pool.get(focus_key, [])
-                if _exercise_allowed(ex["name"], equipment, avoid_exercises)
-            ]
+            def _available_for(group: str) -> list[dict[str, Any]]:
+                return [
+                    ex for ex in exercise_pool.get(group, [])
+                    if _exercise_allowed(ex["name"], equipment, avoid_exercises)
+                ]
+
+            available = _available_for(focus_key)
+
+            # Rotacja: nie generuj dnia, który dubluje poprzedni dzień co do ćwiczeń.
+            rotated = [ex for ex in available if ex["name"] not in prev_exercise_names]
+            if rotated:
+                available = rotated
             day_diagnostics = None
+
             if not available:
-                # Nigdy nie zwracaj dnia treningowego bez ćwiczeń.
-                # Znajdź inną partię z dostępnymi ćwiczeniami i zastąp nią bieżącą.
-                replacement_group = None
-                for candidate_group, candidate_exercises in exercise_pool.items():
+                # Zamień partię na dozwoloną z najmniejszą liczbą dni w tym tygodniu.
+                best_group: str | None = None
+                best_count = None
+                for candidate_group in KNOWN_GROUPS:
                     if candidate_group == focus_key:
                         continue
-                    cand_available = [
-                        ex for ex in candidate_exercises
-                        if _exercise_allowed(ex["name"], equipment, avoid_exercises)
+                    cand_available = _available_for(candidate_group)
+                    if not cand_available:
+                        continue
+                    cand_rotated = [
+                        ex for ex in cand_available
+                        if ex["name"] not in prev_exercise_names
                     ]
-                    if cand_available:
-                        replacement_group = candidate_group
-                        break
-                if replacement_group is not None:
-                    available = [
-                        ex for ex in exercise_pool.get(replacement_group, [])
-                        if _exercise_allowed(ex["name"], equipment, avoid_exercises)
+                    if not cand_rotated:
+                        continue
+                    count = group_day_count.get(candidate_group, 0)
+                    if best_count is None or count < best_count:
+                        best_group = candidate_group
+                        best_count = count
+                if best_group is not None:
+                    available = _available_for(best_group)
+                    rotated = [
+                        ex for ex in available
+                        if ex["name"] not in prev_exercise_names
                     ]
+                    if rotated:
+                        available = rotated
                     day_diagnostics = (
-                        f"Partia '{focus_key}' nie ma ćwiczeń dostępnych dla déclarowanego sprzętu. "
-                        f"Zastąpiono partią '{replacement_group}' (ćwiczenia: "
+                        f"Partia '{focus_key}' nie ma ćwiczeń dostępnych dla zadeklarowanego sprzętu. "
+                        f"Zastąpiono partią '{best_group}' (ćwiczenia: "
                         f"{', '.join(e['name'] for e in available[:3])})."
                     )
-                    focus_key = replacement_group
-                # Jeśli nie znaleziono żadnej grupy z ćwiczeniami, dzień zostaje bez ćwiczeń
-                # (diagnostics pozostaje None - to sytuacja graniczna, np. brak ćwiczeń w ogóle).
+                    focus_key = best_group
+                else:
+                    # Żadna partia nie ma dostępnych ćwiczeń - zmniejsz liczbę dni.
+                    reduced_days.append(day_name)
+                    day_diagnostics = (
+                        f"Dzień {day_name} pominięty: brak ćwiczeń dostępnych dla zadeklarowanego sprzętu."
+                    )
+                    # Nie dodaj dnia do wyjścia - kontynuuj do następnego.
+                    continue
+
             available = sorted(
                 enumerate(available),
                 key=lambda pair: (_progress_priority(pair[1]), pair[0]),
@@ -557,6 +586,8 @@ def build_deterministic_plan(
                 exercise_limit = min(exercise_limit, 3)
 
             selected = available[:exercise_limit]
+            group_day_count[focus_key] = group_day_count.get(focus_key, 0) + 1
+            prev_exercise_names = {ex["name"] for ex in selected}
             workout_items = []
             for exercise in selected:
                 alternatives = [
@@ -642,5 +673,7 @@ def build_deterministic_plan(
             "schedule_diagnostics": schedule_diagnostics,
             "training_locations_used": bool(training_locations),
             "location_equipment_count": len(location_equipment),
+            "reduced_days": reduced_days,
+            "group_day_count": group_day_count,
         },
     }

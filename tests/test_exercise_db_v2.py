@@ -91,6 +91,34 @@ def test_only_pl_en_characters():
             assert ok(field), f"Niedozwolony znak w {ex.id}: {field!r}"
 
 
+def test_app_plan_py_no_foreign_chars():
+    """Stałe napisowe w app/plan/*.py nie zawierają znaków spoza polskiego i angielskiego."""
+    import glob
+
+    def ok(text: str) -> bool:
+        if not text:
+            return True
+        for ch in text:
+            code = ord(ch)
+            if 32 <= code <= 126:
+                continue
+            if code in {176} | {260, 261, 262, 263, 280, 281, 321, 322, 323, 324, 243, 346, 347, 377, 378, 379, 380}:
+                continue
+            return False
+        return True
+
+    for path in sorted(glob.glob("app/plan/*.py")):
+        with open(path, "r", encoding="utf-8") as f:
+            for line_no, line in enumerate(f, 1):
+                for col, ch in enumerate(line, 1):
+                    code = ord(ch)
+                    if code in {9, 10, 13}:
+                        continue
+                    if code < 32 or code > 126:
+                        if code not in {176} | {260, 261, 262, 263, 280, 281, 321, 322, 323, 324, 243, 346, 347, 377, 378, 379, 380}:
+                            assert False, f"Niedozwolony znak U+{code:04X} w {path}:{line_no}:{col}"
+
+
 # ---------------------------------------------------------------------------
 # 2. Raport pokrycia: grupa mięśniowa x typ sprzętu
 # ---------------------------------------------------------------------------

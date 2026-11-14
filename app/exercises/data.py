@@ -40,6 +40,45 @@ CONTRAINDICATIONS: Final[frozenset[str]] = frozenset({
 
 DESCRIPTION_STATUSES: Final[frozenset[str]] = frozenset({"needs_review", "reviewed"})
 
+# ---------------------------------------------------------------------------
+# Mapowanie primary_muscles -> polska etykieta grupy (jedno źródło prawdy)
+# Używane przez generator, loader puli i testy. Etykiety ze starej puli legacy
+# przestają mieć znaczenie przy doborze.
+# ---------------------------------------------------------------------------
+
+_GROUP_PRIORITY: Final[list[tuple[str, frozenset[str]]]] = [
+    ("klatka", frozenset({"chest"})),
+    ("plecy", frozenset({"lats", "upper_back", "mid_back", "lower_back", "traps", "back"})),
+    ("barki", frozenset({"front_delts", "side_delts", "rear_delts"})),
+    ("nogi", frozenset({"quads", "hamstrings", "glutes", "calves"})),
+    ("biceps", frozenset({"biceps"})),
+    ("triceps", frozenset({"triceps"})),
+    ("brzuch", frozenset({"abs", "obliques"})),
+]
+
+
+# Mapowanie pojedynczych mięśni -> polska etykieta grupy (płaska tabela).
+# Priorytet gdy ćwiczenie ma kilka głównych mięśni: klatka > plecy > barki >
+# nogi > biceps > triceps > brzuch.
+MUSCLE_TO_GROUP: Final[dict[str, str]] = {}
+for _group_label, _members in _GROUP_PRIORITY:
+    for _muscle in _members:
+        MUSCLE_TO_GROUP[_muscle] = _group_label
+
+
+def muscle_group_for_exercise(exercise) -> str | None:
+    """Wyciąga polską etykietę grupy z primary_muscles ćwiczenia.
+
+    Priorytet gdy ćwiczenie ma kilka głównych mięśni: klatka > plecy > barki >
+    nogi > biceps > triceps > brzuch.
+    Zwraca None gdy brak dopasowania (np. cardio, full_body).
+    """
+    muscles = set(exercise.primary_muscles)
+    for group_label, members in _GROUP_PRIORITY:
+        if muscles & members:
+            return group_label
+    return None
+
 
 class ExerciseDescription(BaseModel):
     summary: str
@@ -172,6 +211,26 @@ class Exercise(BaseModel):
 EXERCISES: dict[str, Exercise] = {}
 
 _EX = Exercise.model_validate  # alias for brevity below
+
+# ---------------------------------------------------------------------------
+# REVIEW: ćwiczenia zmieniające grupę (stara grupa z puli legacy -> nowa grupa z primary_muscles)
+#  dips: triceps -> klatka
+#  back_squat: full body -> nogi
+#  conventional_deadlift: full body -> plecy
+#  pullup_wide: full body -> plecy
+#  clean_and_press: full body -> (brak mapowania)
+#  kettlebell_swing: full body -> nogi
+#  turkish_get_up: full body -> (brak mapowania)
+#  hiit_intervals: cardio -> (brak mapowania)
+#  rowing_steady_state: cardio -> (brak mapowania)
+#  jump_rope: cardio -> nogi
+#  box_jumps: cardio -> nogi
+#  burpees: cardio -> (brak mapowania)
+#  assault_bike_tabata: cardio -> (brak mapowania)
+#  superman: brzuch -> plecy
+#  reverse_snow_angel: brzuch -> barki
+#  floor_pullover: (brak w puli) -> klatka
+# ---------------------------------------------------------------------------
 
 _EXERCISES_RAW = [
     # -- Klatka -------------------------------------------------------------
@@ -2110,6 +2169,137 @@ _EXERCISES_RAW = [
         },
         "description_status": "needs_review",
     },
+    # ── Masa własna: nowe ćwiczenia ─────────────────────────────────────────
+    {
+        "id": "pushups_narrow",
+        "name_pl": "Pompki wąskie",
+        "name_en": "Narrow push-ups",
+        "aliases": ["pompki wąskie", "narrow push-ups", "close-grip push-ups"],
+        "primary_muscles": ["triceps"],
+        "secondary_muscles": ["chest", "front_delts"],
+        "movement_pattern": "horizontal_push",
+        "equipment": ["bodyweight"],
+        "level": "beginner",
+        "type": "compound",
+        "contraindications": ["wrist", "elbow"],
+        "sets_range": "3",
+        "reps_range": "8-15",
+        "description": {
+            "summary": "",
+            "setup": "",
+            "execution": [],
+            "cues": [],
+            "common_mistakes": [],
+            "easier_variant": "pushups_knee",
+            "harder_variant": "pushups_diamond",
+            "breathing": "",
+        },
+        "description_status": "needs_review",
+    },
+    {
+        "id": "pushups_diamond_knee",
+        "name_pl": "Pompki diamentowe na kolanach",
+        "name_en": "Diamond push-ups on knees",
+        "aliases": ["pompki diamentowe na kolana", "diamond push-ups on knees"],
+        "primary_muscles": ["triceps"],
+        "secondary_muscles": ["chest"],
+        "movement_pattern": "horizontal_push",
+        "equipment": ["bodyweight"],
+        "level": "beginner",
+        "type": "compound",
+        "contraindications": ["wrist", "elbow"],
+        "sets_range": "3",
+        "reps_range": "10-15",
+        "description": {
+            "summary": "",
+            "setup": "",
+            "execution": [],
+            "cues": [],
+            "common_mistakes": [],
+            "easier_variant": "pushups_knee",
+            "harder_variant": "pushups_diamond",
+            "breathing": "",
+        },
+        "description_status": "needs_review",
+    },
+    {
+        "id": "pike_pushup_feet_elevated",
+        "name_pl": "Pike push-up z nogami na podwyższeniu",
+        "name_en": "Pike push-up with feet elevated",
+        "aliases": ["pike push-up nogi na podwyższeniu", "elevated pike push-up"],
+        "primary_muscles": ["front_delts"],
+        "secondary_muscles": ["side_delts", "triceps"],
+        "movement_pattern": "vertical_push",
+        "equipment": ["bodyweight"],
+        "level": "intermediate",
+        "type": "compound",
+        "contraindications": ["shoulder", "wrist"],
+        "sets_range": "3",
+        "reps_range": "6-10",
+        "description": {
+            "summary": "",
+            "setup": "",
+            "execution": [],
+            "cues": [],
+            "common_mistakes": [],
+            "easier_variant": "pike_pushup",
+            "harder_variant": None,
+            "breathing": "",
+        },
+        "description_status": "needs_review",
+    },
+    {
+        "id": "prone_ytw_raises",
+        "name_pl": "Prone Y-T-W raises",
+        "name_en": "Prone Y-T-W raises",
+        "aliases": ["prone Y-T-W", "Y-T-W raises leżąc na brzuchu", "Y-T-W raises"],
+        "primary_muscles": ["rear_delts"],
+        "secondary_muscles": ["traps"],
+        "movement_pattern": "isolation",
+        "equipment": ["bodyweight"],
+        "level": "beginner",
+        "type": "isolation",
+        "contraindications": ["shoulder", "neck"],
+        "sets_range": "3",
+        "reps_range": "10-15",
+        "description": {
+            "summary": "",
+            "setup": "",
+            "execution": [],
+            "cues": [],
+            "common_mistakes": [],
+            "easier_variant": "reverse_snow_angel",
+            "harder_variant": None,
+            "breathing": "",
+        },
+        "description_status": "needs_review",
+    },
+    {
+        "id": "bird_dog",
+        "name_pl": "Bird dog",
+        "name_en": "Bird dog",
+        "aliases": ["bird dog", "pies i ptak", "na czworakach przeciwieństwo"],
+        "primary_muscles": ["abs"],
+        "secondary_muscles": ["lower_back", "glutes"],
+        "movement_pattern": "core",
+        "equipment": ["bodyweight"],
+        "level": "beginner",
+        "type": "isolation",
+        "contraindications": ["low_back"],
+        "sets_range": "3",
+        "reps_range": "10/strona",
+        "description": {
+            "summary": "",
+            "setup": "",
+            "execution": [],
+            "cues": [],
+            "common_mistakes": [],
+            "easier_variant": "dead_bug",
+            "harder_variant": None,
+            "breathing": "",
+        },
+        "description_status": "needs_review",
+    },
 ]
 
 for raw in _EXERCISES_RAW:
@@ -2133,6 +2323,8 @@ __all__ = [
     "EXERCISE_TYPES",
     "CONTRAINDICATIONS",
     "DESCRIPTION_STATUSES",
+    "MUSCLE_TO_GROUP",
+    "muscle_group_for_exercise",
     "Exercise",
     "ExerciseDescription",
     "EXERCISES",
