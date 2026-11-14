@@ -473,6 +473,7 @@ def build_deterministic_plan(
     for day_index, (day_name, is_sunday_rest) in enumerate(_DAY_SCHEDULE):
         is_selected = day_name in selected_days
         is_sport_day = is_selected and bool(sport_drills) and day_name in configured_sport_days
+        day_diagnostics = None
 
         if is_sunday_rest or not is_selected:
             day_type = "rest"
@@ -509,14 +510,39 @@ def build_deterministic_plan(
                 ex for ex in exercise_pool.get(focus_key, [])
                 if _exercise_allowed(ex["name"], equipment, avoid_exercises)
             ]
+            day_diagnostics = None
+            if not available:
+                # Nigdy nie zwracaj dnia treningowego bez ćwiczeń.
+                # Znajdź inną partię z dostępnymi ćwiczeniami i zastąp nią bieżącą.
+                replacement_group = None
+                for candidate_group, candidate_exercises in exercise_pool.items():
+                    if candidate_group == focus_key:
+                        continue
+                    cand_available = [
+                        ex for ex in candidate_exercises
+                        if _exercise_allowed(ex["name"], equipment, avoid_exercises)
+                    ]
+                    if cand_available:
+                        replacement_group = candidate_group
+                        break
+                if replacement_group is not None:
+                    available = [
+                        ex for ex in exercise_pool.get(replacement_group, [])
+                        if _exercise_allowed(ex["name"], equipment, avoid_exercises)
+                    ]
+                    day_diagnostics = (
+                        f"Partia '{focus_key}' nie ma ćwiczeń dostępnych dla déclarowanego sprzętu. "
+                        f"Zastąpiono partią '{replacement_group}' (ćwiczenia: "
+                        f"{', '.join(e['name'] for e in available[:3])})."
+                    )
+                    focus_key = replacement_group
+                # Jeśli nie znaleziono żadnej grupy z ćwiczeniami, dzień zostaje bez ćwiczeń
+                # (diagnostics pozostaje None - to sytuacja graniczna, np. brak ćwiczeń w ogóle).
             available = sorted(
                 enumerate(available),
                 key=lambda pair: (_progress_priority(pair[1]), pair[0]),
             )
             available = [exercise for _, exercise in available]
-            if not available:
-                # Never silently bypass equipment or exercise restrictions.
-                available = []
 
             exercise_limit = 4
             if _assessment_value(assessment, "training_level") == "początkujący":
@@ -589,6 +615,7 @@ def build_deterministic_plan(
             "day_type": day_type,
             "macros": calc_daily_macros(base_calories, day_type),
             "is_sport_session": is_sport_session,
+            "diagnostics": day_diagnostics,
             "workout": {
                 "title": workout_title,
                 "focus": focus_key if not is_sport_session else sport_focus,

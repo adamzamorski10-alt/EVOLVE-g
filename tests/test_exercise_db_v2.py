@@ -21,6 +21,7 @@ from app.exercises.data import (
     get_exercise,
     list_exercises,
 )
+from app.plan.deterministic import _exercise_allowed
 
 # ---------------------------------------------------------------------------
 # 1. Walidacja schematu — wszystkie ćwiczenia przechodzą Pydantic
@@ -59,6 +60,13 @@ def test_no_empty_required_fields():
     for ex in list_exercises():
         assert ex.sets_range.strip(), f"Pusty sets_range dla {ex.id}"
         assert ex.reps_range.strip(), f"Pusty reps_range dla {ex.id}"
+
+
+def test_description_status_is_valid():
+    """description_status musi należeć do {needs_review, reviewed}."""
+    for ex in list_exercises():
+        assert ex.description_status in {"needs_review", "reviewed"}, \
+            f"Nieprawidłowy description_status dla {ex.id}: {ex.description_status!r}"
 
 
 def test_only_pl_en_characters():
@@ -114,7 +122,7 @@ def _primary_group(ex) -> str | None:
     g = set(ex.primary_muscles)
     if "chest" in g:
         return "chest"
-    if g & {"back", "lats", "traps", "rear_delts"}:
+    if g & {"back", "lats", "traps", "rear_delts", "lower_back"}:
         return "back"
     if g & {"front_delts", "side_delts"}:
         return "shoulders"
@@ -135,14 +143,10 @@ def _equip_en(equip_list) -> set[str]:
 
 
 def _allowed(ex, equip_en: set[str]) -> bool:
-    if "gym" in equip_en:
-        return True
-    req = set(ex.equipment)
-    if not equip_en:
-        return req <= {"bodyweight"}
-    if req <= {"bodyweight"}:
-        return True
-    return req.issubset(equip_en)
+    """Używa tej samej funkcji filtrowania co generator (_exercise_allowed)."""
+    name = ex.name_pl
+    equipment = set(equip_en)
+    return _exercise_allowed(name, equipment, [])
 
 
 def _coverage_report(equip_list) -> dict[str, list[str]]:

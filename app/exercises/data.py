@@ -38,7 +38,7 @@ CONTRAINDICATIONS: Final[frozenset[str]] = frozenset({
     "low_back", "shoulder", "knee", "wrist", "elbow", "neck",
 })
 
-DESCRIPTION_STATUSES: Final[frozenset[str]] = frozenset({"needs_review", "approved"})
+DESCRIPTION_STATUSES: Final[frozenset[str]] = frozenset({"needs_review", "reviewed"})
 
 
 class ExerciseDescription(BaseModel):
