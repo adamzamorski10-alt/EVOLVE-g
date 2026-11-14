@@ -102,3 +102,19 @@ def test_all_variant_ids_exist_in_db():
             if ref and ref not in ids:
                 missing.append(f"{ex.id}.{field} -> {ref}")
     assert missing == [], f"Brakujące odwołania wariantów: {missing}"
+
+
+def test_get_exercise_returns_batch1_descriptions():
+    """Opisy z data/descriptions/batch1.json są dołączone do ćwiczeń przy ładowaniu bazy."""
+    from app.exercises.data import get_exercise
+
+    ex = get_exercise("barbell_bench_press")
+    assert ex is not None
+    d = ex.description
+    assert len(d.execution) == 6
+    assert len(d.cues) == 3
+    assert len(d.common_mistakes) == 4
+    assert d.easier_note and "hantli" in d.easier_note
+    assert d.breathing and "Wdech" in d.breathing
+    assert ex.description_status == "needs_review"
+    assert d.summary and "siłowe" in d.summary

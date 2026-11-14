@@ -8,6 +8,9 @@ Uwagi językowe: wszystkie teksty są tylko po polsku lub po angielsku.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from pydantic import BaseModel, field_validator, model_validator
 from typing import Final
 
@@ -2577,3 +2580,48 @@ __all__ = [
     "get_exercise",
     "list_exercises",
 ]
+
+
+_DESCRIPTIONS_DIR: Path = Path(__file__).resolve().parents[2] / "data" / "descriptions"
+
+
+def _load_descriptions_from_files() -> None:
+    """Dołącz opisy z data/descriptions/*.json do ćwiczeń po id (jedno źródło prawdy).
+
+    Nie zapisuje do osobnego pliku wyjściowego - łączy dane ćwiczeń z plikami opisów
+    przy ładowaniu bazy. description_status ćwiczenia pozostaje nienaruszony
+    (zostaje "needs_review").
+    """
+    if not _DESCRIPTIONS_DIR.exists():
+        return
+    for path in sorted(_DESCRIPTIONS_DIR.glob("*.json")):
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if not isinstance(data, list):
+            continue
+        for entry in data:
+            eid = entry.get("id")
+            if not eid:
+                continue
+            ex = EXERCISES.get(eid)
+            if ex is None:
+                continue
+            desc = ex.description.model_dump() if ex.description is not None else {}
+            desc.update({
+                "summary": entry.get("summary", desc.get("summary", "")),
+                "setup": entry.get("setup", desc.get("setup", "")),
+                "execution": entry.get("execution", desc.get("execution", [])),
+                "cues": entry.get("cues", desc.get("cues", [])),
+                "common_mistakes": entry.get(
+                    "common_mistakes", desc.get("common_mistakes", [])
+                ),
+                "easier_note": entry.get("easier_variant", desc.get("easier_note", "")),
+                "harder_note": entry.get(
+                    "harder_variant", desc.get("harder_note", "")
+                ),
+                "breathing": entry.get("breathing", desc.get("breathing", "")),
+            })
+            ex.description = ExerciseDescription(**desc)
+
+
+_load_descriptions_from_files()

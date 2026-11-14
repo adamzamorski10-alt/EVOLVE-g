@@ -2,8 +2,8 @@
 
 Reads a list of description objects (keys: id, summary, setup, execution (list of steps),
 cues (list), common_mistakes (list), easier_variant, harder_variant, breathing),
-validates each entry, and writes the imported descriptions with
-description_status="needs_review" to an output JSON file.
+validates each entry. Descriptions from data/descriptions/*.json are attached to
+exercises at database load time (single source of truth); this script only validates.
 
 An entry whose description_status is already "reviewed" is never overwritten.
 """
@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import sys
-from pathlib import Path
 
 from app.exercises.data import list_exercises
 
@@ -143,21 +142,15 @@ def import_descriptions(descriptions_path=None, descriptions=None, available_ids
             "description_status": "needs_review",
         })
 
-    if output_path:
-        Path(output_path).write_text(
-            json.dumps(imported, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-
     return imported, errors, skipped_reviewed
 
 
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     descriptions_path = argv[0] if len(argv) > 0 else "descriptions.json"
-    output_path = argv[1] if len(argv) > 1 else "descriptions.imported.json"
     descriptions = load_descriptions(descriptions_path)
     imported, errors, skipped = import_descriptions(
-        descriptions=descriptions, output_path=output_path
+        descriptions=descriptions, available_ids={ex.id for ex in list_exercises()}
     )
     print(f"Zaimportowano: {len(imported)}, pominięte (reviewed): {len(skipped)}, błędy: {len(errors)}")
     for e in errors:

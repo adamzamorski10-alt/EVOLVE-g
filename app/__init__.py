@@ -52,6 +52,7 @@ from app.notifications.discord_bot import bot as discord_bot
 from app.notifications.routes import router as notifications_router
 from app.nutrition.routes import router as nutrition_router
 from app.plan.routes import router as plan_router
+from app.exercises.routes import router as exercises_router
 from app.recovery.routes import router as recovery_router
 from app.training.routes import router as training_router
 from app.training.evaluation_routes import router as training_evaluation_router
@@ -105,6 +106,7 @@ app.include_router(meta_router)
 app.include_router(notifications_router)
 app.include_router(nutrition_router)
 app.include_router(plan_router)
+app.include_router(exercises_router)
 app.include_router(recovery_router)
 app.include_router(training_router)
 app.include_router(training_evaluation_router)
