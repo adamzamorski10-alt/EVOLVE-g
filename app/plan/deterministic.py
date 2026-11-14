@@ -174,6 +174,37 @@ def _exercise_allowed(name: str, equipment: set[str], avoid_exercises: list[str]
     return required.issubset(equipment)
 
 
+_PREFERRED_PATTERNS: dict[str, set[str]] = {
+    "klatka": {"horizontal_push"},
+    "plecy": {"horizontal_pull", "vertical_pull"},
+    "nogi": {"squat", "hinge", "lunge"},
+    "barki": {"vertical_push"},
+    "biceps": set(),
+    "triceps": set(),
+    "brzuch": {"core"},
+}
+
+_SUPPORTING_GROUPS: dict[str, list[str]] = {
+    "klatka": ["triceps", "barki"],
+    "plecy": ["biceps", "barki"],
+    "nogi": ["brzuch"],
+}
+
+
+def _level_allowed(level: str, training_level: str | None) -> bool:
+    """Czy ćwiczenie o danym poziomie jest dozwolone dla poziomu treningowego użytkownika."""
+    if not training_level:
+        return True
+    tl = str(training_level).strip().casefold()
+    if tl in {"początkujący", "beginner"}:
+        return level == "beginner"
+    if tl in {"średniozaawansowany", "intermediate"}:
+        return level != "advanced"
+    if tl in {"zaawansowany", "advanced", "elite"}:
+        return True
+    return True
+
+
 def _assessment_value(assessment: Any, field: str, default: Any = None) -> Any:
     return getattr(assessment, field, default) if assessment is not None else default
 
@@ -511,18 +542,54 @@ def build_deterministic_plan(
                 focus_key = "klatka"
             day_type = _day_type(day_name, focus_key)
 
+            has_equipment_preset = ("gym" in equipment) or ("dumbbell" in equipment)
+            training_level = _assessment_value(assessment, "training_level")
+
+            def _filter_available(ex: dict[str, Any], ex_obj: Any, group: str, is_cardio_focus: bool) -> dict[str, Any] | None:
+                """Zwraca ćwiczenie jeśli przechodzi filtry sprzętu, poziomu i typu, lub None."""
+                if not _exercise_allowed(ex["name"], equipment, avoid_exercises):
+                    return None
+                if ex_obj is None:
+                    # Ćwiczenie spoza nowej bazy - nie filtruj poziomu ani typu.
+                    return ex
+                if ex_obj.type == "cardio" and not is_cardio_focus:
+                    return None
+                if not _level_allowed(ex_obj.level, training_level):
+                    return None
+                return ex
+
+            def _rank_key(ex: dict[str, Any], ex_obj: Any, group: str) -> tuple[int, int, int, str]:
+                """Klucz sortowania: sprzęt przed bodyweight, compound przed isolation,
+                wzorce partii na początku, potem stabilnie po id."""
+                if has_equipment_preset and ex_obj is not None:
+                    equip_score = 1 if set(ex_obj.equipment) <= {"bodyweight"} else 0
+                else:
+                    equip_score = 0
+                if ex_obj is None:
+                    type_order = 2
+                    pattern_pref = 1
+                    ex_id = str(ex.get("name", ""))
+                else:
+                    t = ex_obj.type
+                    if t == "compound":
+                        type_order = 0
+                    elif t == "isolation":
+                        type_order = 1
+                    else:
+                        type_order = 2
+                    mp = ex_obj.movement_pattern
+                    pattern_pref = 0 if mp in _PREFERRED_PATTERNS.get(group, set()) else 1
+                    ex_id = ex_obj.id
+                return (equip_score, type_order, pattern_pref, ex_id)
+
             def _available_for(group: str) -> list[dict[str, Any]]:
                 is_cardio_focus = (group == "cardio")
                 result: list[dict[str, Any]] = []
                 for ex in exercise_pool.get(group, []):
-                    if not _exercise_allowed(ex["name"], equipment, avoid_exercises):
-                        continue
                     ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
-                    if ex_obj is None:
-                        continue
-                    if ex_obj.type == "cardio" and not is_cardio_focus:
-                        continue
-                    result.append(ex)
+                    kept = _filter_available(ex, ex_obj, group, is_cardio_focus)
+                    if kept is not None:
+                        result.append(kept)
                 return result
 
             available = _available_for(focus_key)
@@ -576,25 +643,13 @@ def build_deterministic_plan(
                     # Nie dodaj dnia do wyjścia - kontynuuj do następnego.
                     continue
 
-            # Sortuj: compound przed isolation, stabilizacja (superman, bird dog) na końcu.
-            def _sort_key(ex: dict[str, Any]) -> tuple[int, int, str]:
-                ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
-                if ex_obj is None:
-                    return (2, 1, ex["name"])
-                t = ex_obj.type
-                if t == "compound":
-                    order = 0
-                elif t == "isolation":
-                    order = 1
-                else:
-                    order = 2
-                stab = 1 if ex["name"] in ("Superman", "Bird dog") else 0
-                return (order, stab, ex["name"])
-
-            available = sorted(available, key=_sort_key)
+            available = sorted(
+                available,
+                key=lambda ex: _rank_key(ex, get_exercise(ex.get("exercise_id", ex["name"])), focus_key),
+            )
 
             # Limit: maksymalnie 2 ćwiczenia o tym samym movement_pattern w sesji,
-            # izolacje (type == "isolated") nie liczą się do tego limitu.
+            # izolacje (type == "isolation") nie liczą się do tego limitu.
             limited: list[dict[str, Any]] = []
             pattern_count: dict[str, int] = {}
             for ex in available:
@@ -609,7 +664,7 @@ def build_deterministic_plan(
             available = limited
 
             exercise_limit = 4
-            if _assessment_value(assessment, "training_level") == "początkujący":
+            if training_level == "początkujący":
                 exercise_limit = 3
             recovery = _assessment_value(assessment, "recovery_score")
             if recovery is not None and int(recovery) <= 4:
@@ -621,6 +676,32 @@ def build_deterministic_plan(
                 exercise_limit = min(exercise_limit, 3)
 
             selected = available[:exercise_limit]
+
+            # Uzupełnienie dnia do minimum 3 ćwiczeń z partii wspierających.
+            if len(selected) < 3:
+                added: list[str] = []
+                selected_names = {ex["name"] for ex in selected}
+                for support_group in _SUPPORTING_GROUPS.get(focus_key, []):
+                    if len(selected) >= 3:
+                        break
+                    support_available = []
+                    for ex in _available_for(support_group):
+                        if ex["name"] in selected_names:
+                            continue
+                        support_available.append(ex)
+                    support_available = sorted(
+                        support_available,
+                        key=lambda ex: _rank_key(ex, get_exercise(ex.get("exercise_id", ex["name"])), support_group),
+                    )
+                    for ex in support_available:
+                        if len(selected) >= 3:
+                            break
+                        selected.append(ex)
+                        selected_names.add(ex["name"])
+                        added.append(ex["name"])
+                if added:
+                    day_diagnostics = ("Uzupełniono dzień o ćwiczenia z partii wspierających: "
+                                       + ", ".join(added))
             group_day_count[focus_key] = group_day_count.get(focus_key, 0) + 1
             prev_exercise_names = {ex["name"] for ex in selected}
             workout_items = []

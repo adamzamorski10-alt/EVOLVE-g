@@ -49,6 +49,8 @@ EXERCISE_POOL_DEFINITION: dict[str, list[dict]] = {
         {"exercise_id": "leg_curl", "sets": "3", "reps": "10-12", "notes": "Opuszczaj powoli, ważna faza ekscentryczna."},
         {"exercise_id": "standing_calf_raise", "sets": "4", "reps": "15-20", "notes": "Pięty poniżej poziomu stopnia – pełne rozciągnięcie."},
         {"exercise_id": "bodyweight_squat", "sets": "3", "reps": "10-15", "notes": "Przysiad z masą własną – głęboki, kontrolowany."},
+        {"exercise_id": "goblet_squat", "sets": "3", "reps": "8-12", "notes": "Przysiad z hantlem przy klatce, plecy proste."},
+        {"exercise_id": "romanian_deadlift_dumbbell", "sets": "3", "reps": "8-10", "notes": "RMD z hantlami, ruch z bioder, plecy proste."},
         {"exercise_id": "reverse_lunge", "sets": "3", "reps": "10/strona", "notes": "Wykrok w tył – stabilność kolana."},
         {"exercise_id": "glute_bridge", "sets": "3", "reps": "12-15", "notes": "Mostek biodrowy – ścisk pośladków na szczycie."},
         {"exercise_id": "single_leg_glute_bridge", "sets": "3", "reps": "10/strona", "notes": "Mostek jednonóż – trudniejszy wariant."},
