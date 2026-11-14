@@ -44,6 +44,10 @@ def test_import_valid_entry_sets_needs_review(monkeypatch):
     assert imported[0]["id"] == VALID_ID
     assert imported[0]["description_status"] == "needs_review"
     assert imported[0]["description"]["summary"] == entry["summary"]
+    assert imported[0]["description"]["easier_note"] == entry["easier_variant"]
+    assert imported[0]["description"]["harder_note"] == entry["harder_variant"]
+    assert imported[0]["description"]["easier_variant"] is None
+    assert imported[0]["description"]["harder_variant"] is None
     assert len(imported[0]["description"]["execution"]) == 3
 
 
@@ -83,3 +87,18 @@ def test_import_reviewed_not_overwritten():
 def test_validate_unknown_id():
     errors = im.validate_entry({"id": "brak"}, _available_ids())
     assert any("nie istnieje w bazie ćwiczeń" in e for e in errors)
+
+
+def test_all_variant_ids_exist_in_db():
+    """Każde easier_variant/harder_variant w bazie wskazuje istniejące id ćwiczenia."""
+    from app.exercises.data import list_exercises
+
+    ids = {ex.id for ex in list_exercises()}
+    missing = []
+    for ex in list_exercises():
+        desc = ex.description.model_dump() if ex.description is not None else {}
+        for field in ("easier_variant", "harder_variant"):
+            ref = desc.get(field)
+            if ref and ref not in ids:
+                missing.append(f"{ex.id}.{field} -> {ref}")
+    assert missing == [], f"Brakujące odwołania wariantów: {missing}"

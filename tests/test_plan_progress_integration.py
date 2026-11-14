@@ -46,6 +46,17 @@ def test_progress_evidence_prioritizes_continuity_without_adaptation(monkeypatch
     )
     monkeypatch.setattr(
         deterministic,
+        "get_exercise",
+        lambda name: SimpleNamespace(
+            level="beginner",
+            type="compound",
+            movement_pattern="horizontal_push",
+            equipment=["barbell", "bench"],
+            id=str(name).lower().replace(" ", "_"),
+        ),
+    )
+    monkeypatch.setattr(
+        deterministic,
         "_default_meal_catalog",
         lambda _: {"Śniadanie": [("Meal", 500)], "Obiad": [("Meal", 500)], "Kolacja": [("Meal", 500)]},
     )
@@ -87,6 +98,17 @@ def test_insufficient_or_missing_progress_does_not_change_base_order(monkeypatch
     )
     monkeypatch.setattr(
         deterministic,
+        "get_exercise",
+        lambda name: SimpleNamespace(
+            level="beginner",
+            type="compound",
+            movement_pattern="horizontal_push",
+            equipment=["barbell", "bench"],
+            id=str(name).lower().replace(" ", "_"),
+        ),
+    )
+    monkeypatch.setattr(
+        deterministic,
         "_default_meal_catalog",
         lambda _: {"Śniadanie": [("Meal", 500)], "Obiad": [("Meal", 500)], "Kolacja": [("Meal", 500)]},
     )
@@ -111,6 +133,17 @@ def test_progress_cannot_inject_adaptation_or_recovery_decisions(monkeypatch):
         deterministic,
         "_exercise_pool",
         lambda: {"klatka": [{"name": "Bench", "sets": 3, "reps": 8, "weight_kg": 100}]},
+    )
+    monkeypatch.setattr(
+        deterministic,
+        "get_exercise",
+        lambda name: SimpleNamespace(
+            level="beginner",
+            type="compound",
+            movement_pattern="horizontal_push",
+            equipment=["barbell", "bench"],
+            id=str(name).lower().replace(" ", "_"),
+        ),
     )
     monkeypatch.setattr(
         deterministic,

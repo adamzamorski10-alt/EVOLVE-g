@@ -100,7 +100,6 @@ EXERCISE_POOL_DEFINITION: dict[str, list[dict]] = {
         {"exercise_id": "dips", "sets": "3", "reps": "8-12", "notes": "Długa głowa tricepsa – ruch ponad głowę."},
         {"exercise_id": "pushups_diamond", "sets": "3", "reps": "8-12", "notes": "Pompki diamentowe - triceps bez sprzętu."},
         {"exercise_id": "french_press_db_two_hand", "sets": "3", "reps": "10-12", "notes": "Francuskie wyciskanie hantli oburącz zza głowy."},
-        {"exercise_id": "kickback_db_bent", "sets": "3", "reps": "10-15/strona", "notes": "Prostowanie ramion w opadzie - triceps z hantlem."},
     ],
     "brzuch": [
         {"exercise_id": "plank", "sets": "3", "reps": "45-60 s", "notes": "Linia barków-biodra-kostka, brak opadania bioder."},

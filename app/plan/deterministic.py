@@ -550,9 +550,11 @@ def build_deterministic_plan(
                 if not _exercise_allowed(ex["name"], equipment, avoid_exercises):
                     return None
                 if ex_obj is None:
-                    # Ćwiczenie spoza nowej bazy - nie filtruj poziomu ani typu.
-                    return ex
+                    # Ćwiczenie spoza nowej bazy jest odrzucane przy nowym generowaniu planu.
+                    return None
                 if ex_obj.type == "cardio" and not is_cardio_focus:
+                    return None
+                if "plyometric" in (getattr(ex_obj, "tags", None) or []) and not is_cardio_focus:
                     return None
                 if not _level_allowed(ex_obj.level, training_level):
                     return None
