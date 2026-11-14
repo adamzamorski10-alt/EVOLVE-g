@@ -116,6 +116,7 @@ class Exercise(BaseModel):
     description: ExerciseDescription
     description_status: str = "needs_review"
     tags: list[str] = []
+    family: str | None = None
 
     @field_validator("id")
     @classmethod
@@ -1354,6 +1355,7 @@ _EXERCISES_RAW = [
         "equipment": ["dumbbell", "bench"],
         "level": "intermediate",
         "type": "isolation",
+        "family": "triceps_extension",
         "contraindications": ["elbow", "wrist"],
         "sets_range": "3",
         "reps_range": "10-12",
@@ -1380,6 +1382,7 @@ _EXERCISES_RAW = [
         "equipment": ["barbell"],
         "level": "intermediate",
         "type": "isolation",
+        "family": "triceps_extension",
         "contraindications": ["elbow", "wrist", "low_back"],
         "sets_range": "3",
         "reps_range": "10-12",
@@ -2246,6 +2249,7 @@ _EXERCISES_RAW = [
         "equipment": ["dumbbell"],
         "level": "intermediate",
         "type": "isolation",
+        "family": "triceps_extension",
         "contraindications": ["elbow", "wrist", "low_back"],
         "sets_range": "3",
         "reps_range": "10-12",

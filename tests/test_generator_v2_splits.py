@@ -416,11 +416,61 @@ def test_each_day_at_least_three_exercises_all_personas(monkeypatch):
 
 def test_sets_are_integers(monkeypatch):
     monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    cases = [
+        ("3 dni", 3, "początkujący", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"]),
+        ("2 dni", 2, "początkujący", ["hantle", "ławka"], ["klatka", "plecy", "nogi", "brzuch", "barki"]),
+        ("4 dni", 4, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"]),
+        ("3 dni", 3, "początkujący", [], ["klatka", "plecy", "nogi", "brzuch", "barki"]),
+        ("5 dni", 5, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"]),
+        ("6 dni", 6, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"]),
+        ("1 dzień", 1, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"]),
+    ]
+    for freq, days, level, equip, focus in cases:
+        plan = _plan(freq, days, level, equip, focus)
+        for day in _training_days(plan):
+            for ex in day["workout"]["exercises"]:
+                assert isinstance(ex["sets"], int), f"{freq}/{level}: {day['day']} {ex.get('name')} sets={ex['sets']!r} not int"
+
+
+def test_sessions_per_week_le_training_days(monkeypatch):
+    """sessions_per_week <= liczbie dni treningowych."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
     plan = _plan("4 dni", 4, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"])
-    for day in _training_days(plan):
-        for ex in day["workout"]["exercises"]:
-            sets = ex["sets"]
-            assert str(sets).isdigit(), f"{day['day']}: sets={sets!r} nie jest liczbą całkowitą"
+    td = _training_days(plan)
+    n_days = len(td)
+    summary = plan["_planner"]["weekly_summary"]
+    sessions = summary["sessions_per_group"]
+    for g in ("klatka", "plecy", "barki", "biceps", "triceps", "nogi", "brzuch"):
+        assert sessions.get(g, 0) <= n_days, f"{g}: {sessions.get(g, 0)} sesji > {n_days} dni"
+
+
+def test_weekly_summary_persona3_exact(monkeypatch):
+    """Dla persony 3 sessions_per_week i sets_per_week maj� oczekiwane warto�ci z wydruku.
+
+    sessions_per_week = liczba różnych dni treningowych, w których grupa występuje
+    jako primary_muscles któregokolwiek ćwiczenia (nie liczba ćwiczeń).
+    """
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan("4 dni", 4, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    summary = plan["_planner"]["weekly_summary"]
+    sets = summary["sets_per_group"]
+    sessions = summary["sessions_per_group"]
+    # Każda grupa występuje na 2 z 4 dni treningowych (split upper/lower A/B).
+    assert sessions["klatka"] == 2, f"klatka sessions={sessions['klatka']}"
+    assert sessions["plecy"] == 2, f"plecy sessions={sessions['plecy']}"
+    assert sessions["barki"] == 2, f"barki sessions={sessions['barki']}"
+    assert sessions["biceps"] == 2, f"biceps sessions={sessions['biceps']}"
+    assert sessions["triceps"] == 2, f"triceps sessions={sessions['triceps']}"
+    assert sessions["nogi"] == 2, f"nogi sessions={sessions['nogi']}"
+    assert sessions["brzuch"] == 2, f"brzuch sessions={sessions['brzuch']}"
+    # sets_per_week (suma serii roboczych per grupa).
+    assert sets["klatka"] == 8, f"klatka sets={sets['klatka']}"
+    assert sets["plecy"] == 14, f"plecy sets={sets['plecy']}"
+    assert sets["barki"] == 6, f"barki sets={sets['barki']}"
+    assert sets["biceps"] == 6, f"biceps sets={sets['biceps']}"
+    assert sets["triceps"] == 6, f"triceps sets={sets['triceps']}"
+    assert sets["nogi"] == 31, f"nogi sets={sets['nogi']}"
+    assert sets["brzuch"] == 6, f"brzuch sets={sets['brzuch']}"
 
 
 def test_volume_in_ranges_persona3(monkeypatch):
