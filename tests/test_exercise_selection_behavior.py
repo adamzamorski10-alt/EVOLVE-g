@@ -1,11 +1,14 @@
-"""Testy zachowania generatora planu treningowego (exercise selection)."""
+"""Testy zachowania generatora planu treningowego (exercise selection) - wersja v1 (stara kolejność partii)."""
 
 from __future__ import annotations
 
 import json
+import os
 from types import SimpleNamespace
 
 import pytest
+
+os.environ["PLAN_GENERATOR"] = "v1"
 
 from app.plan.deterministic import build_deterministic_plan
 

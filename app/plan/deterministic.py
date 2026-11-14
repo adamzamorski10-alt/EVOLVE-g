@@ -9,10 +9,12 @@ from __future__ import annotations
 
 from typing import Any
 import json
+import os
 
 from app.exercise_descriptions import get_how_to
 from app.exercises.data import get_exercise
 from app.exercises.loader import KNOWN_GROUPS, muscle_group_for_exercise
+from app.plan.generator_v2 import build_split_plan
 from app.plan.performance_signals import build_performance_signals, prioritize_sport_drills
 from app.legacy_routes import (
     SPORT_DRILLS_DB,
@@ -22,6 +24,22 @@ from app.legacy_routes import (
     _exercise_pool,
     calc_daily_macros,
 )
+
+
+def build_deterministic_plan(
+    user: Any,
+    assessment: Any = None,
+    progress_evidence: list[dict[str, Any]] | None = None,
+) -> dict:
+    """Generate a reproducible weekly plan.
+
+    Delegates to the v2 split-based generator by default (PLAN_GENERATOR=v2).
+    Set PLAN_GENERATOR=v1 to use the legacy "jedna partia na dzień" generator
+    without code changes.
+    """
+    if os.environ.get("PLAN_GENERATOR", "v2").strip().lower() == "v1":
+        return _build_deterministic_plan_v1(user, assessment, progress_evidence)
+    return build_split_plan(user, assessment, progress_evidence)
 
 
 _DAY_SCHEDULE = [
@@ -231,7 +249,7 @@ def _meal_slots(meals_per_day: int) -> list[str]:
     return slots
 
 
-def build_deterministic_plan(
+def _build_deterministic_plan_v1(
     user: Any,
     assessment: Any = None,
     progress_evidence: list[dict[str, Any]] | None = None,
