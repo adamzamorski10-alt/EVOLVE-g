@@ -48,6 +48,11 @@ EXERCISE_POOL_DEFINITION: dict[str, list[dict]] = {
         {"exercise_id": "leg_extension", "sets": "3", "reps": "12-15", "notes": "Wyprost do końca, zatrzymaj napięcie na sekundę."},
         {"exercise_id": "leg_curl", "sets": "3", "reps": "10-12", "notes": "Opuszczaj powoli, ważna faza ekscentryczna."},
         {"exercise_id": "standing_calf_raise", "sets": "4", "reps": "15-20", "notes": "Pięty poniżej poziomu stopnia – pełne rozciągnięcie."},
+        {"exercise_id": "bodyweight_squat", "sets": "3", "reps": "10-15", "notes": "Przysiad z masą własną – głęboki, kontrolowany."},
+        {"exercise_id": "reverse_lunge", "sets": "3", "reps": "10/strona", "notes": "Wykrok w tył – stabilność kolana."},
+        {"exercise_id": "glute_bridge", "sets": "3", "reps": "12-15", "notes": "Mostek biodrowy – ścisk pośladków na szczycie."},
+        {"exercise_id": "single_leg_glute_bridge", "sets": "3", "reps": "10/strona", "notes": "Mostek jednonóż – trudniejszy wariant."},
+        {"exercise_id": "wall_sit", "sets": "3", "reps": "30-45 s", "notes": "Wall sit – izometryczny przysiad przy ścianie."},
     ],
     "plecy": [
         {"exercise_id": "conventional_deadlift", "sets": "4", "reps": "4-6", "notes": "Król ćwiczeń wielostawowych – priorytet techniczny."},
@@ -61,6 +66,7 @@ EXERCISE_POOL_DEFINITION: dict[str, list[dict]] = {
         {"exercise_id": "australian_pullup", "sets": "3", "reps": "8-12", "notes": "Podciąganie australijskie pod stołem lub niską poręczą."},
         {"exercise_id": "bent_over_row_db", "sets": "3", "reps": "8-12", "notes": "Wiosłowanie hantlami w opadzie tułowia."},
         {"exercise_id": "one_arm_row_thigh", "sets": "3", "reps": "8-12/strona", "notes": "Wiosłowanie jednorącz z oparciem o udo."},
+        {"exercise_id": "bodyweight_good_morning", "sets": "3", "reps": "10-15", "notes": "Dobry poranek bez obciążenia – ruch z bioder."},
     ],
     "barki": [
         {"exercise_id": "overhead_press", "sets": "4", "reps": "6-8", "notes": "Brak przeprostu lędźwi, aktywny brzuch."},
@@ -124,7 +130,7 @@ EXERCISE_POOL_DEFINITION: dict[str, list[dict]] = {
     ],
 }
 
-KNOWN_GROUPS: list[str] = ["klatka", "plecy", "barki", "nogi", "biceps", "triceps", "brzuch"]
+KNOWN_GROUPS: list[str] = ["klatka", "plecy", "barki", "nogi", "biceps", "triceps", "brzuch", "full body", "cardio"]
 
 
 def _resolve(entry: dict) -> Exercise:
@@ -156,7 +162,6 @@ def build_exercise_pool() -> dict[str, list[dict]]:
 
     Grupa każdego ćwiczenia jest wyprowadzana z primary_muscles przez
     muscle_group_for_exercise(), a nie z klucza w EXERCISE_POOL_DEFINITION.
-    Ćwiczenia bez mapowania (cardio, full_body) są pomijane.
     """
     pool: dict[str, list[dict]] = {group: [] for group in KNOWN_GROUPS}
     entries_by_id = _pool_entries_by_id()
@@ -169,6 +174,7 @@ def build_exercise_pool() -> dict[str, list[dict]]:
         entry = entries[0] if entries else {}
         summary = ex.description.summary or ""
         pool[group].append({
+            "exercise_id": ex.id,
             "name": ex.name_pl,
             "sets": _field(entry, ex, "sets", ex.sets_range),
             "reps": _field(entry, ex, "reps", ex.reps_range),

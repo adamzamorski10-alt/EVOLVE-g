@@ -11,6 +11,7 @@ from typing import Any
 import json
 
 from app.exercise_descriptions import get_how_to
+from app.exercises.data import get_exercise
 from app.exercises.loader import KNOWN_GROUPS, muscle_group_for_exercise
 from app.plan.performance_signals import build_performance_signals, prioritize_sport_drills
 from app.legacy_routes import (
@@ -511,10 +512,18 @@ def build_deterministic_plan(
             day_type = _day_type(day_name, focus_key)
 
             def _available_for(group: str) -> list[dict[str, Any]]:
-                return [
-                    ex for ex in exercise_pool.get(group, [])
-                    if _exercise_allowed(ex["name"], equipment, avoid_exercises)
-                ]
+                is_cardio_focus = (group == "cardio")
+                result: list[dict[str, Any]] = []
+                for ex in exercise_pool.get(group, []):
+                    if not _exercise_allowed(ex["name"], equipment, avoid_exercises):
+                        continue
+                    ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
+                    if ex_obj is None:
+                        continue
+                    if ex_obj.type == "cardio" and not is_cardio_focus:
+                        continue
+                    result.append(ex)
+                return result
 
             available = _available_for(focus_key)
 
@@ -567,11 +576,37 @@ def build_deterministic_plan(
                     # Nie dodaj dnia do wyjścia - kontynuuj do następnego.
                     continue
 
-            available = sorted(
-                enumerate(available),
-                key=lambda pair: (_progress_priority(pair[1]), pair[0]),
-            )
-            available = [exercise for _, exercise in available]
+            # Sortuj: compound przed isolation, stabilizacja (superman, bird dog) na końcu.
+            def _sort_key(ex: dict[str, Any]) -> tuple[int, int, str]:
+                ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
+                if ex_obj is None:
+                    return (2, 1, ex["name"])
+                t = ex_obj.type
+                if t == "compound":
+                    order = 0
+                elif t == "isolation":
+                    order = 1
+                else:
+                    order = 2
+                stab = 1 if ex["name"] in ("Superman", "Bird dog") else 0
+                return (order, stab, ex["name"])
+
+            available = sorted(available, key=_sort_key)
+
+            # Limit: maksymalnie 2 ćwiczenia o tym samym movement_pattern w sesji,
+            # izolacje (type == "isolated") nie liczą się do tego limitu.
+            limited: list[dict[str, Any]] = []
+            pattern_count: dict[str, int] = {}
+            for ex in available:
+                ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
+                mp = ex_obj.movement_pattern if ex_obj else ""
+                is_isolation = ex_obj is not None and ex_obj.type == "isolation"
+                if not is_isolation and pattern_count.get(mp, 0) >= 2:
+                    continue
+                limited.append(ex)
+                if not is_isolation:
+                    pattern_count[mp] = pattern_count.get(mp, 0) + 1
+            available = limited
 
             exercise_limit = 4
             if _assessment_value(assessment, "training_level") == "początkujący":

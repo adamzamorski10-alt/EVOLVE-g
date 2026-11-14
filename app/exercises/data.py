@@ -25,6 +25,7 @@ EQUIPMENT: Final[frozenset[str]] = frozenset({
     "barbell", "dumbbell", "kettlebell", "machine", "cable", "bench",
     "pullup_bar", "dip_station", "bands", "bodyweight",
     "weight_plate", "ab_wheel", "table_or_low_bar",
+    "jump_rope", "box",
 })
 
 MOVEMENT_PATTERNS: Final[frozenset[str]] = frozenset({
@@ -33,7 +34,7 @@ MOVEMENT_PATTERNS: Final[frozenset[str]] = frozenset({
 })
 
 LEVELS: Final[frozenset[str]] = frozenset({"beginner", "intermediate", "advanced"})
-EXERCISE_TYPES: Final[frozenset[str]] = frozenset({"compound", "isolation"})
+EXERCISE_TYPES: Final[frozenset[str]] = frozenset({"compound", "isolation", "cardio"})
 CONTRAINDICATIONS: Final[frozenset[str]] = frozenset({
     "low_back", "shoulder", "knee", "wrist", "elbow", "neck",
 })
@@ -44,40 +45,42 @@ DESCRIPTION_STATUSES: Final[frozenset[str]] = frozenset({"needs_review", "review
 # Mapowanie primary_muscles -> polska etykieta grupy (jedno źródło prawdy)
 # Używane przez generator, loader puli i testy. Etykiety ze starej puli legacy
 # przestają mieć znaczenie przy doborze.
+# Grupa ćwiczenia = grupa pierwszego elementu primary_muscles.
 # ---------------------------------------------------------------------------
 
-_GROUP_PRIORITY: Final[list[tuple[str, frozenset[str]]]] = [
-    ("klatka", frozenset({"chest"})),
-    ("plecy", frozenset({"lats", "upper_back", "mid_back", "lower_back", "traps", "back"})),
-    ("barki", frozenset({"front_delts", "side_delts", "rear_delts"})),
-    ("nogi", frozenset({"quads", "hamstrings", "glutes", "calves"})),
-    ("biceps", frozenset({"biceps"})),
-    ("triceps", frozenset({"triceps"})),
-    ("brzuch", frozenset({"abs", "obliques"})),
-]
-
-
-# Mapowanie pojedynczych mięśni -> polska etykieta grupy (płaska tabela).
-# Priorytet gdy ćwiczenie ma kilka głównych mięśni: klatka > plecy > barki >
-# nogi > biceps > triceps > brzuch.
-MUSCLE_TO_GROUP: Final[dict[str, str]] = {}
-for _group_label, _members in _GROUP_PRIORITY:
-    for _muscle in _members:
-        MUSCLE_TO_GROUP[_muscle] = _group_label
+MUSCLE_TO_GROUP: Final[dict[str, str]] = {
+    "chest": "klatka",
+    "back": "plecy",
+    "lats": "plecy",
+    "upper_back": "plecy",
+    "mid_back": "plecy",
+    "lower_back": "plecy",
+    "traps": "plecy",
+    "front_delts": "barki",
+    "side_delts": "barki",
+    "rear_delts": "barki",
+    "quads": "nogi",
+    "hamstrings": "nogi",
+    "glutes": "nogi",
+    "calves": "nogi",
+    "biceps": "biceps",
+    "triceps": "triceps",
+    "abs": "brzuch",
+    "obliques": "brzuch",
+    "full_body": "full body",
+    "cardio": "cardio",
+}
 
 
 def muscle_group_for_exercise(exercise) -> str | None:
-    """Wyciąga polską etykietę grupy z primary_muscles ćwiczenia.
+    """Wyciąga polską etykietę grupy z pierwszego elementu primary_muscles.
 
-    Priorytet gdy ćwiczenie ma kilka głównych mięśni: klatka > plecy > barki >
-    nogi > biceps > triceps > brzuch.
-    Zwraca None gdy brak dopasowania (np. cardio, full_body).
+    Grupa ćwiczenia = grupa pierwszego mięśnia z primary_muscles.
+    Zwraca None gdy brak dopasowania w MUSCLE_TO_GROUP.
     """
-    muscles = set(exercise.primary_muscles)
-    for group_label, members in _GROUP_PRIORITY:
-        if muscles & members:
-            return group_label
-    return None
+    if not exercise.primary_muscles:
+        return None
+    return MUSCLE_TO_GROUP.get(exercise.primary_muscles[0])
 
 
 class ExerciseDescription(BaseModel):
@@ -1605,7 +1608,7 @@ _EXERCISES_RAW = [
         "movement_pattern": "cardio",
         "equipment": ["machine"],
         "level": "intermediate",
-        "type": "compound",
+        "type": "cardio",
         "contraindications": ["knee"],
         "sets_range": "8",
         "reps_range": "1 runda",
@@ -1631,7 +1634,7 @@ _EXERCISES_RAW = [
         "movement_pattern": "cardio",
         "equipment": ["machine"],
         "level": "beginner",
-        "type": "compound",
+        "type": "cardio",
         "contraindications": ["low_back"],
         "sets_range": "1",
         "reps_range": "20 min",
@@ -1655,9 +1658,9 @@ _EXERCISES_RAW = [
         "primary_muscles": ["calves"],
         "secondary_muscles": ["cardio"],
         "movement_pattern": "cardio",
-        "equipment": ["bodyweight"],
+        "equipment": ["jump_rope"],
         "level": "beginner",
-        "type": "compound",
+        "type": "cardio",
         "contraindications": ["knee"],
         "sets_range": "5",
         "reps_range": "1 min",
@@ -1681,7 +1684,7 @@ _EXERCISES_RAW = [
         "primary_muscles": ["quads"],
         "secondary_muscles": ["glutes"],
         "movement_pattern": "squat",
-        "equipment": ["bodyweight"],
+        "equipment": ["box"],
         "level": "intermediate",
         "type": "compound",
         "contraindications": ["knee"],
@@ -1735,7 +1738,7 @@ _EXERCISES_RAW = [
         "movement_pattern": "cardio",
         "equipment": ["machine"],
         "level": "intermediate",
-        "type": "compound",
+        "type": "cardio",
         "contraindications": ["knee"],
         "sets_range": "8",
         "reps_range": "20 s sprint / 10 s odpocz.",
@@ -2296,6 +2299,163 @@ _EXERCISES_RAW = [
             "common_mistakes": [],
             "easier_variant": "dead_bug",
             "harder_variant": None,
+            "breathing": "",
+        },
+        "description_status": "needs_review",
+    },
+    # ── Masa własna: nowe ćwiczenia ─────────────────────────────────────────
+    {
+        "id": "bodyweight_squat",
+        "name_pl": "Przysiad z masą własną",
+        "name_en": "Bodyweight squat",
+        "aliases": ["przysiad bez obciążenia", "air squat", "przysiad klasyczny"],
+        "primary_muscles": ["quads"],
+        "secondary_muscles": ["glutes"],
+        "movement_pattern": "squat",
+        "equipment": ["bodyweight"],
+        "level": "beginner",
+        "type": "compound",
+        "contraindications": ["knee"],
+        "sets_range": "3",
+        "reps_range": "10-15",
+        "description": {
+            "summary": "",
+            "setup": "",
+            "execution": [],
+            "cues": [],
+            "common_mistakes": [],
+            "easier_variant": None,
+            "harder_variant": "bulgarian_split_squat",
+            "breathing": "",
+        },
+        "description_status": "needs_review",
+    },
+    {
+        "id": "reverse_lunge",
+        "name_pl": "Wykrok w tył",
+        "name_en": "Reverse lunge",
+        "aliases": ["wykrok tylny", "cofnij się w wykroku"],
+        "primary_muscles": ["quads"],
+        "secondary_muscles": ["glutes"],
+        "movement_pattern": "lunge",
+        "equipment": ["bodyweight"],
+        "level": "beginner",
+        "type": "compound",
+        "contraindications": ["knee"],
+        "sets_range": "3",
+        "reps_range": "10/strona",
+        "description": {
+            "summary": "",
+            "setup": "",
+            "execution": [],
+            "cues": [],
+            "common_mistakes": [],
+            "easier_variant": None,
+            "harder_variant": "bulgarian_split_squat",
+            "breathing": "",
+        },
+        "description_status": "needs_review",
+    },
+    {
+        "id": "glute_bridge",
+        "name_pl": "Mostek biodrowy",
+        "name_en": "Glute bridge",
+        "aliases": ["mostek pośladkowy", "hip bridge"],
+        "primary_muscles": ["glutes"],
+        "secondary_muscles": ["hamstrings"],
+        "movement_pattern": "hinge",
+        "equipment": ["bodyweight"],
+        "level": "beginner",
+        "type": "compound",
+        "contraindications": ["low_back"],
+        "sets_range": "3",
+        "reps_range": "12-15",
+        "description": {
+            "summary": "",
+            "setup": "",
+            "execution": [],
+            "cues": [],
+            "common_mistakes": [],
+            "easier_variant": None,
+            "harder_variant": "single_leg_glute_bridge",
+            "breathing": "",
+        },
+        "description_status": "needs_review",
+    },
+    {
+        "id": "single_leg_glute_bridge",
+        "name_pl": "Mostek biodrowy jednonóż",
+        "name_en": "Single-leg glute bridge",
+        "aliases": ["mostek jednonóż", "single leg bridge"],
+        "primary_muscles": ["glutes"],
+        "secondary_muscles": ["hamstrings"],
+        "movement_pattern": "hinge",
+        "equipment": ["bodyweight"],
+        "level": "intermediate",
+        "type": "compound",
+        "contraindications": ["low_back"],
+        "sets_range": "3",
+        "reps_range": "10/strona",
+        "description": {
+            "summary": "",
+            "setup": "",
+            "execution": [],
+            "cues": [],
+            "common_mistakes": [],
+            "easier_variant": "glute_bridge",
+            "harder_variant": None,
+            "breathing": "",
+        },
+        "description_status": "needs_review",
+    },
+    {
+        "id": "wall_sit",
+        "name_pl": "Wall sit",
+        "name_en": "Wall sit",
+        "aliases": ["przysiad na ścianę", "sit na ścianę", "izometryczny przysiad"],
+        "primary_muscles": ["quads"],
+        "secondary_muscles": [],
+        "movement_pattern": "squat",
+        "equipment": ["bodyweight"],
+        "level": "beginner",
+        "type": "isolation",
+        "contraindications": ["knee"],
+        "sets_range": "3",
+        "reps_range": "30-45 s",
+        "description": {
+            "summary": "",
+            "setup": "",
+            "execution": [],
+            "cues": [],
+            "common_mistakes": [],
+            "easier_variant": None,
+            "harder_variant": None,
+            "breathing": "",
+        },
+        "description_status": "needs_review",
+    },
+    {
+        "id": "bodyweight_good_morning",
+        "name_pl": "Dobry poranek bez obciążenia",
+        "name_en": "Bodyweight good morning",
+        "aliases": ["dobry poranek", "good morning bez obciążenia"],
+        "primary_muscles": ["lower_back"],
+        "secondary_muscles": ["hamstrings"],
+        "movement_pattern": "hinge",
+        "equipment": ["bodyweight"],
+        "level": "beginner",
+        "type": "compound",
+        "contraindications": ["low_back"],
+        "sets_range": "3",
+        "reps_range": "10-15",
+        "description": {
+            "summary": "",
+            "setup": "",
+            "execution": [],
+            "cues": [],
+            "common_mistakes": [],
+            "easier_variant": None,
+            "harder_variant": "romanian_deadlift",
             "breathing": "",
         },
         "description_status": "needs_review",
