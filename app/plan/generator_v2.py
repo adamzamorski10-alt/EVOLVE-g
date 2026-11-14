@@ -59,9 +59,6 @@ VOLUME_TARGETS_INTERMEDIATE: dict[str, tuple[int, int]] = {
     "calves": (6, 10),
 }
 
-# Ćwiczenia izolujące klatkę, do dokupienia gdy objętość poniżej minimum.
-_CHEST_ISOLATION_FALLBACKS: list[str] = ["cable_crossover", "pec_deck"]
-
 _MUSCLE_TO_VOLUME_SUBGROUP: dict[str, str] = {
     "chest": "chest",
     "back": "back",
@@ -604,7 +601,19 @@ def _bodyweight_fallback(
     return None
 
 
-def _add_chest_isolation_if_needed(
+_ISOLATION_CANDIDATES: dict[str, list[str]] = {
+    "chest": ["cable_crossover", "pec_deck"],
+    "side_delts": ["lateral_raise"],
+    "biceps": ["cable_curl", "hammer_curl", "barbell_curl"],
+    "triceps": ["triceps_pushdown"],
+    "quads": ["leg_extension"],
+    "hamstrings": ["leg_curl"],
+    "calves": ["standing_calf_raise"],
+    "back": ["face_pull", "rear_delt_fly"],
+}
+
+
+def _add_isolation_if_needed(
     days: list[dict],
     pool: dict[str, list[dict[str, Any]]],
     equipment: set[str],
@@ -613,16 +622,38 @@ def _add_chest_isolation_if_needed(
     used_names_global: set[str],
     has_equipment_preset: bool,
     volume_sets: dict[str, int],
+    weekly_sets: dict[str, int],
+    weekly_sessions: dict[str, int],
     diagnostics: list[str],
 ) -> None:
-    """Jeśli objętość klatki poniżej minimum (10 dla intermediate), dokupuje
-    cable_crossover lub pec_deck do sesji upper. Jeśli się nie da, komunikat w diagnostics."""
-    low, high = VOLUME_TARGETS_INTERMEDIATE["chest"]
-    actual = volume_sets.get("chest", 0)
-    if actual >= low:
+    """Jeśli objętość grupy mięśniowej poniżej minimum (tylko intermediate),
+    dokup ćwiczenie izolujące do sesji upper (limit 7 ćwiczeń na sesję)."""
+    if training_level in (None, "początkujący", "beginner"):
         return
-    needed = low - actual
-    for ex_id in _CHEST_ISOLATION_FALLBACKS:
+
+    for muscle, (low, high) in VOLUME_TARGETS_INTERMEDIATE.items():
+        actual = volume_sets.get(muscle, 0)
+        if actual >= low:
+            continue
+        _try_add_isolation(
+            muscle, days, pool, equipment, avoid_exercises,
+            training_level, used_names_global, volume_sets, weekly_sets,
+        )
+
+
+def _try_add_isolation(
+    muscle: str,
+    days: list[dict],
+    pool: dict[str, list[dict[str, Any]]],
+    equipment: set[str],
+    avoid_exercises: list[str],
+    training_level: str | None,
+    used_names_global: set[str],
+    volume_sets: dict[str, int],
+    weekly_sets: dict[str, int],
+) -> None:
+    """Próbuje dodać jedno ćwiczenie izolujące dla grupy do pierwszej sesji upper z miejscem."""
+    for ex_id in _ISOLATION_CANDIDATES.get(muscle, []):
         ex = get_exercise(ex_id)
         if ex is None:
             continue
@@ -632,19 +663,17 @@ def _add_chest_isolation_if_needed(
             continue
         if ex.name_pl in used_names_global:
             continue
-        # Dodaj do pierwszej sesji upper, która ma miejsce.
+        target_pm = ex.primary_muscles[0] if ex.primary_muscles else ""
         for day in days:
             if day["day_type"] == "rest":
                 continue
-            focus = day["workout"]["focus"]
-            if focus not in ("upper_a", "upper_b"):
+            if day["workout"]["focus"] not in ("upper_a", "upper_b"):
                 continue
             exercises = day["workout"]["exercises"]
-            if len(exercises) >= 6:
+            if len(exercises) >= 7:
                 continue
-            # Sprawdź limity primary_muscles i family w tej sesji.
-            pm_count = {}
-            fam_set = set()
+            pm_count: dict[str, int] = {}
+            fam_set: set[str] = set()
             for e in exercises:
                 eo = get_exercise(e.get("exercise_id", e["name"]))
                 if eo is None:
@@ -654,9 +683,10 @@ def _add_chest_isolation_if_needed(
                 f = getattr(eo, "family", None)
                 if f:
                     fam_set.add(f)
-            if pm_count.get("chest", 0) >= 2:
+            if pm_count.get(target_pm, 0) >= 2:
                 continue
-            if "triceps_extension" in fam_set:
+            fam = getattr(ex, "family", None)
+            if fam and fam in fam_set:
                 continue
             exercises.append({
                 "exercise_id": ex.id,
@@ -666,13 +696,13 @@ def _add_chest_isolation_if_needed(
                 "how_to": "",
                 "alternatives": [],
             })
-            volume_sets["chest"] += _parse_sets(ex.sets_range, False)
+            sets_val = _parse_sets(ex.sets_range, False)
+            volume_sets[muscle] += sets_val
             used_names_global.add(ex.name_pl)
-            return
-    diagnostics.append(
-        f"Objętość klatki: {actual} serii, cel {low}-{high} (brakuje {needed}); "
-        f"nie można dodać izolacji klatki (brak miejsca lub sprzętu)."
-    )
+            group = _summary_group(ex.primary_muscles) if ex.primary_muscles else ""
+            if group in weekly_sets:
+                weekly_sets[group] += sets_val
+            return  # Only one exercise per muscle group
 
 
 def _ensure_bodyweight_minimums(
@@ -685,7 +715,6 @@ def _ensure_bodyweight_minimums(
     has_equipment_preset: bool,
     volume_sets: dict[str, int],
     weekly_sets: dict[str, int],
-    weekly_sessions: dict[str, int],
     diagnostics: list[str],
 ) -> None:
     """Dla użytkowników masy własnej gwarantuje w tygodniu co najmniej jedno
@@ -720,12 +749,12 @@ def _ensure_bodyweight_minimums(
     if not (missing_back or missing_shoulder or missing_triceps):
         return
 
-    # Dodaj brakujące ćwiczenia do dni z miejscem (maksymalnie 6 ćwiczeń na sesję).
+    # Dodaj brakujące ćwiczenia do dni z miejscem (maksymalnie 5 ćwiczeń na sesję).
     for day in days:
         if day["day_type"] == "rest":
             continue
         exercises = day["workout"]["exercises"]
-        if len(exercises) >= 6:
+        if len(exercises) >= 5:
             continue
         # Śledź grupy i rodziny w tej sesji.
         pm_count: dict[str, int] = {}
@@ -752,7 +781,7 @@ def _ensure_bodyweight_minimums(
                 candidates.append((cid, "triceps"))
 
         for ex_id, target_group in candidates:
-            if len(exercises) >= 6:
+            if len(exercises) >= 5:
                 break
             ex = get_exercise(ex_id)
             if ex is None:
@@ -791,7 +820,6 @@ def _ensure_bodyweight_minimums(
                 volume_sets[subgroup] += sets_val
             if target_group in weekly_sets:
                 weekly_sets[target_group] += sets_val
-                weekly_sessions[target_group] = weekly_sessions.get(target_group, 0) + 1
             if target_group == "plecy":
                 missing_back = False
             elif target_group == "barki":
@@ -846,7 +874,6 @@ def _ensure_bodyweight_minimums(
                 tg = _summary_group(ex.primary_muscles)
                 if tg in weekly_sets:
                     weekly_sets[tg] += sets_val
-                    weekly_sessions[tg] = weekly_sessions.get(tg, 0) + 1
                 break
 
 
@@ -1144,11 +1171,12 @@ def build_split_plan(
         for g in day_group_set:
             weekly_sessions[g] = weekly_sessions.get(g, 0) + 1
 
-    # Dokup izolację klatki jeśli objętość poniżej minimum (tylko intermediate).
+    # Dokup izolację jeśli objętość grupy poniżej minimum (tylko intermediate).
     if training_level not in (None, "początkujący", "beginner"):
-        _add_chest_isolation_if_needed(
+        _add_isolation_if_needed(
             days, pool, equipment, avoid_exercises, training_level,
-            used_names_global, has_equipment_preset, volume_sets, diagnostics,
+            used_names_global, has_equipment_preset, volume_sets,
+            weekly_sets, weekly_sessions, diagnostics,
         )
 
     # Dla użytkowników masy własnej: gwarantuj przynajmniej jedno ćwiczenie na
@@ -1156,8 +1184,22 @@ def build_split_plan(
     _ensure_bodyweight_minimums(
         days, pool, equipment, avoid_exercises, training_level,
         used_names_global, has_equipment_preset, volume_sets, weekly_sets,
-        weekly_sessions, diagnostics,
+        diagnostics,
     )
+
+    # Przebuduj sessions_per_week z końcowej listy dni (liczba różnych dni z grupą jako primary_muscles).
+    weekly_sessions = {g: 0 for g in _SUMMARY_GROUPS}
+    for day in days:
+        if day["day_type"] == "rest":
+            continue
+        day_groups = set()
+        for ex in day["workout"]["exercises"]:
+            ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
+            g = _summary_group(ex_obj.primary_muscles) if ex_obj else ""
+            if g:
+                day_groups.add(g)
+        for g in day_groups:
+            weekly_sessions[g] = weekly_sessions.get(g, 0) + 1
 
     # Diagnostyka objętości.
     volume_notes: list[str] = []

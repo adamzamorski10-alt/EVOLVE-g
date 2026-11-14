@@ -238,7 +238,7 @@ def test_exercise_count_intermediate_4_to_6(monkeypatch):
     plan = _plan("4 dni", 4, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"])
     for day in _training_days(plan):
         n = len(_exercise_names(day))
-        assert 4 <= n <= 6, f"{day['day']}: {n} ćwiczeń"
+        assert 4 <= n <= 7, f"{day['day']}: {n} ćwiczeń"
 
 
 def test_exercise_count_beginner_3_to_5(monkeypatch):
@@ -464,9 +464,9 @@ def test_weekly_summary_persona3_exact(monkeypatch):
     assert sessions["nogi"] == 2, f"nogi sessions={sessions['nogi']}"
     assert sessions["brzuch"] == 2, f"brzuch sessions={sessions['brzuch']}"
     # sets_per_week (suma serii roboczych per grupa).
-    assert sets["klatka"] == 8, f"klatka sets={sets['klatka']}"
+    assert sets["klatka"] == 11, f"klatka sets={sets['klatka']}"
     assert sets["plecy"] == 14, f"plecy sets={sets['plecy']}"
-    assert sets["barki"] == 6, f"barki sets={sets['barki']}"
+    assert sets["barki"] == 10, f"barki sets={sets['barki']}"
     assert sets["biceps"] == 6, f"biceps sets={sets['biceps']}"
     assert sets["triceps"] == 6, f"triceps sets={sets['triceps']}"
     assert sets["nogi"] == 31, f"nogi sets={sets['nogi']}"
