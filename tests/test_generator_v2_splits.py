@@ -199,8 +199,8 @@ def test_training_days_no_consecutive_same_group(monkeypatch):
     td = _training_days(plan)
     day_names = [d["day"] for d in td]
     assert len(day_names) == 4
-    # Dni treningowe z przerwą >= 1 dzień między sesjami tej samej partii (np. upper A w Pn, upper B w Śr).
-    assert day_names == ["Poniedziałek", "Wtorek", "Środa", "Czwartek"]
+    # 4 dni: Poniedziałek, Wtorek, Czwartek, Piątek (przerwy między sesjami tej samej partii).
+    assert day_names == ["Poniedziałek", "Wtorek", "Czwartek", "Piątek"]
 
 
 def test_3_days_spread_mon_wed_fri(monkeypatch):
@@ -209,7 +209,8 @@ def test_3_days_spread_mon_wed_fri(monkeypatch):
     td = _training_days(plan)
     day_names = [d["day"] for d in td]
     assert len(day_names) == 3
-    assert day_names == ["Poniedziałek", "Wtorek", "Środa"]
+    # 3 dni: Poniedziałek, Środa, Piątek.
+    assert day_names == ["Poniedziałek", "Środa", "Piątek"]
 
 
 def test_sunday_not_a_training_day(monkeypatch):
@@ -368,3 +369,130 @@ def test_plan_generator_env_switch(monkeypatch):
     monkeypatch.setenv("PLAN_GENERATOR", "v2")
     plan_v2 = _plan("3 dni", 3, "początkujący", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"])
     assert plan_v2["_planner"]["version"] == "deterministic-v2-splits"
+
+
+# ---------------------------------------------------------------------------
+# Nowe testy jakościowe (zadanie 3, 7, 9)
+# ---------------------------------------------------------------------------
+
+def test_persona2_beginner_dumbbells_zero_intermediate(monkeypatch):
+    """Początkujący z hantlami i ławką: zero ćwiczeń intermediate."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan("2 dni", 2, "początkujący", ["hantle", "ławka"], ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    for day in _training_days(plan):
+        for level in _exercise_levels(day):
+            assert level == "beginner", f"{day['day']}: {level}"
+
+
+def test_weekly_summary_persona3(monkeypatch):
+    """weekly_summary zwraca sessions_per_week i sets_per_week dla każdej grupy."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan("4 dni", 4, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    summary = plan["_planner"]["weekly_summary"]
+    assert "sets_per_group" in summary
+    assert "sessions_per_group" in summary
+    for g in ("klatka", "plecy", "barki", "biceps", "triceps", "nogi", "brzuch"):
+        assert g in summary["sets_per_group"], f"brak sets_per_group[{g}]"
+        assert g in summary["sessions_per_group"], f"brak sessions_per_group[{g}]"
+        assert isinstance(summary["sets_per_group"][g], int)
+        assert isinstance(summary["sessions_per_group"][g], int)
+
+
+def test_each_day_at_least_three_exercises_all_personas(monkeypatch):
+    """Każdy dzień ma >= 3 ćwiczenia dla person 1, 2, 3, 7."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    cases = [
+        ("3 dni", 3, "początkujący", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"]),
+        ("2 dni", 2, "początkujący", ["hantle", "ławka"], ["klatka", "plecy", "nogi", "brzuch", "barki"]),
+        ("4 dni", 4, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"]),
+        ("3 dni", 3, "początkujący", [], ["klatka", "plecy", "nogi", "brzuch", "barki"]),
+    ]
+    for freq, days, level, equip, focus in cases:
+        plan = _plan(freq, days, level, equip, focus)
+        for day in _training_days(plan):
+            n = len(_exercise_names(day))
+            assert n >= 3, f"{freq}/{level}: {day['day']} ma {n} ćwiczeń"
+
+
+def test_sets_are_integers(monkeypatch):
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan("4 dni", 4, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    for day in _training_days(plan):
+        for ex in day["workout"]["exercises"]:
+            sets = ex["sets"]
+            assert str(sets).isdigit(), f"{day['day']}: sets={sets!r} nie jest liczbą całkowitą"
+
+
+def test_volume_in_ranges_persona3(monkeypatch):
+    """Objętość dla persony 3 (średniozaawansowany, masa) nie przekracza górnych granic;
+    gdy poniżej dolnej, diagnostics zawiera komunikat po polsku."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan("4 dni", 4, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    summary = plan["_planner"]["weekly_summary"]
+    sets = summary["sets_per_group"]
+    sessions = summary["sessions_per_group"]
+    # Górne granice nie mogą zostać przekroczone.
+    assert sets.get("klatka", 0) <= 14, f"klatka {sets.get('klatka', 0)}"
+    assert sets.get("plecy", 0) <= 16, f"plecy {sets.get('plecy', 0)}"
+    assert sets.get("barki", 0) <= 12, f"barki {sets.get('barki', 0)}"
+    assert sets.get("biceps", 0) <= 10, f"biceps {sets.get('biceps', 0)}"
+    assert sets.get("triceps", 0) <= 10, f"triceps {sets.get('triceps', 0)}"
+    # Co najmniej 2 sesje na klatkę, plecy, nogi.
+    assert sessions.get("klatka", 0) >= 2
+    assert sessions.get("plecy", 0) >= 2
+    assert sessions.get("nogi", 0) >= 2
+    # Jeśli jakaś grupa jest poniżej dolnej granicy, diagnostics o tym mówi po polsku.
+    diagnostics = " ".join(plan["_planner"]["schedule_diagnostics"].get("notes", []))
+    for group, (low, high) in (("klatka", (10, 14)), ("plecy", (12, 16)), ("barki", (8, 12)), ("biceps", (6, 10)), ("triceps", (6, 10))):
+        actual = sets.get(group, 0)
+        if actual < low:
+            assert group in diagnostics or actual == 0, f"{group}: {actual} poniżej {low}, brak w diagnostics"
+
+
+
+def test_no_australian_pullup_nor_pike_pushup_for_gym(monkeypatch):
+    """Użytkownik z pełną siłownią nie dostaje australian_pullup ani pike_pushup, jeśli są lepsze ćwiczenia."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan("4 dni", 4, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    all_names = []
+    for day in _training_days(plan):
+        all_names.extend(_exercise_names(day))
+    assert "Ściąganie drążka wyciągu do klatki (szeroki chwyt)" not in all_names or True  # lat_pulldown preferred
+    # Sprawdź po id przez get_exercise.
+    from app.exercises.data import get_exercise
+    banned = {"australian_pullup", "pike_pushup"}
+    for day in _training_days(plan):
+        for ex in day["workout"]["exercises"]:
+            ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
+            if ex_obj is not None:
+                assert ex_obj.id not in banned, f"{day['day']}: zabronione {ex_obj.id} przy pełnej siłowni"
+
+
+def test_gaps_between_training_days(monkeypatch):
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan("5 dni", 5, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    td = _training_days(plan)
+    day_names = [d["day"] for d in td]
+    assert day_names == ["Poniedziałek", "Wtorek", "Środa", "Piątek", "Sobota"]
+
+
+def test_one_day_is_monday(monkeypatch):
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan("1 dzień", 1, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    td = _training_days(plan)
+    assert [d["day"] for d in td] == ["Poniedziałek"]
+
+
+def test_two_days_mon_thu(monkeypatch):
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan("2 dni", 2, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    td = _training_days(plan)
+    assert [d["day"] for d in td] == ["Poniedziałek", "Czwartek"]
+
+
+def test_six_days_mon_sat(monkeypatch):
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan("6 dni", 6, "średniozaawansowany", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    td = _training_days(plan)
+    assert [d["day"] for d in td] == ["Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"]
+

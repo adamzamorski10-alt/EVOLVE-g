@@ -2579,6 +2579,7 @@ __all__ = [
     "EXERCISES",
     "get_exercise",
     "list_exercises",
+    "SELECTION_RANK",
 ]
 
 
@@ -2625,3 +2626,76 @@ def _load_descriptions_from_files() -> None:
 
 
 _load_descriptions_from_files()
+
+
+# Jawna lista priorytetow wyboru cwiczen w slocie (im mniejszy numer, wyzszy priorytet).
+# Klucz: wzorzec ruchu. Wartość: id cwiczenia -> ranga.
+# Cwiczenia nieobecne w tabeli otrzymuja domyslna ranga 999.
+SELECTION_RANK: dict[str, dict[str, int]] = {
+    "squat": {
+        "back_squat": 1,
+        "goblet_squat": 2,
+        "leg_press": 3,
+        "front_squat": 4,
+        "bodyweight_squat": 5,
+    },
+    "hinge": {
+        "romanian_deadlift_dumbbell": 1,
+        "romanian_deadlift": 2,
+        "conventional_deadlift": 3,
+        "glute_bridge": 4,
+        "kettlebell_swing": 5,
+        "bodyweight_good_morning": 6,
+    },
+    "lunge": {
+        "reverse_lunge": 1,
+        "bulgarian_split_squat": 2,
+    },
+    "horizontal_push": {
+        "barbell_bench_press": 1,
+        "incline_dumbbell_press": 2,
+        "dumbbell_bench_press": 3,
+        "hammer_machine_press": 4,
+        "decline_dumbbell_press": 5,
+        "floor_press": 6,
+        "pushups_classic": 7,
+    },
+    "horizontal_pull": {
+        "seated_cable_row": 1,
+        "barbell_row": 2,
+        "one_arm_dumbbell_row": 3,
+        "bent_over_row_db": 4,
+        "one_arm_row_thigh": 5,
+        "australian_pullup": 6,
+    },
+    "vertical_push": {
+        "seated_dumbbell_press": 1,
+        "overhead_press": 2,
+        "arnold_press": 3,
+        "pike_pushup": 4,
+    },
+    "vertical_pull": {
+        "lat_pulldown": 1,
+        "pullup_wide": 2,
+        "chinup": 3,
+    },
+    "isolation": {
+        "lateral_raise": 1,
+        "face_pull": 2,
+        "rear_delt_fly": 3,
+        "triceps_pushdown": 4,
+        "cable_curl": 5,
+        "hammer_curl": 6,
+        "barbell_curl": 7,
+        "leg_curl": 8,
+        "leg_extension": 9,
+        "standing_calf_raise": 10,
+    },
+    "core": {
+        "plank": 1,
+        "dead_bug": 2,
+        "cable_crunch": 3,
+        "hanging_leg_raise": 4,
+        "bird_dog": 5,
+    },
+}
