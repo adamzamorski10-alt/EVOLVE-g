@@ -463,7 +463,7 @@ def test_weekly_summary_persona3_exact(monkeypatch):
     assert sessions["klatka"] == 2, f"klatka sessions={sessions['klatka']}"
     assert sessions["plecy"] == 2, f"plecy sessions={sessions['plecy']}"
     assert sessions["barki"] == 2, f"barki sessions={sessions['barki']}"
-    assert sessions["biceps"] == 1, f"biceps sessions={sessions['biceps']}"
+    assert sessions["biceps"] == 2, f"biceps sessions={sessions['biceps']}"
     assert sessions["triceps"] == 2, f"triceps sessions={sessions['triceps']}"
     assert sessions["nogi"] == 2, f"nogi sessions={sessions['nogi']}"
     assert sessions["brzuch"] == 2, f"brzuch sessions={sessions['brzuch']}"
@@ -953,7 +953,7 @@ def test_R5_lower_legs_calf_raise_and_curl_extension(monkeypatch):
     for cfg_name in gym_configs:
         freq, days, level, equip, focus = CONFIGS[cfg_name]
         plan = _plan(freq, days, level, equip, focus)
-        lower_days = [d for d in _training_days(plan) if _is_lower_or_legs_or_full_body(d)]
+        lower_days = [d for d in _training_days(plan) if d["workout"]["focus"] in ("lower_a", "lower_b", "legs")]
         for day in lower_days:
             ids = set(_exercise_ids(day))
             assert "standing_calf_raise" in ids, (
@@ -1217,3 +1217,220 @@ def test_R15_generator_does_not_remove_squat_hinge_lunge(monkeypatch):
                 )
 
 
+
+
+# ============================================================================
+# R16: W każdym planie suma serii ciągnięcia >= 0,9 * serie pchania.
+# ============================================================================
+
+def _push_pull_sets(plan):
+    from app.exercises.data import get_exercise
+    push_sets = 0
+    pull_sets = 0
+    push_patterns = {"horizontal_push", "vertical_push"}
+    pull_patterns = {"horizontal_pull", "vertical_pull"}
+    
+    for day in _training_days(plan):
+        for e in day["workout"]["exercises"]:
+            ex_obj = get_exercise(e.get("exercise_id", e["name"]))
+            if ex_obj is None or not ex_obj.primary_muscles:
+                continue
+            mp = ex_obj.movement_pattern
+            pm = ex_obj.primary_muscles[0]
+            if mp in push_patterns or (ex_obj.type == "isolation" and pm in ("chest", "triceps", "front_delts")):
+                push_sets += e["sets"]
+            elif mp in pull_patterns or pm in ("back", "lats", "upper_back", "mid_back", "lower_back", "traps", "biceps", "rear_delts"):
+                pull_sets += e["sets"]
+    return push_sets, pull_sets
+
+
+def test_R16_pull_sets_at_least_90_percent_of_push_sets(monkeypatch):
+    """R16: serie ciągnięcia >= 0,9 * serie pchania w każdym planie."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    for cfg_name, (freq, days, level, equip, focus) in CONFIGS.items():
+        plan = _plan(freq, days, level, equip, focus)
+        push_s, pull_s = _push_pull_sets(plan)
+        if push_s > 0:
+            assert pull_s >= 0.9 * push_s, (
+                f"{cfg_name}: ciągnięcie ({pull_s}) < 0.9 * pchanie ({push_s}), ratio={pull_s/push_s:.2f}"
+            )
+
+
+# ============================================================================
+# R17: Każda sesja full body i upper ma co najmniej 1 pchanie i 1 ciągnięcie.
+# ============================================================================
+
+def test_R17_full_body_and_upper_have_push_and_pull(monkeypatch):
+    """R17: każda sesja full body i upper ma >= 1 ćwiczenie pchające i >= 1 ciągnące."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    for cfg_name, (freq, days, level, equip, focus) in CONFIGS.items():
+        plan = _plan(freq, days, level, equip, focus)
+        from app.exercises.data import get_exercise
+        for day in _training_days(plan):
+            f = day["workout"]["focus"]
+            if "full_body" in f or "upper" in f:
+                patterns = {
+                    get_exercise(e.get("exercise_id", e["name"])).movement_pattern
+                    for e in day["workout"]["exercises"]
+                    if get_exercise(e.get("exercise_id", e["name"]))
+                }
+                has_push = bool(patterns & {"horizontal_push", "vertical_push"})
+                has_pull = bool(patterns & {"horizontal_pull", "vertical_pull"})
+                if not has_pull:
+                    notes = " ".join(plan["_planner"].get("schedule_diagnostics", {}).get("notes", []))
+                    assert "brak" in notes.lower() and "sprzęt" in notes.lower(), (
+                        f"{cfg_name} {day['day']} ({f}): brak ćwiczenia ciągnącego i brak komunikatu w diagnostics: {patterns}"
+                    )
+                else:
+                    assert has_push, f"{cfg_name} {day['day']} ({f}): brak ćwiczenia pchającego: {patterns}"
+                    assert has_pull, f"{cfg_name} {day['day']} ({f}): brak ćwiczenia ciągnącego: {patterns}"
+
+
+# ============================================================================
+# R18: W planie >= 3 dni full body: hinge >= 2x, dwugłowe >= 0,6 * czworogłowe.
+# ============================================================================
+
+def test_R18_full_body_3d_hinge_and_hamstring_ratio(monkeypatch):
+    """R18: full body >= 3 dni: hinge >= 2x, serie dwugłowych >= 0,6 * czworogłowych."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    for cfg_name in ("persona1_beginner_gym_3d", "persona7_beginner_bodyweight_3d"):
+        freq, days, level, equip, focus = CONFIGS[cfg_name]
+        plan = _plan(freq, days, level, equip, focus)
+        hinge_count = 0
+        for day in _training_days(plan):
+            for e in day["workout"]["exercises"]:
+                eo = get_exercise(e.get("exercise_id", e["name"]))
+                if eo and eo.movement_pattern == "hinge":
+                    hinge_count += 1
+        assert hinge_count >= 2, f"{cfg_name}: tylko {hinge_count} hinge w tygodniu (wymagane >= 2)"
+        
+        if equip:
+            subgroups = _weekly_sets_by_muscle_subgroup(plan)
+            quads = subgroups.get("quads", 0)
+            hams = subgroups.get("hamstrings", 0)
+            if quads > 0:
+                assert hams >= 0.6 * quads, (
+                    f"{cfg_name}: dwugłowe ({hams}) < 0.6 * czworogłowe ({quads})"
+                )
+
+
+# ============================================================================
+# R19: Dla planów >= 4 dni: biceps i triceps mają po 2 sesje w tygodniu.
+# ============================================================================
+
+def test_R19_biceps_and_triceps_frequency_at_least_2_for_4_plus_days(monkeypatch):
+    """R19: plany >= 4 dni mają >= 2 sesje biceps i >= 2 sesje triceps w tygodniu."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    for cfg_name in ("persona3_intermediate_gym_4d", "intermediate_gym_5d", "intermediate_gym_6d", "beginner_gym_4d"):
+        freq, days, level, equip, focus = CONFIGS[cfg_name]
+        plan = _plan(freq, days, level, equip, focus)
+        sessions = plan["_planner"]["weekly_summary"]["sessions_per_group"]
+        assert sessions.get("biceps", 0) >= 2, f"{cfg_name}: biceps w {sessions.get('biceps', 0)} sesjach (wymagane >= 2)"
+        assert sessions.get("triceps", 0) >= 2, f"{cfg_name}: triceps w {sessions.get('triceps', 0)} sesjach (wymagane >= 2)"
+
+
+# ============================================================================
+# R20: Żadna sesja nie przekracza 75 minut szacowanego czasu.
+# ============================================================================
+
+def test_R20_no_session_exceeds_75_minutes(monkeypatch):
+    """R20: żadna sesja nie przekracza 75 minut szacowanego czasu."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    for cfg_name, (freq, days, level, equip, focus) in CONFIGS.items():
+        plan = _plan(freq, days, level, equip, focus)
+        for day in _training_days(plan):
+            est_m = day["workout"].get("estimated_minutes", 0)
+            assert est_m <= 75, f"{cfg_name} {day['day']}: czas {est_m} min > 75 min"
+
+
+# ============================================================================
+# R21: Wspięcia na palce w full body maks. 1 sesja tygodniowo.
+# ============================================================================
+
+def test_R21_calf_raise_max_1_session_in_full_body(monkeypatch):
+    """R21: w full body maks. 1 sesja tygodniowo ze wspięciami (chyba że brakuje do celu)."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    for cfg_name in ("persona1_beginner_gym_3d", "persona2_beginner_dumbbells_2d", "persona7_beginner_bodyweight_3d"):
+        freq, days, level, equip, focus = CONFIGS[cfg_name]
+        plan = _plan(freq, days, level, equip, focus)
+        calf_sessions = 0
+        for day in _training_days(plan):
+            if any(e.get("exercise_id") == "standing_calf_raise" for e in day["workout"]["exercises"]):
+                calf_sessions += 1
+        assert calf_sessions <= 1, f"{cfg_name}: wspięcia na palce w {calf_sessions} sesjach full body (max 1)"
+
+
+# ============================================================================
+# R22: Dzień pull i upper mają tył barku >= 1x w tyg, a pull ma >= 5 ćwiczeń.
+# ============================================================================
+
+def test_R22_rear_delts_in_upper_or_pull_and_pull_at_least_5_exercises(monkeypatch):
+    """R22: tył barku w upper/pull >= 1x/tydz., dzień pull ma >= 5 ćwiczeń."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    for cfg_name in ("persona3_intermediate_gym_4d", "intermediate_gym_5d", "intermediate_gym_6d"):
+        freq, days, level, equip, focus = CONFIGS[cfg_name]
+        plan = _plan(freq, days, level, equip, focus)
+        rear_delt_sessions = 0
+        for day in _training_days(plan):
+            f = day["workout"]["focus"]
+            ex_ids = {e.get("exercise_id") for e in day["workout"]["exercises"]}
+            if f in ("upper_a", "upper_b", "pull"):
+                if bool(ex_ids & {"face_pull", "rear_delt_fly"}):
+                    rear_delt_sessions += 1
+            if f == "pull":
+                n = len(day["workout"]["exercises"])
+                assert n >= 5, f"{cfg_name} {day['day']} (pull): tylko {n} ćwiczeń (wymagane >= 5)"
+        assert rear_delt_sessions >= 1, f"{cfg_name}: brak tyłu barku w żadnej sesji upper/pull"
+
+
+# ============================================================================
+# R23: Plan 1-dniowy zawiera hinge/hamstrings oraz vertical_push/vertical_pull.
+# ============================================================================
+
+def test_R23_single_day_plan_contains_hinge_and_vertical(monkeypatch):
+    """R23: plan 1-dniowy zawiera hinge lub hamstrings oraz vertical_push lub vertical_pull."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    plan = _plan("1 dzień", 1, "średniozaawansowany", GYM_FULL, ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    training_days = _training_days(plan)
+    assert len(training_days) == 1
+    day = training_days[0]
+    has_hinge_or_hams = False
+    has_vertical = False
+    for e in day["workout"]["exercises"]:
+        eo = get_exercise(e.get("exercise_id", e["name"]))
+        if eo:
+            if eo.movement_pattern == "hinge" or "hamstrings" in (eo.primary_muscles or []):
+                has_hinge_or_hams = True
+            if eo.movement_pattern in ("vertical_push", "vertical_pull"):
+                has_vertical = True
+    assert has_hinge_or_hams, f"1 dzień: brak hinge ani hamstrings w sesji"
+    assert has_vertical, f"1 dzień: brak vertical_push ani vertical_pull w sesji"
+
+
+# ============================================================================
+# R24: Masa własna: >= 6 serii ćwiczeń ciągnących, superman + prone_cobra bez sprzętu.
+# ============================================================================
+
+def test_R24_bodyweight_pulling_minimums_and_diagnostics(monkeypatch):
+    """R24: masa własna: >= 6 serii ciągnących, superman i prone_cobra, komunikat w diagnostics."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    plan = _plan("3 dni", 3, "początkujący", [], ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    all_ex_ids = []
+    pulling_sets = 0
+    for day in _training_days(plan):
+        for e in day["workout"]["exercises"]:
+            all_ex_ids.append(e.get("exercise_id"))
+            eo = get_exercise(e.get("exercise_id", e["name"]))
+            if eo:
+                if eo.movement_pattern in ("horizontal_pull", "vertical_pull") or any(m in (eo.primary_muscles or []) for m in ("back", "lats", "upper_back", "mid_back", "lower_back", "traps")):
+                    pulling_sets += e["sets"]
+    assert pulling_sets >= 6, f"persona7: tylko {pulling_sets} serii ciągnących (wymagane >= 6)"
+    assert "superman" in all_ex_ids, "persona7: brak superman w planie"
+    assert "prone_cobra" in all_ex_ids, "persona7: brak prone_cobra w planie"
+    notes = " ".join(plan["_planner"].get("schedule_diagnostics", {}).get("notes", []))
+    expected_msg = "Brak ćwiczeń ciągnących bez drążka, stołu lub gum. Dodaj sprzęt w profilu, aby plan zawierał wiosłowanie i podciąganie."
+    assert expected_msg in notes, f"persona7: brak oczekiwanego komunikatu w diagnostics: {notes}"

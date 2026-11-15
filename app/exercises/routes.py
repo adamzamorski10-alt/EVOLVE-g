@@ -34,6 +34,7 @@ _EQUIPMENT_LABELS_PL = {
     "dip_station": "poręcze",
     "ab_wheel": "koło ab wheel",
     "weight_plate": "talerz",
+    "bands": "gumy oporowe",
     "table_or_low_bar": "stół lub niska poręcz",
 }
 

@@ -34,6 +34,7 @@ _EQUIPMENT_CATALOG = [
     {"id": "basketball-hoop", "label": "Kosz do koszykówki"},
     {"id": "basketball", "label": "Piłka do koszykówki"},
     {"id": "mat", "label": "Mata"},
+    {"id": "table_or_low_bar", "label": "Stół / niski drążek"},
 ]
 
 

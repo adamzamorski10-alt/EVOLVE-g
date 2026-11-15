@@ -67,14 +67,12 @@ _MUSCLE_TO_VOLUME_SUBGROUP: dict[str, str] = {
     "mid_back": "back",
     "lower_back": "back",
     "traps": "back",
-    "front_delts": "side_delts",
     "side_delts": "side_delts",
-    "rear_delts": "side_delts",
     "biceps": "biceps",
     "triceps": "triceps",
     "quads": "quads",
     "hamstrings": "hamstrings",
-    "glutes": "hamstrings",
+    "glutes": "glutes",
     "calves": "calves",
     "abs": "brzuch",
     "obliques": "brzuch",
@@ -258,13 +256,18 @@ def _equipment_aliases(items: list[str]) -> set[str]:
         "hantle": "dumbbell", "hantle regulowane": "dumbbell",
         "kettlebell": "kettlebell", "maszyny": "machine", "maszyna": "machine",
         "wyciąg": "cable", "kabel": "cable", "ławka": "bench", "ławce": "bench",
-        "drążek": "pullup_bar", "poręcz": "dip_station", "poręcze": "dip_station",
-        "dip_station": "dip_station", "pullup_bar": "pullup_bar",
-        "bands": "bands", "taśmy": "bands", "bodyweight": "bodyweight",
-        "masa własna": "bodyweight", "talerz": "weight_plate", "talerze": "weight_plate",
+        "drążek": "pullup_bar", "drążek do podciągania": "pullup_bar",
+        "poręcz": "dip_station", "poręcze": "dip_station",
+        "dip_station": "dip_station", "pullup_bar": "pullup_bar", "pull-up-bar": "pullup_bar",
+        "bands": "bands", "taśmy": "bands", "guma": "bands", "gumy": "bands",
+        "guma oporowa": "bands", "gumy oporowe": "bands", "resistance-band": "bands",
+        "bodyweight": "bodyweight", "masa własna": "bodyweight",
+        "talerz": "weight_plate", "talerze": "weight_plate",
         "koło brzuszkowe": "ab_wheel", "koło": "ab_wheel", "kółko brzuszkowe": "ab_wheel",
         "stół": "table_or_low_bar", "niski drążek": "table_or_low_bar",
-        "drążek niski": "table_or_low_bar", "siłownia": "gym", "gym": "gym", "full": "gym",
+        "drążek niski": "table_or_low_bar", "stół lub niska poręcz": "table_or_low_bar",
+        "stół lub niski drążek": "table_or_low_bar", "table_or_low_bar": "table_or_low_bar",
+        "siłownia": "gym", "gym": "gym", "full": "gym",
     }
     for item in items:
         if not item or not item.strip():
@@ -345,19 +348,20 @@ def _split_key(num_days: int, training_level: str | None) -> str:
 SLOT_TEMPLATES: dict[str, list[dict[str, Any]]] = {
     "full_body_a": [
         {"pattern": "squat", "group": "nogi", "kind": "compound"},
+        {"pattern": "hinge", "group": "nogi", "kind": "compound"},
         {"pattern": "horizontal_push", "group": "klatka", "kind": "compound"},
-        {"pattern": "horizontal_pull", "group": "plecy", "kind": "compound"},
+        {"pattern": "horizontal_pull", "group": "plecy", "kind": "compound", "fallback_pattern": "vertical_pull"},
         {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["lateral_raise"], "sets": 3},
-        {"pattern": "isolation", "group": "nogi", "kind": "isolation", "prefer_ids": ["standing_calf_raise"], "sets": 3},
+        {"pattern": "isolation", "group": "nogi", "kind": "isolation", "prefer_ids": ["standing_calf_raise"], "sets": 3, "calf_slot": True},
         {"pattern": "core", "group": "brzuch", "kind": "isolation", "sets": 3},
     ],
     "full_body_b": [
         {"pattern": "hinge", "group": "nogi", "kind": "compound"},
-        {"pattern": "vertical_push", "group": "barki", "kind": "compound"},
-        {"pattern": "vertical_pull", "group": "plecy", "kind": "compound"},
+        {"pattern": "vertical_push", "group": "barki", "kind": "compound", "fallback_pattern": "horizontal_push"},
+        {"pattern": "vertical_pull", "group": "plecy", "kind": "compound", "fallback_pattern": "horizontal_pull"},
+        {"pattern": "isolation", "group": "klatka", "kind": "isolation", "prefer_ids": ["cable_crossover", "pec_deck"], "sets": 3},
+        {"pattern": "isolation", "group": "nogi", "kind": "isolation", "prefer_ids": ["leg_curl", "hammer_curl", "band_curl"], "sets": 3},
         {"pattern": "core", "group": "brzuch", "kind": "isolation", "sets": 3},
-        {"pattern": "isolation", "group": "nogi", "kind": "isolation", "prefer_ids": ["standing_calf_raise"], "sets": 3},
-        {"pattern": "horizontal_push", "group": "klatka", "kind": "compound"},
     ],
     "upper_a": [
         {"pattern": "horizontal_push", "group": "klatka", "kind": "compound"},
@@ -366,31 +370,31 @@ SLOT_TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {"pattern": "vertical_pull", "group": "plecy", "kind": "compound"},
         {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["lateral_raise"], "sets": 3},
         {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["face_pull"], "sets": 3},
-        {"pattern": "isolation", "group": "klatka", "kind": "isolation", "prefer_ids": ["cable_crossover", "pec_deck"], "sets": 3},
-        {"pattern": "isolation", "group": "triceps", "kind": "isolation", "sets": 3},
+        {"pattern": "isolation", "group": "biceps", "kind": "isolation", "prefer_ids": ["cable_curl", "barbell_curl"], "sets": 3},
+        {"pattern": "isolation", "group": "triceps", "kind": "isolation", "prefer_ids": ["triceps_pushdown", "band_pushdown"], "sets": 3},
     ],
     "upper_b": [
         {"pattern": "horizontal_push", "group": "klatka", "kind": "compound"},
         {"pattern": "vertical_pull", "group": "plecy", "kind": "compound"},
         {"pattern": "horizontal_pull", "group": "plecy", "kind": "compound"},
+        {"pattern": "isolation", "group": "klatka", "kind": "isolation", "prefer_ids": ["cable_crossover", "pec_deck"], "sets": 3},
         {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["lateral_raise"], "sets": 3},
         {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["rear_delt_fly"], "sets": 3},
-        {"pattern": "isolation", "group": "biceps", "kind": "isolation", "prefer_ids": ["cable_curl", "barbell_curl"], "sets": 3},
-        {"pattern": "isolation", "group": "biceps", "kind": "isolation", "prefer_ids": ["hammer_curl"], "sets": 3},
-        {"pattern": "isolation", "group": "triceps", "kind": "isolation", "sets": 3},
+        {"pattern": "isolation", "group": "biceps", "kind": "isolation", "prefer_ids": ["hammer_curl", "alternating_dumbbell_curl"], "sets": 3},
+        {"pattern": "isolation", "group": "triceps", "kind": "isolation", "prefer_ids": ["french_press", "french_press_db_two_hand", "triceps_kickback"], "sets": 3},
     ],
     "lower_a": [
         {"pattern": "squat", "group": "nogi", "kind": "compound"},
         {"pattern": "hinge", "group": "nogi", "kind": "compound"},
-        {"pattern": "lunge", "group": "nogi", "kind": "compound"},
-        {"pattern": "isolation", "group": "nogi", "kind": "isolation", "prefer_ids": ["leg_curl"], "sets": 3},
+        {"pattern": "lunge", "group": "nogi", "kind": "compound", "prefer_ids": ["bulgarian_split_squat", "walking_lunge"]},
+        {"pattern": "isolation", "group": "nogi", "kind": "isolation", "prefer_ids": ["leg_curl", "hammer_curl", "band_curl"], "sets": 3},
         {"pattern": "isolation", "group": "nogi", "kind": "isolation", "prefer_ids": ["standing_calf_raise"], "sets": 3},
         {"pattern": "core", "group": "brzuch", "kind": "isolation", "sets": 3},
     ],
     "lower_b": [
         {"pattern": "hinge", "group": "nogi", "kind": "compound"},
         {"pattern": "squat", "group": "nogi", "kind": "compound", "prefer_ids": ["leg_press", "front_squat"]},
-        {"pattern": "lunge", "group": "nogi", "kind": "compound", "prefer_ids": ["reverse_lunge"]},
+        {"pattern": "lunge", "group": "nogi", "kind": "compound", "prefer_ids": ["step_up", "reverse_lunge"]},
         {"pattern": "isolation", "group": "nogi", "kind": "isolation", "prefer_ids": ["leg_curl", "leg_extension"], "sets": 3},
         {"pattern": "isolation", "group": "nogi", "kind": "isolation", "prefer_ids": ["standing_calf_raise"], "sets": 3},
         {"pattern": "core", "group": "brzuch", "kind": "isolation", "sets": 3},
@@ -408,7 +412,7 @@ SLOT_TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {"pattern": "vertical_pull", "group": "plecy", "kind": "compound"},
         {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["face_pull", "rear_delt_fly"], "sets": 3},
         {"pattern": "isolation", "group": "biceps", "kind": "isolation", "prefer_ids": ["cable_curl", "barbell_curl"], "sets": 3},
-        {"pattern": "isolation", "group": "biceps", "kind": "isolation", "prefer_ids": ["hammer_curl"], "sets": 3},
+        {"pattern": "isolation", "group": "biceps", "kind": "isolation", "prefer_ids": ["hammer_curl", "alternating_dumbbell_curl"], "sets": 3},
     ],
     "legs": [
         {"pattern": "squat", "group": "nogi", "kind": "compound", "prefer_ids": ["leg_press", "front_squat"]},
@@ -418,10 +422,19 @@ SLOT_TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {"pattern": "isolation", "group": "nogi", "kind": "isolation", "prefer_ids": ["standing_calf_raise"], "sets": 3},
         {"pattern": "core", "group": "brzuch", "kind": "isolation", "sets": 3},
     ],
+    "full_body_1_ext": [
+        {"pattern": "squat", "group": "nogi", "kind": "compound"},
+        {"pattern": "hinge", "group": "nogi", "kind": "compound"},
+        {"pattern": "horizontal_push", "group": "klatka", "kind": "compound"},
+        {"pattern": "vertical_push", "group": "barki", "kind": "compound"},
+        {"pattern": "horizontal_pull", "group": "plecy", "kind": "compound", "sets": 4},
+        {"pattern": "vertical_pull", "group": "plecy", "kind": "compound", "fallback_pattern": "horizontal_pull", "sets": 4},
+        {"pattern": "core", "group": "brzuch", "kind": "isolation", "sets": 3},
+    ],
 }
 
 SPLIT_TEMPLATES: dict[str, list[str]] = {
-    "full_body_1": ["full_body_a"],
+    "full_body_1": ["full_body_1_ext"],
     "full_body_2": ["full_body_a", "full_body_b"],
     "full_body_3": ["full_body_a", "full_body_b", "full_body_a"],
     "upper_lower_full_3": ["upper_a", "lower_a", "full_body_a"],
@@ -482,6 +495,84 @@ def _is_bodyweight(ex: dict[str, Any]) -> bool:
     return ex_obj is not None and set(ex_obj.equipment or []) <= {"bodyweight"}
 
 
+def _filter_candidates_for_pattern(
+    raw_list: list[dict[str, Any]],
+    pattern: str,
+    kind: str | None,
+    equipment: set[str],
+    avoid_exercises: list[str],
+    training_level: str | None,
+    used_names: set[str],
+    used_patterns_in_session: dict[str, int],
+    used_primary_muscles_in_session: dict[str, int],
+    used_families_in_session: set[str],
+    exclude_names: set[str] | None,
+    blocked_in_session: set[str],
+    used_names_global: set[str] | None,
+    session_isolation_ids: set[str] | None,
+    volume_sets: dict[str, int] | None,
+    slot_sets: int | None,
+) -> list[dict[str, Any]]:
+    out = []
+    exclude_names = exclude_names or set()
+    for ex in raw_list:
+        ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
+        if ex_obj is None:
+            continue
+        if ex["name"] in used_names or ex["name"] in exclude_names:
+            continue
+        if ex_obj.id in blocked_in_session:
+            continue
+        if used_names_global:
+            if ex_obj.id == "pushups_knee" and any(get_exercise(n) and get_exercise(n).id == "pushups_classic" for n in used_names_global):
+                continue
+            if ex_obj.id == "pushups_classic" and any(get_exercise(n) and get_exercise(n).id == "pushups_knee" for n in used_names_global):
+                continue
+        if not _exercise_allowed(ex["name"], equipment, avoid_exercises):
+            continue
+        if ex_obj.type == "cardio" or "plyometric" in (getattr(ex_obj, "tags", None) or []):
+            continue
+        if not _level_allowed(ex_obj.level, training_level):
+            continue
+        if pattern != "isolation" and ex_obj.movement_pattern != pattern:
+            continue
+        if kind == "isolation" and ex_obj.type != "isolation":
+            continue
+        if kind == "compound" and ex_obj.type != "compound":
+            continue
+        if ex_obj.id == "front_raise":
+            shoulder_isos = {"lateral_raise", "rear_delt_fly", "face_pull"}
+            if session_isolation_ids and (session_isolation_ids & shoulder_isos):
+                continue
+        if ex_obj.type != "isolation":
+            if used_patterns_in_session.get(ex_obj.movement_pattern, 0) >= 2:
+                continue
+        pm = ex_obj.primary_muscles[0] if ex_obj.primary_muscles else ""
+        pm_limit = 3 if (kind == "isolation" or ex_obj.type == "isolation") else 2
+        if used_primary_muscles_in_session.get(pm, 0) >= pm_limit:
+            continue
+        fam = getattr(ex_obj, "family", None)
+        if fam and fam in used_families_in_session:
+            continue
+        if ex_obj.type == "isolation" and volume_sets is not None:
+            is_beg = str(training_level or "").strip().casefold() in {"początkujący", "beginner"}
+            # tyl barku nie jest blokowany przez limit side_delts
+            if ex_obj.id not in ("face_pull", "rear_delt_fly", "band_pull_apart"):
+                sg = _volume_subgroup(ex_obj.primary_muscles)
+                if sg and sg in VOLUME_TARGETS_INTERMEDIATE:
+                    base_h = VOLUME_TARGETS_INTERMEDIATE[sg][1] * (0.7 if is_beg else 1.0)
+                    max_al = base_h * 1.25
+                    est_s = slot_sets or 3
+                    if is_beg:
+                        est_s = min(est_s, 3)
+                        if "calves" in (ex_obj.primary_muscles or []):
+                            est_s = min(est_s, 2)
+                    if volume_sets.get(sg, 0) + est_s > max_al:
+                        continue
+        out.append(ex)
+    return out
+
+
 def _fill_slot(
     slot: dict[str, Any],
     pool: dict[str, list[dict[str, Any]]],
@@ -499,111 +590,105 @@ def _fill_slot(
     used_names_global: set[str] | None = None,
     volume_sets: dict[str, int] | None = None,
 ) -> dict[str, Any] | None:
-    """Wypełnia jeden slot ćwiczeniem z puli.
-
-    Filtruje po poziomie i sprzęcie, potem sortuje po selection_rank (jawny priorytet),
-    bonusie za kompletny opis i na końcu po id. Ćwiczenie masy własnej jest wybierane
-    przy sprzęcie siłownia/hantle tylko gdy nie ma dozwolonego ćwiczenia ze sprzętem
-    w tym wzorcu.
-    """
     prefer_ids = slot.get("prefer_ids") or []
     pattern = slot["pattern"]
     group = slot["group"]
     kind = slot.get("kind")
+    fallback_pattern = slot.get("fallback_pattern")
 
-    # Ćwiczenia zablokowane dla tej sesji (np. rear_delt_fly/face_pull poza upper/pull).
     blocked_in_session: set[str] = set()
     if session_focus not in ("upper_a", "upper_b", "pull"):
         blocked_in_session.update({"rear_delt_fly", "face_pull"})
 
-    candidates: list[dict[str, Any]] = []
-    for ex in pool.get(group, []):
-        ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
-        if ex_obj is None:
-            continue
-        if ex["name"] in used_names or ex["name"] in exclude_names:
-            continue
-        if ex_obj.id in blocked_in_session:
-            continue
-        # R9: nie łącz pompek klasycznych z kolanymi w jednym tygodniu
-        if used_names_global:
-            if ex_obj.id == "pushups_knee" and any(get_exercise(n) and get_exercise(n).id == "pushups_classic" for n in used_names_global):
-                continue
-            if ex_obj.id == "pushups_classic" and any(get_exercise(n) and get_exercise(n).id == "pushups_knee" for n in used_names_global):
-                continue
-        if not _exercise_allowed(ex["name"], equipment, avoid_exercises):
-            continue
-        if ex_obj.type == "cardio":
-            continue
-        if "plyometric" in (getattr(ex_obj, "tags", None) or []):
-            continue
-        if not _level_allowed(ex_obj.level, training_level):
-            continue
-        if pattern != "isolation" and ex_obj.movement_pattern != pattern:
-            continue
-        if kind == "isolation" and ex_obj.type != "isolation":
-            continue
-        if kind == "compound" and ex_obj.type != "compound":
-            continue
-        # R1: front_raise tylko gdy brak innej izolacji barków w sesji.
-        if ex_obj.id == "front_raise":
-            shoulder_isos = {"lateral_raise", "rear_delt_fly", "face_pull"}
-            if session_isolation_ids and (session_isolation_ids & shoulder_isos):
-                continue
-        # Max 2 ćwiczenia tego samego wzorca ruchu w sesji (poza izolacjami).
-        if ex_obj.type != "isolation":
-            if used_patterns_in_session.get(ex_obj.movement_pattern, 0) >= 2:
-                continue
-        # Max 2 ćwiczenia tego samego primary_muscles w sesji (dla compound).
-        # Dla isolation podniesiony limit do 3, bo np. squat+lunge (quads x2) + leg_curl musi przejść.
-        pm = ex_obj.primary_muscles[0] if ex_obj.primary_muscles else ""
-        pm_limit = 3 if (kind == "isolation" or ex_obj.type == "isolation") else 2
-        if used_primary_muscles_in_session.get(pm, 0) >= pm_limit:
-            continue
-        # Max 1 ćwiczenie z tej samej rodziny w sesji.
-        fam = getattr(ex_obj, "family", None)
-        if fam and fam in used_families_in_session:
-            continue
-        # Planer objętości: jeśli ćwiczenie izolacji przekroczy limit górny (R11), pomiń
-        if ex_obj.type == "isolation" and volume_sets is not None:
-            is_beg = str(training_level or "").strip().casefold() in {"początkujący", "beginner"}
-            sg = _volume_subgroup(ex_obj.primary_muscles)
-            if sg and sg in VOLUME_TARGETS_INTERMEDIATE:
-                base_h = VOLUME_TARGETS_INTERMEDIATE[sg][1] * (0.7 if is_beg else 1.0)
-                max_al = base_h * 1.25
-                est_s = slot.get("sets") or 3
-                if is_beg:
-                    est_s = min(est_s, 3)
-                    if "calves" in (ex_obj.primary_muscles or []):
-                        est_s = min(est_s, 2)
-                if volume_sets.get(sg, 0) + est_s > max_al:
-                    continue
-        candidates.append(ex)
+    candidates = _filter_candidates_for_pattern(
+        pool.get(group, []), pattern, kind, equipment, avoid_exercises, training_level,
+        used_names, used_patterns_in_session, used_primary_muscles_in_session,
+        used_families_in_session, exclude_names, blocked_in_session,
+        used_names_global, session_isolation_ids, volume_sets, slot.get("sets"),
+    )
+
+    if not candidates and pattern in ("hinge", "squat", "lunge", "horizontal_pull", "vertical_pull", "horizontal_push", "vertical_push"):
+        other_pool = []
+        for og, exs in pool.items():
+            if og != group:
+                other_pool.extend(exs)
+        candidates = _filter_candidates_for_pattern(
+            other_pool, pattern, kind, equipment, avoid_exercises, training_level,
+            used_names, used_patterns_in_session, used_primary_muscles_in_session,
+            used_families_in_session, exclude_names, blocked_in_session,
+            used_names_global, session_isolation_ids, volume_sets, slot.get("sets"),
+        )
+
+    if not candidates and fallback_pattern:
+        candidates = _filter_candidates_for_pattern(
+            pool.get(group, []), fallback_pattern, kind, equipment, avoid_exercises, training_level,
+            used_names, used_patterns_in_session, used_primary_muscles_in_session,
+            used_families_in_session, exclude_names, blocked_in_session,
+            used_names_global, session_isolation_ids, volume_sets, slot.get("sets"),
+        )
+        if not candidates:
+            other_pool = []
+            for og, exs in pool.items():
+                if og != group:
+                    other_pool.extend(exs)
+            candidates = _filter_candidates_for_pattern(
+                other_pool, fallback_pattern, kind, equipment, avoid_exercises, training_level,
+                used_names, used_patterns_in_session, used_primary_muscles_in_session,
+                used_families_in_session, exclude_names, blocked_in_session,
+                used_names_global, session_isolation_ids, volume_sets, slot.get("sets"),
+            )
+
+    # R24: Masa własna bez sprzętu ciągnącego
+    if not candidates and pattern in ("horizontal_pull", "vertical_pull"):
+        _pull_eq = {"pullup_bar", "table_or_low_bar", "bands", "barbell", "dumbbell", "cable", "machine"}
+        if not (equipment & _pull_eq):
+            used_glob = used_names_global or set()
+            # Wybierz tylko nieużyte jeszcze w całym tygodniu (najpierw superman, potem prone_cobra)
+            for pid in ("superman", "prone_cobra"):
+                for og, exs in pool.items():
+                    for ex in exs:
+                        ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
+                        if ex_obj and ex_obj.id == pid and ex["name"] not in used_names and ex["name"] not in used_glob:
+                            return ex
+            return None
+
+    if not candidates and prefer_ids:
+        for pid in prefer_ids:
+            for og, exs in pool.items():
+                for ex in exs:
+                    ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
+                    if ex_obj and ex_obj.id == pid and _exercise_allowed(ex["name"], equipment, avoid_exercises):
+                        if ex["name"] not in used_names and ex["name"] not in (exclude_names or set()):
+                            if _level_allowed(ex_obj.level, training_level):
+                                return ex
 
     if not candidates:
         return None
 
-    # Jeśli slot ma preferowane id, spróbuj najpierw znaleźć ich dopasowanie
-    # (po filtrowaniu poziomu/sprzętu już dokonanym powyżej).
     if prefer_ids:
         for pid in prefer_ids:
             for ex in candidates:
                 ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
                 if ex_obj and ex_obj.id == pid:
                     return ex
+            # Sprawdź prefer_ids w innych grupach dla dopasowania sprzętu (np. hammer_curl gdy brak maszyny do leg_curl)
+            for og, exs in pool.items():
+                if og == group:
+                    continue
+                for ex in exs:
+                    ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
+                    if ex_obj and ex_obj.id == pid and _exercise_allowed(ex["name"], equipment, avoid_exercises):
+                        if ex["name"] not in used_names and ex["name"] not in (exclude_names or set()):
+                            if _level_allowed(ex_obj.level, training_level):
+                                return ex
 
-    # Przy sprzęcie siłownia/hantle: ćwiczenia ze sprzętem mają pierwszeństwo nad
-    # ćwiczeniami z masą własnej. Masa własna tylko gdy brak dozwolonego ze sprzętem.
-    equipment_candidates = [ex for ex in candidates if not _is_bodyweight(ex)]
-    bodyweight_candidates = [ex for ex in candidates if _is_bodyweight(ex)]
+    if has_equipment_preset:
+        with_eq = [ex for ex in candidates if not _is_bodyweight(ex)]
+        if with_eq:
+            candidates = with_eq
 
-    chosen_pool = equipment_candidates if equipment_candidates else bodyweight_candidates
-    if used_names_global:
-        unused_in_pool = [ex for ex in chosen_pool if ex["name"] not in used_names_global]
-        if unused_in_pool:
-            chosen_pool = unused_in_pool
-    chosen_pool.sort(key=lambda ex: _selection_rank_key(get_exercise(ex.get("exercise_id", ex["name"]))))
-    return chosen_pool[0]
+    candidates.sort(key=lambda ex: _selection_rank_key(get_exercise(ex.get("exercise_id", ex["name"]))))
+    return candidates[0]
 
 
 def _bodyweight_fallback(
@@ -1143,6 +1228,16 @@ def build_split_plan(
     is_single_day = len(selected_days) == 1
     is_beginner = (training_level or "").strip().casefold() in {"początkujący", "beginner"}
 
+    # R24: masa wlasna bez drazka/stolu/gum - dodaj komunikat diagnostyczny
+    _PULL_EQUIPMENT = {"pullup_bar", "table_or_low_bar", "bands"}
+    if is_bodyweight_plan and not (equipment & _PULL_EQUIPMENT):
+        diagnostics.append(
+            "Brak ćwiczeń ciągnących bez drążka, stołu lub gum. "
+            "Dodaj sprzęt w profilu, aby plan zawierał wiosłowanie i podciąganie."
+        )
+
+    calf_sessions_in_full_body = 0  # R21: licznik sesji ze wspięciami w full_body
+
     for day_name in selected_days:
         template_idx = day_index % len(template_names)
         template_name = template_names[template_idx]
@@ -1152,24 +1247,36 @@ def build_split_plan(
         used_primary_muscles_in_session: dict[str, int] = {}
         used_families_in_session: set[str] = set()
         used_names_session: set[str] = set()
-        exclude_names = {
-            name for name in used_names_global
-            if not (get_exercise(name) and getattr(get_exercise(name), "allow_repeat_across_sessions", False))
-        }
+        if is_bodyweight_plan:
+            exclude_names = set(used_names_global)
+        else:
+            exclude_names = {
+                name for name in used_names_global
+                if not (get_exercise(name) and getattr(get_exercise(name), "allow_repeat_across_sessions", False))
+            }
         session_isolation_ids: set[str] = set()
 
         selected_exercises: list[dict[str, Any]] = []
         first_compound_done = False
-        session_limit = 8 if template_name in ("upper_a", "upper_b") and not is_beginner else exercise_limit
+        session_limit = 8 if template_name in ("upper_a", "upper_b") else exercise_limit
         for slot in slots:
             if len(selected_exercises) >= session_limit:
                 break
+            # R21: wspięcia na palce maks 1 sesja/tyg w full_body (chyba ze cel lydek)
+            if slot.get("calf_slot") and "full_body" in template_name:
+                calves_target_low = volume_targets.get("calves", (0, 0))[0]
+                calves_actual = volume_sets.get("calves", 0)
+                if calf_sessions_in_full_body >= 1 and calves_actual >= calves_target_low:
+                    continue
+
             # Planer objętości: jeśli to slot izolacji, a objętość podgrupy przekroczy limit górny (R11), pomiń slot
             if slot.get("kind") == "isolation":
                 target_sg = None
                 p_ids = slot.get("prefer_ids") or []
                 if "standing_calf_raise" in p_ids:
                     target_sg = "calves"
+                elif "face_pull" in p_ids or "rear_delt_fly" in p_ids or "band_pull_apart" in p_ids:
+                    target_sg = None  # Tył barku nie jest blokowany przez side_delts
                 elif slot.get("group") == "barki":
                     target_sg = "side_delts"
                 elif slot.get("group") == "triceps":
@@ -1215,6 +1322,9 @@ def build_split_plan(
                 sets_val = min(sets_val, 3)
             if is_beginner and ex_obj and "calves" in (ex_obj.primary_muscles or []):
                 sets_val = min(sets_val, 2)
+            # R21: policz sesje ze wspieciami na palce w full_body
+            if slot.get("calf_slot") and "full_body" in template_name and ex_obj and "calves" in (ex_obj.primary_muscles or []):
+                calf_sessions_in_full_body += 1
             ex_with_sets = dict(ex)
             ex_with_sets["sets"] = sets_val
             selected_exercises.append(ex_with_sets)
@@ -1388,11 +1498,27 @@ def build_split_plan(
         })
         day_index += 1
 
-    # Oblicz estimated_minutes dla każdej sesji.
+    # Oblicz estimated_minutes i ogranicz sesje do 75 min (R20).
+    MAX_SESSION_MINUTES = 75
     for day in days:
         if day["day_type"] == "rest":
             continue
-        minutes = _calculate_estimated_minutes(day["workout"]["exercises"])
+        exs = day["workout"]["exercises"]
+        minutes = _calculate_estimated_minutes(exs)
+        # R20: usun nadmiar izolacji jesli sesja > 75 min (nigdy compound/core)
+        while minutes > MAX_SESSION_MINUTES and len(exs) > 3:
+            # Szukaj ostatniego cwiczenia izolacji do usuniecia
+            removed = False
+            for i in range(len(exs) - 1, -1, -1):
+                ex_i = get_exercise(exs[i].get("exercise_id", exs[i]["name"]))
+                if ex_i and ex_i.type == "isolation" and ex_i.movement_pattern != "core":
+                    exs.pop(i)
+                    removed = True
+                    break
+            if not removed:
+                break
+            minutes = _calculate_estimated_minutes(exs)
+        day["workout"]["exercises"] = exs
         day["workout"]["estimated_minutes"] = round(minutes)
 
     # Przelicz weekly_sets, weekly_sessions i volume_sets bezpośrednio z gotowego planu.
