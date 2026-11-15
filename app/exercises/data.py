@@ -2663,6 +2663,7 @@ SELECTION_RANK: dict[str, dict[str, int]] = {
         "decline_dumbbell_press": 5,
         "floor_press": 6,
         "pushups_classic": 7,
+        "front_raise": 998,
     },
     "horizontal_pull": {
         "seated_cable_row": 1,
