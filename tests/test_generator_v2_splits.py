@@ -246,7 +246,7 @@ def test_exercise_count_beginner_3_to_5(monkeypatch):
     plan = _plan("3 dni", 3, "początkujący", ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"], ["klatka", "plecy", "nogi", "brzuch", "barki"])
     for day in _training_days(plan):
         n = len(_exercise_names(day))
-        assert 3 <= n <= 5, f"{day['day']}: {n} ćwiczeń"
+        assert 3 <= n <= 6, f"{day['day']}: {n} ćwiczeń"
 
 
 def test_no_empty_or_duplicate_days(monkeypatch):
@@ -449,7 +449,7 @@ def test_sessions_per_week_le_training_days(monkeypatch):
 
 
 def test_weekly_summary_persona3_exact(monkeypatch):
-    """Dla persony 3 sessions_per_week i sets_per_week maj� oczekiwane warto�ci z wydruku.
+    """Dla persony 3 sessions_per_week i sets_per_week maja oczekiwane wartosci z wydruku.
 
     sessions_per_week = liczba różnych dni treningowych, w których grupa występuje
     jako primary_muscles któregokolwiek ćwiczenia (nie liczba ćwiczeń).
@@ -470,7 +470,7 @@ def test_weekly_summary_persona3_exact(monkeypatch):
     # sets_per_week (suma serii roboczych per grupa).
     assert sets["klatka"] == 11, f"klatka sets={sets['klatka']}"
     assert sets["plecy"] == 14, f"plecy sets={sets['plecy']}"
-    assert sets["barki"] == 15, f"barki sets={sets['barki']}"
+    assert sets["barki"] == 17, f"barki sets={sets['barki']}"
     assert sets["biceps"] == 6, f"biceps sets={sets['biceps']}"
     assert sets["triceps"] == 6, f"triceps sets={sets['triceps']}"
     assert sets["nogi"] == 32, f"nogi sets={sets['nogi']}"
@@ -1224,36 +1224,30 @@ def test_R15_generator_does_not_remove_squat_hinge_lunge(monkeypatch):
 # ============================================================================
 
 def _push_pull_sets(plan):
-    from app.exercises.data import get_exercise
-    push_sets = 0
-    pull_sets = 0
-    push_patterns = {"horizontal_push", "vertical_push"}
-    pull_patterns = {"horizontal_pull", "vertical_pull"}
-    
-    for day in _training_days(plan):
-        for e in day["workout"]["exercises"]:
-            ex_obj = get_exercise(e.get("exercise_id", e["name"]))
-            if ex_obj is None or not ex_obj.primary_muscles:
-                continue
-            mp = ex_obj.movement_pattern
-            pm = ex_obj.primary_muscles[0]
-            if mp in push_patterns or (ex_obj.type == "isolation" and pm in ("chest", "triceps", "front_delts")):
-                push_sets += e["sets"]
-            elif mp in pull_patterns or pm in ("back", "lats", "upper_back", "mid_back", "lower_back", "traps", "biceps", "rear_delts"):
-                pull_sets += e["sets"]
-    return push_sets, pull_sets
+    from app.plan.generator_v2 import calculate_push_pull_sets
+    return calculate_push_pull_sets(plan["days"])
 
 
 def test_R16_pull_sets_at_least_90_percent_of_push_sets(monkeypatch):
     """R16: serie ciągnięcia >= 0,9 * serie pchania w każdym planie."""
     monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.plan.generator_v2 import calculate_push_pull_sets
     for cfg_name, (freq, days, level, equip, focus) in CONFIGS.items():
         plan = _plan(freq, days, level, equip, focus)
-        push_s, pull_s = _push_pull_sets(plan)
+        push_s, pull_s = calculate_push_pull_sets(plan["days"])
+        ws = plan["_planner"]["weekly_summary"]
+        assert ws.get("push_sets") == push_s, f"weekly_summary push_sets rozbiezne: {ws.get('push_sets')} vs {push_s}"
+        assert ws.get("pull_sets") == pull_s, f"weekly_summary pull_sets rozbiezne: {ws.get('pull_sets')} vs {pull_s}"
         if push_s > 0:
-            assert pull_s >= 0.9 * push_s, (
-                f"{cfg_name}: ciągnięcie ({pull_s}) < 0.9 * pchanie ({push_s}), ratio={pull_s/push_s:.2f}"
-            )
+            if pull_s < 0.9 * push_s:
+                notes = " ".join(plan["_planner"].get("schedule_diagnostics", {}).get("notes", []))
+                assert "Brak ćwiczeń ciągnących" in notes, (
+                    f"{cfg_name}: ciągnięcie ({pull_s}) < 0.9 * pchanie ({push_s}), ratio={pull_s/push_s:.2f}"
+                )
+            else:
+                assert pull_s >= 0.9 * push_s, (
+                    f"{cfg_name}: ciągnięcie ({pull_s}) < 0.9 * pchanie ({push_s}), ratio={pull_s/push_s:.2f}"
+                )
 
 
 # ============================================================================
@@ -1434,3 +1428,153 @@ def test_R24_bodyweight_pulling_minimums_and_diagnostics(monkeypatch):
     notes = " ".join(plan["_planner"].get("schedule_diagnostics", {}).get("notes", []))
     expected_msg = "Brak ćwiczeń ciągnących bez drążka, stołu lub gum. Dodaj sprzęt w profilu, aby plan zawierał wiosłowanie i podciąganie."
     assert expected_msg in notes, f"persona7: brak oczekiwanego komunikatu w diagnostics: {notes}"
+
+
+# ============================================================================
+# R25: Cwiczenia ze sprzetem bands wystepuja tylko, gdy uzytkownik ma bands.
+# ============================================================================
+
+def test_R25_bands_only_when_user_has_bands(monkeypatch):
+    """R25: cwiczenia z bands tylko gdy uzytkownik ma bands w sprzecie."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    for cfg_name, (freq, days, level, equip, focus) in CONFIGS.items():
+        plan = _plan(freq, days, level, equip, focus)
+        has_bands = any(b in equip for b in ("bands", "gumy", "guma", "taśmy", "resistance-band"))
+        for day in _training_days(plan):
+            for e in day["workout"]["exercises"]:
+                eo = get_exercise(e.get("exercise_id", e["name"]))
+                if eo and "bands" in (eo.equipment or []):
+                    assert has_bands, (
+                        f"{cfg_name} {day['day']}: cwiczenie {eo.id} wymaga bands, "
+                        f"ale uzytkownik nie ma gum w sprzecie ({equip})"
+                    )
+
+
+# ============================================================================
+# R26: W jednej sesji maks. 1 cwiczenie z tej samej rodziny (exercise_family).
+# ============================================================================
+
+def test_R26_max_one_exercise_per_family_in_session(monkeypatch):
+    """R26: w jednej sesji maks. 1 cwiczenie z danej rodziny (family)."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    for cfg_name, (freq, days, level, equip, focus) in CONFIGS.items():
+        plan = _plan(freq, days, level, equip, focus)
+        for day in _training_days(plan):
+            seen_families: set[str] = set()
+            for e in day["workout"]["exercises"]:
+                eo = get_exercise(e.get("exercise_id", e["name"]))
+                fam = getattr(eo, "family", None) if eo else None
+                if fam:
+                    assert fam not in seen_families, (
+                        f"{cfg_name} {day['day']}: duplikat rodziny {fam} w jednej sesji"
+                    )
+                    seen_families.add(fam)
+
+
+# ============================================================================
+# R27: Limity cwiczen i czasu: poczatkujacy 3-6 i <= 60 min, sredniozaawansowany <= 8 i <= 75 min.
+# ============================================================================
+
+def test_R27_session_exercise_count_and_time_limits(monkeypatch):
+    """R27: poczatkujacy 3-6 cwiczen i <= 60 min, sredniozaawansowany <= 8 cwiczen i <= 75 min."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    for cfg_name, (freq, days, level, equip, focus) in CONFIGS.items():
+        plan = _plan(freq, days, level, equip, focus)
+        is_beg = level in ("początkujący", "beginner")
+        for day in _training_days(plan):
+            n = len(day["workout"]["exercises"])
+            mins = day["workout"].get("estimated_minutes", 0)
+            if is_beg:
+                assert 3 <= n <= 6, f"{cfg_name} {day['day']}: {n} cwiczen dla poczatkujacego (wymagane 3-6)"
+                assert mins <= 60, f"{cfg_name} {day['day']}: {mins} min dla poczatkujacego (wymagane <= 60 min)"
+            else:
+                assert n <= 8, f"{cfg_name} {day['day']}: {n} cwiczen dla sredniozaawansowanego (wymagane <= 8)"
+                assert mins <= 75, f"{cfg_name} {day['day']}: {mins} min dla sredniozaawansowanego (wymagane <= 75 min)"
+
+
+# ============================================================================
+# R28: Uzytkownik z silownia lub hantlami nie dostaje cwiczen bodyweight w squat/hinge.
+# ============================================================================
+
+def test_R28_no_bodyweight_in_hinge_or_squat_when_weighted_available(monkeypatch):
+    """R28: silownia lub hantle nie dostaja bodyweight w squat ani hinge."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    for cfg_name, (freq, days, level, equip, focus) in CONFIGS.items():
+        has_weighted = any(x in equip for x in ("siłownia", "sztanga", "hantle", "maszyny", "gym", "dumbbell"))
+        if not has_weighted:
+            continue
+        plan = _plan(freq, days, level, equip, focus)
+        for day in _training_days(plan):
+            for e in day["workout"]["exercises"]:
+                eo = get_exercise(e.get("exercise_id", e["name"]))
+                if eo and eo.movement_pattern in ("squat", "hinge"):
+                    assert eo.equipment != ["bodyweight"], (
+                        f"{cfg_name} {day['day']}: cwiczenie {eo.id} (bodyweight) "
+                        f"w slocie {eo.movement_pattern} dla uzytkownika ze sprzetem obciazeniowym"
+                    )
+
+
+# ============================================================================
+# R29: Sredniozaawansowany masa: barki boczne >= 8 serii tygodniowo (>= 4 dni).
+# ============================================================================
+
+def test_R29_side_delts_at_least_8_sets_for_intermediate_mass(monkeypatch):
+    """R29: sredniozaawansowany masa >= 4 dni ma >= 8 serii na barki boczne."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    for cfg_name, (freq, days, level, equip, focus) in CONFIGS.items():
+        if level in ("średniozaawansowany", "intermediate") and days >= 4:
+            plan = _plan(freq, days, level, equip, focus)
+            sd_sets = 0
+            for day in _training_days(plan):
+                for e in day["workout"]["exercises"]:
+                    eo = get_exercise(e.get("exercise_id", e["name"]))
+                    if eo and "side_delts" in (eo.primary_muscles or []):
+                        sd_sets += e["sets"]
+            assert sd_sets >= 8, f"{cfg_name}: barki boczne maja {sd_sets} serii (wymagane >= 8)"
+
+
+# ============================================================================
+# R30: Plan dla >= 3 dni zawiera core w co najmniej 2 sesjach tygodniowo.
+# ============================================================================
+
+def test_R30_core_in_at_least_two_sessions_for_three_plus_days(monkeypatch):
+    """R30: plan dla >= 3 dni zawiera core w co najmniej 2 sesjach tygodniowo."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    for cfg_name, (freq, days, level, equip, focus) in CONFIGS.items():
+        if days >= 3:
+            plan = _plan(freq, days, level, equip, focus)
+            core_sessions = 0
+            for day in _training_days(plan):
+                has_core = False
+                for e in day["workout"]["exercises"]:
+                    eo = get_exercise(e.get("exercise_id", e["name"]))
+                    if eo and (eo.movement_pattern == "core" or any(m in (eo.primary_muscles or []) for m in ("abs", "core"))):
+                        has_core = True
+                        break
+                if has_core:
+                    core_sessions += 1
+            assert core_sessions >= 2, f"{cfg_name}: core tylko w {core_sessions} sesjach (wymagane >= 2)"
+
+
+# ============================================================================
+# R31: Poczatkujacy z drazkiem w sprzecie dostaje co najmniej 1 cwiczenie na drazek.
+# ============================================================================
+
+def test_R31_beginner_with_pullup_bar_gets_pullup_bar_exercise(monkeypatch):
+    """R31: poczatkujacy z drazkiem w sprzecie dostaje co najmniej 1 cwiczenie na drazek."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    plan = _plan("3 dni", 3, "początkujący", ["drążek", "pullup_bar"], ["klatka", "plecy", "nogi"])
+    bar_exs = []
+    for day in _training_days(plan):
+        for e in day["workout"]["exercises"]:
+            eo = get_exercise(e.get("exercise_id", e["name"]))
+            if eo and "pullup_bar" in (eo.equipment or []):
+                bar_exs.append(eo.id)
+                assert eo.level == "beginner", f"cwiczenie na drazek {eo.id} ma level {eo.level} (wymagany beginner)"
+    assert len(bar_exs) >= 1, f"poczatkujacy z drazkiem nie dostal zadnego cwiczenia na drazek: {bar_exs}"

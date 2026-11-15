@@ -216,6 +216,9 @@ def _exercise_allowed(name: str, equipment: set[str], avoid_exercises: list[str]
     lowered = name.lower()
     if any(term.lower() in lowered for term in avoid_exercises if term):
         return False
+    req = _exercise_equipment_en(name)
+    if req is not None and "bands" in req and "bands" not in equipment:
+        return False
     if "gym" in equipment:
         return True
     if not equipment:
@@ -349,26 +352,26 @@ SLOT_TEMPLATES: dict[str, list[dict[str, Any]]] = {
     "full_body_a": [
         {"pattern": "squat", "group": "nogi", "kind": "compound"},
         {"pattern": "hinge", "group": "nogi", "kind": "compound"},
-        {"pattern": "horizontal_push", "group": "klatka", "kind": "compound"},
-        {"pattern": "horizontal_pull", "group": "plecy", "kind": "compound", "fallback_pattern": "vertical_pull"},
+        {"pattern": "horizontal_push", "group": "klatka", "kind": "compound", "sets": 4},
+        {"pattern": "horizontal_pull", "group": "plecy", "kind": "compound", "fallback_pattern": "vertical_pull", "sets": 4},
         {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["lateral_raise"], "sets": 3},
-        {"pattern": "isolation", "group": "nogi", "kind": "isolation", "prefer_ids": ["standing_calf_raise"], "sets": 3, "calf_slot": True},
         {"pattern": "core", "group": "brzuch", "kind": "isolation", "sets": 3},
+        {"pattern": "isolation", "group": "nogi", "kind": "isolation", "prefer_ids": ["standing_calf_raise"], "sets": 3, "calf_slot": True},
     ],
     "full_body_b": [
         {"pattern": "hinge", "group": "nogi", "kind": "compound"},
         {"pattern": "vertical_push", "group": "barki", "kind": "compound", "fallback_pattern": "horizontal_push"},
         {"pattern": "vertical_pull", "group": "plecy", "kind": "compound", "fallback_pattern": "horizontal_pull"},
-        {"pattern": "isolation", "group": "klatka", "kind": "isolation", "prefer_ids": ["cable_crossover", "pec_deck"], "sets": 3},
-        {"pattern": "isolation", "group": "nogi", "kind": "isolation", "prefer_ids": ["leg_curl", "hammer_curl", "band_curl"], "sets": 3},
-        {"pattern": "core", "group": "brzuch", "kind": "isolation", "sets": 3},
+        {"pattern": "isolation", "group": "klatka", "kind": "isolation", "prefer_ids": ["cable_crossover", "pec_deck", "floor_fly"], "sets": 3},
+        {"pattern": "isolation", "group": "biceps", "kind": "isolation", "prefer_ids": ["cable_curl", "hammer_curl", "barbell_curl", "band_curl"], "sets": 3},
+        {"pattern": "isolation", "group": "nogi", "kind": "isolation", "prefer_ids": ["leg_curl", "leg_extension"], "sets": 3},
     ],
     "upper_a": [
         {"pattern": "horizontal_push", "group": "klatka", "kind": "compound"},
         {"pattern": "horizontal_pull", "group": "plecy", "kind": "compound"},
         {"pattern": "vertical_push", "group": "barki", "kind": "compound"},
         {"pattern": "vertical_pull", "group": "plecy", "kind": "compound"},
-        {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["lateral_raise"], "sets": 3},
+        {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["lateral_raise"], "sets": 4},
         {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["face_pull"], "sets": 3},
         {"pattern": "isolation", "group": "biceps", "kind": "isolation", "prefer_ids": ["cable_curl", "barbell_curl"], "sets": 3},
         {"pattern": "isolation", "group": "triceps", "kind": "isolation", "prefer_ids": ["triceps_pushdown", "band_pushdown"], "sets": 3},
@@ -378,7 +381,7 @@ SLOT_TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {"pattern": "vertical_pull", "group": "plecy", "kind": "compound"},
         {"pattern": "horizontal_pull", "group": "plecy", "kind": "compound"},
         {"pattern": "isolation", "group": "klatka", "kind": "isolation", "prefer_ids": ["cable_crossover", "pec_deck"], "sets": 3},
-        {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["lateral_raise"], "sets": 3},
+        {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["lateral_raise"], "sets": 4},
         {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["rear_delt_fly"], "sets": 3},
         {"pattern": "isolation", "group": "biceps", "kind": "isolation", "prefer_ids": ["hammer_curl", "alternating_dumbbell_curl"], "sets": 3},
         {"pattern": "isolation", "group": "triceps", "kind": "isolation", "prefer_ids": ["french_press", "french_press_db_two_hand", "triceps_kickback"], "sets": 3},
@@ -403,7 +406,7 @@ SLOT_TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {"pattern": "horizontal_push", "group": "klatka", "kind": "compound"},
         {"pattern": "vertical_push", "group": "barki", "kind": "compound"},
         {"pattern": "isolation", "group": "klatka", "kind": "isolation", "prefer_ids": ["cable_crossover", "pec_deck"], "sets": 3},
-        {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["lateral_raise"], "sets": 3},
+        {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["lateral_raise"], "sets": 4},
         {"pattern": "isolation", "group": "triceps", "kind": "isolation", "sets": 3},
         {"pattern": "isolation", "group": "triceps", "kind": "isolation", "sets": 3},
     ],
@@ -431,6 +434,22 @@ SLOT_TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {"pattern": "vertical_pull", "group": "plecy", "kind": "compound", "fallback_pattern": "horizontal_pull", "sets": 4},
         {"pattern": "core", "group": "brzuch", "kind": "isolation", "sets": 3},
     ],
+    "upper_a_beginner": [
+        {"pattern": "horizontal_push", "group": "klatka", "kind": "compound"},
+        {"pattern": "horizontal_pull", "group": "plecy", "kind": "compound"},
+        {"pattern": "vertical_pull", "group": "plecy", "kind": "compound"},
+        {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["lateral_raise"], "sets": 3},
+        {"pattern": "isolation", "group": "biceps", "kind": "isolation", "prefer_ids": ["cable_curl", "barbell_curl"], "sets": 3},
+        {"pattern": "isolation", "group": "triceps", "kind": "isolation", "prefer_ids": ["triceps_pushdown", "band_pushdown"], "sets": 3},
+    ],
+    "upper_b_beginner": [
+        {"pattern": "horizontal_push", "group": "klatka", "kind": "compound"},
+        {"pattern": "vertical_push", "group": "barki", "kind": "compound"},
+        {"pattern": "horizontal_pull", "group": "plecy", "kind": "compound"},
+        {"pattern": "isolation", "group": "barki", "kind": "isolation", "prefer_ids": ["face_pull", "rear_delt_fly", "lateral_raise"], "sets": 3},
+        {"pattern": "isolation", "group": "biceps", "kind": "isolation", "prefer_ids": ["hammer_curl", "alternating_dumbbell_curl"], "sets": 3},
+        {"pattern": "isolation", "group": "triceps", "kind": "isolation", "prefer_ids": ["french_press", "french_press_db_two_hand", "triceps_kickback"], "sets": 3},
+    ],
 }
 
 SPLIT_TEMPLATES: dict[str, list[str]] = {
@@ -447,7 +466,7 @@ SPLIT_TEMPLATES: dict[str, list[str]] = {
 def _exercise_limit(training_level: str | None, recovery: Any = None, hours: Any = None,
                     target_days: int = 0) -> int:
     tl = (training_level or "").strip().casefold()
-    limit = 7 if tl in {"średniozaawansowany", "intermediate"} else 5
+    limit = 8 if tl in {"średniozaawansowany", "intermediate"} else 6
     if recovery is not None:
         try:
             r = int(recovery)
@@ -570,6 +589,14 @@ def _filter_candidates_for_pattern(
                     if volume_sets.get(sg, 0) + est_s > max_al:
                         continue
         out.append(ex)
+    if pattern in ("squat", "hinge") and ("gym" in equipment or "dumbbell" in equipment):
+        weighted = [
+            ex for ex in out
+            if get_exercise(ex.get("exercise_id", ex["name"]))
+            and get_exercise(ex.get("exercise_id", ex["name"])).equipment != ["bodyweight"]
+        ]
+        if weighted:
+            return weighted
     return out
 
 
@@ -1141,6 +1168,29 @@ def _calculate_estimated_minutes(exercises: list[dict[str, Any]]) -> int:
     return total_sets * 2.5 + 5
 
 
+def calculate_push_pull_sets(days: list[dict[str, Any]]) -> tuple[int, int]:
+    """Oblicza sumę serii pchania i ciągnięcia w gotowym planie treningowym."""
+    push_sets = 0
+    pull_sets = 0
+    push_patterns = {"horizontal_push", "vertical_push"}
+    pull_patterns = {"horizontal_pull", "vertical_pull"}
+
+    for day in days:
+        if day.get("day_type") == "rest":
+            continue
+        for e in day.get("workout", {}).get("exercises", []):
+            ex_obj = get_exercise(e.get("exercise_id", e.get("name", "")))
+            if ex_obj is None or not ex_obj.primary_muscles:
+                continue
+            mp = ex_obj.movement_pattern
+            pm = ex_obj.primary_muscles[0]
+            if mp in push_patterns or (ex_obj.type == "isolation" and pm in ("chest", "triceps", "front_delts")):
+                push_sets += e["sets"]
+            elif mp in pull_patterns or pm in ("back", "lats", "upper_back", "mid_back", "lower_back", "traps", "biceps", "rear_delts"):
+                pull_sets += e["sets"]
+    return push_sets, pull_sets
+
+
 def build_split_plan(
     user: Any,
     assessment: Any = None,
@@ -1241,7 +1291,10 @@ def build_split_plan(
     for day_name in selected_days:
         template_idx = day_index % len(template_names)
         template_name = template_names[template_idx]
-        slots = SLOT_TEMPLATES[template_name]
+        if is_beginner and template_name in ("upper_a", "upper_b"):
+            slots = SLOT_TEMPLATES.get(f"{template_name}_beginner", SLOT_TEMPLATES[template_name])
+        else:
+            slots = SLOT_TEMPLATES[template_name]
 
         used_patterns_in_session: dict[str, int] = {}
         used_primary_muscles_in_session: dict[str, int] = {}
@@ -1596,9 +1649,12 @@ def build_split_plan(
         "notes": diagnostics,
     }
 
+    push_s, pull_s = calculate_push_pull_sets(days)
     weekly_summary = {
         "sets_per_group": weekly_sets,
         "sessions_per_group": weekly_sessions,
+        "push_sets": push_s,
+        "pull_sets": pull_s,
     }
 
     return {
