@@ -21,3 +21,13 @@ scratch_*
 # Testy
 .pytest_cache/
 *.log
+
+# Pliki diagnostyczne i tymczasowe testow
+debug_*.py
+*_fail*.txt
+*_raw.txt
+fixed*.txt
+new_fail*.txt
+main_*.txt
+branch_*.txt
+*.imported.json

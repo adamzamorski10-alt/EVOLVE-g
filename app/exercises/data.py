@@ -117,6 +117,7 @@ class Exercise(BaseModel):
     description_status: str = "needs_review"
     tags: list[str] = []
     family: str | None = None
+    allow_repeat_across_sessions: bool = False
 
     @field_validator("id")
     @classmethod
@@ -666,6 +667,7 @@ _EXERCISES_RAW = [
     },
     {
         "id": "standing_calf_raise",
+        "allow_repeat_across_sessions": True,
         "name_pl": "Wspięcia na palce stojąc",
         "name_en": "Standing calf raise",
         "aliases": ["wspięcia na palce", "łydki", "calf raise"],
@@ -987,7 +989,7 @@ _EXERCISES_RAW = [
         "secondary_muscles": ["side_delts"],
         "movement_pattern": "vertical_push",
         "equipment": ["dumbbell", "bench"],
-        "level": "intermediate",
+        "level": "beginner",
         "type": "compound",
         "contraindications": ["shoulder", "low_back"],
         "sets_range": "3",
@@ -1032,6 +1034,7 @@ _EXERCISES_RAW = [
     },
     {
         "id": "lateral_raise",
+        "allow_repeat_across_sessions": True,
         "name_pl": "Unoszenie hantli bokiem",
         "name_en": "Lateral raise",
         "aliases": ["unoszenie hantli bokiem (lateral raise)", "boczne unoszenie hantli", "side raise"],
@@ -1084,6 +1087,7 @@ _EXERCISES_RAW = [
     },
     {
         "id": "face_pull",
+        "allow_repeat_across_sessions": True,
         "name_pl": "Face pull na wyciągu (z liną)",
         "name_en": "Face pull",
         "aliases": ["face pull", "face pull wyciąg lina"],
@@ -1427,6 +1431,7 @@ _EXERCISES_RAW = [
     # -- Brzuch ------------------------------------------------------------
     {
         "id": "plank",
+        "allow_repeat_across_sessions": True,
         "name_pl": "Plank przedni",
         "name_en": "Front plank",
         "aliases": ["plank", "plank przedni", "deska brzuszkowa"],
@@ -2555,13 +2560,16 @@ _EXERCISES_RAW = [
     },
 ]
 
+_EXERCISES_BY_NAME_PL: dict[str, Exercise] = {}
+
 for raw in _EXERCISES_RAW:
     ex = _EX(raw)
     EXERCISES[ex.id] = ex
+    _EXERCISES_BY_NAME_PL[ex.name_pl] = ex
 
 
 def get_exercise(exercise_id: str) -> Exercise | None:
-    return EXERCISES.get(exercise_id)
+    return EXERCISES.get(exercise_id) or _EXERCISES_BY_NAME_PL.get(exercise_id)
 
 
 def list_exercises() -> list[Exercise]:
