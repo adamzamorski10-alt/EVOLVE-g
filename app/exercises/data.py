@@ -965,7 +965,7 @@ _EXERCISES_RAW = [
         "secondary_muscles": ["side_delts", "triceps"],
         "movement_pattern": "vertical_push",
         "equipment": ["barbell"],
-        "level": "advanced",
+        "level": "intermediate",
         "type": "compound",
         "contraindications": ["shoulder", "low_back"],
         "sets_range": "4",
@@ -2565,9 +2565,9 @@ _EXERCISES_RAW = [
     # -- Gumy oporowe (bands) -----------------------------------------------
     {
         "id": "band_row",
-        "name_pl": "Wioslowanie z guma oporowa",
+        "name_pl": "Wiosłowanie z gumą oporową",
         "name_en": "Band row",
-        "aliases": ["wioslowanie na gumie", "band row"],
+        "aliases": ["wioslowanie na gumie", "band row", "Wioslowanie z guma oporowa"],
         "primary_muscles": ["back"],
         "secondary_muscles": ["biceps", "rear_delts"],
         "movement_pattern": "horizontal_pull",
@@ -2592,9 +2592,9 @@ _EXERCISES_RAW = [
     },
     {
         "id": "band_pull_apart",
-        "name_pl": "Rozciaganie gumy przed klatka",
+        "name_pl": "Rozciąganie gumy przed klatką",
         "name_en": "Band pull-apart",
-        "aliases": ["band pull apart", "rozciaganie gumy"],
+        "aliases": ["band pull apart", "rozciaganie gumy", "Rozciaganie gumy przed klatka"],
         "primary_muscles": ["rear_delts"],
         "secondary_muscles": ["traps"],
         "movement_pattern": "isolation",
@@ -2619,9 +2619,9 @@ _EXERCISES_RAW = [
     },
     {
         "id": "band_pushdown",
-        "name_pl": "Prostowanie ramion z guma oporowa",
+        "name_pl": "Prostowanie ramion z gumą oporową",
         "name_en": "Band pushdown",
-        "aliases": ["band pushdown", "prostowanie ramion guma"],
+        "aliases": ["band pushdown", "prostowanie ramion guma", "Prostowanie ramion z guma oporowa"],
         "primary_muscles": ["triceps"],
         "secondary_muscles": [],
         "movement_pattern": "isolation",
@@ -2646,9 +2646,9 @@ _EXERCISES_RAW = [
     },
     {
         "id": "band_curl",
-        "name_pl": "Uginania bicepsa z guma oporowa",
+        "name_pl": "Uginania bicepsa z gumą oporową",
         "name_en": "Band curl",
-        "aliases": ["band curl", "uginania guma"],
+        "aliases": ["band curl", "uginania guma", "Uginania bicepsa z guma oporowa"],
         "primary_muscles": ["biceps"],
         "secondary_muscles": [],
         "movement_pattern": "isolation",
@@ -2673,9 +2673,9 @@ _EXERCISES_RAW = [
     },
     {
         "id": "band_lat_pulldown",
-        "name_pl": "Sciaganie gumy nad glowa",
+        "name_pl": "Ściąganie gumy nad głową",
         "name_en": "Band lat pulldown",
-        "aliases": ["band lat pulldown", "sciaganie gumy"],
+        "aliases": ["band lat pulldown", "sciaganie gumy", "Sciaganie gumy nad glowa"],
         "primary_muscles": ["lats"],
         "secondary_muscles": ["biceps", "traps"],
         "movement_pattern": "vertical_pull",
@@ -2701,9 +2701,9 @@ _EXERCISES_RAW = [
     # -- Masa wlasna (bodyweight) uzupelnienie -------------------------------
     {
         "id": "prone_cobra",
-        "name_pl": "Cobra w lezu przodem",
+        "name_pl": "Cobra w leżeniu przodem",
         "name_en": "Prone cobra",
-        "aliases": ["prone cobra", "cobra w lezu", "cobra"],
+        "aliases": ["prone cobra", "cobra w lezu", "cobra", "Cobra w lezu przodem"],
         "primary_muscles": ["lower_back"],
         "secondary_muscles": ["rear_delts", "glutes"],
         "movement_pattern": "isolation",
@@ -2735,7 +2735,7 @@ _EXERCISES_RAW = [
         "secondary_muscles": ["hamstrings"],
         "movement_pattern": "hinge",
         "equipment": ["barbell", "bench"],
-        "level": "beginner",
+        "level": "intermediate",
         "type": "compound",
         "contraindications": ["low_back"],
         "sets_range": "3-4",
@@ -2754,9 +2754,9 @@ _EXERCISES_RAW = [
     },
     {
         "id": "chest_supported_row",
-        "name_pl": "Wioslowanie hantlami na lawce skosnej",
+        "name_pl": "Wiosłowanie hantlami na ławce skosnej",
         "name_en": "Chest-supported dumbbell row",
-        "aliases": ["chest supported row", "wioslowanie na lawce skosnej"],
+        "aliases": ["chest supported row", "wioslowanie na lawce skosnej", "Wioslowanie hantlami na lawce skosnej"],
         "primary_muscles": ["back"],
         "secondary_muscles": ["biceps", "rear_delts"],
         "movement_pattern": "horizontal_pull",
@@ -2780,9 +2780,9 @@ _EXERCISES_RAW = [
     },
     {
         "id": "machine_shoulder_press",
-        "name_pl": "Wyciskanie na maszynie siedzac",
+        "name_pl": "Wyciskanie na maszynie siedząc",
         "name_en": "Machine shoulder press",
-        "aliases": ["machine shoulder press", "wyciskanie maszyna barki"],
+        "aliases": ["machine shoulder press", "wyciskanie maszyna barki", "Wyciskanie na maszynie siedzac"],
         "primary_muscles": ["front_delts"],
         "secondary_muscles": ["side_delts", "triceps"],
         "movement_pattern": "vertical_push",
@@ -2832,9 +2832,9 @@ _EXERCISES_RAW = [
     },
     {
         "id": "step_up",
-        "name_pl": "Wejscia na lawke z hantlami",
+        "name_pl": "Wejścia na ławkę z hantlami",
         "name_en": "Step-up",
-        "aliases": ["step up", "wejscia na lawke"],
+        "aliases": ["step up", "wejscia na lawke", "Wejscia na lawke z hantlami"],
         "primary_muscles": ["glutes"],
         "secondary_muscles": ["quads"],
         "movement_pattern": "lunge",
@@ -2858,9 +2858,9 @@ _EXERCISES_RAW = [
     },
     {
         "id": "incline_barbell_press",
-        "name_pl": "Wyciskanie sztangi na lawce skosnej",
+        "name_pl": "Wyciskanie sztangi na ławce skosnej",
         "name_en": "Incline barbell press",
-        "aliases": ["incline barbell press", "wyciskanie sztangi na skosie"],
+        "aliases": ["incline barbell press", "wyciskanie sztangi na skosie", "Wyciskanie sztangi na lawce skosnej"],
         "primary_muscles": ["chest"],
         "secondary_muscles": ["front_delts", "triceps"],
         "movement_pattern": "horizontal_push",
@@ -2885,9 +2885,9 @@ _EXERCISES_RAW = [
     # -- Nowe cwiczenia R25-R31 -------------------------------------------
     {
         "id": "dead_hang",
-        "name_pl": "Zwis na drazku",
+        "name_pl": "Zwis na drążku",
         "name_en": "Dead hang",
-        "aliases": ["dead hang", "zwis na drazku", "zwis"],
+        "aliases": ["dead hang", "zwis na drazku", "zwis", "Zwis na drazku"],
         "primary_muscles": ["lats"],
         "secondary_muscles": ["forearms"],
         "movement_pattern": "vertical_pull",
@@ -2911,9 +2911,9 @@ _EXERCISES_RAW = [
     },
     {
         "id": "negative_pullup",
-        "name_pl": "Podciaganie negatywne na drazku",
+        "name_pl": "Podciąganie negatywne na drążku",
         "name_en": "Negative pull-up",
-        "aliases": ["negative pullup", "podciaganie negatywne", "negatywy na drazku"],
+        "aliases": ["negative pullup", "podciaganie negatywne", "negatywy na drazku", "Podciaganie negatywne na drazku"],
         "primary_muscles": ["lats"],
         "secondary_muscles": ["biceps", "back"],
         "movement_pattern": "vertical_pull",
@@ -2937,9 +2937,9 @@ _EXERCISES_RAW = [
     },
     {
         "id": "band_assisted_pullup",
-        "name_pl": "Podciaganie na drazku z guma",
+        "name_pl": "Podciąganie na drążku z gumą",
         "name_en": "Band assisted pull-up",
-        "aliases": ["band assisted pullup", "podciaganie z guma"],
+        "aliases": ["band assisted pullup", "podciaganie z guma", "Podciaganie na drazku z guma"],
         "primary_muscles": ["lats"],
         "secondary_muscles": ["biceps", "back"],
         "movement_pattern": "vertical_pull",
@@ -2963,9 +2963,9 @@ _EXERCISES_RAW = [
     },
     {
         "id": "back_extension",
-        "name_pl": "Wznosy tulowia na lawce rzymskiej",
+        "name_pl": "Wznosy tułowia na ławce rzymskiej",
         "name_en": "Back extension",
-        "aliases": ["back extension", "wznosy na lawce rzymskiej", "lawka rzymska"],
+        "aliases": ["back extension", "wznosy na lawce rzymskiej", "lawka rzymska", "Wznosy tulowia na lawce rzymskiej"],
         "primary_muscles": ["lower_back"],
         "secondary_muscles": ["glutes", "hamstrings"],
         "movement_pattern": "hinge",
@@ -2989,9 +2989,9 @@ _EXERCISES_RAW = [
     },
     {
         "id": "pallof_press",
-        "name_pl": "Pallof press na wyciagu",
+        "name_pl": "Pallof press na wyciągu",
         "name_en": "Pallof press",
-        "aliases": ["pallof press", "press pallofa"],
+        "aliases": ["pallof press", "press pallofa", "Pallof press na wyciagu"],
         "primary_muscles": ["abs"],
         "secondary_muscles": ["obliques"],
         "movement_pattern": "core",
@@ -3015,9 +3015,9 @@ _EXERCISES_RAW = [
     },
     {
         "id": "cable_woodchop",
-        "name_pl": "Drwal na wyciagu",
+        "name_pl": "Drwal na wyciągu",
         "name_en": "Cable woodchop",
-        "aliases": ["cable woodchop", "drwal"],
+        "aliases": ["cable woodchop", "drwal", "Drwal na wyciagu"],
         "primary_muscles": ["abs"],
         "secondary_muscles": ["obliques"],
         "movement_pattern": "core",
@@ -3067,9 +3067,9 @@ _EXERCISES_RAW = [
     },
     {
         "id": "leg_press_calf_raise",
-        "name_pl": "Wspiecia na palce na suwnicy",
+        "name_pl": "Wspięcia na palce na suwnicy",
         "name_en": "Leg press calf raise",
-        "aliases": ["leg press calf raise", "wspiecia na suwnicy"],
+        "aliases": ["leg press calf raise", "wspiecia na suwnicy", "Wspiecia na palce na suwnicy"],
         "primary_muscles": ["calves"],
         "secondary_muscles": [],
         "movement_pattern": "isolation",
@@ -3100,9 +3100,19 @@ for raw in _EXERCISES_RAW:
     EXERCISES[ex.id] = ex
     _EXERCISES_BY_NAME_PL[ex.name_pl] = ex
 
+_EXERCISES_BY_ALIAS: dict[str, Exercise] = {}
+for ex in EXERCISES.values():
+    for alias in ex.aliases:
+        _EXERCISES_BY_ALIAS.setdefault(alias.strip().lower(), ex)
+
 
 def get_exercise(exercise_id: str) -> Exercise | None:
-    return EXERCISES.get(exercise_id) or _EXERCISES_BY_NAME_PL.get(exercise_id)
+    """Wyszukuje ćwiczenie po id (slugu), name_pl lub aliasie (wielkość liter obojętna dla aliasów)."""
+    return (
+        EXERCISES.get(exercise_id)
+        or _EXERCISES_BY_NAME_PL.get(exercise_id)
+        or _EXERCISES_BY_ALIAS.get(exercise_id.strip().lower())
+    )
 
 
 def list_exercises() -> list[Exercise]:

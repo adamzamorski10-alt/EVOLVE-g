@@ -1578,3 +1578,208 @@ def test_R31_beginner_with_pullup_bar_gets_pullup_bar_exercise(monkeypatch):
                 bar_exs.append(eo.id)
                 assert eo.level == "beginner", f"cwiczenie na drazek {eo.id} ma level {eo.level} (wymagany beginner)"
     assert len(bar_exs) >= 1, f"poczatkujacy z drazkiem nie dostal zadnego cwiczenia na drazek: {bar_exs}"
+
+
+# ============================================================================
+# R32: Początkujący nie dostaje intermediate/advanced w żadnym planie;
+# średniozaawansowany nie dostaje advanced.
+# ============================================================================
+
+def test_R32_beginner_only_beginner_all_personas(monkeypatch):
+    """R32: wszelkie persony beginner (1, 2, 7, beginner_gym_4d) dostają wyłącznie ćwiczenia beginner."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    beginner_cfgs = [
+        "persona1_beginner_gym_3d", "persona2_beginner_dumbbells_2d",
+        "persona7_beginner_bodyweight_3d", "beginner_gym_4d",
+    ]
+    for cfg_name in beginner_cfgs:
+        freq, days, level, equip, focus = CONFIGS[cfg_name]
+        plan = _plan(freq, days, level, equip, focus)
+        for day in _training_days(plan):
+            for lvl in _exercise_levels(day):
+                assert lvl == "beginner", f"{cfg_name} {day['day']}: {lvl}"
+
+
+def test_R32_intermediate_no_advanced(monkeypatch):
+    """R32: średniozaawansowany nie otrzymuje ćwiczeń advanced."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    intermediate_cfgs = [
+        "persona3_intermediate_gym_4d", "intermediate_gym_5d",
+        "intermediate_gym_6d", "intermediate_gym_1d",
+    ]
+    for cfg_name in intermediate_cfgs:
+        freq, days, level, equip, focus = CONFIGS[cfg_name]
+        plan = _plan(freq, days, level, equip, focus)
+        for day in _training_days(plan):
+            for lvl in _exercise_levels(day):
+                assert lvl != "advanced", f"{cfg_name} {day['day']}: {lvl}"
+
+
+# ============================================================================
+# R33: Nazwy ćwiczeń w planach i dokumentacji pochodzą wyłącznie z name_pl lub aliasów;
+# name_pl zapisane po polsku z poprawnymi znakami diakrytycznymi.
+# ============================================================================
+
+def test_R33_name_pl_has_polish_diacritics(monkeypatch):
+    """R33: name_pl nie zawiera ASCII-only wersji słów polskich z diakrytykiem."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import list_exercises
+    ascii_polish = [
+        "lawke", "drazku", "glowa", "wioslowanie", "ciaganie", "guma", "obciazenia",
+    ]
+    for ex in list_exercises():
+        np_lower = ex.name_pl.lower()
+        for bad in ascii_polish:
+            assert bad not in np_lower, (
+                f"{ex.id}: name_pl zawiera ASCII '{bad}': {ex.name_pl!r}"
+            )
+
+
+def test_R33_plan_names_from_name_pl_or_alias(monkeypatch):
+    """R33: każda nazwa ćwiczenia w planie to name_pl lub alias z bazy."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import list_exercises
+    allowed = {ex.name_pl for ex in list_exercises()}
+    allowed |= {a for ex in list_exercises() for a in ex.aliases}
+    for cfg_name, (freq, days, level, equip, focus) in CONFIGS.items():
+        plan = _plan(freq, days, level, equip, focus)
+        for day in _training_days(plan):
+            for ex in day["workout"]["exercises"]:
+                assert ex["name"] in allowed, (
+                    f"{cfg_name} {day['day']}: '{ex['name']}' nie jest name_pl ani aliasem"
+                )
+
+
+# ============================================================================
+# R34: docs/PLAN_SAMPLES_V2.md jest dokładnie równe wynikowi generate_docs_content().
+# ============================================================================
+
+def test_R34_docs_equal_script_output(monkeypatch):
+    """R34: plik docs/PLAN_SAMPLES_V2.md == wynik generate_docs_content() w pamięci."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "generate_plan_samples", "scripts/generate_plan_samples.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    content = mod.generate_docs_content()
+    docs_path = "docs/PLAN_SAMPLES_V2.md"
+    with open(docs_path, "r", encoding="utf-8") as fh:
+        docs = fh.read()
+    assert docs == content, (
+        f"docs/PLAN_SAMPLES_V2.md różni się od generate_docs_content() "
+        f"(docs={len(docs)} zn., skrypt={len(content)} zn.)"
+    )
+
+
+# ============================================================================
+# R35: diagnostics zawiera komunikat po polsku gdy mięsień poniżej dolnej granicy
+# celu (wyjątek: biceps, triceps, łydek dla początkujących), także dla dwugłowych.
+# ============================================================================
+
+def test_R35_diagnostics_reports_hamstrings_below_lower_bound(monkeypatch):
+    """R35: dwugłowe poniżej celu są raportowane w diagnostics (też dla początkujących)."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan("2 dni", 2, "początkujący", DUMBBELLS, ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    notes = " ".join(plan["_planner"]["schedule_diagnostics"].get("notes", []))
+    assert "dwugłowe" in notes, f"brak dwugłowych w diagnostics: {notes}"
+
+
+def test_R35_diagnostics_format_polish(monkeypatch):
+    """R35: komunikat diagnostics ma format po polsku 'Grupa X: Y serii, cel Z-W'."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan("2 dni", 2, "początkujący", DUMBBELLS, ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    notes = " ".join(plan["_planner"]["schedule_diagnostics"].get("notes", []))
+    import re
+    assert re.search(r"Grupa \w+: \d+ serii, cel \d+-\d+", notes), (
+        f"brak komunikatu po polsku w diagnostics: {notes}"
+    )
+
+
+# ============================================================================
+# R36: Plan masy własnej bez sprzętu nie zawiera table_or_low_bar, bands, pullup_bar.
+# ============================================================================
+
+def test_R36_bodyweight_no_table_bands_pullup_bar(monkeypatch):
+    """R36: masa własna bez sprzętu nie ma ćwiczeń wymagających stołu, gum ani drążka."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    forbidden_eq = {"table_or_low_bar", "bands", "pullup_bar"}
+    plan = _plan("3 dni", 3, "początkujący", [], ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    for day in _training_days(plan):
+        for ex in day["workout"]["exercises"]:
+            ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
+            assert ex_obj is not None
+            eq = set(ex_obj.equipment or [])
+            assert not (eq & forbidden_eq), (
+                f"{day['day']}: {ex_obj.id} ma zabroniony sprzęt {eq & forbidden_eq}"
+            )
+
+
+# ============================================================================
+# R37: Każdy plan 4 dni i więcej dla średniozaawansowanych: dwugłowe >= dolna
+# granica celu (uginanie nóg w lower B albo drugi zawias ciężki).
+# ============================================================================
+
+def test_R37_intermediate_4plus_hamstrings_at_least_lower_bound(monkeypatch):
+    """R37: plany >= 4 dni dla średniozaawansowanych mają dwugłowe >= dolna granica celu."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.plan.generator_v2 import VOLUME_TARGETS_INTERMEDIATE
+    low, _ = VOLUME_TARGETS_INTERMEDIATE["hamstrings"]
+    intermediate_cfgs = [
+        "persona3_intermediate_gym_4d", "intermediate_gym_5d",
+        "intermediate_gym_6d",
+    ]
+    for cfg_name in intermediate_cfgs:
+        freq, days, level, equip, focus = CONFIGS[cfg_name]
+        plan = _plan(freq, days, level, equip, focus)
+        total = 0
+        for day in _training_days(plan):
+            for ex in day["workout"]["exercises"]:
+                ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
+                if ex_obj and "hamstrings" in (ex_obj.primary_muscles or []):
+                    total += ex["sets"]
+        assert total >= low, (
+            f"{cfg_name}: dwugłowe ma {total} serii, dolna granica celu {low}"
+        )
+
+
+# ============================================================================
+# R16: Metryka "ciągnięcie" nie liczy prostowników grzbietu
+# (lower_back izolacja, hinge bodyweight) jako ciągnięcia.
+# ============================================================================
+
+def test_R16_pull_metric_excludes_lower_back_and_bodyweight_hinge(monkeypatch):
+    """R16: calculate_push_pull_sets nie liczy lower_back izolacji ani bodyweight hinge jako ciągnięcia."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.plan.generator_v2 import calculate_push_pull_sets
+    from app.exercises.data import get_exercise
+
+    def day_with(ex_ids):
+        exercises = []
+        for eid in ex_ids:
+            eo = get_exercise(eid)
+            exercises.append({
+                "exercise_id": eid,
+                "name": eo.name_pl,
+                "sets": 3,
+                "reps": "8-12",
+            })
+        return [{"day_type": "trening", "workout": {"exercises": exercises}}]
+
+    # superman: lower_back, isolation, bodyweight -> nie jest ciągnięciem
+    push_s, pull_s = calculate_push_pull_sets(day_with(["superman"]))
+    assert pull_s == 0, f"superman (lower_back/isolation/bodyweight) nie powinien liczyć się jako ciągnięcie: pull={pull_s}"
+
+    # bodyweight_good_morning: lower_back, hinge, bodyweight -> nie jest ciągnięciem
+    push_s, pull_s = calculate_push_pull_sets(day_with(["bodyweight_good_morning"]))
+    assert pull_s == 0, f"bodyweight_good_morning (lower_back/hinge/bodyweight) nie powinien liczyć się jako ciągnięcie: pull={pull_s}"
+
+    # barbell_row: back, horizontal_pull -> jest ciągnięciem
+    push_s, pull_s = calculate_push_pull_sets(day_with(["barbell_row"]))
+    assert pull_s == 3, f"barbell_row (horizontal_pull/back) powinien liczyć się jako ciągnięcie: pull={pull_s}"
+
+    # pullup_wide: lats, vertical_pull -> jest ciągnięciem
+    push_s, pull_s = calculate_push_pull_sets(day_with(["pullup_wide"]))
+    assert pull_s == 3 or pull_s == 4, f"pullup_wide (vertical_pull/lats) powinien liczyć się jako ciągnięcie: pull={pull_s}"

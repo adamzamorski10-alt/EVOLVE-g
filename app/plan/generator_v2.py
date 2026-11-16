@@ -634,6 +634,17 @@ def _fill_slot(
         used_names_global, session_isolation_ids, volume_sets, slot.get("sets"),
     )
 
+    # R28: przy sprzęcie obciążeniowym nie podawaj bodyweight w squat/hinge,
+    # jeśli w grupie zostały tylko ćwiczenia własnym ciałem - poszukaj w innych grupach.
+    if (
+        pattern in ("hinge", "squat")
+        and kind == "compound"
+        and has_equipment_preset
+        and candidates
+        and all(_is_bodyweight(ex) for ex in candidates)
+    ):
+        candidates = []
+
     if not candidates and pattern in ("hinge", "squat", "lunge", "horizontal_pull", "vertical_pull", "horizontal_push", "vertical_push"):
         other_pool = []
         for og, exs in pool.items():
@@ -1186,7 +1197,7 @@ def calculate_push_pull_sets(days: list[dict[str, Any]]) -> tuple[int, int]:
             pm = ex_obj.primary_muscles[0]
             if mp in push_patterns or (ex_obj.type == "isolation" and pm in ("chest", "triceps", "front_delts")):
                 push_sets += e["sets"]
-            elif mp in pull_patterns or pm in ("back", "lats", "upper_back", "mid_back", "lower_back", "traps", "biceps", "rear_delts"):
+            elif mp in pull_patterns or (ex_obj.type == "isolation" and pm in ("back", "lats", "upper_back", "mid_back", "traps", "biceps", "rear_delts")):
                 pull_sets += e["sets"]
     return push_sets, pull_sets
 
@@ -1277,6 +1288,7 @@ def build_split_plan(
     is_bodyweight_plan = not has_equipment_preset
     is_single_day = len(selected_days) == 1
     is_beginner = (training_level or "").strip().casefold() in {"początkujący", "beginner"}
+    is_intermediate = (training_level or "").strip().casefold() in {"średniozaawansowany", "intermediate"}
 
     # R24: masa wlasna bez drazka/stolu/gum - dodaj komunikat diagnostyczny
     _PULL_EQUIPMENT = {"pullup_bar", "table_or_low_bar", "bands"}
@@ -1529,7 +1541,6 @@ def build_split_plan(
                 ][:3],
                 "constraint_blocked": False,
             })
-
         days.append({
             "day": day_name,
             "locations": training_locations[day_index % len(training_locations):day_index % len(training_locations) + 1]
@@ -1558,8 +1569,11 @@ def build_split_plan(
             continue
         exs = day["workout"]["exercises"]
         minutes = _calculate_estimated_minutes(exs)
-        # R20: usun nadmiar izolacji jesli sesja > 75 min (nigdy compound/core)
-        while minutes > MAX_SESSION_MINUTES and len(exs) > 3:
+        # R20: usun nadmiar izolacji jesli sesja > 75 min (nigdy compound/core).
+        # Dla sesji upper sredniozaawansowanego zatrzymujemy sie na 7 cwiczeniach
+        # (maksymalnie 7 przy dłuższej sesji; nigdy nie usuwamy zlozonych/core).
+        min_exercises = 7 if (is_intermediate and day["workout"]["focus"] in ("upper_a", "upper_b")) else 3
+        while minutes > MAX_SESSION_MINUTES and len(exs) > min_exercises:
             # Szukaj ostatniego cwiczenia izolacji do usuniecia
             removed = False
             for i in range(len(exs) - 1, -1, -1):
