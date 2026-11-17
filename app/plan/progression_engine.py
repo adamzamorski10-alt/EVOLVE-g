@@ -140,6 +140,7 @@ def decide_next_step(
     completion_pct: float,
     equipment: list[str] | None,
     sessions_without_progress: int = 0,
+    target_rir: int | None = None,
 ) -> dict:
     """
     Podwójna progresja: decyduj o kolejnym kroku (ciężar vs powtórzenia).
@@ -151,6 +152,37 @@ def decide_next_step(
     is_pure_bodyweight = (eq_set and eq_set <= {"bodyweight"}) or (current_weight == 0.0 and not equipment)
     step = get_weight_step(equipment)
 
+    # Progi RPE z uwzględnieniem RIR (Reps In Reserve): RPE ≈ 10 - RIR.
+    # Domyślny target_rir=2 → progi維持 przy RPE 8.5, redukcja przy 9.5.
+    rpe_maintain_threshold = 8.5
+    rpe_reduce_threshold = 9.5
+    if target_rir is not None:
+        rpe_maintain_threshold = max(7.0, 10.0 - float(target_rir) + 0.5)
+        rpe_reduce_threshold = max(8.0, 10.0 - float(target_rir) + 1.0)
+
+    # Stagnacja: brak progresji przez kilka sesji -> najpierw utrzymanie, potem redukcja (deload).
+    stagnation = sessions_without_progress or 0
+    if stagnation >= 5:
+        if is_pure_bodyweight or current_weight <= 0:
+            return {
+                "action": "reduce_reps",
+                "next_weight": 0.0,
+                "next_reps": max(reps_min, current_reps - 1),
+                "reason": f"Brak progresji przez {stagnation} sesji — obniżam powtórzenia (deload).",
+            }
+        next_weight = round_to_step(current_weight * 0.90, step)
+        if next_weight == current_weight:
+            next_weight = max(0.0, current_weight - step)
+        return {
+            "action": "reduce_load",
+            "next_weight": max(0.0, next_weight),
+            "next_reps": reps_min,
+            "reason": f"Brak progresji przez {stagnation} sesji — redukcja obciążenia (deload).",
+        }
+    if stagnation >= 3:
+        # Tymczasowe utrzymanie: nie progresuj, ale nie redukuj jeszcze obciążenia.
+        pass  # Zostawia 표준ą ścieżkę, ale niżej zablokujemy progresję.
+
     # 1. Redukcja przy złym wykonaniu (<80% serii)
     if completion_pct < 80:
         if is_pure_bodyweight or current_weight <= 0:
@@ -161,7 +193,7 @@ def decide_next_step(
                 "next_reps": max(reps_min, next_reps),
                 "reason": "Ukończono mniej niż 80% zaplanowanych serii — obniżam liczbę powtórzeń",
             }
-        next_weight = round_to_step(current_weight * 0.90, step)
+        next_weight = round_to_step(current_weight * 0.925, step)
         if next_weight == current_weight:
             next_weight = max(0.0, current_weight - step)
         return {
@@ -171,8 +203,8 @@ def decide_next_step(
             "reason": "Ukończono mniej niż 80% serii — zmniejszam ciężar roboczy o 10%",
         }
 
-    # 2. Redukcja przy przeciążeniu (RPE >= 9.5)
-    if average_rpe is not None and average_rpe >= 9.5:
+    # 2. Redukcja przy przeciążeniu (RPE >= reduce threshold)
+    if average_rpe is not None and average_rpe >= rpe_reduce_threshold:
         if is_pure_bodyweight or current_weight <= 0:
             return {
                 "action": "maintain",
@@ -190,13 +222,22 @@ def decide_next_step(
             "reason": "Średnie RPE ≥ 9.5 (zbyt duży wysiłek) — zmniejszam obciążenie",
         }
 
-    # 3. Utrzymanie przy wysokim zmęczeniu (8.5 <= RPE < 9.5)
-    if average_rpe is not None and average_rpe >= 8.5:
+    # 3. Utrzymanie przy wysokim zmęczeniu (maintain <= RPE < reduce)
+    if average_rpe is not None and average_rpe >= rpe_maintain_threshold:
         return {
             "action": "maintain",
             "next_weight": current_weight,
             "next_reps": min(current_reps + 1, reps_max) if current_reps < reps_max else current_reps,
             "reason": f"RPE {average_rpe} (wysoki wysiłek) — utrzymuję obecny ciężar ({current_weight} kg)",
+        }
+
+    # Stagnacja >= 3 sesji bez progresji: blokuj progresję, wymuś utrzymanie.
+    if stagnation >= 3:
+        return {
+            "action": "maintain",
+            "next_weight": current_weight,
+            "next_reps": current_reps,
+            "reason": f"Brak progresji przez {stagnation} sesji — utrzymuję obciążenie (przerwana progresja).",
         }
 
     # 4. Progresja dla masy własnej

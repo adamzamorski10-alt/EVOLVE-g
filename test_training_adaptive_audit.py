@@ -51,11 +51,14 @@ def test_reapplying_same_latest_adaptation_is_idempotent():
     ctx = _context()
     _complete(ctx)
 
+    # Auto-adaptacja po ukończeniu sesji tworzy już wersję 1.
+    # Ponowne wywołanie apply jest idempotentne — zwraca "unchanged".
     first = client.post("/app/training/adaptive/apply", headers=_headers(ctx["token"]))
     second = client.post("/app/training/adaptive/apply", headers=_headers(ctx["token"]))
 
     assert first.status_code == 200
     assert second.status_code == 200
-    assert first.json()["status"] == "applied"
+    assert first.json()["status"] == "unchanged"
     assert second.json()["status"] == "unchanged"
     assert second.json()["version"] == first.json()["version"]
+    assert first.json()["version"] == 1

@@ -2100,13 +2100,23 @@ def _enrich_plan_with_progressions(
             .where(ExerciseProgressionDB.exercise_key.in_(keys))
         ).all()
     }
+    # Aktywna rewizja adaptacyjna ma pierwszeństwo przed progresją per ćwiczenie.
+    active_rev = None
+    try:
+        active_rev = db_session.exec(
+            select(AdaptivePlanRevisionDB)
+            .where(AdaptivePlanRevisionDB.user_id == user_id)
+            .order_by(AdaptivePlanRevisionDB.version.desc(), AdaptivePlanRevisionDB.created_at.desc())
+        ).first()
+    except Exception:
+        active_rev = None
     result = []
     for ex in exercises:
         key = str(ex.get("exercise_key") or "")
         prog = rows.get(key)
         ex_copy = dict(ex)
 
-        if prog and prog.working_weight_kg > 0:
+        if prog and prog.working_weight_kg > 0 and not active_rev:
             ex_copy["weight_kg"] = prog.working_weight_kg
             if prog.current_reps > 0:
                 ex_copy["reps"] = prog.current_reps
@@ -2262,6 +2272,7 @@ def _update_exercise_progressions(
             completion_pct=completion_pct,
             equipment=equipment2,
             sessions_without_progress=prog.sessions_without_progress,
+            target_rir=prog.target_rir,
         )
 
         # Zaktualizuj stan progresji
@@ -2426,6 +2437,34 @@ def complete_training_session(
         # Błąd aktualizacji progresji nie powinien blokować zakończenia sesji
         session.rollback()
         progression_updates = []
+
+    # Automatyczna adaptacja kolejnego planu po zakończeniu sesji.
+    # Zmiany z ostatniej sesji trafiają do AdaptivePlanRevisionDB i są
+    # widoczne w kolejnym efektywnym planie (_effective_plan).
+    try:
+        proposed_plan, source_ids, summary = _build_adaptive_plan(user.id, session)
+        if proposed_plan:
+            current_rev = session.exec(
+                select(AdaptivePlanRevisionDB)
+                .where(AdaptivePlanRevisionDB.user_id == user.id)
+                .order_by(AdaptivePlanRevisionDB.version.desc(), AdaptivePlanRevisionDB.created_at.desc())
+            ).first()
+            previous = json.loads(current_rev.applied_plan_json) if current_rev else {}
+            if json.dumps(previous, sort_keys=True) != json.dumps(proposed_plan, sort_keys=True):
+                version = (current_rev.version + 1) if current_rev else 1
+                revision = AdaptivePlanRevisionDB(
+                    user_id=user.id,
+                    source_session_ids_json=json.dumps(source_ids),
+                    previous_plan_json=json.dumps(previous, ensure_ascii=False),
+                    applied_plan_json=json.dumps(proposed_plan, ensure_ascii=False),
+                    decision_summary_json=json.dumps(summary),
+                    version=version,
+                )
+                session.add(revision)
+                session.commit()
+    except Exception:
+        # Błąd adaptacji nie powinien blokować zakończenia sesji.
+        session.rollback()
 
     final_sets = list(
         session.exec(

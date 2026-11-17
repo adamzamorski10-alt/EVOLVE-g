@@ -74,8 +74,8 @@ _MUSCLE_TO_VOLUME_SUBGROUP: dict[str, str] = {
     "hamstrings": "hamstrings",
     "glutes": "glutes",
     "calves": "calves",
-    "abs": "brzuch",
-    "obliques": "brzuch",
+    "abs": "abs",
+    "obliques": "abs",
 }
 
 _MUSCLE_TO_SUMMARY_GROUP: dict[str, str] = {
@@ -1242,6 +1242,23 @@ def build_split_plan(
     split_key = _split_key(len(selected_days), training_level)
     template_names = SPLIT_TEMPLATES[split_key]
 
+    focus_raw = [x.lower().strip() for x in user.get_list("training_focus_json") if isinstance(x, str) and x.strip()]
+    improve_raw = [x.lower().strip() for x in user.get_list("improvement_areas_json") if isinstance(x, str) and x.strip()]
+    focus_areas: list[str] = []
+    for item in focus_raw + improve_raw:
+        if item not in focus_areas:
+            focus_areas.append(item)
+    if not focus_areas:
+        focus_areas = ["klatka", "plecy", "nogi", "brzuch", "barki"]
+
+    sport_days_raw = user.get_list("sport_training_days_json")
+    sport_days: set[str] = set()
+    for d in sport_days_raw:
+        nd = _normalize_weekday(d)
+        if nd:
+            sport_days.add(nd)
+    sport_focus = (getattr(user, "sport_focus", None) or "").strip().lower()
+
     raw_equipment = user.get_list("available_equipment_json")
     if not raw_equipment and getattr(user, "equipment", None):
         preset_map = {
@@ -1277,8 +1294,28 @@ def build_split_plan(
 
     volume_targets = _volume_targets(training_level)
     volume_sets: dict[str, int] = {m: 0 for m in volume_targets}
+    secondary_volume: dict[str, float] = {m: 0.0 for m in volume_targets}
     weekly_sets: dict[str, int] = {g: 0 for g in _SUMMARY_GROUPS}
     weekly_sessions: dict[str, int] = {g: 0 for g in _SUMMARY_GROUPS}
+
+    SECONDARY_MUSCLE_COEFF = 0.35
+    VOLUME_CAP_FACTOR = 1.30
+
+    _GROUP_TO_VOLUME_KEY = {
+        "klatka": "chest", "plecy": "back", "barki": "side_delts",
+        "biceps": "biceps", "triceps": "triceps", "nogi": "quads", "brzuch": "abs",
+    }
+    focus_volume_keys = {
+        _GROUP_TO_VOLUME_KEY[a] for a in focus_areas if a in _GROUP_TO_VOLUME_KEY
+    }
+    for key in volume_targets:
+        low, high = volume_targets[key]
+        if key in focus_volume_keys:
+            # Focus areas: raise upper target (bounded by cap factor)
+            volume_targets[key] = (low, min(int(high * VOLUME_CAP_FACTOR), high + 2))
+        else:
+            # Non-focus: modestly reduce lower target to free volume for priorities
+            volume_targets[key] = (max(1, low - 2), high)
 
     days: list[dict] = []
     used_names_global: set[str] = set()
@@ -1301,8 +1338,9 @@ def build_split_plan(
     calf_sessions_in_full_body = 0  # R21: licznik sesji ze wspięciami w full_body
 
     for day_name in selected_days:
+        is_sport_day = day_name in sport_days
         template_idx = day_index % len(template_names)
-        template_name = template_names[template_idx]
+        template_name = SPLIT_TEMPLATES[split_key][template_idx] if False else template_names[template_idx]
         if is_beginner and template_name in ("upper_a", "upper_b"):
             slots = SLOT_TEMPLATES.get(f"{template_name}_beginner", SLOT_TEMPLATES[template_name])
         else:
@@ -1324,6 +1362,9 @@ def build_split_plan(
         selected_exercises: list[dict[str, Any]] = []
         first_compound_done = False
         session_limit = 8 if template_name in ("upper_a", "upper_b") else exercise_limit
+        if is_sport_day:
+            # Dni sportowe: mniejsza liczba ćwiczeń siłowych, lekki charakter
+            session_limit = max(2, session_limit // 2)
         for slot in slots:
             if len(selected_exercises) >= session_limit:
                 break
@@ -1407,6 +1448,12 @@ def build_split_plan(
             subgroup = _volume_subgroup(ex_obj.primary_muscles) if ex_obj else None
             if subgroup and subgroup in volume_sets:
                 volume_sets[subgroup] += sets_val
+                # Mięśnie pomocnicze: dolicz ułamek serii do ich objętości
+                if ex_obj and ex_obj.secondary_muscles:
+                    for sm in ex_obj.secondary_muscles:
+                        sm_key = _MUSCLE_TO_VOLUME_SUBGROUP.get(sm)
+                        if sm_key and sm_key in secondary_volume:
+                            secondary_volume[sm_key] += sets_val * SECONDARY_MUSCLE_COEFF
             group = _summary_group(ex_obj.primary_muscles) if ex_obj else ""
             if group in weekly_sets:
                 weekly_sets[group] += sets_val
@@ -1547,13 +1594,13 @@ def build_split_plan(
             if training_locations else [],
             "day_type": day_type,
             "macros": macros,
-            "is_sport_session": False,
+            "is_sport_session": is_sport_day,
             "diagnostics": None,
             "workout": {
-                "title": f"Sesja {template_name}",
+                "title": f"Sesja {template_name}" + (" (dzień sportowy)" if is_sport_day else ""),
                 "focus": template_name,
-                "is_sport_session": False,
-                "sport": None,
+                "is_sport_session": is_sport_day,
+                "sport": sport_focus if is_sport_day else None,
                 "specialization": None,
                 "scheduled_time": None,
                 "exercises": workout_items,
@@ -1614,6 +1661,7 @@ def build_split_plan(
 
     # Diagnostyka objętości.
     volume_notes: list[str] = []
+    volume_cap_notes: list[str] = []
     for muscle, (low, high) in volume_targets.items():
         actual = volume_sets.get(muscle, 0)
         if actual < low:
@@ -1650,14 +1698,33 @@ def build_split_plan(
     else:
         if volume_notes:
             diagnostics.append("Objętość poniżej celu: " + " ".join(volume_notes))
+        if volume_cap_notes:
+            diagnostics.append("Uwaga objętości: " + " ".join(volume_cap_notes))
         if time_notes:
             diagnostics.extend(time_notes)
+
+    # Diagnostyka objętości z mięśniami pomocniczymi.
+    for muscle, (low, high) in volume_targets.items():
+        primary = volume_sets.get(muscle, 0)
+        secondary = secondary_volume.get(muscle, 0.0)
+        total = primary + secondary
+        cap = int(high * VOLUME_CAP_FACTOR)
+        pl_name = {
+            "chest": "klatka", "back": "plecy", "side_delts": "barki boczne",
+            "biceps": "biceps", "triceps": "triceps", "quads": "czworogłowe",
+            "hamstrings": "dwugłowe", "calves": "łydki",
+        }.get(muscle, muscle)
+        if total > cap:
+            volume_cap_notes.append(
+                f"Grupa {pl_name}: {primary} (+{secondary:.0f} pomocnicze) = {total:.0f} serii, "
+                f"limit {cap} (przekroczenie o {total - cap:.0f})."
+            )
 
     schedule_diagnostics = {
         "requested_training_days": target_days,
         "scheduled_training_days": len(selected_days),
         "unmet_training_days": max(0, target_days - len(selected_days)),
-        "sport_reserved_days": [],
+        "sport_reserved_days": sorted(sport_days),
         "excluded_days": [],
         "split": split_key,
         "notes": diagnostics,
@@ -1669,6 +1736,8 @@ def build_split_plan(
         "sessions_per_group": weekly_sessions,
         "push_sets": push_s,
         "pull_sets": pull_s,
+        "secondary_volume": {k: round(v, 1) for k, v in secondary_volume.items()},
+        "focus_areas": focus_areas,
     }
 
     return {

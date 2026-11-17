@@ -7,7 +7,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 ## persona 1 (3 dni, siłownia)
 - Split: `full_body_3` | Cel: masa mięśniowa | Poziom: początkujący | Sprzęt: sztanga, hantle, maszyny, wyciąg, ławka, poręcze, siłownia
 - Dni treningowe: 3/3 | Niewypełnione: 0
-- Diagnostyka: Objętość poniżej celu: Grupa czworogłowe: 6 serii, cel 7-10 (brakuje 1).
+- Diagnostyka: Objętość poniżej celu: Grupa czworogłowe: 6 serii, cel 7-12 (brakuje 1).
 
 - Balans pchanie/ciągnięcie: Pchanie = 12 serii, Ciągnięcie = 12 serii (stosunek ciągnięcie/pchanie = 1.00)
 
@@ -92,7 +92,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 ## persona 2 (2 dni, siłownia)
 - Split: `full_body_2` | Cel: masa mięśniowa | Poziom: początkujący | Sprzęt: hantle, ławka
 - Dni treningowe: 2/2 | Niewypełnione: 0
-- Diagnostyka: Objętość poniżej celu: Grupa klatka: 6 serii, cel 7-10 (brakuje 1). Grupa plecy: 6 serii, cel 8-11 (brakuje 2). Grupa barki boczne: 3 serii, cel 6-8 (brakuje 3). Grupa czworogłowe: 3 serii, cel 7-10 (brakuje 4). Grupa dwugłowe: 3 serii, cel 6-8 (brakuje 3).
+- Diagnostyka: Objętość poniżej celu: Grupa klatka: 6 serii, cel 7-12 (brakuje 1). Grupa plecy: 6 serii, cel 8-13 (brakuje 2). Grupa barki boczne: 3 serii, cel 6-10 (brakuje 3). Grupa czworogłowe: 3 serii, cel 7-12 (brakuje 4). Grupa dwugłowe: 3 serii, cel 4-8 (brakuje 1).
 
 - Balans pchanie/ciągnięcie: Pchanie = 9 serii, Ciągnięcie = 9 serii (stosunek ciągnięcie/pchanie = 1.00)
 
@@ -650,7 +650,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 ## beginner gym 4d (4 dni, siłownia)
 - Split: `upper_lower_4` | Cel: masa mięśniowa | Poziom: początkujący | Sprzęt: sztanga, hantle, maszyny, wyciąg, ławka, poręcze, siłownia
 - Dni treningowe: 4/4 | Niewypełnione: 0
-- Diagnostyka: Objętość poniżej celu: Grupa klatka: 6 serii, cel 7-10 (brakuje 1). Grupa barki boczne: 3 serii, cel 6-8 (brakuje 3).
+- Diagnostyka: Objętość poniżej celu: Grupa klatka: 6 serii, cel 7-12 (brakuje 1). Grupa barki boczne: 3 serii, cel 6-10 (brakuje 3).
 
 - Balans pchanie/ciągnięcie: Pchanie = 15 serii, Ciągnięcie = 18 serii (stosunek ciągnięcie/pchanie = 1.20)
 

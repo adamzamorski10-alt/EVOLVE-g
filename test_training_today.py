@@ -86,10 +86,12 @@ def test_apply_adaptation_becomes_effective_today_plan_and_start_snapshot():
     ctx = _context()
     sid = _complete_one(ctx)
 
+    # Auto-adaptacja po ukończeniu sesji tworzy już wersję 1.
+    # Ponowne wywołanie apply jest idempotentne — zwraca "unchanged".
     applied = client.post("/app/training/adaptive/apply", headers=_headers(ctx["token"]))
     assert applied.status_code == 200, applied.text
     data = applied.json()
-    assert data["status"] == "applied"
+    assert data["status"] == "unchanged"
     assert data["version"] == 1
 
     rolling = client.get("/app/plan/rolling", headers=_headers(ctx["token"]))

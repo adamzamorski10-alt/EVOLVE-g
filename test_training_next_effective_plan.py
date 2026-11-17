@@ -30,13 +30,15 @@ def test_next_effective_preview_is_read_only_and_matches_apply():
     ctx = _context()
     sid = _complete(ctx)
 
+    # Auto-adaptacja po ukończeniu sesji utworzyła już wersję 1.
     preview = client.get("/app/training/adaptive/next-effective-preview", headers=_headers(ctx["token"]))
     assert preview.status_code == 200, preview.text
     data = preview.json()
     assert data["has_data"] is True
     assert data["plan_mutated"] is False
-    assert data["current_version"] == 0
+    assert data["current_version"] == 1
     assert data["proposed_version"] == 1
+    assert data["unchanged"] is True
     assert sid in data["source_session_ids"]
     assert data["algorithm"] == "deterministic-v2"
     assert data["plan"]["days"][0]["workout"]["exercises"][0]["weight_kg"] == 97.5
