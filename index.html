@@ -11990,6 +11990,129 @@
         name = btnOrEx;
       }
 
+      const title = document.getElementById('exDetailTitle');
+      const howToWrap = document.getElementById('exDetailHowTo');
+      const howToText = document.getElementById('exDetailHowToText');
+      const notesWrap = document.getElementById('exDetailNotes');
+      const notesText = document.getElementById('exDetailNotesText');
+      const emptyWrap = document.getElementById('exDetailEmpty');
+      const ytLink = document.getElementById('exDetailYtLink');
+
+      const execWrap = document.getElementById('exDetailExecution');
+      const execList = document.getElementById('exDetailExecutionList');
+      const cuesWrap = document.getElementById('exDetailCues');
+      const cuesText = document.getElementById('exDetailCuesText');
+      const mistakesWrap = document.getElementById('exDetailMistakes');
+      const mistakesText = document.getElementById('exDetailMistakesText');
+      const variantsWrap = document.getElementById('exDetailVariants');
+      const variantsText = document.getElementById('exDetailVariantsText');
+      const breathingWrap = document.getElementById('exDetailBreathing');
+      const breathingText = document.getElementById('exDetailBreathingText');
+      const contraWrap = document.getElementById('exDetailContraindications');
+      const contraText = document.getElementById('exDetailContraindicationsText');
+      const reviewNotice = document.getElementById('exDetailReviewNotice');
+
+      if (!title) return;
+
+      title.textContent = name || 'Ćwiczenie';
+
+      // ── Nowe opisy z API /app/exercises/by-name ────────────────────────────
+      if (name.trim() && typeof fetch === 'function') {
+        fetch('/app/exercises/by-name?name=' + encodeURIComponent(name), {
+          headers: { 'Accept': 'application/json' },
+          credentials: 'include',
+        })
+          .then(function (resp) {
+            if (!resp.ok) throw new Error('brak opisu');
+            return resp.json();
+          })
+          .then(function (data) {
+            const hasSummary = !!(data.summary || '').trim();
+            const hasExecution = Array.isArray(data.execution) && data.execution.length > 0;
+            const hasCues = Array.isArray(data.cues) && data.cues.length > 0;
+            const hasMistakes = Array.isArray(data.common_mistakes) && data.common_mistakes.length > 0;
+            const hasVariants = !!(data.easier_note || '').trim() || !!(data.harder_note || '').trim();
+            const hasBreathing = !!(data.breathing || '').trim();
+            const hasContra = Array.isArray(data.contraindications) && data.contraindications.length > 0;
+
+            const anyNew = hasSummary || hasExecution || hasCues || hasMistakes || hasVariants || hasBreathing || hasContra;
+
+            if (anyNew) {
+              howToWrap.style.display = 'none';
+              notesWrap.style.display = 'none';
+              emptyWrap.style.display = 'none';
+
+              if (hasSummary) {
+                howToWrap.style.display = '';
+                howToText.textContent = data.summary;
+              }
+              if (hasExecution) {
+                execWrap.style.display = '';
+                execList.innerHTML = data.execution.map(function (step) {
+                  return '<li>' + String(step).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</li>';
+                }).join('');
+              } else {
+                execWrap.style.display = 'none';
+              }
+              if (hasCues) {
+                cuesWrap.style.display = '';
+                cuesText.textContent = data.cues.join(' ');
+              } else {
+                cuesWrap.style.display = 'none';
+              }
+              if (hasMistakes) {
+                mistakesWrap.style.display = '';
+                mistakesText.textContent = data.common_mistakes.join(' ');
+              } else {
+                mistakesWrap.style.display = 'none';
+              }
+              if (hasVariants) {
+                variantsWrap.style.display = '';
+                var parts = [];
+                if ((data.easier_note || '').trim()) parts.push('Łatwiej: ' + data.easier_note);
+                if ((data.harder_note || '').trim()) parts.push('Trudniej: ' + data.harder_note);
+                variantsText.textContent = parts.join(' ');
+              } else {
+                variantsWrap.style.display = 'none';
+              }
+              if (hasBreathing) {
+                breathingWrap.style.display = '';
+                breathingText.textContent = data.breathing;
+              } else {
+                breathingWrap.style.display = 'none';
+              }
+              if (hasContra) {
+                contraWrap.style.display = '';
+                contraText.textContent = data.contraindications.join(', ');
+              } else {
+                contraWrap.style.display = 'none';
+              }
+              if (data.description_status === 'needs_review') {
+                reviewNotice.style.display = '';
+              } else {
+                reviewNotice.style.display = 'none';
+              }
+            } else {
+              // fallback do starego działania
+              _fillExerciseModalOld(name, howTo, notes, isDrill, howToWrap, howToText, notesWrap, notesText, emptyWrap, ytLink);
+            }
+          })
+          .catch(function () {
+            // fetch się nie powiedzie – zachowaj dotychczasowe działanie
+            _fillExerciseModalOld(name, howTo, notes, isDrill, howToWrap, howToText, notesWrap, notesText, emptyWrap, ytLink);
+          });
+
+        const ytQuery = encodeURIComponent('jak wykonać ' + name + ' prawidłowo');
+        ytLink.href = 'https://www.youtube.com/results?search_query=' + ytQuery;
+
+        const modal = document.getElementById('exerciseDetailModal');
+        if (!modal) return;
+        modal.classList.add('open');
+        document.addEventListener('keydown', _exDetailEscHandler);
+        return;
+      }
+
+      // ── Dotychczasowe działanie (brak fetch lub brak nazwy) ────────────────
       // ── Uzupełnij how_to z bazy EXERCISE_HOW_TO gdy brakuje opisu ────────────────
       if (!howTo.trim() && typeof window.findExerciseHowTo === 'function') {
         howTo = window.findExerciseHowTo(name);
@@ -12008,18 +12131,11 @@
       }
       // ─────────────────────────────────────────────────────────────────────
 
-      // Wypełnij treść
-      const title = document.getElementById('exDetailTitle');
-      const howToWrap = document.getElementById('exDetailHowTo');
-      const howToText = document.getElementById('exDetailHowToText');
-      const notesWrap = document.getElementById('exDetailNotes');
-      const notesText = document.getElementById('exDetailNotesText');
-      const emptyWrap = document.getElementById('exDetailEmpty');
-      const ytLink = document.getElementById('exDetailYtLink');
+      _fillExerciseModalOld(name, howTo, notes, isDrill, howToWrap, howToText, notesWrap, notesText, emptyWrap, ytLink);
+    }
 
-      if (!title) return;
-
-      title.textContent = name || 'Ćwiczenie';
+    function _fillExerciseModalOld(name, howTo, notes, isDrill, howToWrap, howToText, notesWrap, notesText, emptyWrap, ytLink) {
+      if (!howToWrap) return;
 
       const hasHowTo = howTo.trim().length > 0;
       const hasNotes = notes.trim().length > 0;
@@ -12035,7 +12151,6 @@
       const ytQuery = encodeURIComponent('jak wykonać ' + name + ' prawidłowo');
       ytLink.href = 'https://www.youtube.com/results?search_query=' + ytQuery;
 
-      // Otwórz modal
       const modal = document.getElementById('exerciseDetailModal');
       if (!modal) return;
       modal.classList.add('open');
@@ -33903,6 +34018,53 @@
       <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color:#a78bfa;letter-spacing:.08em;">💡
         Wskazówki</p>
       <p id="exDetailNotesText" class="text-sm leading-relaxed" style="color:#94a3b8;"></p>
+    </div>
+
+    <!-- Wykonanie (lista numerowana) -->
+    <div id="exDetailExecution" class="mb-4" style="display:none;">
+      <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color:var(--cyan);letter-spacing:.08em;">⚙️
+        Wykonanie</p>
+      <ol id="exDetailExecutionList" class="text-sm leading-relaxed list-disc list-inside" style="color:#cbd5e1;"></ol>
+    </div>
+
+    <!-- Wskazówki wykonania (cues) -->
+    <div id="exDetailCues" class="mb-4" style="display:none;">
+      <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color:#a78bfa;letter-spacing:.08em;">🎯
+        Wskazówki</p>
+      <p id="exDetailCuesText" class="text-sm leading-relaxed" style="color:#94a3b8;"></p>
+    </div>
+
+    <!-- Typowe błędy -->
+    <div id="exDetailMistakes" class="mb-4" style="display:none;">
+      <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color:#f87171;letter-spacing:.08em;">⚠️
+        Typowe błędy</p>
+      <p id="exDetailMistakesText" class="text-sm leading-relaxed" style="color:#fca5a5;"></p>
+    </div>
+
+    <!-- Wersja łatwiejsza / trudniejsza -->
+    <div id="exDetailVariants" class="mb-4" style="display:none;">
+      <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color:var(--cyan);letter-spacing:.08em;">🔄
+        Warianty</p>
+      <p id="exDetailVariantsText" class="text-sm leading-relaxed" style="color:#94a3b8;"></p>
+    </div>
+
+    <!-- Oddech -->
+    <div id="exDetailBreathing" class="mb-4" style="display:none;">
+      <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color:var(--cyan);letter-spacing:.08em;">🫁
+        Oddech</p>
+      <p id="exDetailBreathingText" class="text-sm leading-relaxed" style="color:#94a3b8;"></p>
+    </div>
+
+    <!-- Przeciwwskazania -->
+    <div id="exDetailContraindications" class="mb-4" style="display:none;">
+      <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color:#f87171;letter-spacing:.08em;">🛑
+        Przeciwwskazania</p>
+      <p id="exDetailContraindicationsText" class="text-sm leading-relaxed" style="color:#fca5a5;"></p>
+    </div>
+
+    <!-- Adnotacja needs_review -->
+    <div id="exDetailReviewNotice" class="mb-4 p-3 rounded-lg" style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.35);color:#fbbf24;display:none;">
+      <p class="text-sm" style="margin:0;">⚠️ Opis w trakcie weryfikacji. W razie wątpliwości lub bólu przerwij ćwiczenie.</p>
     </div>
 
     <!-- Brak opisu fallback -->

@@ -27,7 +27,7 @@ from app.auth.dependencies import get_current_user
 from app.database import get_session
 from app.decision_engine import training_start_allowed
 from app.decision_service import decision_for_user
-from app.models import AdaptivePlanRevisionDB, AssessmentDB, DailyLogDB, ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
+from app.models import AdaptivePlanRevisionDB, AssessmentDB, DailyLogDB, ExerciseProgressionDB, ExerciseResultDB, TrainingSessionDB, TrainingSetResultDB, UserDB
 from app.plan.routes import _assessment_inputs, _fingerprint, _profile_inputs
 from app.recovery.routes import evaluate_recovery
 from app.schemas import TrainingCompleteRequest, TrainingSetResultRequest
@@ -809,6 +809,7 @@ def get_training_today(
         for index, item in enumerate(raw)
         if isinstance(item, dict)
     ]
+    exercises = _enrich_plan_with_progressions(exercises, user.id, session, user)
 
     active = session.exec(
         select(TrainingSessionDB)
@@ -945,6 +946,9 @@ def start_training_session(
     ]
     if not exercises:
         raise HTTPException(status_code=404, detail="Brak zaplanowanego treningu na dziś")
+
+    # Uzupełnij ćwiczenia wagami i powtórzeniami z progression engine
+    exercises = _enrich_plan_with_progressions(exercises, user.id, session, user)
 
     snapshot = {
         "session_date": target_date.isoformat(),
@@ -2015,6 +2019,280 @@ document.getElementById('apply').onclick=async()=>{
 load();
 </script></body></html>""")
 
+@router.get("/progression/{exercise_key}")
+def get_exercise_progression(
+    exercise_key: str,
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return the current progression state for one exercise."""
+    row = session.exec(
+        select(ExerciseProgressionDB)
+        .where(ExerciseProgressionDB.user_id == user.id)
+        .where(ExerciseProgressionDB.exercise_key == exercise_key)
+    ).first()
+    if not row:
+        return {"has_state": False, "exercise_key": exercise_key}
+    return {
+        "has_state": True,
+        "exercise_key": exercise_key,
+        "exercise_name": row.exercise_name,
+        "working_weight_kg": row.working_weight_kg,
+        "current_reps": row.current_reps,
+        "target_reps_min": row.target_reps_min,
+        "target_reps_max": row.target_reps_max,
+        "calibrated": row.calibrated,
+        "last_session_date": row.last_session_date.isoformat() if row.last_session_date else None,
+        "sessions_without_progress": row.sessions_without_progress,
+    }
+
+
+@router.get("/progression")
+def list_exercise_progressions(
+    user: UserDB = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return all exercise progression states for the current user."""
+    rows = list(session.exec(
+        select(ExerciseProgressionDB)
+        .where(ExerciseProgressionDB.user_id == user.id)
+        .order_by(ExerciseProgressionDB.updated_at.desc())
+    ).all())
+    return {
+        "count": len(rows),
+        "progressions": [
+            {
+                "exercise_key": row.exercise_key,
+                "exercise_name": row.exercise_name,
+                "working_weight_kg": row.working_weight_kg,
+                "current_reps": row.current_reps,
+                "target_reps_min": row.target_reps_min,
+                "target_reps_max": row.target_reps_max,
+                "calibrated": row.calibrated,
+                "last_session_date": row.last_session_date.isoformat() if row.last_session_date else None,
+            }
+            for row in rows
+        ],
+    }
+
+
+def _enrich_plan_with_progressions(
+    exercises: list[dict],
+    user_id: str,
+    db_session: Session,
+    user: "UserDB" | None = None,
+) -> list[dict]:
+    """Podmień weight_kg i reps w ćwiczeniach na wartości z ExerciseProgressionDB lub oszacuj startowe."""
+    if not exercises:
+        return exercises
+
+    from app.exercises.data import get_exercise
+    from app.plan.progression_engine import (
+        estimate_starting_weight, get_weight_step, round_to_step, get_rep_range_for_goal
+    )
+
+    keys = [str(ex.get("exercise_key") or "") for ex in exercises]
+    rows = {
+        row.exercise_key: row
+        for row in db_session.exec(
+            select(ExerciseProgressionDB)
+            .where(ExerciseProgressionDB.user_id == user_id)
+            .where(ExerciseProgressionDB.exercise_key.in_(keys))
+        ).all()
+    }
+    result = []
+    for ex in exercises:
+        key = str(ex.get("exercise_key") or "")
+        prog = rows.get(key)
+        ex_copy = dict(ex)
+
+        if prog and prog.working_weight_kg > 0:
+            ex_copy["weight_kg"] = prog.working_weight_kg
+            if prog.current_reps > 0:
+                ex_copy["reps"] = prog.current_reps
+                ex_copy["reps_label"] = str(prog.current_reps)
+        elif not prog and user:
+            # Zachowaj jawnie podany ciężar w planie (jeśli > 0)
+            current_weight = ex_copy.get("weight_kg")
+            if current_weight is not None and float(current_weight) > 0:
+                pass
+            else:
+                ex_obj = get_exercise(key)
+                ex_type = (ex_obj.type if ex_obj else "compound") or "compound"
+                equipment = list(ex_obj.equipment or []) if ex_obj else []
+                movement = getattr(ex_obj, "movement_pattern", "horizontal_push") or "horizontal_push"
+
+                eq_set = {str(e).lower().strip() for e in equipment}
+                if (bool(eq_set) and eq_set <= {"bodyweight"}) or movement == "core":
+                    ex_copy["weight_kg"] = 0.0
+                else:
+                    est_weight = estimate_starting_weight(
+                        user_weight_kg=float(user.weight or 70.0),
+                        exercise_type=ex_type,
+                        movement_pattern=movement,
+                        gender=str(user.gender or "mężczyzna"),
+                        training_level=str(user.training_experience or "intermediate"),
+                        equipment=equipment,
+                    )
+                    step = get_weight_step(equipment)
+                    ex_copy["weight_kg"] = round_to_step(est_weight, step)
+
+            # Jeśli reps nie były określone, ustaw cel na podstawie profilu
+            if not ex_copy.get("reps") or ex_copy.get("reps") == 0:
+                ex_obj = get_exercise(key)
+                ex_type = (ex_obj.type if ex_obj else "compound") or "compound"
+                goal = getattr(user, "goal", None)
+                rmin, rmax = get_rep_range_for_goal(goal, ex_type)
+                ex_copy["reps"] = rmin
+                ex_copy["reps_label"] = f"{rmin}-{rmax}"
+
+        result.append(ex_copy)
+    return result
+
+
+def _update_exercise_progressions(
+    user_id: str,
+    db_session: Session,
+    training_session: TrainingSessionDB,
+    completed_sets: list,
+    user: "UserDB",
+) -> list[dict]:
+    """
+    Po zakończeniu sesji: aktualizuj stan progresji per ćwiczenie.
+    Tworzy lub aktualizuje ExerciseProgressionDB.
+    Zwraca listę dict z informacjami o zmianach.
+    """
+    from app.exercises.data import get_exercise
+    from app.plan.progression_engine import (
+        decide_next_step, get_rep_range_for_goal, get_weight_step, round_to_step,
+        estimate_starting_weight,
+    )
+
+    snapshot = training_session.planned_snapshot()
+    planned_exercises = snapshot.get("exercises", [])
+
+    # Grupuj serie po kluczu ćwiczenia
+    by_key: dict[str, list] = {}
+    for s in completed_sets:
+        by_key.setdefault(s.exercise_key, []).append(s)
+
+    results = []
+    today = date.today()
+
+    for planned in planned_exercises:
+        if not isinstance(planned, dict):
+            continue
+        key = str(planned.get("exercise_key") or planned.get("name") or "")
+        if not key:
+            continue
+
+        name = str(planned.get("exercise_name") or planned.get("name") or key)
+        ex_obj = get_exercise(key)
+
+        # Pobierz lub stwórz rekord progresji
+        prog = db_session.exec(
+            select(ExerciseProgressionDB)
+            .where(ExerciseProgressionDB.user_id == user_id)
+            .where(ExerciseProgressionDB.exercise_key == key)
+        ).first()
+
+        is_new = prog is None
+        if is_new:
+            # Ustal zakres powtórzeń z celu i typu ćwiczenia
+            ex_type = (ex_obj.type if ex_obj else "compound") or "compound"
+            goal = getattr(user, "goal", None)
+            rmin, rmax = get_rep_range_for_goal(goal, ex_type)
+
+            # Szacuj wagę startową jeśli brak
+            equipment = list(ex_obj.equipment or []) if ex_obj else []
+            movement = getattr(ex_obj, "movement_pattern", "horizontal_push") or "horizontal_push"
+            start_weight = estimate_starting_weight(
+                user_weight_kg=float(user.weight or 70),
+                exercise_type=ex_type,
+                movement_pattern=movement,
+                gender=str(user.gender or "mężczyzna"),
+                training_level=str(user.training_experience or "intermediate"),
+            )
+            # Zaokrąglij do kroku sprzętu
+            step = get_weight_step(equipment)
+            start_weight = round_to_step(start_weight, step)
+
+            prog = ExerciseProgressionDB(
+                user_id=user_id,
+                exercise_key=key,
+                exercise_name=name,
+                working_weight_kg=start_weight,
+                current_reps=rmin,
+                reps_at_current_weight=0,
+                target_reps_min=rmin,
+                target_reps_max=rmax,
+                calibrated=False,
+            )
+
+        # Zbierz dane z wykonanych serii
+        sets_for_key = by_key.get(key, [])
+        if not sets_for_key:
+            # Brak danych — nie aktualizuj ciężaru, zwiększ licznik bez progresu
+            prog.sessions_without_progress = (prog.sessions_without_progress or 0) + 1
+            prog.last_session_date = today
+            prog.updated_at = datetime.now()
+            db_session.add(prog)
+            results.append({"exercise_key": key, "action": "no_data", "reason": "Brak wykonanych serii"})
+            continue
+
+        weights = [float(s.actual_weight_kg or 0) for s in sets_for_key]
+        reps_list = [int(s.actual_reps or 0) for s in sets_for_key]
+        rpes = [float(s.actual_rpe) for s in sets_for_key if s.actual_rpe is not None]
+
+        avg_weight = sum(weights) / len(weights) if weights else 0.0
+        avg_reps = round(sum(reps_list) / len(reps_list)) if reps_list else 0
+        avg_rpe = round(sum(rpes) / len(rpes), 1) if rpes else None
+
+        planned_sets = int(planned.get("sets") or len(sets_for_key))
+        completion_pct = (len(sets_for_key) / planned_sets * 100) if planned_sets else 0
+
+        equipment2 = list(ex_obj.equipment or []) if ex_obj else []
+
+        decision = decide_next_step(
+            current_weight=max(avg_weight, prog.working_weight_kg),
+            current_reps=avg_reps if avg_reps > 0 else prog.current_reps,
+            reps_min=prog.target_reps_min,
+            reps_max=prog.target_reps_max,
+            average_rpe=avg_rpe,
+            completion_pct=completion_pct,
+            equipment=equipment2,
+            sessions_without_progress=prog.sessions_without_progress,
+        )
+
+        # Zaktualizuj stan progresji
+        old_weight = prog.working_weight_kg
+        prog.working_weight_kg = decision["next_weight"] if decision["next_weight"] > 0 else avg_weight
+        prog.current_reps = decision["next_reps"]
+        if avg_reps > 0 and avg_weight >= prog.working_weight_kg:
+            prog.reps_at_current_weight = avg_reps
+        prog.last_session_date = today
+        prog.calibrated = True
+
+        if decision["action"] in ("progress_load", "progress_reps"):
+            prog.sessions_without_progress = 0
+        else:
+            prog.sessions_without_progress = (prog.sessions_without_progress or 0) + 1
+
+        prog.updated_at = datetime.now()
+        db_session.add(prog)
+
+        results.append({
+            "exercise_key": key,
+            "action": decision["action"],
+            "old_weight": old_weight,
+            "new_weight": prog.working_weight_kg,
+            "new_reps": prog.current_reps,
+            "reason": decision["reason"],
+        })
+
+    return results
+
+
 @router.post("/sessions/{session_id}/complete")
 def complete_training_session(
     session_id: str,
@@ -2134,6 +2412,21 @@ def complete_training_session(
         session.rollback()
         raise HTTPException(status_code=500, detail="Nie udało się zakończyć sesji") from exc
 
+    # Automatyczna aktualizacja progresji per ćwiczenie po zakończeniu sesji
+    try:
+        progression_updates = _update_exercise_progressions(
+            user_id=user.id,
+            db_session=session,
+            training_session=row,
+            completed_sets=sets,
+            user=user,
+        )
+        session.commit()
+    except Exception:
+        # Błąd aktualizacji progresji nie powinien blokować zakończenia sesji
+        session.rollback()
+        progression_updates = []
+
     final_sets = list(
         session.exec(
             select(TrainingSetResultDB)
@@ -2142,5 +2435,5 @@ def complete_training_session(
             .order_by(TrainingSetResultDB.exercise_key, TrainingSetResultDB.set_number)
         ).all()
     )
-    return {"status": "completed", "session": _serialize_session(row, final_sets)}
+    return {"status": "completed", "session": _serialize_session(row, final_sets), "progression_updates": progression_updates}
 

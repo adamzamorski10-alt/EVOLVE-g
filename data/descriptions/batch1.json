@@ -1,0 +1,211 @@
+[
+  {
+    "id": "pushups_classic",
+    "summary": "Podstawowe ćwiczenie na klatkę piersiową, triceps i przód barków wykonywane z masą własną ciała. Uczy też stabilizacji tułowia podczas ruchu pchającego.",
+    "setup": "Oprzyj dłonie na podłodze nieco szerzej niż barki, palce skieruj do przodu. Stań na palcach stóp tak, aby ciało tworzyło prostą linię od głowy do pięt. Napnij brzuch i pośladki.",
+    "execution": [
+      "Zegnij łokcie i opuszczaj ciało kontrolowanie, aż klatka znajdzie się kilka centymetrów nad podłogą.",
+      "Łokcie prowadź pod kątem około 45 stopni do tułowia, a nie szeroko na boki.",
+      "Na dole zatrzymaj ruch na ułamek sekundy, nie opadaj całym ciężarem na podłogę.",
+      "Wypchnij podłogę dłońmi i wyprostuj ramiona, utrzymując prostą linię ciała.",
+      "Wróć do pozycji wyjściowej bez uginania bioder i bez wysuwania głowy do przodu."
+    ],
+    "cues": [
+      "Ciało jak deska, od barków do kostek.",
+      "Łopatki lekko ściągnięte, barki z dala od uszu.",
+      "Wzrok skierowany w podłogę kilkanaście centymetrów przed dłońmi."
+    ],
+    "common_mistakes": [
+      "Opadające biodra lub wypięte pośladki.",
+      "Łokcie rozstawione szeroko na boki, co obciąża stawy barkowe.",
+      "Niepełny zakres ruchu, klatka zatrzymuje się wysoko nad podłogą.",
+      "Wysuwanie głowy do przodu."
+    ],
+    "easier_variant": "Pompki na kolanach lub z dłońmi opartymi o stabilną ławkę albo stół.",
+    "harder_variant": "Pompki z nogami na podwyższeniu albo z pauzą na dole.",
+    "breathing": "Wdech przy opuszczaniu, wydech przy wypychaniu."
+  },
+  {
+    "id": "barbell_bench_press",
+    "summary": "Podstawowe ćwiczenie siłowe na klatkę piersiową z udziałem tricepsa i przednich części barków. Pozwala użyć największych obciążeń w ruchu pchającym poziomo.",
+    "setup": "Połóż się na ławce tak, aby oczy znajdowały się pod gryfem. Stopy trzymaj płasko na podłodze, łopatki ściągnij i opuść, pośladki zostają na ławce. Chwyt nieco szerzej niż barki, nadgarstki w linii z przedramionami. Używaj stojaków z ogranicznikami lub asekuranta, szczególnie przy większych ciężarach.",
+    "execution": [
+      "Zdejmij sztangę ze stojaków i ustaw ją nad klatką na wyprostowanych ramionach.",
+      "Weź wdech i opuszczaj sztangę kontrolowanie do dolnej części klatki piersiowej, łokcie pod kątem około 45 do 75 stopni do tułowia.",
+      "Dotknij klatki lekko lub zatrzymaj sztangę tuż nad nią, bez odbijania.",
+      "Wypchnij sztangę w górę i lekko do tyłu, w stronę stojaków, aż do wyprostu ramion.",
+      "Utrzymuj łopatki ściągnięte i pośladki na ławce przez całą serię.",
+      "Po ostatnim powtórzeniu odłóż sztangę na stojaki, nie odkładaj jej w powietrzu."
+    ],
+    "cues": [
+      "Łopatki ściągnięte i dociśnięte do ławki.",
+      "Nadgarstki sztywno nad łokciami.",
+      "Stopy mocno w podłogę."
+    ],
+    "common_mistakes": [
+      "Odbijanie sztangi od klatki.",
+      "Odrywanie pośladków od ławki.",
+      "Zbyt szeroko rozstawione łokcie, które obciążają bark.",
+      "Trening z dużym ciężarem bez asekuracji i bez ograniczników bezpieczeństwa."
+    ],
+    "easier_variant": "Wyciskanie hantli na podłodze lub na płaskiej ławce z mniejszym ciężarem.",
+    "harder_variant": "Pauza 1 do 2 sekund na klatce lub wolniejsze opuszczanie sztangi.",
+    "breathing": "Wdech przy opuszczaniu, krótkie zatrzymanie oddechu przy starcie wyciskania, wydech w górnej części ruchu."
+  },
+  {
+    "id": "floor_press",
+    "summary": "Wyciskanie hantli leżąc na podłodze, które ogranicza zakres ruchu w dole i jest łagodniejsze dla barków. Dobre ćwiczenie na klatkę i triceps w domu.",
+    "setup": "Połóż się na plecach na podłodze, kolana ugięte, stopy płasko. Ustaw hantle nad klatką, dłonie skierowane do przodu lub lekko do siebie. Łopatki ściągnij i dociśnij do podłogi.",
+    "execution": [
+      "Z ramionami wyprostowanymi nad klatką zacznij opuszczać hantle kontrolowanie.",
+      "Opuść je, aż tył ramion lekko dotknie podłogi, łokcie pod kątem około 45 stopni.",
+      "Zatrzymaj ruch na moment, nie opadaj całym ciężarem na podłogę.",
+      "Wypchnij hantle w górę do wyprostu ramion, zbliżając je lekko do siebie nad klatką.",
+      "Powtarzaj w równym tempie, utrzymując stabilne nadgarstki."
+    ],
+    "cues": [
+      "Łopatki dociśnięte do podłogi.",
+      "Nadgarstki w linii z przedramionami.",
+      "Opuszczaj wolniej niż wyciskasz."
+    ],
+    "common_mistakes": [
+      "Odbijanie łokci od podłogi.",
+      "Zbyt szeroko rozstawione łokcie.",
+      "Wyginanie nadgarstków do tyłu.",
+      "Zbyt duży ciężar, przez który hantle się rozjeżdżają."
+    ],
+    "easier_variant": "Lżejsze hantle albo wyciskanie jednorącz naprzemiennie.",
+    "harder_variant": "Wolniejsze opuszczanie (około 3 sekundy), pauza na dole lub wyciskanie na ławce.",
+    "breathing": "Wdech przy opuszczaniu, wydech przy wyciskaniu."
+  },
+  {
+    "id": "lat_pulldown",
+    "summary": "Ściąganie drążka wyciągu górnego do klatki, które buduje szerokość pleców i uczy ruchu zbliżonego do podciągania. Dobre dla początkujących, bo ciężar można łatwo dopasować.",
+    "setup": "Ustaw wałek na udach tak, aby nogi były stabilnie zablokowane. Chwyć drążek nachwytem nieco szerzej niż barki. Usiądź prosto, klatka lekko uniesiona, ramiona wyprostowane, ale barki nie podciągnięte do uszu.",
+    "execution": [
+      "Zacznij ruch od opuszczenia łopatek w dół i do tyłu, a dopiero potem zginaj łokcie.",
+      "Ściągaj drążek w stronę górnej części klatki piersiowej, łokcie prowadź w dół i lekko do tyłu.",
+      "Na dole zatrzymaj drążek na wysokości obojczyków i ściśnij łopatki.",
+      "Powoli puszczaj drążek do góry, aż ramiona będą wyprostowane, a łopatki rozciągnięte.",
+      "Tułów odchylaj tylko minimalnie, nie bujaj całym ciałem."
+    ],
+    "cues": [
+      "Prowadź łokcie w dół, w stronę kieszeni spodni.",
+      "Klatka do drążka, a nie drążek do brody.",
+      "W górze nie zwisaj całym ciężarem na ramionach."
+    ],
+    "common_mistakes": [
+      "Odchylanie tułowia i szarpanie ciężaru.",
+      "Ściąganie drążka za głowę, co obciąża bark i szyję.",
+      "Ramiona podciągnięte do uszu.",
+      "Zbyt duży ciężar, przy którym łokcie nie schodzą w dół."
+    ],
+    "easier_variant": "Mniejszy ciężar lub chwyt neutralny z uchwytem w kształcie V.",
+    "harder_variant": "Wolniejsze opuszczanie, chwyt wąski albo docelowo podciąganie na drążku.",
+    "breathing": "Wdech na starcie, wydech przy ściąganiu drążka."
+  },
+  {
+    "id": "goblet_squat",
+    "summary": "Przysiad z hantlem trzymanym przy klatce, który uczy poprawnej techniki przysiadu i angażuje uda, pośladki oraz mięśnie tułowia. Bezpieczny punkt wyjścia dla początkujących.",
+    "setup": "Chwyć jeden koniec hantla obiema dłońmi i trzymaj go przy mostku. Stopy ustaw na szerokość barków lub nieco szerzej, palce lekko na zewnątrz. Klatka uniesiona, brzuch napięty.",
+    "execution": [
+      "Zacznij ruch od odsunięcia bioder do tyłu i jednoczesnego zginania kolan.",
+      "Schodź w dół z wyprostowanym tułowiem, łokcie kieruj między kolana.",
+      "Zejdź tak głęboko, jak pozwala technika, najlepiej do momentu, gdy uda są co najmniej równoległe do podłogi.",
+      "Kolana prowadź w linii z palcami stóp, nie pozwalaj im zapadać się do środka.",
+      "Wypchnij podłogę całymi stopami i wróć do pozycji stojącej, prostując biodra i kolana."
+    ],
+    "cues": [
+      "Pięty i cały środek stopy w podłodze.",
+      "Klatka wysoko, hantel blisko ciała.",
+      "Kolana w linii z palcami."
+    ],
+    "common_mistakes": [
+      "Pięty odrywają się od podłogi.",
+      "Kolana zapadają się do środka.",
+      "Zaokrąglanie dolnej części pleców na dole.",
+      "Mocne pochylanie tułowia do przodu."
+    ],
+    "easier_variant": "Przysiad z masą własną do krzesła lub ławki, z mniejszym zakresem ruchu.",
+    "harder_variant": "Cięższy hantel, pauza na dole lub przysiad ze sztangą na klatce.",
+    "breathing": "Wdech przed zejściem, wydech podczas wstawania."
+  },
+  {
+    "id": "leg_press",
+    "summary": "Wypychanie platformy nogami na maszynie, które mocno angażuje uda i pośladki przy stabilnym oparciu pleców. Dobra, bezpieczniejsza alternatywa dla ciężkich przysiadów.",
+    "setup": "Usiądź w maszynie, plecy i pośladki oparte w siedzisku. Stopy ustaw na platformie na szerokość barków, lekko na zewnątrz, w jej środku. Dobierz siedzisko tak, aby w dolnej pozycji kolana były ugięte około 90 stopni.",
+    "execution": [
+      "Zdejmij blokady bezpieczeństwa i wyprostuj nogi, nie blokując kolan do końca.",
+      "Powoli zginaj kolana i opuszczaj platformę, aż kolana osiągną około 90 stopni.",
+      "Pośladki i dolna część pleców muszą pozostać przy oparciu, nie zwijaj miednicy.",
+      "Wypchnij platformę całymi stopami, prostując nogi bez blokowania kolan.",
+      "Po serii załóż blokady bezpieczeństwa, zanim wstaniesz."
+    ],
+    "cues": [
+      "Kolana w linii z palcami.",
+      "Dolna część pleców cały czas przy oparciu.",
+      "Wypychaj piętami i środkiem stopy."
+    ],
+    "common_mistakes": [
+      "Blokowanie kolan w górze.",
+      "Zwijanie miednicy i odrywanie pośladków od siedziska.",
+      "Kolana zapadają się do środka.",
+      "Zbyt duży ciężar i skrócony zakres ruchu."
+    ],
+    "easier_variant": "Mniejszy ciężar i płytszy zakres ruchu.",
+    "harder_variant": "Wolniejsze opuszczanie, praca jedną nogą lub większy ciężar.",
+    "breathing": "Wdech przy opuszczaniu, wydech przy wypychaniu."
+  },
+  {
+    "id": "romanian_deadlift_dumbbell",
+    "summary": "Ćwiczenie na tylną część ud i pośladki, polegające na zgięciu w biodrach z lekko ugiętymi kolanami. Uczy wzorca zawiasu biodrowego przy niewielkim obciążeniu.",
+    "setup": "Stań na szerokość bioder, hantle trzymaj przed udami nachwytem. Kolana lekko ugięte, klatka uniesiona, łopatki ściągnięte, brzuch napięty. Jeśli odczuwasz ból dolnych pleców, zacznij od ruchu bez obciążenia i skonsultuj się ze specjalistą.",
+    "execution": [
+      "Zacznij ruch od odsunięcia bioder do tyłu, jakbyś chciał dotknąć pośladkami ściany za sobą.",
+      "Opuszczaj hantle blisko ud i goleni, plecy proste, kolana tylko lekko ugięte.",
+      "Schodź, aż poczujesz rozciąganie tylnej części ud, zwykle do połowy goleni.",
+      "Zatrzymaj ruch, zanim plecy zaczną się zaokrąglać.",
+      "Wróć do pozycji stojącej, wypychając biodra do przodu i zaciskając pośladki."
+    ],
+    "cues": [
+      "Biodra do tyłu, a nie w dół.",
+      "Hantle ślizgają się po udach.",
+      "Kark w przedłużeniu kręgosłupa."
+    ],
+    "common_mistakes": [
+      "Zaokrąglanie dolnej części pleców.",
+      "Zginanie kolan jak w przysiadzie.",
+      "Hantle odsuwają się od nóg.",
+      "Przeprost w biodrach w górnej pozycji."
+    ],
+    "easier_variant": "Lżejsze hantle albo zawias bez obciążenia (dobry poranek z masą własną).",
+    "harder_variant": "Cięższe hantle, wolniejsze opuszczanie lub rumuński martwy ciąg ze sztangą.",
+    "breathing": "Wdech przed zejściem, wydech przy powrocie do pionu."
+  },
+  {
+    "id": "bent_over_row_db",
+    "summary": "Wiosłowanie hantlami w opadzie tułowia, które wzmacnia mięśnie pleców, tył barków i biceps. Uczy stabilnej pozycji tułowia podczas ciągnięcia.",
+    "setup": "Stań na szerokość bioder z hantlami w dłoniach. Zegnij biodra i pochyl tułów do około 45 stopni, plecy proste, kolana lekko ugięte. Ramiona zwisają pod barkami, wzrok skierowany w podłogę. Przy bólu dolnych pleców wybierz wersję z podparciem ręki o ławkę.",
+    "execution": [
+      "Zacznij ruch od ściągnięcia łopatek, a potem zginaj łokcie.",
+      "Prowadź hantle do boków brzucha, łokcie blisko tułowia.",
+      "Na górze zatrzymaj ruch na moment i ściśnij łopatki.",
+      "Opuść hantle powoli do pełnego wyprostu ramion.",
+      "Utrzymuj stałą pozycję tułowia, bez unoszenia się z każdym powtórzeniem."
+    ],
+    "cues": [
+      "Łokcie do tyłu, w stronę bioder.",
+      "Plecy proste od karku po miednicę.",
+      "Ściśnij łopatki na górze."
+    ],
+    "common_mistakes": [
+      "Zaokrąglanie dolnej części pleców.",
+      "Szarpanie ciężaru całym ciałem.",
+      "Unoszenie tułowia przy każdym powtórzeniu.",
+      "Skracanie zakresu ruchu w dole."
+    ],
+    "easier_variant": "Wiosłowanie jednorącz z podparciem ręki o ławkę lub o udo.",
+    "harder_variant": "Cięższe hantle, pauza na górze albo wiosłowanie sztangą.",
+    "breathing": "Wdech w dole, wydech przy ciągnięciu."
+  }
+]

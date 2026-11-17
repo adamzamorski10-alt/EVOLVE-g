@@ -9,8 +9,12 @@ from __future__ import annotations
 
 from typing import Any
 import json
+import os
 
 from app.exercise_descriptions import get_how_to
+from app.exercises.data import get_exercise
+from app.exercises.loader import KNOWN_GROUPS, muscle_group_for_exercise
+from app.plan.generator_v2 import build_split_plan
 from app.plan.performance_signals import build_performance_signals, prioritize_sport_drills
 from app.legacy_routes import (
     SPORT_DRILLS_DB,
@@ -20,6 +24,22 @@ from app.legacy_routes import (
     _exercise_pool,
     calc_daily_macros,
 )
+
+
+def build_deterministic_plan(
+    user: Any,
+    assessment: Any = None,
+    progress_evidence: list[dict[str, Any]] | None = None,
+) -> dict:
+    """Generate a reproducible weekly plan.
+
+    Delegates to the v2 split-based generator by default (PLAN_GENERATOR=v2).
+    Set PLAN_GENERATOR=v1 to use the legacy "jedna partia na dzień" generator
+    without code changes.
+    """
+    if os.environ.get("PLAN_GENERATOR", "v2").strip().lower() == "v1":
+        return _build_deterministic_plan_v1(user, assessment, progress_evidence)
+    return build_split_plan(user, assessment, progress_evidence)
 
 
 _DAY_SCHEDULE = [
@@ -59,45 +79,159 @@ def _frequency_days(value: str | None) -> int:
     return max(1, min(6, max(numbers)))
 
 
+# Map polskiego nazwy sprzętu użytkownika na kanoniczne angielskie klucze z app.exercises.
+_EQUIPMENT_PL_TO_EN: dict[str, str] = {
+    "sztanga": "barbell",
+    "sztanga olimpijska": "barbell",
+    "hantle": "dumbbell",
+    "hantle regulowane": "dumbbell",
+    "kettlebell": "kettlebell",
+    "maszyny": "machine",
+    "maszyna": "machine",
+    "wyciąg": "cable",
+    "kabel": "cable",
+    "ławka": "bench",
+    "ławce": "bench",
+    "drążek": "pullup_bar",
+    "drążek do podciągania": "pullup_bar",
+    "poręcz": "dip_station",
+    "poręcze": "dip_station",
+    "dip_station": "dip_station",
+    "pullup_bar": "pullup_bar",
+    "pull-up-bar": "pullup_bar",
+    "bands": "bands",
+    "taśmy": "bands",
+    "guma": "bands",
+    "gumy": "bands",
+    "guma oporowa": "bands",
+    "gumy oporowe": "bands",
+    "resistance-band": "bands",
+    "bodyweight": "bodyweight",
+    "masa własna": "bodyweight",
+    "talerz": "weight_plate",
+    "talerze": "weight_plate",
+    "koło brzuszkowe": "ab_wheel",
+    "koło": "ab_wheel",
+    "kółko brzuszkowe": "ab_wheel",
+    "stół": "table_or_low_bar",
+    "niski drążek": "table_or_low_bar",
+    "drążek niski": "table_or_low_bar",
+    "stół lub niska poręcz": "table_or_low_bar",
+    "stół lub niski drążek": "table_or_low_bar",
+    "table_or_low_bar": "table_or_low_bar",
+    "drążek niski": "table_or_low_bar",
+    # Specjalne markery oznaczające pełny dostęp:
+    "siłownia": "gym",
+    "gym": "gym",
+    "full": "gym",
+}
+
+
 def _equipment_aliases(items: list[str]) -> set[str]:
-    aliases = {
-        "sztanga olimpijska": "sztanga",
-        "hantle regulowane": "hantle",
-        "wyciąg": "wyciąg",
-        "maszyny": "maszyny",
-        "siłownia": "siłownia",
-    }
-    return {aliases.get(item.strip().lower(), item.strip().lower()) for item in items if item and item.strip()}
+    """Zwraca kanoniczne nazwy sprzętu (angielskie klucze z app.exercises)."""
+    out: set[str] = set()
+    for item in items:
+        if not item or not item.strip():
+            continue
+        key = item.strip().lower()
+        out.add(_EQUIPMENT_PL_TO_EN.get(key, key))
+    return out
 
 
-def _exercise_required_equipment(name: str) -> set[str]:
-    n = name.lower()
-    required: set[str] = set()
-    if "sztang" in n:
-        required.add("sztanga")
-    if "hantl" in n:
-        required.add("hantle")
-    if "kettlebell" in n:
-        required.add("kettlebell")
-    if any(token in n for token in ("maszyn", "leg press", "pec deck", "hammer")):
-        required.add("maszyny")
-    if any(token in n for token in ("kabel", "brama")):
-        required.add("wyciąg")
-    if "poręcz" in n:
-        required.add("poręcze")
-    if "ławce" in n or "ławka" in n:
-        required.add("ławka")
-    return required
+def _exercise_equipment_en(name: str) -> set[str] | None:
+    """Zwraca zestaw sprzętu wymaganego przez ćwiczenie (z app.exercises) lub None gdy nieznane."""
+    from app.exercises.data import get_exercise, list_exercises
+
+    ex = get_exercise(name)  # po id (slug)
+    if ex is None:
+        key = name.strip().lower()
+        for candidate in list_exercises():
+            if candidate.name_pl.strip().lower() == key:
+                ex = candidate
+                break
+            if any(a.strip().lower() == key for a in candidate.aliases):
+                ex = candidate
+                break
+    if ex is None:
+        return None
+    return set(ex.equipment)
 
 
 def _exercise_allowed(name: str, equipment: set[str], avoid_exercises: list[str]) -> bool:
     lowered = name.lower()
     if any(term.lower() in lowered for term in avoid_exercises if term):
         return False
-    if not equipment or "siłownia" in equipment or "gym" in equipment:
+
+    # Pełna siłownia / gym - wszystko dozwolone.
+    if "gym" in equipment:
         return True
-    required = _exercise_required_equipment(name)
-    return not required or required.issubset(equipment)
+
+    # Pusta lista sprzętu = preset "masa własna" - tylko ćwiczenia bez sprzętu.
+    if not equipment:
+        req = _exercise_equipment_en(name)
+        if req is not None:
+            return req <= {"bodyweight"}
+        # Fallback dla nieznanego ćwiczenia: odrzucaj (bezpieczniej niż domyślne zezwolenie).
+        return False
+
+    req = _exercise_equipment_en(name)
+    if req is not None:
+        # Ćwiczenia własnym ciałem zawsze dozwolone (nie wymagają sprzętu).
+        if req <= {"bodyweight"}:
+            return True
+        return req.issubset(equipment)
+
+    # Fallback: starsze wnioskowanie z nazwy dla ćwiczeń spoza nowej bazy.
+    required: set[str] = set()
+    n = lowered
+    if "sztang" in n:
+        required.add("barbell")
+    if "hantl" in n:
+        required.add("dumbbell")
+    if "kettlebell" in n:
+        required.add("kettlebell")
+    if any(token in n for token in ("maszyn", "leg press", "pec deck", "hammer")):
+        required.add("machine")
+    if any(token in n for token in ("kabel", "brama")):
+        required.add("cable")
+    if "poręcz" in n or "dip" in n:
+        required.add("dip_station")
+    if "drążek" in n or "pullup" in n or "podciąg" in n:
+        required.add("pullup_bar")
+    if "ławce" in n or "ławka" in n:
+        required.add("bench")
+    return required.issubset(equipment)
+
+
+_PREFERRED_PATTERNS: dict[str, set[str]] = {
+    "klatka": {"horizontal_push"},
+    "plecy": {"horizontal_pull", "vertical_pull"},
+    "nogi": {"squat", "hinge", "lunge"},
+    "barki": {"vertical_push"},
+    "biceps": set(),
+    "triceps": set(),
+    "brzuch": {"core"},
+}
+
+_SUPPORTING_GROUPS: dict[str, list[str]] = {
+    "klatka": ["triceps", "barki"],
+    "plecy": ["biceps", "barki"],
+    "nogi": ["brzuch"],
+}
+
+
+def _level_allowed(level: str, training_level: str | None) -> bool:
+    """Czy ćwiczenie o danym poziomie jest dozwolone dla poziomu treningowego użytkownika."""
+    if not training_level:
+        return True
+    tl = str(training_level).strip().casefold()
+    if tl in {"początkujący", "beginner"}:
+        return level == "beginner"
+    if tl in {"średniozaawansowany", "intermediate"}:
+        return level != "advanced"
+    if tl in {"zaawansowany", "advanced", "elite"}:
+        return True
+    return True
 
 
 def _assessment_value(assessment: Any, field: str, default: Any = None) -> Any:
@@ -126,7 +260,7 @@ def _meal_slots(meals_per_day: int) -> list[str]:
     return slots
 
 
-def build_deterministic_plan(
+def _build_deterministic_plan_v1(
     user: Any,
     assessment: Any = None,
     progress_evidence: list[dict[str, Any]] | None = None,
@@ -398,9 +532,13 @@ def build_deterministic_plan(
         return 2
 
     days: list[dict] = []
+    group_day_count: dict[str, int] = {g: 0 for g in KNOWN_GROUPS}
+    prev_exercise_names: set[str] = set()
+    reduced_days: list[str] = []
     for day_index, (day_name, is_sunday_rest) in enumerate(_DAY_SCHEDULE):
         is_selected = day_name in selected_days
         is_sport_day = is_selected and bool(sport_drills) and day_name in configured_sport_days
+        day_diagnostics = None
 
         if is_sunday_rest or not is_selected:
             day_type = "rest"
@@ -424,7 +562,7 @@ def build_deterministic_plan(
                     "how_to": get_how_to(drill["name"], is_drill=True) or drill.get("progression_tip", ""),
                     "alternatives": [],
                 })
-            workout_title = f"Sesja Sportowa – {sport_focus.title()} ({sport_specialization.title() or 'Specjalistyczna'})"
+            workout_title = f"Sesja Sportowa - {sport_focus.title()} ({sport_specialization.title() or 'Specjalistyczna'})"
             is_sport_session = True
         else:
             raw_focus = next(focus_iter, preferred[0])
@@ -433,21 +571,131 @@ def build_deterministic_plan(
                 focus_key = "klatka"
             day_type = _day_type(day_name, focus_key)
 
-            available = [
-                ex for ex in exercise_pool.get(focus_key, [])
-                if _exercise_allowed(ex["name"], equipment, avoid_exercises)
-            ]
-            available = sorted(
-                enumerate(available),
-                key=lambda pair: (_progress_priority(pair[1]), pair[0]),
-            )
-            available = [exercise for _, exercise in available]
+            has_equipment_preset = ("gym" in equipment) or ("dumbbell" in equipment)
+            training_level = _assessment_value(assessment, "training_level")
+
+            def _filter_available(ex: dict[str, Any], ex_obj: Any, group: str, is_cardio_focus: bool) -> dict[str, Any] | None:
+                """Zwraca ćwiczenie jeśli przechodzi filtry sprzętu, poziomu i typu, lub None."""
+                if not _exercise_allowed(ex["name"], equipment, avoid_exercises):
+                    return None
+                if ex_obj is None:
+                    # Ćwiczenie spoza nowej bazy jest odrzucane przy nowym generowaniu planu.
+                    return None
+                if ex_obj.type == "cardio" and not is_cardio_focus:
+                    return None
+                if "plyometric" in (getattr(ex_obj, "tags", None) or []) and not is_cardio_focus:
+                    return None
+                if not _level_allowed(ex_obj.level, training_level):
+                    return None
+                return ex
+
+            def _rank_key(ex: dict[str, Any], ex_obj: Any, group: str) -> tuple[int, int, int, str]:
+                """Klucz sortowania: sprzęt przed bodyweight, compound przed isolation,
+                wzorce partii na początku, potem stabilnie po id."""
+                if has_equipment_preset and ex_obj is not None:
+                    equip_score = 1 if set(ex_obj.equipment) <= {"bodyweight"} else 0
+                else:
+                    equip_score = 0
+                if ex_obj is None:
+                    type_order = 2
+                    pattern_pref = 1
+                    ex_id = str(ex.get("name", ""))
+                else:
+                    t = ex_obj.type
+                    if t == "compound":
+                        type_order = 0
+                    elif t == "isolation":
+                        type_order = 1
+                    else:
+                        type_order = 2
+                    mp = ex_obj.movement_pattern
+                    pattern_pref = 0 if mp in _PREFERRED_PATTERNS.get(group, set()) else 1
+                    ex_id = ex_obj.id
+                return (equip_score, type_order, pattern_pref, ex_id)
+
+            def _available_for(group: str) -> list[dict[str, Any]]:
+                is_cardio_focus = (group == "cardio")
+                result: list[dict[str, Any]] = []
+                for ex in exercise_pool.get(group, []):
+                    ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
+                    kept = _filter_available(ex, ex_obj, group, is_cardio_focus)
+                    if kept is not None:
+                        result.append(kept)
+                return result
+
+            available = _available_for(focus_key)
+
+            # Rotacja: nie generuj dnia, który dubluje poprzedni dzień co do ćwiczeń.
+            rotated = [ex for ex in available if ex["name"] not in prev_exercise_names]
+            if rotated:
+                available = rotated
+            day_diagnostics = None
+
             if not available:
-                # Never silently bypass equipment or exercise restrictions.
-                available = []
+                # Zamień partię na dozwoloną z najmniejszą liczbą dni w tym tygodniu.
+                best_group: str | None = None
+                best_count = None
+                for candidate_group in KNOWN_GROUPS:
+                    if candidate_group == focus_key:
+                        continue
+                    cand_available = _available_for(candidate_group)
+                    if not cand_available:
+                        continue
+                    cand_rotated = [
+                        ex for ex in cand_available
+                        if ex["name"] not in prev_exercise_names
+                    ]
+                    if not cand_rotated:
+                        continue
+                    count = group_day_count.get(candidate_group, 0)
+                    if best_count is None or count < best_count:
+                        best_group = candidate_group
+                        best_count = count
+                if best_group is not None:
+                    available = _available_for(best_group)
+                    rotated = [
+                        ex for ex in available
+                        if ex["name"] not in prev_exercise_names
+                    ]
+                    if rotated:
+                        available = rotated
+                    day_diagnostics = (
+                        f"Partia '{focus_key}' nie ma ćwiczeń dostępnych dla zadeklarowanego sprzętu. "
+                        f"Zastąpiono partią '{best_group}' (ćwiczenia: "
+                        f"{', '.join(e['name'] for e in available[:3])})."
+                    )
+                    focus_key = best_group
+                else:
+                    # Żadna partia nie ma dostępnych ćwiczeń - zmniejsz liczbę dni.
+                    reduced_days.append(day_name)
+                    day_diagnostics = (
+                        f"Dzień {day_name} pominięty: brak ćwiczeń dostępnych dla zadeklarowanego sprzętu."
+                    )
+                    # Nie dodaj dnia do wyjścia - kontynuuj do następnego.
+                    continue
+
+            available = sorted(
+                available,
+                key=lambda ex: _rank_key(ex, get_exercise(ex.get("exercise_id", ex["name"])), focus_key),
+            )
+
+            # Limit: maksymalnie 2 ćwiczenia o tym samym movement_pattern w sesji,
+            # izolacje (type == "isolation") nie liczą się do tego limitu.
+            limited: list[dict[str, Any]] = []
+            pattern_count: dict[str, int] = {}
+            for ex in available:
+                ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
+                mp = ex_obj.movement_pattern if ex_obj else ""
+                is_isolation = ex_obj is not None and ex_obj.type == "isolation"
+                if not is_isolation and pattern_count.get(mp, 0) >= 2:
+                    continue
+                limited.append(ex)
+                if not is_isolation:
+                    pattern_count[mp] = pattern_count.get(mp, 0) + 1
+            available = limited
 
             exercise_limit = 4
-            if _assessment_value(assessment, "training_level") == "początkujący":
+            if training_level == "początkujący":
                 exercise_limit = 3
             recovery = _assessment_value(assessment, "recovery_score")
             if recovery is not None and int(recovery) <= 4:
@@ -459,6 +707,34 @@ def build_deterministic_plan(
                 exercise_limit = min(exercise_limit, 3)
 
             selected = available[:exercise_limit]
+
+            # Uzupełnienie dnia do minimum 3 ćwiczeń z partii wspierających.
+            if len(selected) < 3:
+                added: list[str] = []
+                selected_names = {ex["name"] for ex in selected}
+                for support_group in _SUPPORTING_GROUPS.get(focus_key, []):
+                    if len(selected) >= 3:
+                        break
+                    support_available = []
+                    for ex in _available_for(support_group):
+                        if ex["name"] in selected_names:
+                            continue
+                        support_available.append(ex)
+                    support_available = sorted(
+                        support_available,
+                        key=lambda ex: _rank_key(ex, get_exercise(ex.get("exercise_id", ex["name"])), support_group),
+                    )
+                    for ex in support_available:
+                        if len(selected) >= 3:
+                            break
+                        selected.append(ex)
+                        selected_names.add(ex["name"])
+                        added.append(ex["name"])
+                if added:
+                    day_diagnostics = ("Uzupełniono dzień o ćwiczenia z partii wspierających: "
+                                       + ", ".join(added))
+            group_day_count[focus_key] = group_day_count.get(focus_key, 0) + 1
+            prev_exercise_names = {ex["name"] for ex in selected}
             workout_items = []
             for exercise in selected:
                 alternatives = [
@@ -517,6 +793,7 @@ def build_deterministic_plan(
             "day_type": day_type,
             "macros": calc_daily_macros(base_calories, day_type),
             "is_sport_session": is_sport_session,
+            "diagnostics": day_diagnostics,
             "workout": {
                 "title": workout_title,
                 "focus": focus_key if not is_sport_session else sport_focus,
@@ -543,5 +820,7 @@ def build_deterministic_plan(
             "schedule_diagnostics": schedule_diagnostics,
             "training_locations_used": bool(training_locations),
             "location_equipment_count": len(location_equipment),
+            "reduced_days": reduced_days,
+            "group_day_count": group_day_count,
         },
     }

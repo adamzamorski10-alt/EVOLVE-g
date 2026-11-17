@@ -693,6 +693,37 @@ class AssessmentDB(SQLModel, table=True):
             return {}
 
 
+class ExerciseProgressionDB(SQLModel, table=True):
+    """Stan progresji siłowej per użytkownik per ćwiczenie (podwójna progresja)."""
+    __tablename__ = "exercise_progressions"
+    __table_args__ = (
+        UniqueConstraint("user_id", "exercise_key"),
+    )
+
+    id: Optional[str] = Field(default_factory=lambda: str(_uuid_mod.uuid4()), primary_key=True)
+    user_id: str = Field(foreign_key="users.id", index=True)
+    exercise_key: str = Field(index=True)   # klucz ćwiczenia (np. "barbell_bench_press")
+    exercise_name: str = ""                  # nazwa dla UI
+
+    # Aktualny stan progresji
+    working_weight_kg: float = 0.0           # aktualny ciężar roboczy
+    current_reps: int = 0                    # aktualna liczba powtórzeń w zakresie
+    reps_at_current_weight: int = 0          # najlepsze reps przy aktualnym ciężarze
+    sessions_without_progress: int = 0       # licznik sesji bez progresu
+
+    # Granice (wypełniane z bazy ćwiczeń lub defaults)
+    target_reps_min: int = 8                 # dolna granica zakresu reps
+    target_reps_max: int = 12               # górna granica zakresu reps
+    target_rir: int = 2                      # docelowy RIR (Reps In Reserve)
+
+    # Metadane
+    calibrated: bool = False                 # czy była kalibracja
+    last_session_date: Optional[date] = Field(default=None, index=True)
+    deload_count: int = 0
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+
 class RefreshTokenDB(SQLModel, table=True):
     __tablename__ = "refresh_tokens"
 

@@ -251,7 +251,7 @@ def test_plan_ui_exposes_weekly_availability_editor():
         "session_duration_minutes:Number",
         "Uzupełnij obie godziny albo pozostaw oba pola puste:",
         "Zapisz dostępność",
-        "Nie ustawiono ograniczeń — wszystkie dni są dostępne.",
+        "Nie ustawiono ograniczeń - wszystkie dni są dostępne.",
         "Zaznacz co najmniej jeden dzień.",
     ]
     for marker in required:
