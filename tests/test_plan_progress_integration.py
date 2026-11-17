@@ -1,7 +1,13 @@
 from datetime import date
 from types import SimpleNamespace
 
+import pytest
 import app.plan.deterministic as deterministic
+
+
+@pytest.fixture(autouse=True)
+def _set_v1_generator_for_legacy_mocks(monkeypatch):
+    monkeypatch.setenv("PLAN_GENERATOR", "v1")
 
 
 def _user():
