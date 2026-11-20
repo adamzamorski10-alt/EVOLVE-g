@@ -13582,6 +13582,12 @@
       addIf('goal', p.goal);
       addIf('meals_per_day', p.mealsPerDay);
       addIf('allergies', p.allergies);
+      if (p.equipment && p.equipment.length) addIf('available_equipment', p.equipment);
+      if (p.exclusions && p.exclusions.length) addIf('avoid_exercises', p.exclusions);
+      if (p.injuries) addIf('health_limitations', p.injuries);
+      if (p.goals && p.goals.length) addIf('training_focus', p.goals);
+      if (p.sportFocus) addIf('sport_focus', p.sportFocus);
+      if (p.sportSpecialization) addIf('sport_specialization', p.sportSpecialization);
 
       const send = () => fetch(apiBase + '/app/profile', {
         method: 'PUT',
@@ -17561,37 +17567,127 @@
       return DEFAULT_LOCATIONS;
     }
 
-    function _saveTrainingLocations(locs) {
-      localStorage.setItem('fitai_training_locations', JSON.stringify(locs));
-      if (typeof fetch === 'function') {
-        fetch('/app/plan/locations', {
+    // Serialized, coalesced persistence of training locations to PUT /app/plan/locations.
+    //
+    // Guarantees server-side write ordering:
+    //   * Only one PUT is in flight at a time.
+    //   * Changes made while a save is in flight are coalesced into pending state and
+    //     sent after it completes — never before it.
+    //   * An older in-flight request can therefore never commit after a newer value.
+    //
+    // Local storage is saved by the caller before this runs, so backend failure preserves
+    // user data and reports an error (never false success). No infinite retry loop.
+    let _locationsSavePromise = null;
+    let _locationsPendingLocs = null;
+
+    async function saveTrainingLocationsToBackend(locs) {
+      const token = localStorage.getItem('fitai_token');
+      const apiBase = window.API_BASE;
+      if (!token || !apiBase) return false;
+
+      // Update pending state to the latest desired locations.
+      _locationsPendingLocs = locs;
+
+      // If a save is already in flight, its drain loop will pick up the new locs.
+      if (_locationsSavePromise) return _locationsSavePromise;
+
+      _locationsSavePromise = (async () => {
+        while (true) {
+          const currentLocs = _locationsPendingLocs;
+          _locationsPendingLocs = null;
+
+          if (!currentLocs) break;
+
+          const ok = await _sendLocationsPut(token, apiBase, currentLocs);
+          if (!ok) {
+            // Restore failed locs for a future retry, without overwriting newer
+            // values that arrived while this request was in flight.
+            if (!_locationsPendingLocs) {
+              _locationsPendingLocs = currentLocs;
+            }
+            _locationsSavePromise = null;
+            return false;
+          }
+
+          // If new locs arrived during this send, loop again with the latest state.
+          if (_locationsPendingLocs) continue;
+          break;
+        }
+        _locationsSavePromise = null;
+        return true;
+      })();
+
+      return _locationsSavePromise;
+    }
+
+    async function _sendLocationsPut(token, apiBase, locs) {
+      try {
+        const res = await fetch(apiBase + '/app/plan/locations', {
           method: 'PUT',
           credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ locations: locs })
-        }).then(response => {
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          return response.json();
-        }).catch(() => {
-          // Local storage remains the offline fallback.
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ locations: locs }),
         });
+        if (!res.ok) {
+          if (typeof showToast === 'function') showToast('❌ Nie udało się zapisać miejsc treningowych na serwerze. Zapisano lokalnie.', 'error');
+          return false;
+        }
+        return true;
+      } catch (err) {
+        if (typeof showToast === 'function') showToast('❌ Brak połączenia z serwerem. Miejsca treningowe zapisane lokalnie.', 'error');
+        return false;
       }
     }
 
+    function _saveTrainingLocations(locs) {
+      localStorage.setItem('fitai_training_locations', JSON.stringify(locs));
+      if (typeof fetch === 'function' && typeof saveTrainingLocationsToBackend === 'function') {
+        saveTrainingLocationsToBackend(locs);
+      }
+    }
+
+    // Serialized restoration of training locations from GET /app/plan/locations.
+    //
+    // Only overwrites localStorage when the backend returns a non-empty locations array.
+    // Failed or empty responses preserve existing local data — a fresh/empty backend
+    // never erases valid locally-saved locations.
+    // Duplicate concurrent sync requests are coalesced via _locationsSyncPromise.
+    let _locationsSyncPromise = null;
+
     async function syncTrainingLocationsFromApi() {
       if (typeof fetch !== 'function') return;
-      try {
-        const response = await fetch('/app/plan/locations', { credentials: 'same-origin' });
-        if (!response.ok) return;
-        const data = await response.json();
-        if (Array.isArray(data.locations)) {
-          localStorage.setItem('fitai_training_locations', JSON.stringify(data.locations));
-          renderTrainingLocationsCards();
-          renderSmartDayLocationRows();
+      if (_locationsSyncPromise) return _locationsSyncPromise;
+
+      const token = localStorage.getItem('fitai_token');
+      const apiBase = window.API_BASE;
+      if (!token || !apiBase) return;
+
+      _locationsSyncPromise = (async () => {
+        try {
+          const response = await fetch(apiBase + '/app/plan/locations', {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: { 'Authorization': 'Bearer ' + token },
+          });
+          if (!response.ok) return;
+          const data = await response.json();
+          if (Array.isArray(data.locations) && data.locations.length > 0) {
+            localStorage.setItem('fitai_training_locations', JSON.stringify(data.locations));
+            if (typeof renderTrainingLocationsCards === 'function') renderTrainingLocationsCards();
+            if (typeof renderSmartDayLocationRows === 'function') renderSmartDayLocationRows();
+          }
+          // Empty backend response: keep existing localStorage data untouched.
+        } catch (error) {
+          // API unavailable — keep local storage (offline/demo mode).
+        } finally {
+          _locationsSyncPromise = null;
         }
-      } catch (error) {
-        // Keep local storage when the API is unavailable (offline/demo mode).
-      }
+      })();
+
+      return _locationsSyncPromise;
     }
 
     function getProfileLocations() {
@@ -17712,7 +17808,7 @@
     }
     window.closeLocationModal = closeLocationModal;
 
-    function saveLocationModal() {
+    async function saveLocationModal() {
       const id = document.getElementById('locEditorId').value.trim();
       const name = document.getElementById('locEditorName').value.trim();
       const icon = document.getElementById('locEditorIcon').value || '📍';
@@ -17733,19 +17829,31 @@
         const newId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Date.now();
         locs.push({ id: newId, name, icon, equipment: checked });
       }
-      _saveTrainingLocations(locs);
+      localStorage.setItem('fitai_training_locations', JSON.stringify(locs));
+
+      const ok = await saveTrainingLocationsToBackend(locs);
       closeLocationModal();
       renderTrainingLocationsCards();
-      _showPrefsToast('✅ Miejsce treningowe zapisane!', '#4ade80');
+      if (ok) {
+        _showPrefsToast('✅ Miejsce treningowe zapisane!', '#4ade80');
+      } else {
+        _showPrefsToast('⚠️ Miejsce zapisane lokalnie — brak połączenia z serwerem.', '#fbbf24');
+      }
     }
     window.saveLocationModal = saveLocationModal;
 
-    function deleteLocation(id) {
+    async function deleteLocation(id) {
       if (!confirm('Usunąć to miejsce treningowe?')) return;
       const locs = _loadTrainingLocations().filter(l => l.id !== id);
-      _saveTrainingLocations(locs);
+      localStorage.setItem('fitai_training_locations', JSON.stringify(locs));
+
+      const ok = await saveTrainingLocationsToBackend(locs);
       renderTrainingLocationsCards();
-      _showPrefsToast('🗑️ Miejsce treningowe usunięte.', '#f87171');
+      if (ok) {
+        _showPrefsToast('🗑️ Miejsce treningowe usunięte.', '#f87171');
+      } else {
+        _showPrefsToast('⚠️ Miejsce usunięte lokalnie — brak połączenia z serwerem.', '#fbbf24');
+      }
     }
     window.deleteLocation = deleteLocation;
 
@@ -17782,7 +17890,93 @@
       _showPrefsToast('💾 Kopia profilu została pobrana!', '#00e5ff');
     }
 
-    function saveTrainingPrefs() {
+    // Shared preference persistence: sends only the provided fields to PUT /app/profile.
+    // Uses a sequence counter so that a response from an older, overlapping request
+    // cannot overwrite a newer preference value. Local state is always saved first;
+    // backend failure keeps local data and reports an error (never false success).
+    // Serialized, coalesced preference persistence.
+    //
+    // Guarantees server-side write ordering:
+    //   * Only one PUT /app/profile is in flight at a time.
+    //   * Changes made while a save is in flight are merged into pending state and
+    //     sent immediately after the in-flight request completes — never before it.
+    //   * An older in-flight request can therefore never commit after a newer value
+    //     has already been sent: the latest pending state always wins.
+    //
+    // Local state is saved by the caller before this function runs, so backend
+    // failure preserves user data and reports an error (never false success).
+    let _prefsSavePromise = null;
+    let _prefsPendingFields = {};
+
+    async function persistPrefsToBackend(fields) {
+      const token = localStorage.getItem('fitai_token');
+      const apiBase = window.API_BASE;
+      if (!token || !apiBase) return false;
+
+      // Merge new fields into the pending (latest desired) state.
+      for (const [key, value] of Object.entries(fields || {})) {
+        if (value !== undefined && value !== null && value !== '') {
+          _prefsPendingFields[key] = value;
+        }
+      }
+
+      // If a save is already in flight, its completion will drain pending fields.
+      if (_prefsSavePromise) return _prefsSavePromise;
+
+      _prefsSavePromise = (async () => {
+        while (true) {
+          // Snapshot the latest desired state and reset for further accumulation.
+          const payload = { ..._prefsPendingFields };
+          _prefsPendingFields = {};
+
+          if (Object.keys(payload).length === 0) break;
+
+          let res;
+          try {
+            res = await fetch(apiBase + '/app/profile', {
+              method: 'PUT',
+              headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+          } catch (err) {
+            // Network failure — restore failed fields for a future retry,
+            // without overwriting newer values added while this request was in flight.
+            _prefsSavePromise = null;
+            for (const [key, value] of Object.entries(payload)) {
+              if (!(key in _prefsPendingFields)) {
+                _prefsPendingFields[key] = value;
+              }
+            }
+            if (typeof showToast === 'function') showToast('❌ Brak połączenia z serwerem. Preferencje zapisane lokalnie.', 'error');
+            return false;
+          }
+
+          if (!res.ok) {
+            // Server error — restore failed fields for a future retry,
+            // without overwriting newer values added while this request was in flight.
+            _prefsSavePromise = null;
+            for (const [key, value] of Object.entries(payload)) {
+              if (!(key in _prefsPendingFields)) {
+                _prefsPendingFields[key] = value;
+              }
+            }
+            if (typeof showToast === 'function') showToast('❌ Nie udało się zsynchronizować preferencji z serwerem. Zapisano lokalnie.', 'error');
+            return false;
+          }
+
+          // Success: if new fields accumulated during this request, send them next.
+          // Otherwise the latest desired state is fully committed.
+          if (Object.keys(_prefsPendingFields).length === 0) break;
+        }
+
+        _prefsSavePromise = null;
+        return true;
+      })();
+
+      return _prefsSavePromise;
+    }
+
+    async function saveTrainingPrefs() {
       const prefs = _serializePrefs();
       prefs.injuries = document.getElementById('injuriesInput')?.value || '';
       const locRadio = document.querySelector('input[name="trainingLocation"]:checked');
@@ -17795,13 +17989,24 @@
           p.injuries = prefs.injuries;
           p.equipment = [...prefs.homeEquip];
           p.exclusions = [...prefs.excludedEx];
-          if (typeof saveCurrentProfile === 'function') saveCurrentProfile(p);
+          if (typeof saveState === 'function') saveState();
         }
+      }
+
+      // Persist independently to the backend; local save already happened.
+      const ok = await persistPrefsToBackend({
+        available_equipment: prefs.homeEquip && prefs.homeEquip.length ? prefs.homeEquip : undefined,
+        avoid_exercises: prefs.excludedEx && prefs.excludedEx.length ? prefs.excludedEx : undefined,
+        health_limitations: prefs.injuries || undefined,
+      });
+      if (!ok) {
+        _showPrefsToast('⚠️ Preferencje treningu zapisane lokalnie — brak połączenia z serwerem.', '#fbbf24');
+        return;
       }
       _showPrefsToast('✅ Preferencje treningu i sprzętu zapisane!', '#4ade80');
     }
 
-    function saveDietPrefs() {
+    async function saveDietPrefs() {
       const prefs = _serializePrefs();
       const mealsVal = parseInt(document.getElementById('mealsPerDayRange')?.value) || 4;
       prefs.mealsPerDay = mealsVal;
@@ -17816,8 +18021,19 @@
           p.meals_per_day = mealsVal;
           p.dietType = prefs.dietStyle;
           p.allergies = [...prefs.allergens].join(', ');
-          if (typeof saveCurrentProfile === 'function') saveCurrentProfile(p);
+          if (typeof saveState === 'function') saveState();
         }
+      }
+
+      // Persist independently to the backend; local save already happened.
+      const ok = await persistPrefsToBackend({
+        meals_per_day: mealsVal || undefined,
+        diet: prefs.dietStyle || undefined,
+        allergies: [...(prefs.allergens || [])].join(', ') || undefined,
+      });
+      if (!ok) {
+        _showPrefsToast('⚠️ Preferencje diety zapisane lokalnie — brak połączenia z serwerem.', '#fbbf24');
+        return;
       }
 
       if (typeof _recalcProfile === 'function') _recalcProfile();
@@ -17844,7 +18060,7 @@
       if (modal) modal.classList.add('hidden');
     }
 
-    function saveSportProfile() {
+    async function saveSportProfile() {
       const position = document.getElementById('spModalPosition')?.value || 'PG — Rozgrywający';
       const hand = document.getElementById('spModalHand')?.value || 'Prawa';
       const jump = document.getElementById('spModalJump')?.value || '';
@@ -17857,8 +18073,20 @@
         const p = getCurrentProfile();
         if (p) {
           p.sport = data;
-          if (typeof saveCurrentProfile === 'function') saveCurrentProfile(p);
+          p.sportFocus = position;
+          p.sportSpecialization = club;
+          if (typeof saveState === 'function') saveState();
         }
+      }
+
+      // Persist independently to the backend; local save already happened.
+      const ok = await persistPrefsToBackend({
+        sport_focus: position || undefined,
+        sport_specialization: club || undefined,
+      });
+      if (!ok) {
+        _showPrefsToast('⚠️ Profil sportowy zapisany lokalnie — brak połączenia z serwerem.', '#fbbf24');
+        return;
       }
 
       renderSportProfileCard();
@@ -18681,7 +18909,7 @@
           meals = generateMealsForDay(enriched?.mealsPerDay || 4, excl, enriched, day);
           if (!p.dietPlan) p.dietPlan = {};
           p.dietPlan[day] = meals;
-          if (typeof saveCurrentProfile === 'function') saveCurrentProfile(p);
+          if (typeof saveState === 'function') saveState();
         }
         state._planMeals = meals;
 
@@ -32239,6 +32467,13 @@
         p.diet = api.diet || p.diet || 'Brak preferencji';
         p.dietType = p.diet;
         p.allergies = api.allergies || p.allergies || '';
+        if (Array.isArray(api.available_equipment) && api.available_equipment.length)
+          p.equipment = api.available_equipment;
+        if (Array.isArray(api.avoid_exercises) && api.avoid_exercises.length)
+          p.exclusions = api.avoid_exercises;
+        if (api.health_limitations) p.injuries = api.health_limitations;
+        if (api.sport_focus) p.sportFocus = api.sport_focus;
+        if (api.sport_specialization) p.sportSpecialization = api.sport_specialization;
         p.caloriesTarget = api.calories_target || p.caloriesTarget;
         p.proteinTarget = api.protein_target || p.proteinTarget;
         p.streak_days = api.streak_days || 0;
@@ -32337,6 +32572,11 @@
 
         // ── Odśwież formularz profilu z zsynchronizowanymi danymi z backendu ─
         if (typeof loadProfileFormData === 'function') loadProfileFormData();
+
+        // ── Przywróć lokalizacje treningowe z backendu ─────────────────────────
+        if (typeof syncTrainingLocationsFromApi === 'function') {
+          await syncTrainingLocationsFromApi();
+        }
 
       } catch (err) {
         console.error('[syncProfile] Błąd:', err);
@@ -37483,9 +37723,9 @@
       });
     }
 
-    p.dietPlan[dayKey][mealIdx] = nextMeal;
-    if (typeof saveCurrentProfile === 'function') saveCurrentProfile(p);
-    if (typeof loadPlanForDay === 'function') loadPlanForDay();
+        p.dietPlan[dayKey][mealIdx] = nextMeal;
+        if (typeof saveState === 'function') saveState();
+        if (typeof loadPlanForDay === 'function') loadPlanForDay();
     if (typeof _showPrefsToast === 'function') _showPrefsToast('🔄 Wymieniono posiłek na: ' + nextMeal.name, '#00e5ff');
   }
 
@@ -37631,7 +37871,7 @@
     }
     try { localStorage.setItem('fitai_day_checked', JSON.stringify(state.dayChecked)); } catch (e) { }
 
-    if (typeof saveCurrentProfile === 'function') saveCurrentProfile(profile);
+    if (typeof saveState === 'function') saveState();
     if (typeof loadPlanForDay === 'function') loadPlanForDay();
 
     closeFoodSearchModal();
