@@ -11363,60 +11363,6 @@
       se('calcGoalKcal', kcal + ' kcal');
     }
 
-    function saveProfileData() {
-      const p = (typeof getCurrentProfile === 'function') ? getCurrentProfile() : null;
-      if (!p) { alert('Brak aktywnego profilu.'); return; }
-
-      p.name = document.getElementById('pName')?.value?.trim() || p.name;
-      p.age = parseInt(document.getElementById('pAge')?.value) || p.age;
-      p.height = parseFloat(document.getElementById('pHeight')?.value) || p.height;
-      p.weight = parseFloat(document.getElementById('pWeight')?.value) || p.weight;
-      p.target_weight = parseFloat(document.getElementById('pTargetWeight')?.value) || p.target_weight;
-      p.gender = document.getElementById('pGender')?.value || p.gender;
-      p.frequency = document.getElementById('pFrequency')?.value || p.frequency;
-      p.diet = document.getElementById('pDietType')?.value || p.diet;
-      p.goal = document.getElementById('pGoal')?.value?.trim() || p.goal;
-      p.meals_per_day = parseInt(document.getElementById('pMealsPerDay')?.value) || p.meals_per_day;
-      p.allergies = document.getElementById('pAllergies')?.value?.trim() || '';
-      p.health_limitations = document.getElementById('pHealthLimitations')?.value?.trim() || '';
-      p.basketball_position = document.getElementById('pBasketballPosition')?.value || '';
-      p.training_experience = document.getElementById('pTrainingExperience')?.value || 'intermediate';
-      p.equipment = document.getElementById('pEquipment')?.value || 'gym_full';
-
-      if (typeof saveState === 'function') saveState();
-      localStorage.setItem('fitai_profile_cache', JSON.stringify(p));
-
-      const token = localStorage.getItem('fitai_token');
-      if (token && window.API_BASE) {
-        fetch(window.API_BASE + '/app/profile', {
-          method: 'PUT',
-          headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            age: p.age, weight: p.weight, target_weight: p.target_weight,
-            gender: p.gender, frequency: p.frequency, diet: p.diet,
-            goal: p.goal, meals_per_day: p.meals_per_day,
-            health_limitations: p.health_limitations,
-            basketball_position: p.basketball_position,
-            training_experience: p.training_experience,
-            equipment: p.equipment,
-          }),
-        }).catch(() => { });
-      }
-
-      if (typeof updateDashboard === 'function') updateDashboard();
-
-      // Toast potwierdzenia
-      const t = document.createElement('div');
-      t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);' +
-        'padding:12px 24px;border-radius:12px;font-size:13px;font-weight:600;z-index:9999;' +
-        'background:rgba(10,10,20,0.97);color:#4ade80;border:1px solid rgba(74,222,128,0.3);' +
-        'box-shadow:0 8px 32px rgba(0,0,0,0.5);transition:opacity 0.3s;';
-      t.textContent = '✅ Profil zapisany!';
-      document.body.appendChild(t);
-      setTimeout(() => { t.style.opacity = '0'; }, 2500);
-      setTimeout(() => t.remove(), 3000);
-    }
-
     // ═══════════════════════════════════════════════════════════════════
 
     // ========== LANDING / DASHBOARD SWITCH ==========
@@ -12625,7 +12571,17 @@
           if (mSlider) { mSlider.value = p.mealsPerDay || 5; updateMealSlider(p.mealsPerDay || 5, false); }
         }
       }
-      if (tabId === 'profile') renderProfileTabs();
+      if (tabId === 'profile') {
+        // Pobierz autorytatywny profil z backendu przed renderowaniem formularza,
+        // aby sekcja Profil wyświetlała aktualne dane z serwera (nie tylko localStorage).
+        if (typeof syncProfileFromBackend === 'function') {
+          syncProfileFromBackend().then(function () {
+            if (typeof renderProfileTabs === 'function') renderProfileTabs();
+          });
+        } else {
+          renderProfileTabs();
+        }
+      }
       if (tabId === 'postepy') initCharts();
       if (tabId === 'kuchnia') { kitchenInit(); }
       if (tabId === 'assessment') { if (typeof window.loadEvolveAssessment === 'function') window.loadEvolveAssessment(); }
@@ -13571,8 +13527,12 @@
       document.getElementById('calcGoalKcal').textContent = tdee + 'kcal';
     }
 
-    function saveProfileData() {
+    async function saveProfileData() {
       const p = getCurrentProfile();
+      if (!p) { alert('Brak aktywnego profilu.'); return; }
+
+      // Zbierz dane z formularza; puste pola zachowują dotychczasową wartość profilu,
+      // aby nie nadpisać istniejących danych backendu pustymi ciągami.
       p.name = document.getElementById('pName').value || p.name;
       p.age = parseInt(document.getElementById('pAge').value) || p.age;
       p.height = parseInt(document.getElementById('pHeight').value) || p.height;
@@ -13582,20 +13542,91 @@
       p.frequency = document.getElementById('pFrequency').value || p.frequency;
       p.dietType = document.getElementById('pDietType').value || p.dietType;
       p.mealsPerDay = parseInt(document.getElementById('pMealsPerDay').value) || p.mealsPerDay;
-      p.allergies = document.getElementById('pAllergies').value || '';
-      p.goal = document.getElementById('pGoal').value || '';
+      p.allergies = document.getElementById('pAllergies').value || p.allergies;
+      p.goal = document.getElementById('pGoal').value || p.goal;
+
+      // Oblicz cele odżywiania i regeneruj plan — zachowaj istniejące zachowanie.
       const { tdee, protein } = calculateNutrition(p);
       p.caloriesTarget = tdee; p.proteinTarget = protein;
       p.completed = !!(p.name && p.age && p.weight && p.height);
-      // Regenerate plan when mealsPerDay or goal changes
       const { dietPlan, trainingPlan } = generateFullPlanForProfile(getEnrichedProfile());
       p.dietPlan = dietPlan; p.trainingPlan = trainingPlan;
+
+      // Zapisz lokalnie natychmiast — dane użytkownika nie giną przy niedostępności backendu.
       saveState();
       renderUserSwitcher();
       fillProfileForm(p);
-      showToast('✅ Profil i plan zapisane!');
       updateDashboard();
       loadProfileFormData();
+
+      // Wyślij do backendu tylko pola z wartością (snake_case, zgodnie ze schematem).
+      const token = localStorage.getItem('fitai_token');
+      const apiBase = window.API_BASE;
+      if (!token || !apiBase) {
+        if (typeof showToast === 'function') showToast('⚠️ Brak sesji — profil zapisany tylko lokalnie.', 'warning');
+        return;
+      }
+
+      const payload = {};
+      const addIf = (key, value) => {
+        if (value !== undefined && value !== null && value !== '') payload[key] = value;
+      };
+      addIf('name', p.name);
+      addIf('age', p.age);
+      addIf('height', p.height);
+      addIf('weight', p.weight);
+      addIf('target_weight', p.targetWeight);
+      addIf('gender', p.gender);
+      addIf('frequency', p.frequency);
+      addIf('diet', p.dietType);
+      addIf('goal', p.goal);
+      addIf('meals_per_day', p.mealsPerDay);
+      addIf('allergies', p.allergies);
+
+      const send = () => fetch(apiBase + '/app/profile', {
+        method: 'PUT',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      let res;
+      try {
+        res = await send();
+      } catch (err) {
+        // Błąd sieci — dane pozostały lokalnie, nie sygnalizujemy sukcesu.
+        if (typeof showToast === 'function') showToast('❌ Brak połączenia z serwerem. Profil zapisany lokalnie i zostanie zsynchronizowany.', 'error');
+        return;
+      }
+
+      if (res.ok) {
+        if (typeof updateDashboard === 'function') updateDashboard();
+        if (typeof showToast === 'function') showToast('✅ Profil i plan zapisane na serwerze!', 'success');
+        return;
+      }
+
+      // 401 — odśwież sesję (wspólny mechanizm Stage 1B) i powtórz dokładnie raz.
+      if (res.status === 401 && typeof window._fitaiRefreshAccessToken === 'function') {
+        try {
+          const newToken = await window._fitaiRefreshAccessToken();
+          const res2 = await fetch(apiBase + '/app/profile', {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + newToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          if (res2.ok) {
+            if (typeof updateDashboard === 'function') updateDashboard();
+            if (typeof showToast === 'function') showToast('✅ Profil i plan zapisane na serwerze!', 'success');
+            return;
+          }
+        } catch (refreshErr) {
+          // Odświeżenie nieudane — przechodzimy do komunikatu błędu poniżej.
+        }
+      }
+
+      // Niepowodzenie zapisu — nie traktuj jako sukcesu, dane pozostały lokalnie.
+      let detail = '';
+      try { const d = await res.json(); detail = d.detail || ''; } catch { /* ignore */ }
+      if (typeof showToast === 'function') showToast('❌ Nie udało się zapisać profilu: ' + (detail || res.status) + '. Dane zostały zapisane lokalnie.', 'error');
     }
 
     // ── Walidacja profilu przed tworzeniem planu ───────────────────────────────
@@ -32152,12 +32183,16 @@
     // Pobiera dane użytkownika z /app/profile i wstrzykuje je do state.profiles[0],
     // dzięki czemu initActiveDayFromPlan() ma realne posiłki i ćwiczenia.
     async function syncProfileFromBackend() {
-      if (typeof _planPersistTimer !== 'undefined') clearTimeout(_planPersistTimer);
-      var token = localStorage.getItem('fitai_token');
-      if (!token) return;
-      var base = (typeof window.API_BASE === 'string') ? window.API_BASE : '';
-
+      // Ochrona przed wyścigami: tylko jedno odświeżenie profilu w locie.
+      if (window._syncingProfile) return Promise.resolve();
+      window._syncingProfile = true;
       try {
+        if (typeof _planPersistTimer !== 'undefined') clearTimeout(_planPersistTimer);
+        var token = localStorage.getItem('fitai_token');
+        if (!token) return;
+        var base = (typeof window.API_BASE === 'string') ? window.API_BASE : '';
+
+        try {
         var res = await fetch(base + '/app/profile', {
           headers: { 'Authorization': 'Bearer ' + token }
         });
@@ -32202,6 +32237,7 @@
         p.frequency = api.frequency || p.frequency;
         p.mealsPerDay = api.meals_per_day || p.mealsPerDay || 4;
         p.diet = api.diet || p.diet || 'Brak preferencji';
+        p.dietType = p.diet;
         p.allergies = api.allergies || p.allergies || '';
         p.caloriesTarget = api.calories_target || p.caloriesTarget;
         p.proteinTarget = api.protein_target || p.proteinTarget;
@@ -32299,9 +32335,13 @@
         if (typeof initActiveDayFromPlan === 'function') initActiveDayFromPlan();
         if (typeof updateDashboard === 'function') updateDashboard();
 
+        // ── Odśwież formularz profilu z zsynchronizowanymi danymi z backendu ─
+        if (typeof loadProfileFormData === 'function') loadProfileFormData();
 
       } catch (err) {
         console.error('[syncProfile] Błąd:', err);
+      } finally {
+        window._syncingProfile = false;
       }
     }
     window.syncProfileFromBackend = syncProfileFromBackend;
@@ -34131,18 +34171,79 @@
     var modalId = 'evolveTrainingExecutionModal';
     var ghostWeights = {}; // { exerciseKey_setNumber: { reps, weight_kg } }
 
+    // Wspólne odświeżenie sesji (access token) przez refresh token.
+    // Jedna operacja w locie — zapobiega wyścgom rotacji przy równoczesnych 401.
+    // Udostępniane dla api() oraz FitAIOfflineQueue (brak duplikatu logiki).
+    window._fitaiRefreshPromise = null;
+    window._fitaiRefreshAccessToken = async function () {
+      var apiBase = (typeof window.API_BASE === 'string') ? window.API_BASE : '';
+      var refreshToken = localStorage.getItem("fitai_refresh_token");
+      if (!refreshToken) throw new Error("Brak refresh tokena");
+
+      if (window._fitaiRefreshPromise) return window._fitaiRefreshPromise;
+
+      window._fitaiRefreshPromise = (async function () {
+        try {
+          var refRes = await fetch(apiBase + "/auth/refresh-access", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ refresh_token: refreshToken })
+          });
+          if (!refRes.ok) throw new Error("Odświeżenie sesji odrzucone (" + refRes.status + ")");
+          var rData = await refRes.json().catch(function () { return {}; });
+          if (!rData.access_token) throw new Error("Odświeżenie sesji: brak nowego tokena dostępu");
+          localStorage.setItem("fitai_token", rData.access_token);
+          if (rData.refresh_token) localStorage.setItem("fitai_refresh_token", rData.refresh_token);
+          return rData.access_token;
+        } finally {
+          window._fitaiRefreshPromise = null;
+        }
+      })();
+
+      return window._fitaiRefreshPromise;
+    };
+
     function token() { return localStorage.getItem('fitai_token') || ''; }
-    function api(path, options) {
+    async function api(path, options) {
       options = options || {};
       options.headers = Object.assign({
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + token()
       }, options.headers || {});
-      return fetch((window.API_BASE || '') + path, options).then(async function (res) {
-        var data = await res.json().catch(function () { return {}; });
-        if (!res.ok) throw new Error(data.detail || 'Błąd żądania (' + res.status + ')');
-        return data;
-      });
+
+      var isAuthenticated = Boolean(localStorage.getItem("fitai_token"));
+      var res = await fetch((window.API_BASE || '') + path, options);
+
+      // Centralne odzyskiwanie sesji po wygaśnięciu access tokena (401).
+      // Odświeżamy tylko dla uwierzytelnionych żądań, raz, z rotacją refresh tokena.
+      if (res.status === 401 && isAuthenticated) {
+        try {
+          var newToken = await window._fitaiRefreshAccessToken();
+          options.headers.Authorization = "Bearer " + newToken;
+          var res2 = await fetch((window.API_BASE || '') + path, options);
+          if (res2.ok) {
+            return await res2.json().catch(function () { return {}; });
+          }
+          if (res2.status === 401) {
+            // Sesja niezdatna np. po zmianie hasła — wyczyść i odrzuć.
+            if (typeof clearLocalData === 'function') clearLocalData();
+            window.EVOLVE_AUTH_STATE = 'anonymous';
+            var errData = await res2.json().catch(function () { return {}; });
+            throw new Error(errData.detail || 'Sesja wygasła (' + res2.status + ')');
+          }
+          var errData2 = await res2.json().catch(function () { return {}; });
+          throw new Error(errData2.detail || 'Błąd żądania (' + res2.status + ')');
+        } catch (refreshErr) {
+          // Nieudane odświeżenie (wygaśnięty/unieważniony refresh token) — bez pętli ponowień.
+          if (typeof clearLocalData === 'function') clearLocalData();
+          window.EVOLVE_AUTH_STATE = 'anonymous';
+          throw new Error('Sesja wygasła — zaloguj się ponownie');
+        }
+      }
+
+      var data = await res.json().catch(function () { return {}; });
+      if (!res.ok) throw new Error(data.detail || 'Błąd żądania (' + res.status + ')');
+      return data;
     }
     // ─── Ghost Weights — pobiera wyniki z poprzedniej sesji dla tych samych ćwiczeń ───
     async function loadGhostWeights(exercises) {
@@ -35081,6 +35182,8 @@
     window.FitAIOfflineQueue = (function () {
       var _isSyncing = false;
 
+      // Odświeżanie sesji odbywa się przez wspólny window._fitaiRefreshAccessToken
+      // (zdefiniowany wyżej), aby uniknąć duplikatu logiki i wyścigów rotacji.
       function getUserId() {
         return localStorage.getItem("fitai_user_id") || "default_user";
       }
@@ -35180,37 +35283,39 @@
               });
 
               if (res.status === 401) {
-                // Ciche odświeżenie tokenu
-                var rt = localStorage.getItem("fitai_refresh_token");
-                var refreshed = false;
-                if (rt) {
-                  var refRes = await fetch((window.API_BASE || "") + "/auth/refresh", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ refresh_token: rt })
-                  }).catch(function () { return null; });
-                  if (refRes && refRes.ok) {
-                    var rData = await refRes.json().catch(function () { return {}; });
-                    if (rData.access_token) {
-                      token = rData.access_token;
-                      localStorage.setItem("fitai_token", token);
-                      refreshed = true;
-                      // Ponów próbę z nowym tokenem
-                      var retryRes = await fetch(url, {
-                        method: "POST",
-                        headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
-                        body: JSON.stringify(item)
-                      });
-                      if (retryRes.ok) {
-                        removeSet(item.client_id, uid);
-                        continue;
-                      }
-                    }
-                  }
-                }
-                if (!refreshed) {
-                  // Pozostaw kolejkę w localStorage — nie usuwaj bez wysłania
+                // Odświeżenie sesji przez endpoint obrotu refresh tokena
+                // (/auth/refresh-access nie wymaga wygasłego access tokena).
+                var retried = false;
+                try {
+                  var newToken = await window._fitaiRefreshAccessToken();
+                  token = newToken;
+                  retried = true;
+                } catch (refreshErr) {
+                  // Nieudane odświeżenie (wygaśnięty/unieważniony refresh token) —
+                  // unieważnij sesję i przerwij kolejkę; brak nieskończonej pętli ponowień.
+                  clearLocalData();
+                  window.EVOLVE_AUTH_STATE = 'anonymous';
                   break;
+                }
+                if (retried) {
+                  var retryRes = await fetch(url, {
+                    method: "POST",
+                    headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+                    body: JSON.stringify(item)
+                  });
+                  if (retryRes.ok) {
+                    removeSet(item.client_id, uid);
+                    continue;
+                  }
+                  // Ponownie 401 po odświeżeniu (np. token_version zmieniony) — sesja niezdatna.
+                  if (retryRes.status === 401) {
+                    clearLocalData();
+                    window.EVOLVE_AUTH_STATE = 'anonymous';
+                    break;
+                  }
+                  // Inny błąd klienta po odświeżeniu — usuń z kolejki, nie blokuj reszty.
+                  removeSet(item.client_id, uid);
+                  continue;
                 }
               }
 

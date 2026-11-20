@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 
 from app.auth import routes as auth_routes
 from app.auth.security import hash_password
+from app.config import JWT_EXPIRE_MINUTES
 from app.database import engine
 from app.models import UserDB
 from main import app
@@ -196,6 +197,102 @@ def test_s2_refresh_token_rotation_and_logout():
     assert after_logout_res.status_code == 401
 
 
+# ─── S4: Refresh-Access Contract Used by Frontend ──────────────────────────────
+
+def test_s4_refresh_access_contract_frontend_flow():
+    """
+    Frontend odświeża wygasły access token przez POST /auth/refresh-access
+    z refresh tokenem w ciele (bez access tokena w nagłówku Authorization).
+
+    Kontrakt, od którego zależy frontend:
+    - odpowiedź zawiera access_token oraz nowy refresh_token (rotacja),
+    - token_type = bearer oraz expires_in zgodne z konfiguracją,
+    - nowy access token działa na chronionym endpointcie (/auth/me),
+    - stary refresh token po rotacji jest odrzucany (brak ponownego użycia).
+    """
+    raw_email = f"refreshcontract-{uuid.uuid4().hex[:6]}@example.com"
+    reg_res = client.post("/auth/register", json={
+        "email": raw_email,
+        "password": "ContractPassword123!",
+        "name": "Contract User",
+    })
+    assert reg_res.status_code == 200, reg_res.text
+    access_token = reg_res.json()["access_token"]
+    refresh_token = reg_res.json()["refresh_token"]
+
+    # access token działa przed odświeżeniem
+    me_res = client.get("/auth/me", headers={"Authorization": f"Bearer {access_token}"})
+    assert me_res.status_code == 200
+
+    # Odświeżenie przez poprawny endpoint: refresh token w ciele, bez Bearer.
+    ref_res = client.post("/auth/refresh-access", json={"refresh_token": refresh_token})
+    assert ref_res.status_code == 200, ref_res.text
+    data = ref_res.json()
+    assert "access_token" in data, data
+    assert "refresh_token" in data, data
+    assert data["token_type"] == "bearer", data
+    assert data["expires_in"] == JWT_EXPIRE_MINUTES * 60, data
+
+    new_access = data["access_token"]
+    new_refresh = data["refresh_token"]
+    assert new_refresh != refresh_token  # rotacja refresh tokena
+
+    # Nowy access token odświeżonej sesji działa na chronionym endpointcie.
+    me_new = client.get("/auth/me", headers={"Authorization": f"Bearer {new_access}"})
+    assert me_new.status_code == 200
+
+    # Stary refresh token po rotacji jest odrzucany (brak ponownego użycia).
+    ref_replay = client.post("/auth/refresh-access", json={"refresh_token": refresh_token})
+    assert ref_replay.status_code == 401, ref_replay.text
+
+
+# ─── S5: Pełny cykl odzyskiwania sesji po wygaśnięciu access tokena (frontend) ─
+
+def test_s5_session_recovery_after_access_token_expiry():
+    """
+    Modeluje cykl, którego oczekuje frontend po wygaśnięciu access tokena:
+    1. access token 401 na chronionym endpointcie,
+    2. odświeżenie przez /auth/refresh-access (refresh token w ciele, bez Bearer),
+    3. ponowne użycie nowego access tokena → 200,
+    4. rotacja: nowy refresh token działa dokładnie raz, jego ponowne użycie → 401
+       (zapobiega wyścigom rotacji przy równoczesnych 401).
+    """
+    raw_email = f"sessionrecovery-{uuid.uuid4().hex[:6]}@example.com"
+    reg_res = client.post("/auth/register", json={
+        "email": raw_email,
+        "password": "RecoveryPassword123!",
+        "name": "Recovery User",
+    })
+    assert reg_res.status_code == 200, reg_res.text
+    access_token = reg_res.json()["access_token"]
+    refresh_token = reg_res.json()["refresh_token"]
+
+    # access token działa przed odświeżeniem
+    assert client.get("/auth/me", headers={"Authorization": f"Bearer {access_token}"}).status_code == 200
+
+    # Pierwsze odświeżenie (po wygaśnięciu access tokena)
+    ref1 = client.post("/auth/refresh-access", json={"refresh_token": refresh_token})
+    assert ref1.status_code == 200, ref1.text
+    acc1 = ref1.json()["access_token"]
+    rt1 = ref1.json()["refresh_token"]
+    assert rt1 != refresh_token
+
+    # Ponowne użycie nowego access tokena udaje się
+    assert client.get("/auth/me", headers={"Authorization": f"Bearer {acc1}"}).status_code == 200
+
+    # Drugie odświeżenie z rt1 (symulacja kolejnego wygaśnięcia access tokena)
+    ref2 = client.post("/auth/refresh-access", json={"refresh_token": rt1})
+    assert ref2.status_code == 200, ref2.text
+    rt2 = ref2.json()["refresh_token"]
+    assert rt2 != rt1
+
+    # rt1 po rotacji nie może być już użyty (ochrona przed wyścigiem / ponownym użyciem)
+    assert client.post("/auth/refresh-access", json={"refresh_token": rt1}).status_code == 401
+
+    # Nowy access token z drugiego odświeżenia działa
+    assert client.get("/auth/me", headers={"Authorization": f"Bearer {ref2.json()['access_token']}"}).status_code == 200
+
+
 # ─── S3 & S3b: Biometrics Validation, No Guessing, Under-18 Calorie Safety ─────
 
 def test_s3_register_rejects_absurd_biometrics():
@@ -298,6 +395,129 @@ def test_s3b_profile_update_size_limits():
     )
     assert res.status_code == 422, f"Expected 422 for oversized basketball_profile, got {res.status_code}"
 
+
+
+# ─── S3c-S3f: PUT /app/profile persistence & ownership ──────────────────────────
+
+def test_s3c_profile_update_persists_to_backend():
+    """Udane PUT /app/profile zapisuje dane w bazie i GET /auth/me je odzwierciedla."""
+    raw_email = f"profilepersist-{uuid.uuid4().hex[:6]}@example.com"
+    reg = client.post("/auth/register", json={
+        "email": raw_email, "password": "PersistPassword123!", "name": "Jan",
+    })
+    assert reg.status_code == 200, reg.text
+    token = reg.json()["access_token"]
+
+    res = client.put(
+        "/app/profile",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "age": 30, "weight": 85.0, "height": 185.0, "target_weight": 80.0,
+            "gender": "mężczyzna", "frequency": "4-5", "diet": "wysokobiałkowa",
+            "goal": "masa", "meals_per_day": 4, "allergies": "orzechy",
+            "health_limitations": "brak", "basketball_position": "rzucający",
+            "training_experience": "zaawansowany", "equipment": "sztanga",
+        },
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["status"] == "ok"
+
+    me = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.status_code == 200
+    p = me.json()
+    assert p["age"] == 30
+    assert p["weight"] == 85.0
+    assert p["height"] == 185.0
+    assert p["goal"] == "masa"
+    assert p["allergies"] == "orzechy"
+
+
+def test_s3d_partial_profile_update_does_not_clear_other_fields():
+    """Częściowa aktualizacja (tylko waga) nie czyści pozostałych pól profilu."""
+    raw_email = f"profilepartial-{uuid.uuid4().hex[:6]}@example.com"
+    reg = client.post("/auth/register", json={
+        "email": raw_email, "password": "PartialPassword123!", "name": "Anna",
+        "age": 28, "weight": 60.0, "goal": "utrzymanie",
+    })
+    assert reg.status_code == 200, reg.text
+    token = reg.json()["access_token"]
+
+    before = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"}).json()
+    assert before["name"] == "Anna"
+    assert before["goal"] == "utrzymanie"
+
+    # Aktualizujemy wyłącznie wagę — pozostałe pola muszą zostać nienaruszone.
+    res = client.put(
+        "/app/profile",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"weight": 62.5},
+    )
+    assert res.status_code == 200, res.text
+
+    after = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"}).json()
+    assert after["weight"] == 62.5, after
+    assert after["name"] == "Anna", "Imię nie może zostać wyczyszczone przy częściowej aktualizacji"
+    assert after["goal"] == "utrzymanie", "Cel nie może zostać wyczyszczony przy częściowej aktualizacji"
+    assert after["age"] == 28, "Wiek nie może zostać wyczyszczony przy częściowej aktualizacji"
+
+
+def test_s3e_profile_ownership_enforced():
+    """Użytkownik A może zaktualizować tylko swój własny profil; dane użytkownika B nienaruszone."""
+    reg_a = client.post("/auth/register", json={
+        "email": f"profileownera-{uuid.uuid4().hex[:6]}@example.com", "password": "Pass123!", "name": "Wlasciciel A",
+    })
+    assert reg_a.status_code == 200
+    token_a = reg_a.json()["access_token"]
+
+    reg_b = client.post("/auth/register", json={
+        "email": f"profileownerb-{uuid.uuid4().hex[:6]}@example.com", "password": "Pass123!", "name": "Wlasciciel B",
+    })
+    assert reg_b.status_code == 200
+    token_b = reg_b.json()["access_token"]
+
+    before_b = client.get("/auth/me", headers={"Authorization": f"Bearer {token_b}"}).json()
+    assert before_b["name"] == "Wlasciciel B"
+
+    # A aktualizuje swój profil
+    res = client.put(
+        "/app/profile",
+        headers={"Authorization": f"Bearer {token_a}"},
+        json={"name": "Wlasciciel A Zmieniony"},
+    )
+    assert res.status_code == 200, res.text
+
+    # B nadal ma swoje dane — A nie nadpisał profilu B
+    after_b = client.get("/auth/me", headers={"Authorization": f"Bearer {token_b}"}).json()
+    assert after_b["name"] == "Wlasciciel B", after_b
+
+    # A ma swoje zaktualizowane dane
+    after_a = client.get("/auth/me", headers={"Authorization": f"Bearer {token_a}"}).json()
+    assert after_a["name"] == "Wlasciciel A Zmieniony", after_a
+
+
+def test_s3f_profile_backend_rejects_invalid_and_unauthenticated():
+    """Backend nie traktuje błędnych/nieautoryzowanych żądań jako sukcesu."""
+    raw_email = f"profilefail-{uuid.uuid4().hex[:6]}@example.com"
+    reg = client.post("/auth/register", json={
+        "email": raw_email, "password": "FailPassword123!",
+    })
+    assert reg.status_code == 200
+    token = reg.json()["access_token"]
+
+    # meals_per_day poza dozwolonym zakresem (1-12) → 422, nie 200
+    bad = client.put(
+        "/app/profile",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"meals_per_day": 99},
+    )
+    assert bad.status_code == 422, f"Expected 422 for invalid meals_per_day, got {bad.status_code}"
+
+    # Brak tokena → 401, nie 200
+    no_auth = client.put("/app/profile", json={"weight": 70})
+    assert no_auth.status_code == 401, f"Expected 401 without token, got {no_auth.status_code}"
+
+
+# ─── S4: Pełny cykl odzyskiwania sesji po wygaśnięciu access tokena (frontend) ─
 
 
 def test_s1_2_docs_disabled_in_production(monkeypatch):
