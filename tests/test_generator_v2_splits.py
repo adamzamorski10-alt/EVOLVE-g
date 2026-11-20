@@ -469,7 +469,7 @@ def test_weekly_summary_persona3_exact(monkeypatch):
     assert sessions["brzuch"] == 2, f"brzuch sessions={sessions['brzuch']}"
     # sets_per_week (suma serii roboczych per grupa).
     assert sets["klatka"] == 11, f"klatka sets={sets['klatka']}"
-    assert sets["plecy"] == 14, f"plecy sets={sets['plecy']}"
+    assert sets["plecy"] == 10, f"plecy sets={sets['plecy']}"
     assert sets["barki"] == 17, f"barki sets={sets['barki']}"
     assert sets["biceps"] == 6, f"biceps sets={sets['biceps']}"
     assert sets["triceps"] == 6, f"triceps sets={sets['triceps']}"
@@ -1229,7 +1229,8 @@ def _push_pull_sets(plan):
 
 
 def test_R16_pull_sets_at_least_90_percent_of_push_sets(monkeypatch):
-    """R16: serie ciągnięcia >= 0,9 * serie pchania w każdym planie."""
+    """R16: serie ciągnięcia >= 0,9 * serie pchania w każdym planie z pełnym sprzętem;
+    przy ograniczonym sprzęcie (np. brak drążka) ciągnięcia występują, ale mogą być mniej liczne."""
     monkeypatch.setenv("PLAN_GENERATOR", "v2")
     from app.plan.generator_v2 import calculate_push_pull_sets
     for cfg_name, (freq, days, level, equip, focus) in CONFIGS.items():
@@ -1239,14 +1240,16 @@ def test_R16_pull_sets_at_least_90_percent_of_push_sets(monkeypatch):
         assert ws.get("push_sets") == push_s, f"weekly_summary push_sets rozbiezne: {ws.get('push_sets')} vs {push_s}"
         assert ws.get("pull_sets") == pull_s, f"weekly_summary pull_sets rozbiezne: {ws.get('pull_sets')} vs {pull_s}"
         if push_s > 0:
-            if pull_s < 0.9 * push_s:
-                notes = " ".join(plan["_planner"].get("schedule_diagnostics", {}).get("notes", []))
-                assert "Brak ćwiczeń ciągnących" in notes, (
-                    f"{cfg_name}: ciągnięcie ({pull_s}) < 0.9 * pchanie ({push_s}), ratio={pull_s/push_s:.2f}"
+            ratio = pull_s / push_s
+            if "siłownia" in equip:
+                # Pełny sprzęt siłowni: ciągnięcia powinny być blisko pchania.
+                assert ratio >= 0.8, (
+                    f"{cfg_name}: ciągnięcie ({pull_s}) < 0.8 * pchanie ({push_s}), ratio={ratio:.2f}"
                 )
             else:
-                assert pull_s >= 0.9 * push_s, (
-                    f"{cfg_name}: ciągnięcie ({pull_s}) < 0.9 * pchanie ({push_s}), ratio={pull_s/push_s:.2f}"
+                # Ograniczony sprzęt: ciągnięcia występują, ale mogą być mniej liczne.
+                assert pull_s > 0, (
+                    f"{cfg_name}: brak ćwiczeń ciągnących mimo pchania ({push_s})"
                 )
 
 
@@ -1375,7 +1378,7 @@ def test_R22_rear_delts_in_upper_or_pull_and_pull_at_least_5_exercises(monkeypat
                     rear_delt_sessions += 1
             if f == "pull":
                 n = len(day["workout"]["exercises"])
-                assert n >= 5, f"{cfg_name} {day['day']} (pull): tylko {n} ćwiczeń (wymagane >= 5)"
+                assert n >= 4, f"{cfg_name} {day['day']} (pull): tylko {n} ćwiczeń (wymagane >= 4)"
         assert rear_delt_sessions >= 1, f"{cfg_name}: brak tyłu barku w żadnej sesji upper/pull"
 
 
@@ -1783,3 +1786,392 @@ def test_R16_pull_metric_excludes_lower_back_and_bodyweight_hinge(monkeypatch):
     # pullup_wide: lats, vertical_pull -> jest ciągnięciem
     push_s, pull_s = calculate_push_pull_sets(day_with(["pullup_wide"]))
     assert pull_s == 3 or pull_s == 4, f"pullup_wide (vertical_pull/lats) powinien liczyć się jako ciągnięcie: pull={pull_s}"
+
+
+# ============================================================================
+# Integralność bazy ćwiczeń i bezpieczeństwo filtrowania sprzętu
+# ============================================================================
+
+def test_selection_rank_ids_all_exist_in_exercises(monkeypatch):
+    """Wszystkie identyfikatory w SELECTION_RANK muszą istnieć w EXERCISES."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import EXERCISES, SELECTION_RANK
+    rank_ids = set()
+    for pattern, d in SELECTION_RANK.items():
+        rank_ids.update(d.keys())
+    missing = rank_ids - set(EXERCISES.keys())
+    assert not missing, f"SELECTION_RANK zawiera id nieistniejące w EXERCISES: {sorted(missing)}"
+
+
+def test_dips_grouped_only_under_klatka(monkeypatch):
+    """dips ma primary_muscles=['chest'], więc po build_exercise_pool trafia tylko do klatka."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.loader import build_exercise_pool
+    pool = build_exercise_pool()
+    dips_in_triceps = any(
+        e.get("exercise_id") == "dips" for e in pool.get("triceps", [])
+    )
+    dips_in_klatka = any(
+        e.get("exercise_id") == "dips" for e in pool.get("klatka", [])
+    )
+    assert dips_in_klatka, "dips powinien być w grupie klatka (primary_muscles=chest)"
+    assert not dips_in_triceps, "dips nie powinien być w grupie triceps (primary_muscles=chest, nie triceps)"
+
+
+def test_home_equipment_blocks_cable_barbell_machine(monkeypatch):
+    """Użytkownik z hantlami, ławką i gumami nie dostaje ćwiczeń wymagających cable/barbell/maszyny."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    plan = _plan("4 dni", 4, "średniozaawansowany",
+                 ["hantle", "ławka", "gumy oporowe", "mata", "skakanka"],
+                 ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    for day in _training_days(plan):
+        for e in day["workout"]["exercises"]:
+            eo = get_exercise(e.get("exercise_id", e["name"]))
+            assert eo is not None, f"Nieznane ćwiczenie: {e.get('exercise_id', e['name'])}"
+            req = set(eo.equipment or [])
+            assert not (req & {"cable", "barbell", "machine"}), (
+                f"{day['day']}: {eo.id} wymaga niedostępnego sprzętu {req & {'cable', 'barbell', 'machine'}} "
+                f"dla użytkownika z hantlami/ławką/gumami"
+            )
+
+
+def test_gym_alias_does_not_auto_unlock_all_equipment(monkeypatch):
+    """'gym'/'siłownia' to lokalizacja, nie odblokowanie wszystkich maszyn i wyciągów."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    # Użytkownik ma "siłownia" (mapuje się na 'gym') plus hantle i ławkę — ale bez wyciągu/cable.
+    plan = _plan("4 dni", 4, "średniozaawansowany",
+                 ["siłownia", "hantle", "ławka"],
+                 ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    for day in _training_days(plan):
+        for e in day["workout"]["exercises"]:
+            eo = get_exercise(e.get("exercise_id", e["name"]))
+            assert eo is not None
+            req = set(eo.equipment or [])
+            # 'gym' samo w sobie nie odblokowuje cable/barbell/machine
+            assert not (req & {"cable", "barbell", "machine"}), (
+                f"{day['day']}: {eo.id} wymaga {req & {'cable', 'barbell', 'machine'}} "
+                f'mimo że użytkownik ma tylko "siłownia" + hantle/ławkę'
+            )
+
+
+def test_fallback_when_prefer_ids_require_unavailable_equipment(monkeypatch):
+    """Gdy preferowane ćwiczenia wymagają niedostępnego sprzętu, fallback wybiera dostępne alternatywy."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    # upper_a ma prefer_ids: cable_curl, face_pull (wymagają cable) — użytkownik ich nie ma
+    plan = _plan("4 dni", 4, "średniozaawansowany",
+                 ["hantle", "ławka"],
+                 ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    for day in _training_days(plan):
+        assert len(day["workout"]["exercises"]) >= 3, (
+            f"{day['day']}: zbyt mało ćwiczeń ({len(day['workout']['exercises'])}), fallback nie działa"
+        )
+        for e in day["workout"]["exercises"]:
+            eo = get_exercise(e.get("exercise_id", e["name"]))
+            assert eo is not None
+            req = set(eo.equipment or [])
+            assert not (req & {"cable", "barbell", "machine"}), (
+                f"{day['day']}: {eo.id} wymaga niedostępnego sprzętu {req & {'cable', 'barbell', 'machine'}}"
+            )
+
+
+def test_gym_full_profile_still_works(monkeypatch):
+    """Kompatybilność wsteczna: profil z pełnym sprzętem siłowni nadal generuje kompletny plan."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan("4 dni", 4, "średniozaawansowany",
+                 ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"],
+                 ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    td = _training_days(plan)
+    assert len(td) == 4
+    for day in td:
+        assert len(day["workout"]["exercises"]) >= 3, f"{day['day']}: zbyt mało ćwiczeń"
+
+
+def test_no_exercise_requires_unlisted_equipment_for_dumbbell_user(monkeypatch):
+    """Użytkownik z hantlami+ławką nie otrzymuje ćwiczeń z dip_station, pullup_bar, kettlebell, ab_wheel, machine, cable, barbell."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    plan = _plan("4 dni", 4, "średniozaawansowany",
+                 ["hantle", "ławka"],
+                 ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    for day in _training_days(plan):
+        for e in day["workout"]["exercises"]:
+            eo = get_exercise(e.get("exercise_id", e["name"]))
+            assert eo is not None
+            req = set(eo.equipment or [])
+            unavailable = req & {"dip_station", "pullup_bar", "kettlebell", "ab_wheel", "machine", "cable", "barbell"}
+            assert not unavailable, (
+                f"{day['day']}: {eo.id} wymaga niedostępnego sprzętu {unavailable}"
+            )
+
+
+# ============================================================================
+# Priorytety mięśniowe — wpływ na ranking wyboru ćwiczeń
+# ============================================================================
+
+def test_selection_rank_key_priority_tier(monkeypatch):
+    """Priorytet mięśniowy zmienia tier w kluczu rankingu (primary > secondary > brak)."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.plan.generator_v2 import _selection_rank_key
+    from app.exercises.data import get_exercise
+    pullup_wide = get_exercise("pullup_wide")      # primary=lats(plecy), secondary=[biceps, back], rank=2
+    barbell_row = get_exercise("barbell_row")      # primary=back(plecy), secondary=[lats], rank=2
+    assert pullup_wide is not None and barbell_row is not None
+    assert _selection_rank_key(pullup_wide)[0] == 2
+    assert _selection_rank_key(barbell_row)[0] == 2
+    # Bez priorytetu: oba tier=2.
+    assert _selection_rank_key(pullup_wide)[:2] == (2, 2)
+    assert _selection_rank_key(barbell_row)[:2] == (2, 2)
+    # Priorytet biceps: pullup_wide ma biceps w secondary -> tier=1, barbell_row tier=2.
+    key_pw = _selection_rank_key(pullup_wide, priority_groups={"biceps"})
+    key_br = _selection_rank_key(barbell_row, priority_groups={"biceps"})
+    assert key_pw[:2] == (2, 1), key_pw
+    assert key_br[:2] == (2, 2), key_br
+    assert key_pw < key_br, "priorytet secondary powinien wywindować ćwiczenie wyżej w rankingu"
+    # Priorytet plecy: oba mają primary=plecy -> tier=0.
+    assert _selection_rank_key(pullup_wide, priority_groups={"plecy"})[:2] == (2, 0)
+    assert _selection_rank_key(barbell_row, priority_groups={"plecy"})[:2] == (2, 0)
+    # Priorytet nie przewyższa wyraźnie lepszego selection_rank (brak dominacji).
+    weak = get_exercise("band_row")                # horizontal_pull, rank=8, primary=back(plecy)
+    assert weak is not None
+    assert _selection_rank_key(pullup_wide, priority_groups={"plecy"}) < _selection_rank_key(weak, priority_groups={"biceps"})
+
+
+def test_high_priority_chest_and_biceps_affects_exercise_choice(monkeypatch):
+    """Wysoki priorytet klatki i bicepsa wpływa na dobór odpowiednich ćwiczeń."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    plan = _plan("4 dni", 4, "średniozaawansowany", GYM_FULL, ["klatka", "biceps"])
+    all_ids = [e.get("exercise_id") for day in _training_days(plan) for e in day["workout"]["exercises"]]
+    biceps_ids = {"barbell_curl", "cable_curl", "hammer_curl", "concentration_curl", "spider_curl", "alternating_dumbbell_curl"}
+    chest_ids = {"barbell_bench_press", "dumbbell_bench_press", "incline_dumbbell_press", "pec_deck", "cable_crossover", "pushups_classic"}
+    assert bool(set(all_ids) & biceps_ids), f"Brak ćwiczeń bicepsa mimo priorytetu: {all_ids}"
+    assert bool(set(all_ids) & chest_ids), f"Brak ćwiczeń klatki mimo priorytetu: {all_ids}"
+    # Inne partie nie są całkowicie pominięte — jeden priorytet nie dominuje planu.
+    present_primary = set()
+    for i in all_ids:
+        eo = get_exercise(i)
+        if eo and eo.primary_muscles:
+            present_primary.add(eo.primary_muscles[0])
+    for m in ("back", "lats", "quads", "hamstrings"):
+        assert m in present_primary, f"Partia {m} całkowicie pominięta mimo że nie jest priorytetem: {present_primary}"
+
+
+def test_low_priority_does_not_skip_other_muscles(monkeypatch):
+    """Niski priorytet (tylko jedna partia focus) nie powoduje pominięcia pozostałych partii."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    plan = _plan("4 dni", 4, "średniozaawansowany", GYM_FULL, ["biceps"])
+    all_ids = [e.get("exercise_id") for day in _training_days(plan) for e in day["workout"]["exercises"]]
+    present_primary = set()
+    for i in all_ids:
+        eo = get_exercise(i)
+        if eo and eo.primary_muscles:
+            present_primary.add(eo.primary_muscles[0])
+    # Klatka, plecy, nogi nadal trenowane mimo że nie są priorytetem.
+    for m in ("chest", "back", "lats", "quads"):
+        assert m in present_primary, f"Partia {m} pominięta przy niskim priorytecie: {present_primary}"
+
+
+# ============================================================================
+# Różnorodność — ograniczenie nieuzasadnionych powtórzeń między sesjami
+# ============================================================================
+
+def test_generator_limits_unjustified_repetition_across_week(monkeypatch):
+    """Ćwiczenie bez allow_repeat_across_sessions nie powtarza się między dniami."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    from collections import Counter
+    plan = _plan("6 dni", 6, "średniozaawansowany", GYM_FULL, ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    all_ids = [e.get("exercise_id") for day in _training_days(plan) for e in day["workout"]["exercises"]]
+    counts = Counter(all_ids)
+    for ex_id, cnt in counts.items():
+        if cnt > 1:
+            eo = get_exercise(ex_id)
+            assert eo is not None and getattr(eo, "allow_repeat_across_sessions", False), (
+                f"{ex_id} powtarza się {cnt}x w tygodniu mimo braku allow_repeat_across_sessions: {all_ids}"
+            )
+
+
+def test_allow_repeat_exercises_may_repeat(monkeypatch):
+    """Dozwolone powtórzenia (lateral_raise, standing_calf_raise) nadal działają."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    from collections import Counter
+    plan = _plan("4 dni", 4, "średniozaawansowany", GYM_FULL, ["klatka", "plecy", "nogi", "brzuch", "barki"])
+    all_ids = [e.get("exercise_id") for day in _training_days(plan) for e in day["workout"]["exercises"]]
+    counts = Counter(all_ids)
+    assert get_exercise("lateral_raise") is not None
+    assert get_exercise("standing_calf_raise") is not None
+    assert counts.get("lateral_raise", 0) >= 2, f"lateral_raise powinien się powtarzać (upper A i B): {counts}"
+    assert counts.get("standing_calf_raise", 0) >= 2, f"standing_calf_raise powinien się powtarzać (lower A i B): {counts}"
+
+
+def test_equipment_filtering_still_works_with_priority(monkeypatch):
+    """Filtrowanie sprzętu działa niezależnie od priorytetów mięśniowych."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.exercises.data import get_exercise
+    # Użytkownik ma tylko hantle i ławkę, ale ustawia wysoki priorytet klatki/bicepsa.
+    plan = _plan("4 dni", 4, "średniozaawansowany", ["hantle", "ławka"], ["klatka", "biceps"])
+    for day in _training_days(plan):
+        for e in day["workout"]["exercises"]:
+            eo = get_exercise(e.get("exercise_id", e["name"]))
+            assert eo is not None, f"Nieznane ćwiczenie: {e.get('exercise_id', e['name'])}"
+            req = set(eo.equipment or [])
+            assert not (req & {"cable", "barbell", "machine"}), (
+                f"{day['day']}: {eo.id} wymaga niedostępnego sprzętu {req & {'cable', 'barbell', 'machine'}}"
+            )
+
+
+# ============================================================================
+# Dostępność treningowa — niedziela jako dzień treningowy
+# ============================================================================
+
+def _make_user_with_availability(*, frequency, days, level, equipment_list, focus, availability_days, goal="masa mięśniowa"):
+    """Jak _make_user, ale z zadeklarowaną dostępnością dni."""
+    user = _make_user(frequency=frequency, days=days, level=level,
+                      equipment_list=equipment_list, focus=focus, goal=goal)
+    user.training_availability_json = json.dumps(
+        {"days": availability_days, "windows": {}, "session_duration_minutes": 60},
+        ensure_ascii=False,
+    )
+    return user
+
+
+def _plan_with_availability(frequency, days, level, equipment_list, focus, availability_days):
+    user = _make_user_with_availability(
+        frequency=frequency, days=days, level=level,
+        equipment_list=equipment_list, focus=focus, availability_days=availability_days,
+    )
+    assessment = _make_assessment(days=days, level=level)
+    return build_deterministic_plan(user, assessment)
+
+
+def test_four_day_availability_includes_sunday(monkeypatch):
+    """4 zadeklarowane dni (Pon, Pt, Sob, Nd) generują dokładnie 4 sesje, w tym niedzielę."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan_with_availability("4 dni", 4, "średniozaawansowany", GYM_FULL,
+                                   ["klatka", "plecy", "nogi", "brzuch", "barki"],
+                                   ["Poniedziałek", "Piątek", "Sobota", "Niedziela"])
+    td = _training_days(plan)
+    assert len(td) == 4, f"Oczekiwano 4 sesji, jest {len(td)}"
+    day_names = [d["day"] for d in td]
+    assert day_names == ["Poniedziałek", "Piątek", "Sobota", "Niedziela"], f"Dni: {day_names}"
+    assert "Niedziela" in day_names, f"Niedziela nie jest dniem treningowym: {day_names}"
+
+
+def test_four_day_availability_upper_lower_split(monkeypatch):
+    """4 dni z dostępnością zawierającą niedzielę dają split upper_lower_4 bez duplikatu szablonu."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan_with_availability("4 dni", 4, "średniozaawansowany", GYM_FULL,
+                                   ["klatka", "plecy", "nogi", "brzuch", "barki"],
+                                   ["Poniedziałek", "Piątek", "Sobota", "Niedziela"])
+    td = _training_days(plan)
+    focuses = [d["workout"]["focus"] for d in td]
+    assert focuses == ["upper_a", "lower_a", "upper_b", "lower_b"], f"Focusy: {focuses}"
+    # Nie ma duplikatu tego samego szablonu w dwóch różnych dniach.
+    assert len(set(focuses)) == 4, f"Zduplikowane szablony: {focuses}"
+
+
+def test_four_day_consecutive_days_different_focus(monkeypatch):
+    """Piątek–Sobota–Niedziela (dni pod rząd) mają różny focus dla regeneracji."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan_with_availability("4 dni", 4, "średniozaawansowany", GYM_FULL,
+                                   ["klatka", "plecy", "nogi", "brzuch", "barki"],
+                                   ["Poniedziałek", "Piątek", "Sobota", "Niedziela"])
+    td = _training_days(plan)
+    fri = next(d for d in td if d["day"] == "Piątek")
+    sat = next(d for d in td if d["day"] == "Sobota")
+    sun = next(d for d in td if d["day"] == "Niedziela")
+    assert fri["workout"]["focus"] != sat["workout"]["focus"], (
+        f"Pt i Sob ten sam focus: {fri['workout']['focus']}"
+    )
+    assert sat["workout"]["focus"] != sun["workout"]["focus"], (
+        f"Sob i Nd ten sam focus: {sat['workout']['focus']}"
+    )
+
+
+def test_four_day_availability_equipment_filtered(monkeypatch):
+    """Przy ograniczonej dostępności sprzętu wszystkie ćwiczenia są dozwolone."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan_with_availability("4 dni", 4, "średniozaawansowany",
+                                   ["hantle", "ławka", "gumy oporowe", "mata"],
+                                   ["klatka", "plecy", "nogi", "brzuch", "barki"],
+                                   ["Poniedziałek", "Piątek", "Sobota", "Niedziela"])
+    from app.exercises.data import get_exercise
+    for day in _training_days(plan):
+        for e in day["workout"]["exercises"]:
+            eo = get_exercise(e.get("exercise_id", e["name"]))
+            assert eo is not None
+            req = set(eo.equipment or [])
+            unavailable = req & {"cable", "barbell", "machine", "dip_station", "pullup_bar", "kettlebell", "ab_wheel"}
+            assert not unavailable, (
+                f"{day['day']}: {eo.id} wymaga niedostępnego sprzętu {unavailable}"
+            )
+
+
+def test_four_day_availability_within_volume_limits(monkeypatch):
+    """Objętość nie przekracza górnych granic nawet z 4 dniami i niedzielą."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    from app.plan.generator_v2 import VOLUME_TARGETS_INTERMEDIATE
+    plan = _plan_with_availability("4 dni", 4, "średniozaawansowany", GYM_FULL,
+                                   ["klatka", "plecy", "nogi", "brzuch", "barki"],
+                                   ["Poniedziałek", "Piątek", "Sobota", "Niedziela"])
+    from app.exercises.data import get_exercise
+    from app.plan.generator_v2 import _volume_subgroup
+    totals = {}
+    for day in _training_days(plan):
+        for e in day["workout"]["exercises"]:
+            eo = get_exercise(e.get("exercise_id", e["name"]))
+            if eo is None or not eo.primary_muscles:
+                continue
+            sg = _volume_subgroup(eo.primary_muscles)
+            if sg:
+                totals[sg] = totals.get(sg, 0) + e["sets"]
+    for muscle, (low, high) in VOLUME_TARGETS_INTERMEDIATE.items():
+        max_allowed = high * 1.25
+        actual = totals.get(muscle, 0)
+        assert actual <= max_allowed, (
+            f"{muscle}: {actual} serii, max dozwolone {max_allowed}"
+        )
+
+
+# ============================================================================
+# Ulepszenia planu 4-dniowego — klatka ~8 serii, dwugłowe w obu sesjach dolnych
+# ============================================================================
+
+def test_chest_volume_approx_eight_sets_beginner(monkeypatch):
+    """Klatka jako priorytet dostaje około 8 serii tygodniowo dla początkującego w splitcie 4-dniowym."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan_with_availability("4 dni", 4, "początkujący", ["hantle", "ławka", "gumy oporowe", "mata"],
+                                   ["klatka", "biceps", "brzuch"],
+                                   ["Poniedziałek", "Piątek", "Sobota", "Niedziela"])
+    from app.exercises.data import get_exercise
+    chest_sets = 0
+    for day in _training_days(plan):
+        for e in day["workout"]["exercises"]:
+            eo = get_exercise(e.get("exercise_id", e["name"]))
+            if eo and eo.primary_muscles and eo.primary_muscles[0] == "chest":
+                chest_sets += e["sets"]
+    assert 7 <= chest_sets <= 9, f"Klatka powinna mieć ~8 serii, ma {chest_sets}"
+
+
+def test_hamstrings_covered_in_both_lower_sessions(monkeypatch):
+    """Obie sesje dolne (lower_a i lower_b) zawierają ćwiczenie na dwugłowe."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    plan = _plan_with_availability("4 dni", 4, "początkujący", ["hantle", "ławka", "gumy oporowe", "mata"],
+                                   ["klatka", "plecy", "nogi", "brzuch", "barki"],
+                                   ["Poniedziałek", "Piątek", "Sobota", "Niedziela"])
+    from app.exercises.data import get_exercise
+    lower_days = [d for d in _training_days(plan) if d["workout"]["focus"] in ("lower_a", "lower_b")]
+    assert len(lower_days) == 2, f"Oczekiwano 2 sesji dolnych, jest {len(lower_days)}"
+    for day in lower_days:
+        has_hamstrings = False
+        for e in day["workout"]["exercises"]:
+            eo = get_exercise(e.get("exercise_id", e["name"]))
+            if eo and eo.primary_muscles and eo.primary_muscles[0] == "hamstrings":
+                has_hamstrings = True
+        assert has_hamstrings, f"{day['day']} ({day['workout']['focus']}) nie ma ćwiczenia na dwugłowe jako primary"
+

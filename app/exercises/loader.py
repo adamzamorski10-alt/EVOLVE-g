@@ -97,7 +97,6 @@ EXERCISE_POOL_DEFINITION: dict[str, list[dict]] = {
         {"exercise_id": "skull_crushers", "sets": "3", "reps": "10-12", "notes": "Długa głowa tricepsa – ruch ponad głowę."},
         {"exercise_id": "french_press", "sets": "3", "reps": "10-12", "notes": "Łokcie blisko tułowia, nie rozchylaj ich."},
         {"exercise_id": "triceps_kickback", "sets": "3", "reps": "12-15/strona", "notes": "Ramię przy boku, nie ruszaj go podczas ruchu."},
-        {"exercise_id": "dips", "sets": "3", "reps": "8-12", "notes": "Długa głowa tricepsa – ruch ponad głowę."},
         {"exercise_id": "pushups_diamond", "sets": "3", "reps": "8-12", "notes": "Pompki diamentowe - triceps bez sprzętu."},
         {"exercise_id": "french_press_db_two_hand", "sets": "3", "reps": "10-12", "notes": "Francuskie wyciskanie hantli oburącz zza głowy."},
     ],
