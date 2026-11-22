@@ -44,6 +44,16 @@ def _make_user(*, frequency, days, level, equipment_list, focus, goal="masa mię
         preferred_foods_json="[]",
         avoid_foods_json="[]",
         equipment=",".join(equipment_list),
+        # Map assessment level to explicit strength_training_experience for v2 generator
+        strength_training_experience={
+            "początkujący": "beginner",
+            "beginner": "beginner",
+            "średniozaawansowany": "intermediate",
+            "intermediate": "intermediate",
+            "zaawansowany": "advanced",
+            "advanced": "advanced",
+            "elite": "advanced",
+        }.get(level),
     )
     user.get_list = lambda field: json.loads(getattr(user, field, "[]") or "[]")
     return user

@@ -211,6 +211,7 @@ def test_enrich_plan_and_session_progression_update():
             gender="mężczyzna",
             goal="Budowa beztłuszczowej masy mięśniowej",
             training_experience="intermediate",
+            strength_training_experience="intermediate",
         )
         session.add(user)
         session.commit()

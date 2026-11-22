@@ -184,9 +184,32 @@ def _parse_sets(sets_range: str | None, is_first_compound: bool) -> int:
     return int(single.group()) if single else 3
 
 
+def _resolve_strength_level(user: Any, assessment: Any = None) -> str:
+    """Rozwiązuje skuteczny poziom doświadczenia treningowego siłowego.
+
+    Autorytatywne źródło: wyłącznie user.strength_training_experience.
+    assessment.training_level jest ignorowane i nie wpływa na poziom siłowy.
+    Brak lub pustą wartość traktuje jako "beginner" (programowanie bezpieczne
+    dla początkujących). Nie używa legacy training_experience jako źródła.
+    Doświadczenie sportowe / koszykarskie nie wpływa na ten poziom.
+    """
+    strength_exp = getattr(user, "strength_training_experience", None)
+    if strength_exp and str(strength_exp).strip():
+        tl = str(strength_exp).strip().casefold()
+        if tl in {"beginner", "początkujący", "poczatkujacy"}:
+            return "beginner"
+        if tl in {"intermediate", "średniozaawansowany"}:
+            return "intermediate"
+        if tl in {"advanced", "zaawansowany", "elite"}:
+            return "advanced"
+    # Brak zweryfikowanego doświadczenia siłowego - bezpieczne dla początkujących
+    return "beginner"
+
+
 def _level_allowed(level: str, training_level: str | None) -> bool:
     if not training_level:
-        return True
+        # Brak zweryfikowanego poziomu - tylko ćwiczenia dla początkujących
+        return level == "beginner"
     tl = str(training_level).strip().casefold()
     if tl in {"początkujący", "beginner"}:
         return level == "beginner"
@@ -1296,8 +1319,8 @@ def build_split_plan(
 
     selected_days, schedule_notes = _select_training_days(target_days, configured_availability)
 
-    training_level = _assessment_value(assessment, "training_level") or getattr(user, "fitness_level", None)
-    split_key = _split_key(len(selected_days), training_level)
+    strength_level = _resolve_strength_level(user, assessment)
+    split_key = _split_key(len(selected_days), strength_level)
     template_names = SPLIT_TEMPLATES[split_key]
 
     focus_raw = [x.lower().strip() for x in user.get_list("training_focus_json") if isinstance(x, str) and x.strip()]
@@ -1344,7 +1367,7 @@ def build_split_plan(
 
     recovery = _assessment_value(assessment, "recovery_score")
     hours = _assessment_value(assessment, "availability_hours_per_week")
-    exercise_limit = _exercise_limit(training_level, recovery, hours, len(selected_days))
+    exercise_limit = _exercise_limit(strength_level, recovery, hours, len(selected_days))
 
     base_calories = user.calories_target
     if not base_calories:
@@ -1354,7 +1377,7 @@ def build_split_plan(
     meals_per_day = getattr(user, "meals_per_day", 3) or 3
     meal_slots = _meal_slots(max(3, min(5, int(meals_per_day))))
 
-    volume_targets = _volume_targets(training_level)
+    volume_targets = _volume_targets(strength_level)
     volume_sets: dict[str, int] = {m: 0 for m in volume_targets}
     secondary_volume: dict[str, float] = {m: 0.0 for m in volume_targets}
     weekly_sets: dict[str, int] = {g: 0 for g in _SUMMARY_GROUPS}
@@ -1386,8 +1409,8 @@ def build_split_plan(
 
     is_bodyweight_plan = not has_equipment_preset
     is_single_day = len(selected_days) == 1
-    is_beginner = (training_level or "").strip().casefold() in {"początkujący", "beginner"}
-    is_intermediate = (training_level or "").strip().casefold() in {"średniozaawansowany", "intermediate"}
+    is_beginner = strength_level == "beginner"
+    is_intermediate = strength_level == "intermediate"
 
     # R24: masa wlasna bez drazka/stolu/gum - dodaj komunikat diagnostyczny
     _PULL_EQUIPMENT = {"pullup_bar", "table_or_low_bar", "bands"}
@@ -1476,7 +1499,7 @@ def build_split_plan(
                     if volume_sets.get(target_sg, 0) + est_sets > max_allowed:
                         continue
             ex = _fill_slot(
-                slot, pool, equipment, avoid_exercises, training_level,
+                slot, pool, equipment, avoid_exercises, strength_level,
                 used_names_session, used_patterns_in_session,
                 used_primary_muscles_in_session, used_families_in_session,
                 exclude_names, has_equipment_preset,
@@ -1488,7 +1511,7 @@ def build_split_plan(
                 if is_bodyweight_plan:
                     group = slot["group"]
                     ex = _bodyweight_fallback(
-                        group, pool, equipment, avoid_exercises, training_level,
+                        group, pool, equipment, avoid_exercises, strength_level,
                         used_names_session, used_patterns_in_session,
                         used_primary_muscles_in_session, used_families_in_session,
                         exclude_names, has_equipment_preset,
@@ -1547,7 +1570,7 @@ def build_split_plan(
                     break
                 group = slot["group"]
                 ex = _bodyweight_fallback(
-                    group, pool, equipment, avoid_exercises, training_level,
+                    group, pool, equipment, avoid_exercises, strength_level,
                     used_names_session, used_patterns_in_session,
                     used_primary_muscles_in_session, used_families_in_session,
                     exclude_names, has_equipment_preset,

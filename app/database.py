@@ -157,6 +157,7 @@ def _ensure_legacy_sqlite_columns():
             "last_reminder_sent_date": "TEXT",
             "basketball_position": "TEXT",
             "training_experience": "TEXT",
+            "strength_training_experience": "TEXT",
             "equipment": "TEXT",
             "health_limitations": "TEXT",
             "dumbbell_type": "TEXT",

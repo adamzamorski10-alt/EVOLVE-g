@@ -2141,7 +2141,7 @@ def _enrich_plan_with_progressions(
                         exercise_type=ex_type,
                         movement_pattern=movement,
                         gender=str(user.gender or "mężczyzna"),
-                        training_level=str(user.training_experience or "intermediate"),
+                        training_level=str(user.strength_training_experience or "beginner"),
                         equipment=equipment,
                         dumbbell_max_kg_per_dumbbell=user.dumbbell_max_kg_per_dumbbell,
                         dumbbell_increment_kg=user.dumbbell_increment_kg,
@@ -2222,7 +2222,7 @@ def _update_exercise_progressions(
                 exercise_type=ex_type,
                 movement_pattern=movement,
                 gender=str(user.gender or "mężczyzna"),
-                training_level=str(user.training_experience or "intermediate"),
+                training_level=str(user.strength_training_experience or "beginner"),
                 dumbbell_max_kg_per_dumbbell=user.dumbbell_max_kg_per_dumbbell,
                 dumbbell_increment_kg=user.dumbbell_increment_kg,
             )

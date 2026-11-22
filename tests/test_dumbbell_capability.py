@@ -40,6 +40,7 @@ def _make_user(
         weight=weight,
         gender="mężczyzna",
         training_experience="intermediate",
+        strength_training_experience="intermediate",
         dumbbell_type=dumbbell_type,
         dumbbell_max_kg_per_dumbbell=dumbbell_max_kg_per_dumbbell,
         dumbbell_increment_kg=dumbbell_increment_kg,

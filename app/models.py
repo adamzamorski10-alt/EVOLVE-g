@@ -106,7 +106,12 @@ class UserDB(SQLModel, table=True):
     last_weight_change: float = 0.0                    # delta wagi wzgl. poprzedniego wpisu [kg]
     # ─── Rozszerzony profil sportowy (v3.1) ─────────────────────────────────────
     basketball_position: Optional[str] = None           # "PG", "SG", "SF", "PF", "C"
-    training_experience: Optional[str] = "intermediate" # "beginner"|"intermediate"|"advanced"|"elite"
+    training_experience: Optional[str] = "intermediate" # "beginner"|"intermediate"|"advanced"|"elite" (legacy, zachowywane dla kompatybilności)
+    # ── Siłowe doświadczenie treningowe (nowe, rozstrzygające dla generatora) ──
+    # Nullable: brak wartości oznacza niezweryfikowane doświadczenie i aktywuje
+    # programowanie bezpieczne dla początkujących. Nie nadpisuje legacy
+    # training_experience ani nie wnosi wniosków z doświadczenia sportowego.
+    strength_training_experience: Optional[str] = None  # "beginner"|"intermediate"|"advanced"|"elite"|None
     equipment: Optional[str] = "gym_full"               # "gym_full"|"gym_free"|"dumbbells"|"bodyweight"|"court"|"hybrid"
     health_limitations: Optional[str] = None            # pełen tekst ograniczeń zdrowotnych
     # ── Dumbbell capability (opcjonalne, None = nieznane/nieweryfikowane) ──
@@ -215,6 +220,7 @@ class UserDB(SQLModel, table=True):
             "basketball_profile": self.get_dict("basketball_profile_json"),
             "basketball_position": self.basketball_position or "",
             "training_experience": self.training_experience or "intermediate",
+            "strength_training_experience": self.strength_training_experience,
             "equipment": self.equipment or "gym_full",
             "last_weight_change": self.last_weight_change,
             "created_at": self.created_at.isoformat(),  # Serialize datetime to ISO string

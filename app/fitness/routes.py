@@ -949,10 +949,11 @@ def update_profile(
         scalar_fields = (
             "name", "age", "height", "weight", "target_weight", "gender",
             "goal", "frequency", "diet", "allergies", "meals_per_day", "notes",
-            "sport_focus", "sport_specialization",
-            "basketball_position", "training_experience", "equipment", "health_limitations",
-            "dumbbell_type", "dumbbell_max_kg_per_dumbbell", "dumbbell_increment_kg",
-        )
+        "sport_focus", "sport_specialization",
+        "basketball_position", "training_experience", "strength_training_experience",
+        "dumbbell_type", "dumbbell_max_kg_per_dumbbell", "dumbbell_increment_kg",
+        "equipment", "health_limitations",
+    )
         changed = False
         should_recalc_macros = False
         for field in scalar_fields:

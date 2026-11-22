@@ -165,6 +165,9 @@ class ProfileUpdateRequest(BaseModel):
     # Rozszerzony profil sportowy (v3.1)
     basketball_position: Optional[str] = Field(default=None, max_length=40)
     training_experience: Optional[str] = Field(default=None, max_length=40)
+    # Siłowe doświadczenie treningowe (rozdzielone od ogólnego/sportowego).
+    # None = niezweryfikowane → generator stosuje programowanie bezpieczne dla początkujących.
+    strength_training_experience: Optional[str] = Field(default=None, max_length=40)
     equipment: Optional[str] = Field(default=None, max_length=60)
     health_limitations: Optional[str] = Field(default=None, max_length=2000)
     # ── Dumbbell capability (opcjonalne, None = nieznane) ──
