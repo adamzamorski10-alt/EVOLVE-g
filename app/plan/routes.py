@@ -223,6 +223,7 @@ def planning_readiness(
     if not user.name: missing_profile.append("name")
     if not user.goal: missing_profile.append("goal")
     if not user.frequency: missing_profile.append("frequency")
+    if not user.diet: missing_profile.append("diet")
     if not user.weight: missing_profile.append("weight")
     if not user.target_weight: missing_profile.append("target_weight")
     assessment = session.exec(
@@ -230,6 +231,7 @@ def planning_readiness(
         .where(AssessmentDB.user_id == user.id)
         .order_by(AssessmentDB.assessment_version.desc())
     ).first()
+    profile_ready = not missing_profile
     profile_inputs = _profile_inputs(user)
     assessment_inputs = _assessment_inputs(assessment)
     current_plan = user.get_dict("weekly_plan_json") if user.weekly_plan_json else {}
@@ -242,8 +244,8 @@ def planning_readiness(
     plan_stale = bool(user.weekly_plan_json) and (profile_stale or assessment_stale or progress_stale)
     assessment_ready = assessment is not None
     return {
-        "ready": not missing_profile and assessment_ready,
-        "profile_ready": not missing_profile,
+        "ready": profile_ready and assessment_ready,
+        "profile_ready": profile_ready,
         "missing_profile": missing_profile,
         "assessment_ready": assessment_ready,
         "assessment_version": assessment.assessment_version if assessment else None,

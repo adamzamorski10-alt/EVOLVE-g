@@ -2388,12 +2388,12 @@
                   <p style="font-size:11px;color:#64748b;margin-bottom:2px;">Makro</p>
                   <p id="ringMacroDetail"
                     style="font-size:13px;font-weight:700;color:#fff;font-family:'Syne',sans-serif;">—</p>
-                </div>
-              </div>
-
             </div>
           </div>
 
+        </div>
+
+      </div>
           <!-- Spójność 7 dni — chart -->
           <div
             style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:22px;padding:20px;">
@@ -7318,6 +7318,27 @@
 
         </div>
 
+        <!-- Eksport dziennika decyzji treningowych (Stage 9E) -->
+        <div class="glass p-6 rounded-2xl mt-6" style="border:1px solid rgba(255,255,255,0.08);">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <span>📋</span> Eksport Dziennika Decyzji
+            </h3>
+            <span class="text-xs text-gray-400">JSON · tylko Twoje dane</span>
+          </div>
+          <p class="text-xs text-gray-400 mb-4">
+            Pobierz pojedynczy plik JSON z historią treningów, planem, ocenami i
+            adaptacjami do niezależnej oceny jakości decyzji EVOLVE.
+          </p>
+          <button type="button" onclick="exportTrainingDecisionLog()"
+            class="p-4 rounded-2xl border text-left transition-all duration-200 hover:border-cyan-400/40"
+            style="background:rgba(0,229,255,0.03);border-color:rgba(0,229,255,0.2);width:100%;">
+            <span class="text-xl block mb-1">💾</span>
+            <span class="text-xs font-bold text-white block">Pobierz dziennik decyzji (JSON)</span>
+            <span class="text-[11px] text-gray-400">Profil · plan · sesje treningowe · zmiany planu · integralność historii.</span>
+          </button>
+        </div>
+
         <div id="subtab-weekly-analysis" class="subtab-panel hidden">
           <div id="subtab-weekly-analysis-content" class="space-y-6"></div>
         </div>
@@ -11624,11 +11645,13 @@
       const todayIdx = (new Date().getDay() + 6) % 7;
       const isToday = dayIndex === todayIdx;
 
-      if (titleEl) titleEl.textContent = (isToday ? '📍 Dzisiaj · ' : '') + dayKey + ' — Trening';
+      if (titleEl) titleEl.textContent = (isToday ? '📍 Dzisiaj · ' : '') + dayKey + ' — ' + (dayExercises.length > 0 ? 'Trening' : 'Odpoczynek');
 
       if (dayExercises.length === 0) {
         if (subtitleEl) subtitleEl.textContent = 'Dzień regeneracji i odpoczynku';
         if (iconEl) iconEl.textContent = '🛌';
+        const startBtn = document.getElementById('planStartWorkoutBtn');
+        if (startBtn) startBtn.style.display = 'none';
         container.innerHTML = `
           <div class="text-center py-10">
             <p class="text-4xl mb-3">🛌</p>
@@ -11649,6 +11672,9 @@
           </div>`;
         return;
       }
+
+      const startBtn = document.getElementById('planStartWorkoutBtn');
+      if (startBtn) startBtn.style.display = 'flex';
 
       const hasDrills = dayExercises.some(e => e && (e.isDrill || e._sport));
       const hasStrength = dayExercises.some(e => e && !(e.isDrill || e._sport));
@@ -24712,45 +24738,106 @@
       showToastMsg('✅ Dzień zaktualizowany!', 'success');
     }
 
-    function openEditPlanModal() {
+    let _editPlanBackendSnapshot = null;
+
+    async function openEditPlanModal() {
       const p = getCurrentProfile();
       if (!p) return;
 
-      const existingPlan = p.trainingPlan || {};
-      const planBuilderCfg = p._planBuilderConfig || null;
+      const btn = document.getElementById('editPlanBtn');
+      const btnOrig = btn ? btn.innerHTML : '';
+      if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Ładowanie…'; }
 
-      PB_DAYS.forEach(day => {
-        _pb.days[day] = _pbCloneEmptyDay();
-      });
+      try {
+        // Pobierz aktualny plan z backendu jako źródło prawdy
+        const planData = await api('/app/plan/current');
+        const days = planData && planData.days ? planData.days : [];
 
-      if (planBuilderCfg) {
-        Object.entries(planBuilderCfg).forEach(([day, cfg]) => {
-          _pb.days[day] = { ..._pbCloneEmptyDay(), ...cfg };
-        });
-      } else {
+        // Resetuj stan edytora
         PB_DAYS.forEach(day => {
-          const exercises = existingPlan[day] || [];
-          if (exercises.length === 0) {
-            _pb.days[day] = {
-              type: 'rest', muscles: [], sport: null,
-              drillCats: [], exCount: 5, drillCount: 4, pinned: []
-            };
-          } else if (exercises.some(e => e.isDrill)) {
-            const sport = exercises.find(e => e.sport)?.sport || null;
-            const drillCats = [...new Set(exercises.filter(e => e.category).map(e => e.category))];
-            _pb.days[day] = {
-              type: 'sport', muscles: [], sport,
-              drillCats, exCount: 5, drillCount: exercises.length, pinned: []
-            };
+          _pb.days[day] = _pbCloneEmptyDay();
+        });
+
+        if (days && days.length > 0) {
+          _loadBackendPlanIntoEditor(days);
+          _editPlanBackendSnapshot = JSON.parse(JSON.stringify(planData));
+        } else {
+          // Brak zapisanego planu — zachowaj dotychczasowy przepływ tworzenia nowego
+          _editPlanBackendSnapshot = null;
+          const existingPlan = p.trainingPlan || {};
+          const planBuilderCfg = p._planBuilderConfig || null;
+          if (planBuilderCfg) {
+            Object.entries(planBuilderCfg).forEach(([day, cfg]) => {
+              _pb.days[day] = { ..._pbCloneEmptyDay(), ...cfg };
+            });
           } else {
-            const muscleSet = [...new Set(
-              exercises.map(e => e.muscle_group || (e.muscles || '').split(',')[0]?.trim()).filter(Boolean)
-            )];
-            _pb.days[day] = {
-              type: 'strength', muscles: muscleSet, sport: null,
-              drillCats: [], exCount: exercises.length, drillCount: 4, pinned: []
-            };
+            PB_DAYS.forEach(day => {
+              const exercises = existingPlan[day] || [];
+              if (exercises.length === 0) {
+                _pb.days[day] = { type: 'rest', muscles: [], sport: null, drillCats: [], exCount: 5, drillCount: 4, pinned: [], locations: [] };
+              } else if (exercises.some(e => e.isDrill)) {
+                const sport = exercises.find(e => e.sport)?.sport || null;
+                const drillCats = [...new Set(exercises.filter(e => e.category).map(e => e.category))];
+                _pb.days[day] = { type: 'sport', muscles: [], sport, drillCats, exCount: 5, drillCount: exercises.length, pinned: [], locations: [] };
+              } else {
+                const muscleSet = [...new Set(
+                  exercises.map(e => e.muscle_group || (e.muscles || '').split(',')[0]?.trim()).filter(Boolean)
+                )];
+                _pb.days[day] = { type: 'strength', muscles: muscleSet, sport: null, drillCats: [], exCount: exercises.length, drillCount: 4, pinned: [], locations: [] };
+              }
+            });
           }
+        }
+
+        openPlanBuilderModal('edit', p, true);
+        _updatePlanHistoryBadge();
+      } catch (err) {
+        // Nieudany odczyt — nie otwieraj edytora w trybie, który mógłby nadpisać dane pustą konfiguracją
+        _editPlanBackendSnapshot = null;
+        if (typeof showToast === 'function') {
+          showToast('Nie udało się wczytać planu z serwera: ' + err.message, 'error');
+        } else {
+          alert('Nie udało się wczytać planu z serwera: ' + err.message);
+        }
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = btnOrig; }
+      }
+    }
+
+    function _loadBackendPlanIntoEditor(days) {
+      days.forEach(dayEntry => {
+        const day = dayEntry.day;
+        if (!PB_DAYS.includes(day)) return;
+
+        const dayType = (dayEntry.day_type || '').toLowerCase();
+        const workout = dayEntry.workout || {};
+        const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
+
+        const cfg = _pbCloneEmptyDay();
+
+        if (dayType === 'rest' || exercises.length === 0) {
+          cfg.type = 'rest';
+        } else if (dayType === 'sport' || dayEntry.is_sport_session || exercises.some(e => e && (e.isDrill || e._sport))) {
+          cfg.type = 'sport';
+          cfg.sport = workout.focus || (exercises.find(e => e && e.sport)?.sport) || null;
+          cfg.drillCats = [...new Set(exercises.filter(e => e && e.category).map(e => e.category))];
+          cfg.drillCount = Math.max(2, exercises.length);
+          cfg.pinned = exercises.map(item => ({ type: 'exercise', item: { ...item } }));
+        } else {
+          cfg.type = 'strength';
+          cfg.exCount = Math.max(3, exercises.length);
+          const muscles = [...new Set(
+            exercises.filter(e => e && !(e.isDrill || e._sport))
+              .map(e => e.muscle_group || (e.muscles || '').split(',')[0]?.trim())
+              .filter(Boolean)
+          )];
+          cfg.muscles = muscles;
+          cfg.pinned = exercises.map(item => ({ type: 'exercise', item: { ...item } }));
+        }
+
+        _pb.days[day] = cfg;
+      });
+    }
         });
       }
 
@@ -37959,6 +38046,33 @@
       URL.revokeObjectURL(url);
     } catch (e) {
       alert('Nie udało się wyeksportować danych: ' + e.message);
+    }
+  };
+
+  window.exportTrainingDecisionLog = async function () {
+    const token = localStorage.getItem('fitai_token');
+    if (!token) {
+      alert('Musisz być zalogowany, aby pobrać dziennik decyzji.');
+      return;
+    }
+    try {
+      const url = (window.API_BASE || '') + '/app/training/decision-log-export';
+      const res = await fetch(url, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!res.ok) throw new Error('Serwer zwrócił kod ' + res.status);
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const urlObj = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = urlObj;
+      a.download = `evolve_decision_log_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(urlObj);
+    } catch (e) {
+      alert('Nie udało się wyeksportować dziennika decyzji: ' + e.message);
     }
   };
 

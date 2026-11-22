@@ -89,7 +89,10 @@ def estimate_starting_weight(
     if eq_set and eq_set <= {"bodyweight"} or movement_pattern == "core":
         return 0.0
 
-    bw = max(45.0, float(user_weight_kg or 70.0))
+    if not user_weight_kg:
+        return 0.0
+
+    bw = max(45.0, float(user_weight_kg))
 
     # Bazowe % masy ciała dla sztangi (compound) u średniozaawansowanego mężczyzny
     pattern_pct = {
@@ -113,8 +116,11 @@ def estimate_starting_weight(
         level_mult = 0.60
     elif any(k in level_str for k in ("advanced", "zaawansowany", "elite")):
         level_mult = 1.00
-    else:
+    elif level_str in {"średniozaawansowany", "intermediate"}:
         level_mult = 0.80
+    else:
+        # Nieznany poziom (None lub pusty) -> konserwatywnie beginner
+        level_mult = 0.60
 
     # Korekta płci
     gender_str = (gender or "").lower().strip()
