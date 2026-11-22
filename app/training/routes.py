@@ -16,10 +16,10 @@ def _today_warsaw() -> date:
     """Return the current date in Europe/Warsaw timezone."""
     return datetime.now(_TZ_WARSAW).date()
 
-from typing import Any, Optional
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import HTMLResponse
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlmodel import Session, select, update
 
@@ -32,7 +32,6 @@ from app.plan.routes import _assessment_inputs, _fingerprint, _profile_inputs
 from app.recovery.routes import evaluate_recovery
 from app.schemas import TrainingCompleteRequest, TrainingSetResultRequest
 from app.training.adaptation import ADAPTATION_ALGORITHM, adapt_exercise
-from app.training.decision_log_export import build_training_decision_log
 from app.training.evaluation import evaluate_exercise
 
 router = APIRouter(prefix="/app/training", tags=["training-execution"])
@@ -2138,11 +2137,11 @@ def _enrich_plan_with_progressions(
                     ex_copy["weight_kg"] = 0.0
                 else:
                     est_weight = estimate_starting_weight(
-                        user_weight_kg=user.weight,
+                        user_weight_kg=float(user.weight or 70.0),
                         exercise_type=ex_type,
                         movement_pattern=movement,
                         gender=str(user.gender or "mężczyzna"),
-                        training_level=str(user.training_experience or "beginner"),
+                        training_level=str(user.training_experience or "intermediate"),
                         equipment=equipment,
                     )
                     step = get_weight_step(equipment)
@@ -2218,11 +2217,11 @@ def _update_exercise_progressions(
             equipment = list(ex_obj.equipment or []) if ex_obj else []
             movement = getattr(ex_obj, "movement_pattern", "horizontal_push") or "horizontal_push"
             start_weight = estimate_starting_weight(
-                user_weight_kg=user.weight,
+                user_weight_kg=float(user.weight or 70),
                 exercise_type=ex_type,
                 movement_pattern=movement,
                 gender=str(user.gender or "mężczyzna"),
-                training_level=str(user.training_experience or "beginner"),
+                training_level=str(user.training_experience or "intermediate"),
             )
             # Zaokrąglij do kroku sprzętu
             step = get_weight_step(equipment)
@@ -2476,26 +2475,4 @@ def complete_training_session(
         ).all()
     )
     return {"status": "completed", "session": _serialize_session(row, final_sets), "progression_updates": progression_updates}
-
-
-@router.get("/decision-log-export")
-def export_training_decision_log(
-    date_from: Optional[date] = Query(None, description="Początek okresu (YYYY-MM-DD)"),
-    date_to: Optional[date] = Query(None, description="Koniec okresu (YYYY-MM-DD)"),
-    user: UserDB = Depends(get_current_user),
-    session: Session = Depends(get_session),
-):
-    """Eksport dziennika decyzji treningowych jako pojedynczy plik JSON.
-
-    Zawiera: profil/kontekst, oryginalny plan, faktyczne sesje treningowe,
-    zmiany planu (adaptacje) oraz metadane integralności historii.
-    Dostępne tylko dla uwierzytelnionego użytkownika (user-scoped).
-    """
-    data = build_training_decision_log(user, session, date_from=date_from, date_to=date_to)
-    filename = f"evolve_decision_log_{user.id}_{date.today().isoformat()}.json"
-    return JSONResponse(
-        content=data,
-        media_type="application/json",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
 
