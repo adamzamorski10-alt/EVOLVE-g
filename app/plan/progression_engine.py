@@ -80,10 +80,17 @@ def estimate_starting_weight(
     gender: str,
     training_level: str,
     equipment: list[str] | None = None,
+    dumbbell_max_kg_per_dumbbell: float | None = None,
+    dumbbell_increment_kg: float | None = None,
 ) -> float:
     """
     Szacuj wagę startową na podstawie wagi ciała, wzorca ruchu, sprzętu i profilu.
     Konserwatywne wartości startowe zapewniające bezpieczną kalibrację.
+
+    Dla hantli waga jest wyrażona na jeden hantel (per dumbbell). Gdy użytkownik
+    potwierdził maksymalny ładunek per hantel, szacunek nigdy go nie przekracza.
+    Gdy pojemność jest nieznana (None), nie sztucznie zawyżamy ani nie oznaczamy
+    oszacowania jako zweryfikowanego recepty.
     """
     eq_set = {str(e).lower().strip() for e in (equipment or [])}
     if eq_set and eq_set <= {"bodyweight"} or movement_pattern == "core":
@@ -126,9 +133,19 @@ def estimate_starting_weight(
     is_dumbbell = any("hant" in e or "dumbbell" in e for e in eq_set)
     if is_dumbbell:
         weight = weight * 0.45
+        # Twardy sufit: nigdy nie przepisz więcej niż użytkownik ma na jednym hantlu.
+        if dumbbell_max_kg_per_dumbbell is not None:
+            weight = min(weight, float(dumbbell_max_kg_per_dumbbell))
+        # Szanuj dostępny skok wagowy; jeśli nieznany, użyj kroku domyślnego dla sprzętu.
+        step = dumbbell_increment_kg if dumbbell_increment_kg is not None else get_weight_step(equipment)
+        weight = round_to_step(weight, step)
+        # Zaokrąglenie w górę do inkrementu nie może wyjść ponad potwierdzone maksimum.
+        if dumbbell_max_kg_per_dumbbell is not None:
+            weight = min(weight, float(dumbbell_max_kg_per_dumbbell))
+    else:
+        weight = round_to_step(weight, get_weight_step(equipment))
 
-    step = get_weight_step(equipment)
-    return round_to_step(weight, step)
+    return weight
 
 
 def decide_next_step(

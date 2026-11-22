@@ -109,6 +109,11 @@ class UserDB(SQLModel, table=True):
     training_experience: Optional[str] = "intermediate" # "beginner"|"intermediate"|"advanced"|"elite"
     equipment: Optional[str] = "gym_full"               # "gym_full"|"gym_free"|"dumbbells"|"bodyweight"|"court"|"hybrid"
     health_limitations: Optional[str] = None            # pełen tekst ograniczeń zdrowotnych
+    # ── Dumbbell capability (opcjonalne, None = nieznane/nieweryfikowane) ──
+    # Wszystkie wartości są wyrażone na jeden hantel (per dumbbell), a nie na parę.
+    dumbbell_type: Optional[str] = None                   # "fixed" | "adjustable" | None
+    dumbbell_max_kg_per_dumbbell: Optional[float] = None  # maksymalny ładunek na jeden hantel [kg]
+    dumbbell_increment_kg: Optional[float] = None         # dostępny skok wagowy [kg]
     basketball_profile_json: str = Field(default="{}", sa_type=Text)                # sport-only athlete profile and assessment
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
@@ -204,6 +209,9 @@ class UserDB(SQLModel, table=True):
             "level": _xp_to_level(self.total_xp),
             "injuries": [i.strip() for i in self.injuries.split(",") if i.strip()],
             "health_limitations": self.health_limitations or "",
+            "dumbbell_type": self.dumbbell_type,
+            "dumbbell_max_kg_per_dumbbell": self.dumbbell_max_kg_per_dumbbell,
+            "dumbbell_increment_kg": self.dumbbell_increment_kg,
             "basketball_profile": self.get_dict("basketball_profile_json"),
             "basketball_position": self.basketball_position or "",
             "training_experience": self.training_experience or "intermediate",

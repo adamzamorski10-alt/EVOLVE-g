@@ -167,6 +167,11 @@ class ProfileUpdateRequest(BaseModel):
     training_experience: Optional[str] = Field(default=None, max_length=40)
     equipment: Optional[str] = Field(default=None, max_length=60)
     health_limitations: Optional[str] = Field(default=None, max_length=2000)
+    # ── Dumbbell capability (opcjonalne, None = nieznane) ──
+    # Wartości wyrażone na jeden hantel (per dumbbell), nie na parę.
+    dumbbell_type: Optional[str] = Field(default=None, max_length=40)
+    dumbbell_max_kg_per_dumbbell: Optional[float] = Field(default=None, ge=0, le=1000)
+    dumbbell_increment_kg: Optional[float] = Field(default=None, ge=0, le=50)
     basketball_profile: Optional[dict[str, Any]] = None
     training_locations: Optional[list[dict[str, Any]]] = None
 

@@ -951,6 +951,7 @@ def update_profile(
             "goal", "frequency", "diet", "allergies", "meals_per_day", "notes",
             "sport_focus", "sport_specialization",
             "basketball_position", "training_experience", "equipment", "health_limitations",
+            "dumbbell_type", "dumbbell_max_kg_per_dumbbell", "dumbbell_increment_kg",
         )
         changed = False
         should_recalc_macros = False

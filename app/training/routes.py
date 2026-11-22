@@ -2143,9 +2143,10 @@ def _enrich_plan_with_progressions(
                         gender=str(user.gender or "mężczyzna"),
                         training_level=str(user.training_experience or "intermediate"),
                         equipment=equipment,
+                        dumbbell_max_kg_per_dumbbell=user.dumbbell_max_kg_per_dumbbell,
+                        dumbbell_increment_kg=user.dumbbell_increment_kg,
                     )
-                    step = get_weight_step(equipment)
-                    ex_copy["weight_kg"] = round_to_step(est_weight, step)
+                    ex_copy["weight_kg"] = est_weight
 
             # Jeśli reps nie były określone, ustaw cel na podstawie profilu
             if not ex_copy.get("reps") or ex_copy.get("reps") == 0:
@@ -2222,10 +2223,9 @@ def _update_exercise_progressions(
                 movement_pattern=movement,
                 gender=str(user.gender or "mężczyzna"),
                 training_level=str(user.training_experience or "intermediate"),
+                dumbbell_max_kg_per_dumbbell=user.dumbbell_max_kg_per_dumbbell,
+                dumbbell_increment_kg=user.dumbbell_increment_kg,
             )
-            # Zaokrąglij do kroku sprzętu
-            step = get_weight_step(equipment)
-            start_weight = round_to_step(start_weight, step)
 
             prog = ExerciseProgressionDB(
                 user_id=user_id,
