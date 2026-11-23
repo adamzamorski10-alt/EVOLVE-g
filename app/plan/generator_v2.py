@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import re
+import math
 from typing import Any
 
 from app.exercises.data import (
@@ -691,6 +692,7 @@ def _fill_slot(
     used_names_global: set[str] | None = None,
     volume_sets: dict[str, int] | None = None,
     priority_groups: set[str] | None = None,
+    is_repeat_template: bool = False,
 ) -> dict[str, Any] | None:
     prefer_ids = slot.get("prefer_ids") or []
     pattern = slot["pattern"]
@@ -783,6 +785,11 @@ def _fill_slot(
             for ex in candidates:
                 ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
                 if ex_obj and ex_obj.id == pid:
+                    if is_repeat_template and used_names_global and ex["name"] in used_names_global:
+                        # Powtórzony szablon (full_body_3): nie podstawiaj innego
+                        # ćwiczenia w miejsce powtórzonego staple'a (zaburzyłoby to
+                        # bilans pchnięcia/ciągnięcia) — upuść_slot.
+                        return None
                     return ex
             # Sprawdź prefer_ids w innych grupach dla dopasowania sprzętu (np. hammer_curl gdy brak maszyny do leg_curl)
             for og, exs in pool.items():
@@ -1245,19 +1252,66 @@ def _ensure_beginner_full_body_rules(
                 break
 
 
+# ---------------------------------------------------------------------------
+# Realistic session-time budgeting (Stage C1).
+# Estimates clock time, not just working-set time.
+# ---------------------------------------------------------------------------
+_SET_EXECUTION_MIN = 1.25         # realistic time for one working set
+_REST_INTERVAL_MIN = 1.0          # rest between sets of the same exercise
+_WARMUP_MIN_PER_SESSION = 5.0     # general warm-up, once per session
+_TRANSITION_MIN = 0.75            # transition/setup between distinct exercises
+_UNILATERAL_EXTRA_MIN = 1.0       # extra time for a unilateral (per-side) exercise
+
+
+def _is_unilateral_exercise(ex_obj: Any) -> bool:
+    if ex_obj is None:
+        return False
+    reps = str(getattr(ex_obj, "reps_range", "") or "")
+    if "/strona" in reps or "per side" in reps.lower():
+        return True
+    name = " ".join(
+        [getattr(ex_obj, "name_pl", "") or "", getattr(ex_obj, "name_en", "") or ""]
+    ).lower()
+    return any(term in name for term in ("one_arm", "single_leg", "bulgarian", "alternating", "one-leg", "jednorącz"))
+
+
 def _calculate_estimated_minutes(exercises: list[dict[str, Any]]) -> int:
-    """Szacowany czas sesji w minutach: suma serii * 2,5 + 5 min."""
+    """Szacowany czas sesji w minutach.
+
+    Uwzględnia: serie robocze, przerwy między seriami, jednorazową rozgrzewkę,
+    przejścia między ćwiczeniami oraz dodatkowy czas na ćwiczenia jednostronne
+    (obie strony). Zwraca czas w minutach (zaokrąglony w górę).
+    """
     total_sets = 0
+    rest_sets = 0
+    num_exercises = 0
+    unilateral_extra = 0.0
     for ex in exercises:
         sets_val = ex.get("sets", 3)
         if isinstance(sets_val, int):
-            total_sets += sets_val
+            sets_int = sets_val
         elif isinstance(sets_val, str):
             try:
-                total_sets += int(sets_val.split("-")[0])
+                sets_int = int(sets_val.split("-")[0])
             except (ValueError, AttributeError):
-                total_sets += 3
-    return total_sets * 2.5 + 5
+                sets_int = 3
+        else:
+            sets_int = 3
+        if sets_int < 1:
+            sets_int = 1
+        total_sets += sets_int
+        rest_sets += max(0, sets_int - 1)
+        num_exercises += 1
+        ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
+        if _is_unilateral_exercise(ex_obj):
+            unilateral_extra += _UNILATERAL_EXTRA_MIN
+
+    execution = total_sets * _SET_EXECUTION_MIN
+    rest = rest_sets * _REST_INTERVAL_MIN
+    warmup = _WARMUP_MIN_PER_SESSION if num_exercises > 0 else 0.0
+    transitions = max(0, num_exercises - 1) * _TRANSITION_MIN
+    minutes = execution + rest + warmup + transitions + unilateral_extra
+    return int(math.ceil(minutes))
 
 
 def calculate_push_pull_sets(days: list[dict[str, Any]]) -> tuple[int, int]:
@@ -1305,17 +1359,26 @@ def build_split_plan(
 
     availability_raw = getattr(user, "training_availability_json", "{}")
     configured_availability: list[str] | None = None
+    session_duration_minutes: int | None = None
     if isinstance(availability_raw, str) and availability_raw.strip():
         import json as _json
         try:
             parsed = _json.loads(availability_raw)
         except (TypeError, ValueError):
             parsed = {}
-        if isinstance(parsed, dict) and "days" in parsed:
-            configured_availability = [
-                d for d in parsed["days"]
-                if isinstance(d, str) and _normalize_weekday(d) is not None
-            ]
+        if isinstance(parsed, dict):
+            if "days" in parsed:
+                configured_availability = [
+                    d for d in parsed["days"]
+                    if isinstance(d, str) and _normalize_weekday(d) is not None
+                ]
+            raw_minutes = parsed.get("session_duration_minutes")
+            if (
+                isinstance(raw_minutes, int)
+                and not isinstance(raw_minutes, bool)
+                and 15 <= raw_minutes <= 240
+            ):
+                session_duration_minutes = raw_minutes
 
     selected_days, schedule_notes = _select_training_days(target_days, configured_availability)
 
@@ -1404,6 +1467,7 @@ def build_split_plan(
 
     days: list[dict] = []
     used_names_global: set[str] = set()
+    templates_used_this_week: set[str] = set()
     day_index = 0
     diagnostics: list[str] = list(schedule_notes)
 
@@ -1431,6 +1495,17 @@ def build_split_plan(
         else:
             slots = SLOT_TEMPLATES[template_name]
 
+        # W splicie full_body_3 trzeci dzień używa tego samego szablonu co pierwszy
+        # (full_body_a). Gdy szablon się powtarza w tym tygodniu, nie auto-wybieraj
+        # ponownie ćwiczeń z prefer_ids (np. unoszenie bokiem, łyżki), gdy już się
+        # pojawiły — upuść_slot zamiast podstawiać ćwiczenie, które zaburzyłoby bilans
+        # pchnięcia/ciągnięcia. Pozostałe splitach powtórzenia stapeli są wymagane
+        # do objętości i częstotliwości (R5, R29).
+        is_repeat_template = (
+            split_key == "full_body_3"
+            and template_name in templates_used_this_week
+        )
+
         used_patterns_in_session: dict[str, int] = {}
         used_primary_muscles_in_session: dict[str, int] = {}
         used_families_in_session: set[str] = set()
@@ -1455,7 +1530,7 @@ def build_split_plan(
                     if sg and sg in volume_sets and sg in volume_targets:
                         low, _ = volume_targets[sg]
                         if volume_sets.get(sg, 0) < low:
-                            should_exclude = False  # potrzebne do pokrycia ponizej celu objętości
+                            should_exclude = False  # potrzebne do pokrycia poniżej celu objętości
                 if should_exclude:
                     exclude_names.add(name)
         session_isolation_ids: set[str] = set()
@@ -1505,6 +1580,7 @@ def build_split_plan(
                 exclude_names, has_equipment_preset,
                 session_isolation_ids, template_name, used_names_global,
                 volume_sets, priority_groups,
+                is_repeat_template=is_repeat_template,
             )
             if ex is None:
                 # Fallback dla masy własnej: to samo mięsień, inny wzorzec.
@@ -1714,21 +1790,25 @@ def build_split_plan(
             },
             "meals": meals,
         })
+        templates_used_this_week.add(template_name)
         day_index += 1
 
-    # Oblicz estimated_minutes i ogranicz sesje do 75 min (R20).
-    MAX_SESSION_MINUTES = 75
+    # Oblicz estimated_minutes i ogranicz sesje do zadeklarowanego limitu czasu
+    # sesji użytkownika (75 min domyślnie, gdy brak danych). Nigdy nie przekraczaj
+    # dichiarowanego limitu; nadmiarowe izolacje są zdejmowane zamiast compound/core.
+    session_cap = session_duration_minutes if session_duration_minutes is not None else 75
     for day in days:
         if day["day_type"] == "rest":
+            day["workout"]["session_exceeds_cap"] = False
             continue
         exs = day["workout"]["exercises"]
         minutes = _calculate_estimated_minutes(exs)
-        # R20: usun nadmiar izolacji jesli sesja > 75 min (nigdy compound/core).
-        # Dla sesji upper sredniozaawansowanego zatrzymujemy sie na 7 cwiczeniach
-        # (maksymalnie 7 przy dłuższej sesji; nigdy nie usuwamy zlozonych/core).
+        # R20: usuń nadmiar izolacji jeśli sesja przekracza limit czasu (nigdy compound/core).
+        # Dla sesji upper średniozaawansowanego zatrzymujemy się na 7 ćwiczeniach
+        # (maksymalnie 7 przy dłuższej sesji; nigdy nie usuwamy złożonych/core).
         min_exercises = 7 if (is_intermediate and day["workout"]["focus"] in ("upper_a", "upper_b")) else 3
-        while minutes > MAX_SESSION_MINUTES and len(exs) > min_exercises:
-            # Szukaj ostatniego cwiczenia izolacji do usuniecia
+        while minutes > session_cap and len(exs) > min_exercises:
+            # Szukaj ostatniego ćwiczenia izolacji do usunięcia
             removed = False
             for i in range(len(exs) - 1, -1, -1):
                 ex_i = get_exercise(exs[i].get("exercise_id", exs[i]["name"]))
@@ -1741,6 +1821,7 @@ def build_split_plan(
             minutes = _calculate_estimated_minutes(exs)
         day["workout"]["exercises"] = exs
         day["workout"]["estimated_minutes"] = round(minutes)
+        day["workout"]["session_exceeds_cap"] = minutes > session_cap
 
     # Przelicz weekly_sets, weekly_sessions i volume_sets bezpośrednio z gotowego planu.
     volume_sets = {m: 0 for m in volume_targets}

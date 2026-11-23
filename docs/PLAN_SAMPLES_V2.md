@@ -7,7 +7,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 ## persona 1 (3 dni, siłownia)
 - Split: `full_body_3` | Cel: masa mięśniowa | Poziom: początkujący | Sprzęt: sztanga, hantle, maszyny, wyciąg, ławka, poręcze, siłownia
 - Dni treningowe: 3/3 | Niewypełnione: 0
-- Diagnostyka: Objętość poniżej celu: Grupa czworogłowe: 6 serii, cel 7-12 (brakuje 1).
+- Diagnostyka: Objętość poniżej celu: Grupa barki boczne: 3 serii, cel 6-10 (brakuje 3). Grupa czworogłowe: 6 serii, cel 7-12 (brakuje 1).
 
 - Balans pchanie/ciągnięcie: Pchanie = 14 serii, Ciągnięcie = 12 serii (stosunek ciągnięcie/pchanie = 0.86)
 
@@ -19,7 +19,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Poniedziałek | full_body_a | Wiosłowanie na maszynie siedząc (cable row) | 3 | 10-12 | horizontal_pull | - |
 | Poniedziałek | full_body_a | Unoszenie hantli bokiem | 3 | 12-15 | isolation | - |
 | Poniedziałek | full_body_a | Crunch na maszynie z linką | 3 | 15-20 | core | - |
-| | | **Szacowany czas sesji: 52 min** | | | | |
+| | | **Szacowany czas sesji: 46 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -29,7 +29,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Środa | full_body_b | Rozpiętki na bramie (kabel dolny) | 3 | 12-15 | isolation | - |
 | Środa | full_body_b | Uginania na wyciągu | 3 | 12-15 | isolation | - |
 | Środa | full_body_b | Uginanie nóg leżąc | 3 | 10-12 | isolation | - |
-| | | **Szacowany czas sesji: 50 min** | | | | |
+| | | **Szacowany czas sesji: 44 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -37,9 +37,9 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Piątek | full_body_a | Wznosy tułowia na ławce rzymskiej | 3 | 10-15 | hinge | - |
 | Piątek | full_body_a | Wyciskanie hantli na skosie dodatnim | 4 | 8-10 | horizontal_push | - |
 | Piątek | full_body_a | Wiosłowanie hantlami na ławce skosnej | 3 | 10-12 | horizontal_pull | - |
-| Piątek | full_body_a | Unoszenie hantli bokiem | 3 | 12-15 | isolation | - |
 | Piątek | full_body_a | Pallof press na wyciągu | 3 | 10-12 | core | - |
-| | | **Szacowany czas sesji: 52 min** | | | | |
+| Piątek | full_body_a | Wspięcia na palce stojąc | 2 | 15-20 | isolation | - |
+| | | **Szacowany czas sesji: 44 min** | | | | |
 
 ### Klasyfikacja ćwiczeń (pchanie / ciągnięcie / żadne)
 | Dzień | ćwiczenie | Serie | Wzorzec ruchu | Grupa główna | Klasyfikacja |
@@ -60,8 +60,8 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Piątek | Wznosy tułowia na ławce rzymskiej | 3 | hinge | plecy | CIĄGNIĘCIE |
 | Piątek | Wyciskanie hantli na skosie dodatnim | 4 | horizontal_push | klatka | PCHANIE |
 | Piątek | Wiosłowanie hantlami na ławce skosnej | 3 | horizontal_pull | plecy | CIĄGNIĘCIE |
-| Piątek | Unoszenie hantli bokiem | 3 | isolation | barki | żadne |
 | Piątek | Pallof press na wyciągu | 3 | core | brzuch | żadne |
+| Piątek | Wspięcia na palce stojąc | 2 | isolation | nogi | żadne |
 | **SUMA** | | | | | **Pchanie: 14, Ciągnięcie: 15 (ratio: 1.07)** |
 
 ### weekly_summary
@@ -71,10 +71,10 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 |-----------------|------------------|--------------------------|
 | klatka | 3 | 11 |
 | plecy | 3 | 12 |
-| barki | 3 | 9 |
+| barki | 2 | 6 |
 | biceps | 1 | 3 |
 | triceps | 0 | 0 |
-| nogi | 3 | 15 |
+| nogi | 3 | 17 |
 | brzuch | 2 | 6 |
 
 #### Serie na mięsień (podgrupy)
@@ -82,12 +82,12 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 |--------------------|--------------------------|---------------------|
 | klatka (chest) | 11 | 7-10 |
 | plecy (back) | 12 | 8-11 |
-| barki boczne (side_delts) | 6 | 6-8 |
+| barki boczne (side_delts) | 3 | 6-8 |
 | biceps (biceps) | 3 | 4-7 |
 | triceps (triceps) | 0 | 4-7 |
 | czworogłowe (quads) | 6 | 7-10 |
 | dwugłowe (hamstrings) | 6 | 6-8 |
-| łydki (calves) | 0 | 4-7 |
+| łydki (calves) | 2 | 4-7 |
 
 ## persona 2 (2 dni, siłownia)
 - Split: `full_body_2` | Cel: masa mięśniowa | Poziom: początkujący | Sprzęt: hantle, ławka
@@ -104,7 +104,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Poniedziałek | full_body_a | Wiosłowanie hantlami na ławce skosnej | 3 | 10-12 | horizontal_pull | - |
 | Poniedziałek | full_body_a | Unoszenie hantli bokiem | 3 | 12-15 | isolation | - |
 | Poniedziałek | full_body_a | Plank przedni | 3 | 45-60 s | core | - |
-| | | **Szacowany czas sesji: 52 min** | | | | |
+| | | **Szacowany czas sesji: 46 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -114,7 +114,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Czwartek | full_body_b | Rozpiętki hantlami na podłodze | 3 | 10-15 | isolation | - |
 | Czwartek | full_body_b | Uginania młotkowe | 3 | 10-12 | isolation | - |
 | Czwartek | full_body_b | Wspięcia na palce stojąc | 2 | 15-20 | isolation | - |
-| | | **Szacowany czas sesji: 48 min** | | | | |
+| | | **Szacowany czas sesji: 42 min** | | | | |
 
 ### Klasyfikacja ćwiczeń (pchanie / ciągnięcie / żadne)
 | Dzień | ćwiczenie | Serie | Wzorzec ruchu | Grupa główna | Klasyfikacja |
@@ -175,7 +175,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Poniedziałek | upper_a | Face pull na wyciągu (z liną) | 3 | 15-20 | isolation | - |
 | Poniedziałek | upper_a | Uginania na wyciągu | 3 | 12-15 | isolation | - |
 | Poniedziałek | upper_a | Prostowanie ramion na wyciągu | 3 | 12-15 | isolation | - |
-| | | **Szacowany czas sesji: 70 min** | | | | |
+| | | **Szacowany czas sesji: 61 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -185,7 +185,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Wtorek | lower_a | Uginanie nóg leżąc | 3 | 10-12 | isolation | - |
 | Wtorek | lower_a | Wspięcia na palce stojąc | 3 | 15-20 | isolation | - |
 | Wtorek | lower_a | Crunch na maszynie z linką | 3 | 15-20 | core | - |
-| | | **Szacowany czas sesji: 52 min** | | | | |
+| | | **Szacowany czas sesji: 47 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -196,7 +196,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Czwartek | upper_b | Odwrotne rozpiętki na maszynie (rear delt fly) | 3 | 12-15 | isolation | - |
 | Czwartek | upper_b | Uginania młotkowe | 3 | 10-12 | isolation | - |
 | Czwartek | upper_b | French press ze sztangą stojąc | 3 | 10-12 | isolation | - |
-| | | **Szacowany czas sesji: 65 min** | | | | |
+| | | **Szacowany czas sesji: 57 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -206,7 +206,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Piątek | lower_b | Wyprosty nóg na maszynie | 3 | 12-15 | isolation | - |
 | Piątek | lower_b | Wspięcia na palce stojąc | 3 | 15-20 | isolation | - |
 | Piątek | lower_b | Pallof press na wyciągu | 3 | 10-12 | core | - |
-| | | **Szacowany czas sesji: 52 min** | | | | |
+| | | **Szacowany czas sesji: 47 min** | | | | |
 
 ### Klasyfikacja ćwiczeń (pchanie / ciągnięcie / żadne)
 | Dzień | ćwiczenie | Serie | Wzorzec ruchu | Grupa główna | Klasyfikacja |
@@ -280,7 +280,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Poniedziałek | full_body_a | Superman | 3 | 10-15 | isolation | - |
 | Poniedziałek | full_body_a | Prone Y-T-W raises | 3 | 10-15 | isolation | - |
 | Poniedziałek | full_body_a | Plank przedni | 3 | 45-60 s | core | - |
-| | | **Szacowany czas sesji: 52 min** | | | | |
+| | | **Szacowany czas sesji: 46 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -288,7 +288,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Środa | full_body_b | Pompki diamentowe na kolanach | 3 | 8-12 | horizontal_push | - |
 | Środa | full_body_b | Cobra w leżeniu przodem | 3 | 10-15 | isolation | - |
 | Środa | full_body_b | Wspięcia na palce stojąc | 2 | 15-20 | isolation | - |
-| | | **Szacowany czas sesji: 32 min** | | | | |
+| | | **Szacowany czas sesji: 28 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -296,7 +296,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Piątek | full_body_a | Wall sit | 3 | 30-45 s | squat | - |
 | Piątek | full_body_a | Reverse snow angel | 3 | 10-15 | isolation | - |
 | Piątek | full_body_a | Dead bug | 3 | 10/strona | core | - |
-| | | **Szacowany czas sesji: 35 min** | | | | |
+| | | **Szacowany czas sesji: 32 min** | | | | |
 
 ### Klasyfikacja ćwiczeń (pchanie / ciągnięcie / żadne)
 | Dzień | ćwiczenie | Serie | Wzorzec ruchu | Grupa główna | Klasyfikacja |
@@ -359,7 +359,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Poniedziałek | upper_a | Face pull na wyciągu (z liną) | 3 | 15-20 | isolation | - |
 | Poniedziałek | upper_a | Uginania na wyciągu | 3 | 12-15 | isolation | - |
 | Poniedziałek | upper_a | Prostowanie ramion na wyciągu | 3 | 12-15 | isolation | - |
-| | | **Szacowany czas sesji: 70 min** | | | | |
+| | | **Szacowany czas sesji: 61 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -369,7 +369,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Wtorek | lower_a | Uginanie nóg leżąc | 3 | 10-12 | isolation | - |
 | Wtorek | lower_a | Wspięcia na palce stojąc | 3 | 15-20 | isolation | - |
 | Wtorek | lower_a | Crunch na maszynie z linką | 3 | 15-20 | core | - |
-| | | **Szacowany czas sesji: 52 min** | | | | |
+| | | **Szacowany czas sesji: 47 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -379,7 +379,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Środa | push | Unoszenie hantli bokiem | 4 | 12-15 | isolation | - |
 | Środa | push | Francuskie wyciskanie hantli oburącz zza głowy | 3 | 10-12 | isolation | - |
 | Środa | push | Triceps kick-back hantlem | 3 | 12-15/strona | isolation | - |
-| | | **Szacowany czas sesji: 58 min** | | | | |
+| | | **Szacowany czas sesji: 51 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -387,7 +387,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Piątek | pull | Face pull na wyciągu (z liną) | 3 | 15-20 | isolation | - |
 | Piątek | pull | Uginania ze sztangą stojąc | 3 | 8-10 | isolation | - |
 | Piątek | pull | Uginania młotkowe | 3 | 10-12 | isolation | - |
-| | | **Szacowany czas sesji: 38 min** | | | | |
+| | | **Szacowany czas sesji: 33 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -397,7 +397,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Sobota | legs | Wyprosty nóg na maszynie | 3 | 12-15 | isolation | - |
 | Sobota | legs | Wspięcia na palce stojąc | 3 | 15-20 | isolation | - |
 | Sobota | legs | Pallof press na wyciągu | 3 | 10-12 | core | - |
-| | | **Szacowany czas sesji: 52 min** | | | | |
+| | | **Szacowany czas sesji: 47 min** | | | | |
 
 ### Klasyfikacja ćwiczeń (pchanie / ciągnięcie / żadne)
 | Dzień | ćwiczenie | Serie | Wzorzec ruchu | Grupa główna | Klasyfikacja |
@@ -474,7 +474,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Poniedziałek | push | Unoszenie hantli bokiem | 4 | 12-15 | isolation | - |
 | Poniedziałek | push | Prostowanie ramion na wyciągu | 3 | 12-15 | isolation | - |
 | Poniedziałek | push | Francuskie wyciskanie hantli oburącz zza głowy | 3 | 10-12 | isolation | - |
-| | | **Szacowany czas sesji: 55 min** | | | | |
+| | | **Szacowany czas sesji: 48 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -483,7 +483,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Wtorek | pull | Face pull na wyciągu (z liną) | 3 | 15-20 | isolation | - |
 | Wtorek | pull | Uginania na wyciągu | 3 | 12-15 | isolation | - |
 | Wtorek | pull | Uginania młotkowe | 3 | 10-12 | isolation | - |
-| | | **Szacowany czas sesji: 42 min** | | | | |
+| | | **Szacowany czas sesji: 37 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -493,7 +493,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Środa | legs | Uginanie nóg leżąc | 3 | 10-12 | isolation | - |
 | Środa | legs | Wspięcia na palce stojąc | 3 | 15-20 | isolation | - |
 | Środa | legs | Crunch na maszynie z linką | 3 | 15-20 | core | - |
-| | | **Szacowany czas sesji: 52 min** | | | | |
+| | | **Szacowany czas sesji: 47 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -503,7 +503,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Czwartek | push | Unoszenie hantli bokiem | 4 | 12-15 | isolation | - |
 | Czwartek | push | Skull crushers (łamiące czaszkę) z hantlami | 3 | 10-12 | isolation | - |
 | Czwartek | push | Triceps kick-back hantlem | 3 | 12-15/strona | isolation | - |
-| | | **Szacowany czas sesji: 58 min** | | | | |
+| | | **Szacowany czas sesji: 51 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -511,7 +511,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Piątek | pull | Face pull na wyciągu (z liną) | 3 | 15-20 | isolation | - |
 | Piątek | pull | Uginania ze sztangą stojąc | 3 | 8-10 | isolation | - |
 | Piątek | pull | Uginania hantlami naprzemiennie | 3 | 10/strona | isolation | - |
-| | | **Szacowany czas sesji: 38 min** | | | | |
+| | | **Szacowany czas sesji: 34 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -521,7 +521,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Sobota | legs | Wyprosty nóg na maszynie | 3 | 12-15 | isolation | - |
 | Sobota | legs | Wspięcia na palce stojąc | 3 | 15-20 | isolation | - |
 | Sobota | legs | Pallof press na wyciągu | 3 | 10-12 | core | - |
-| | | **Szacowany czas sesji: 52 min** | | | | |
+| | | **Szacowany czas sesji: 47 min** | | | | |
 
 ### Klasyfikacja ćwiczeń (pchanie / ciągnięcie / żadne)
 | Dzień | ćwiczenie | Serie | Wzorzec ruchu | Grupa główna | Klasyfikacja |
@@ -602,7 +602,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Poniedziałek | full_body_1_ext | Wiosłowanie na maszynie siedząc (cable row) | 4 | 10-12 | horizontal_pull | - |
 | Poniedziałek | full_body_1_ext | Ściąganie drążka wyciągu do klatki (szeroki chwyt) | 4 | 10-12 | vertical_pull | - |
 | Poniedziałek | full_body_1_ext | Crunch na maszynie z linką | 3 | 15-20 | core | - |
-| | | **Szacowany czas sesji: 68 min** | | | | |
+| | | **Szacowany czas sesji: 59 min** | | | | |
 
 ### Klasyfikacja ćwiczeń (pchanie / ciągnięcie / żadne)
 | Dzień | ćwiczenie | Serie | Wzorzec ruchu | Grupa główna | Klasyfikacja |
@@ -656,7 +656,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Poniedziałek | upper_a | Unoszenie hantli bokiem | 3 | 12-15 | isolation | - |
 | Poniedziałek | upper_a | Uginania na wyciągu | 3 | 12-15 | isolation | - |
 | Poniedziałek | upper_a | Prostowanie ramion na wyciągu | 3 | 12-15 | isolation | - |
-| | | **Szacowany czas sesji: 52 min** | | | | |
+| | | **Szacowany czas sesji: 46 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -666,7 +666,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Wtorek | lower_a | Uginanie nóg leżąc | 3 | 10-12 | isolation | - |
 | Wtorek | lower_a | Wspięcia na palce stojąc | 2 | 15-20 | isolation | - |
 | Wtorek | lower_a | Crunch na maszynie z linką | 3 | 15-20 | core | - |
-| | | **Szacowany czas sesji: 48 min** | | | | |
+| | | **Szacowany czas sesji: 42 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -676,7 +676,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Czwartek | upper_b | Face pull na wyciągu (z liną) | 3 | 15-20 | isolation | - |
 | Czwartek | upper_b | Uginania młotkowe | 3 | 10-12 | isolation | - |
 | Czwartek | upper_b | Triceps kick-back hantlem | 3 | 12-15/strona | isolation | - |
-| | | **Szacowany czas sesji: 52 min** | | | | |
+| | | **Szacowany czas sesji: 47 min** | | | | |
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
@@ -686,7 +686,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Piątek | lower_b | Wyprosty nóg na maszynie | 3 | 12-15 | isolation | - |
 | Piątek | lower_b | Wspięcia na palce stojąc | 2 | 15-20 | isolation | - |
 | Piątek | lower_b | Pallof press na wyciągu | 3 | 10-12 | core | - |
-| | | **Szacowany czas sesji: 48 min** | | | | |
+| | | **Szacowany czas sesji: 42 min** | | | | |
 
 ### Klasyfikacja ćwiczeń (pchanie / ciągnięcie / żadne)
 | Dzień | ćwiczenie | Serie | Wzorzec ruchu | Grupa główna | Klasyfikacja |

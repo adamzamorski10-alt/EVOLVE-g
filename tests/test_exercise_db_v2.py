@@ -260,3 +260,179 @@ def test_coverage_report_full_gym():
     ])
     low = [g for g in DUMBBELL_GROUPS if len(report[g]) < 2]
     assert not low, f"Grupy poniżej 2: {low}"
+
+
+# ---------------------------------------------------------------------------
+# Stage C3.1: Repaired exercise descriptions (see docs/PR_STRENGTH_MVP.md audit)
+# ---------------------------------------------------------------------------
+
+REPAIRED_EXERCISE_IDS = [
+    "floor_fly",
+    "conventional_deadlift",
+    "pullup_wide",
+    "one_arm_row_thigh",
+    "australian_pullup",
+    "floor_pullover",
+    "step_up",
+    "incline_barbell_press",
+]
+
+# (repaired_id, source_id whose description was incorrectly copied into it).
+COPY_SOURCE_PAIRS = [
+    ("floor_fly", "pushups_diamond"),
+    ("conventional_deadlift", "goblet_squat"),
+    ("pullup_wide", "romanian_deadlift_dumbbell"),
+    ("one_arm_row_thigh", "superman"),
+    ("australian_pullup", "pushups_knee"),
+    ("floor_pullover", "reverse_snow_angel"),
+]
+
+EXPECTED_EQUIPMENT = {
+    "floor_fly": ["dumbbell"],
+    "conventional_deadlift": ["barbell"],
+    "pullup_wide": ["pullup_bar", "bodyweight"],
+    "one_arm_row_thigh": ["dumbbell"],
+    "australian_pullup": ["table_or_low_bar"],
+    "floor_pullover": ["dumbbell"],
+    "step_up": ["dumbbell", "bench"],
+    "incline_barbell_press": ["barbell", "bench"],
+}
+
+
+def _exercise(ex_id: str):
+    ex = get_exercise(ex_id)
+    assert ex is not None, f"Ćwiczenie {ex_id!r} nie istnieje w katalogu"
+    return ex
+
+
+def test_repaired_exercises_exist():
+    """Wszystkie 8 naprawionych ćwiczeń aanwezig w katalogu."""
+    for ex_id in REPAIRED_EXERCISE_IDS:
+        _exercise(ex_id)
+
+
+def test_repaired_exercises_have_complete_descriptions():
+    """Naprawione opisy mają wszystkie wymagane pola (brak pustych napisów)."""
+    for ex_id in REPAIRED_EXERCISE_IDS:
+        ex = _exercise(ex_id)
+        d = ex.description
+        assert d.summary.strip(), f"Pusty summary dla {ex_id}"
+        assert d.setup.strip(), f"Pusty setup dla {ex_id}"
+        assert d.execution, f"Puste execution dla {ex_id}"
+        assert d.cues, f"Puste cues dla {ex_id}"
+        assert d.common_mistakes, f"Puste common_mistakes dla {ex_id}"
+        assert d.breathing.strip(), f"Puste breathing dla {ex_id}"
+
+
+def test_repaired_exercises_not_verbatim_copies_of_source():
+    """Naprawiony opis nie jest dosłowną kopią opisu źródłowego."""
+    for repaired_id, source_id in COPY_SOURCE_PAIRS:
+        repaired = _exercise(repaired_id)
+        source = _exercise(source_id)
+        rd, sd = repaired.description, source.description
+        assert rd.summary.strip() != sd.summary.strip(), (
+            f"{repaired_id} summary jest kopią {source_id}"
+        )
+        assert rd.setup.strip() != sd.setup.strip(), (
+            f"{repaired_id} setup jest kopią {source_id}"
+        )
+        assert [e.strip() for e in rd.execution] != [e.strip() for e in sd.execution], (
+            f"{repaired_id} execution jest kopią {source_id}"
+        )
+
+
+def test_repaired_exercise_ids_and_equipment_unchanged():
+    """Identyfikatory i wymagania sprzętowe nie uległy zmianie przy naprawie opisów."""
+    for ex_id, expected_eq in EXPECTED_EQUIPMENT.items():
+        ex = _exercise(ex_id)
+        assert ex.id == ex_id, f"Zmieniono id ćwiczenia: {ex.id!r} != {ex_id!r}"
+        assert list(ex.equipment) == expected_eq, (
+            f"{ex_id}: sprzęt zmieniony {list(ex.equipment)!r} != {expected_eq!r}"
+        )
+
+
+def test_repaired_exercises_status_reviewed():
+    """Po uzupełnieniu opisów wszystkie 8 ćwiczenia mają status 'reviewed'."""
+    for ex_id in REPAIRED_EXERCISE_IDS:
+        ex = _exercise(ex_id)
+        assert ex.description_status == "reviewed", (
+            f"{ex_id}: description_status={ex.description_status!r}, oczekiwano 'reviewed'"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Stage C3.2: Remaining copy/paste description defects
+# ---------------------------------------------------------------------------
+
+C32_REPAIRED_IDS = [
+    "pushups_narrow",
+    "pike_pushup_feet_elevated",
+]
+
+# (repaired_id, source_id whose description was incorrectly copied into it).
+C32_COPY_SOURCE_PAIRS = [
+    ("pushups_narrow", "floor_fly"),
+    ("pike_pushup_feet_elevated", "one_arm_row_thigh"),
+]
+
+C32_EXPECTED_EQUIPMENT = {
+    "pushups_narrow": ["bodyweight"],
+    "pike_pushup_feet_elevated": ["bodyweight"],
+}
+
+
+def test_c32_repaired_exercises_exist():
+    """Oba naprawione ćwiczenia aanwezig w katalogu."""
+    for ex_id in C32_REPAIRED_IDS:
+        _exercise(ex_id)
+
+
+def test_c32_repaired_exercises_have_complete_descriptions():
+    """Naprawione opisy mają wszystkie wymagane pola (brak pustych napisów)."""
+    for ex_id in C32_REPAIRED_IDS:
+        ex = _exercise(ex_id)
+        d = ex.description
+        assert d.summary.strip(), f"Pusty summary dla {ex_id}"
+        assert d.setup.strip(), f"Pusty setup dla {ex_id}"
+        assert d.execution, f"Puste execution dla {ex_id}"
+        assert d.cues, f"Puste cues dla {ex_id}"
+        assert d.common_mistakes, f"Puste common_mistakes dla {ex_id}"
+        assert d.breathing.strip(), f"Puste breathing dla {ex_id}"
+
+
+def test_c32_repaired_exercises_not_verbatim_copies_of_source():
+    """Naprawiony opis nie jest dosłowną kopią opisu źródłowego."""
+    for repaired_id, source_id in C32_COPY_SOURCE_PAIRS:
+        repaired = _exercise(repaired_id)
+        source = _exercise(source_id)
+        rd, sd = repaired.description, source.description
+        assert rd.summary.strip() != sd.summary.strip(), (
+            f"{repaired_id} summary jest kopią {source_id}"
+        )
+        assert rd.setup.strip() != sd.setup.strip(), (
+            f"{repaired_id} setup jest kopią {source_id}"
+        )
+        assert [e.strip() for e in rd.execution] != [e.strip() for e in sd.execution], (
+            f"{repaired_id} execution jest kopią {source_id}"
+        )
+
+
+def test_c32_repaired_exercise_ids_and_equipment_unchanged():
+    """Identyfikatory i wymagania sprzętowe nie uległy zmianie przy naprawie opisów."""
+    for ex_id, expected_eq in C32_EXPECTED_EQUIPMENT.items():
+        ex = _exercise(ex_id)
+        assert ex.id == ex_id, f"Zmieniono id ćwiczenia: {ex.id!r} != {ex_id!r}"
+        assert list(ex.equipment) == expected_eq, (
+            f"{ex_id}: sprzęt zmieniony {list(ex.equipment)!r} != {expected_eq!r}"
+        )
+
+
+def test_c32_repaired_exercises_status_reviewed():
+    """Po uzupełnieniu opisów oba ćwiczenia mają status 'reviewed'."""
+    for ex_id in C32_REPAIRED_IDS:
+        ex = _exercise(ex_id)
+        assert ex.description_status == "reviewed", (
+            f"{ex_id}: description_status={ex.description_status!r}, oczekiwano 'reviewed'"
+        )
+
+

@@ -2185,3 +2185,275 @@ def test_hamstrings_covered_in_both_lower_sessions(monkeypatch):
                 has_hamstrings = True
         assert has_hamstrings, f"{day['day']} ({day['workout']['focus']}) nie ma ćwiczenia na dwugłowe jako primary"
 
+
+# ============================================================================
+# Stage C1: Realistyczny budżet czasu sesji (szacunek i egzekwowanie limitu)
+# ============================================================================
+
+
+def test_c1_respects_declared_session_duration_limit(monkeypatch):
+    """Żadna sesja nie przekracza zadeklarowanego session_duration_minutes."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    user = _make_user_with_availability(
+        frequency="3 dni", days=3, level="początkujący",
+        equipment_list=["hantle", "ławka", "gumy oporowe", "mata"],
+        focus=["klatka", "plecy", "nogi", "brzuch", "barki"],
+        availability_days=["Poniedziałek", "Środa", "Piątek"],
+    )
+    user.training_availability_json = json.dumps(
+        {"days": ["Poniedziałek", "Środa", "Piątek"], "windows": {}, "session_duration_minutes": 45},
+        ensure_ascii=False,
+    )
+    assessment = _make_assessment(days=3, level="początkujący")
+    plan = build_deterministic_plan(user, assessment)
+    for day in _training_days(plan):
+        mins = day["workout"].get("estimated_minutes", 0)
+        assert mins <= 45, f"{day['day']}: {mins} min > zadeklarowane 45 min"
+
+
+def test_c1_realistic_estimate_includes_rest_warmup_transitions():
+    """Szacunek uwzględnia przerwy między seriami, rozgrzewkę i przejścia."""
+    from app.plan.generator_v2 import _calculate_estimated_minutes
+    exs = [
+        {"exercise_id": "goblet_squat", "name": "Przysiad goblet z hantlem", "sets": 3},
+        {"exercise_id": "dumbbell_bench_press", "name": "Wyciskanie hantli na ławce płaskiej", "sets": 3},
+    ]
+    minutes = _calculate_estimated_minutes(exs)
+    # 6 serie * 1.25 + 4 przerwy * 1.0 + rozgrzewka 5 + 1 przejście * 0.75 = 17.25 -> 18
+    assert minutes == 18, f"Oczekiwano 18 min, jest {minutes}"
+
+
+def test_c1_unilateral_exercise_not_underestimated():
+    """Ćwiczenie jednostronne ('/strona') dolicza dodatkowy czas na drugą stronę."""
+    from app.plan.generator_v2 import _calculate_estimated_minutes, _is_unilateral_exercise
+    from app.exercises.data import get_exercise
+    ex_obj = get_exercise("one_arm_dumbbell_row")
+    assert _is_unilateral_exercise(ex_obj), "one_arm_dumbbell_row powinno być wykryte jako jednostronne"
+    bilateral = [{"exercise_id": "dumbbell_bench_press", "name": "Wyciskanie hantli na ławce płaskiej", "sets": 3}]
+    unilateral = [{"exercise_id": "one_arm_dumbbell_row", "name": "Wiosłowanie hantlem jednostronnie", "sets": 3}]
+    bi = _calculate_estimated_minutes(bilateral)
+    uni = _calculate_estimated_minutes(unilateral)
+    assert uni == bi + 1, f"Bilateral {bi} min, unilateral {uni} min (różnica powinna wynosić 1 min)"
+
+
+def test_c1_plan_exceeding_limit_is_adjusted(monkeypatch):
+    """Przy niskim limicie plan jest redukowany (izolacje zdejmowane, złożone zachowane)."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+
+    def _build(minutes: int):
+        user = _make_user_with_availability(
+            frequency="3 dni", days=3, level="początkujący",
+            equipment_list=["hantle", "ławka"],
+            focus=["klatka", "plecy", "nogi", "brzuch", "barki"],
+            availability_days=["Poniedziałek", "Środa", "Piątek"],
+        )
+        user.training_availability_json = json.dumps(
+            {"days": ["Poniedziałek", "Środa", "Piątek"], "windows": {}, "session_duration_minutes": minutes},
+            ensure_ascii=False,
+        )
+        assessment = _make_assessment(days=3, level="początkujący")
+        return build_deterministic_plan(user, assessment)
+
+    from app.exercises.data import get_exercise
+    limited = _build(40)
+    unlimited = _build(120)
+    for day in _training_days(limited):
+        mins = day["workout"].get("estimated_minutes", 0)
+        assert mins <= 40, f"{day['day']}: {mins} min > zadeklarowane 40 min"
+        assert len(day["workout"]["exercises"]) >= 3, f"{day['day']}: struktura sesji zbyt mocno uproszczona"
+        compounds = [e for e in day["workout"]["exercises"]
+                     if get_exercise(e.get("exercise_id", e["name"])) and get_exercise(e.get("exercise_id", e["name"])).type == "compound"]
+        assert compounds, f"{day['day']}: brak ćwiczeń złożonych po redukcji czasu"
+    # Przy niższym limicie nie ma więcej ćwiczeń niż przy nieograniczonym (redukcja, nie rozbudowa).
+    for ld, ud in zip(_training_days(limited), _training_days(unlimited)):
+        assert len(ld["workout"]["exercises"]) <= len(ud["workout"]["exercises"])
+
+
+def test_c1_missing_legacy_availability_does_not_break(monkeypatch):
+    """Brak lub uszkodzona dostępność nie przerywa generowania; stosowany jest limit domyślny 75 min."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    for availability in ("{}", "not-json"):
+        user = _make_user(
+            frequency="3 dni", days=3, level="początkujący",
+            equipment_list=["hantle", "ławka"],
+            focus=["klatka", "plecy", "nogi", "brzuch", "barki"],
+        )
+        user.training_availability_json = availability
+        assessment = _make_assessment(days=3, level="początkujący")
+        plan = build_deterministic_plan(user, assessment)
+        assert plan is not None
+        assert "_planner" in plan
+        for day in _training_days(plan):
+            assert day["workout"].get("estimated_minutes", 0) <= 75, (
+                f"Domyślny limit 75 min przekroczony: {day['workout'].get('estimated_minutes')} min"
+            )
+
+
+def test_c1_flag_false_when_within_cap(monkeypatch):
+    """Flaga session_exceeds_cap jest False gdy sesja mieści się w limicie."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    user = _make_user_with_availability(
+        frequency="3 dni", days=3, level="początkujący",
+        equipment_list=["hantle", "ławka", "gumy oporowe", "mata"],
+        focus=["klatka", "plecy", "nogi", "brzuch", "barki"],
+        availability_days=["Poniedziałek", "Środa", "Piątek"],
+    )
+    user.training_availability_json = json.dumps(
+        {"days": ["Poniedziałek", "Środa", "Piątek"], "windows": {}, "session_duration_minutes": 60},
+        ensure_ascii=False,
+    )
+    assessment = _make_assessment(days=3, level="początkujący")
+    plan = build_deterministic_plan(user, assessment)
+    saw_false = False
+    for day in plan["days"]:
+        flag = day["workout"].get("session_exceeds_cap")
+        mins = day["workout"].get("estimated_minutes", 0)
+        expected = mins > 60
+        assert flag == expected, (
+            f"{day['day']}: flaga={flag} niezgoda z est={mins} min (limit 60)"
+        )
+        if not flag:
+            saw_false = True
+    assert saw_false, "Oczekiwano przynajmniej jednego dnia z flagą False przy limicie 60 min"
+
+
+def test_c1_flag_true_when_exceeds_cap_after_reduction(monkeypatch):
+    """Flaga session_exceeds_cap jest True gdy sesja nadal przekracza limit mimo redukcji."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    user = _make_user_with_availability(
+        frequency="3 dni", days=3, level="początkujący",
+        equipment_list=["hantle", "ławka"],
+        focus=["klatka", "plecy", "nogi", "brzuch", "barki"],
+        availability_days=["Poniedziałek", "Środa", "Piątek"],
+    )
+    user.training_availability_json = json.dumps(
+        {"days": ["Poniedziałek", "Środa", "Piątek"], "windows": {}, "session_duration_minutes": 15},
+        ensure_ascii=False,
+    )
+    assessment = _make_assessment(days=3, level="początkujący")
+    plan = build_deterministic_plan(user, assessment)
+    exceeded = False
+    for day in _training_days(plan):
+        flag = day["workout"].get("session_exceeds_cap")
+        mins = day["workout"].get("estimated_minutes", 0)
+        if mins > 15:
+            exceeded = True
+            assert flag is True, f"{day['day']}: est={mins} > 15 ale flaga={flag}"
+        else:
+            assert flag is False, f"{day['day']}: est={mins} <= 15 ale flaga={flag}"
+    assert exceeded, "Oczekiwano przynajmniej jednej sesji przekraczającej limit 15 min mimo redukcji"
+
+
+def test_c1_flag_consistency_all_days(monkeypatch):
+    """Flaga jest zgodna z estimated_minutes i session_duration_minutes dla każdego dnia."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    user = _make_user_with_availability(
+        frequency="4 dni", days=4, level="średniozaawansowany",
+        equipment_list=["hantle", "ławka"],
+        focus=["klatka", "plecy", "nogi", "brzuch", "barki"],
+        availability_days=["Poniedziałek", "Wtorek", "Czwartek", "Piątek"],
+    )
+    user.training_availability_json = json.dumps(
+        {"days": ["Poniedziałek", "Wtorek", "Czwartek", "Piątek"], "windows": {}, "session_duration_minutes": 50},
+        ensure_ascii=False,
+    )
+    assessment = _make_assessment(days=4, level="średniozaawansowany")
+    plan = build_deterministic_plan(user, assessment)
+    for day in plan["days"]:
+        flag = day["workout"].get("session_exceeds_cap")
+        mins = day["workout"].get("estimated_minutes", 0)
+        assert flag is (mins > 50), (
+            f"{day['day']}: flaga={flag} niezgoda z est={mins} min (limit 50)"
+        )
+
+
+# ============================================================================
+# Stage C2: Balans sesji i powtórzenia ćwiczeń między dniami
+# ============================================================================
+
+
+def test_c2_full_body_three_days_differentiate_repeated_template(monkeypatch):
+    """W splicie full_body_3 (A/B/A) trzeci dzień nie powiela ćwiczeń stapeli z dnia 1."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    user = _make_user_with_availability(
+        frequency="3 dni", days=3, level="początkujący",
+        equipment_list=["hantle", "ławka", "guma oporowa", "mata"],
+        focus=["klatka", "plecy", "nogi", "brzuch", "barki"],
+        availability_days=["Poniedziałek", "Środa", "Piątek"],
+    )
+    assessment = _make_assessment(days=3, level="początkujący")
+    plan = build_deterministic_plan(user, assessment)
+    fb_days = [d for d in _training_days(plan) if d["workout"]["focus"] == "full_body_a"]
+    assert len(fb_days) == 2, f"Oczekiwano 2 dni full_body_a, jest {len(fb_days)}"
+    ids_a = set(_exercise_ids(fb_days[0]))
+    ids_c = set(_exercise_ids(fb_days[1]))
+    # Sesje nie mogą być identyczne (różnica w zestawie ćwiczeń).
+    assert ids_a != ids_c, f"full_body_3 dzień 1 i 3 identyczne: {ids_a}"
+    # Staple (lateral_raise / łyżki) użyte w dniu 1 nie powinny się powtarzać w dniu 3.
+    staples = {"lateral_raise", "standing_calf_raise"}
+    used_in_a = ids_a & staples
+    assert not (used_in_a & ids_c), (
+        f"Staple powtórzono między A a C: {used_in_a & ids_c}"
+    )
+
+
+def test_c2_repetition_preserved_when_no_alternative(monkeypatch):
+    """Gdy brak zamiennika, generator nie wywala się i sesje blieben poprawne (powtórzenie dopuszczalne)."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    # Masa własna, beginner, 3 dni — ograniczone zamienniki, powtórzenia mogą być nieuniknione.
+    user = _make_user_with_availability(
+        frequency="3 dni", days=3, level="początkujący",
+        equipment_list=[], focus=["klatka", "plecy", "nogi", "brzuch", "barki"],
+        availability_days=["Poniedziałek", "Środa", "Piątek"],
+    )
+    assessment = _make_assessment(days=3, level="początkujący")
+    plan = build_deterministic_plan(user, assessment)
+    assert plan is not None and "_planner" in plan
+    for day in _training_days(plan):
+        exs = day["workout"]["exercises"]
+        assert 3 <= len(exs) <= 6, f"{day['day']}: {len(exs)} ćwiczeń (beginner 3-6)"
+        assert day["workout"].get("estimated_minutes", 0) <= 60, (
+            f"{day['day']}: {day['workout'].get('estimated_minutes')} min > 60"
+        )
+
+
+def test_c2_arm_coverage_when_prioritized_and_compatible(monkeypatch):
+    """Priorytet biceps/triceps z pełnym sprzętem i średnim poziomem -> obie partie obecne."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    GYM = ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"]
+    user = _make_user_with_availability(
+        frequency="4 dni", days=4, level="średniozaawansowany",
+        equipment_list=GYM, focus=["klatka", "plecy", "nogi", "brzuch", "barki", "biceps", "triceps"],
+        availability_days=["Poniedziałek", "Wtorek", "Czwartek", "Piątek"],
+    )
+    assessment = _make_assessment(days=4, level="średniozaawansowany")
+    plan = build_deterministic_plan(user, assessment)
+    sessions = plan["_planner"]["weekly_summary"]["sessions_per_group"]
+    assert sessions.get("biceps", 0) >= 1, f"Brak sesji biceps mimo priorytetu: {sessions}"
+    assert sessions.get("triceps", 0) >= 1, f"Brak sesji triceps mimo priorytetu: {sessions}"
+
+
+def test_c2_beginner_volume_and_duration_respected(monkeypatch):
+    """Beginner: objętość i czas sesji mieszczą się w limitach (beginner 3-6 ćwiczeń, <= 60 min)."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+    user = _make_user_with_availability(
+        frequency="3 dni", days=3, level="początkujący",
+        equipment_list=["hantle", "ławka", "guma oporowa", "mata"],
+        focus=["klatka", "plecy", "nogi", "brzuch", "barki"],
+        availability_days=["Poniedziałek", "Środa", "Piątek"],
+    )
+    user.training_availability_json = json.dumps(
+        {"days": ["Poniedziałek", "Środa", "Piątek"], "windows": {}, "session_duration_minutes": 60},
+        ensure_ascii=False,
+    )
+    assessment = _make_assessment(days=3, level="początkujący")
+    plan = build_deterministic_plan(user, assessment)
+    for day in _training_days(plan):
+        exs = day["workout"]["exercises"]
+        assert 3 <= len(exs) <= 6, f"{day['day']}: {len(exs)} ćwiczeń (beginner 3-6)"
+        mins = day["workout"].get("estimated_minutes", 0)
+        assert mins <= 60, f"{day['day']}: {mins} min > zadeklarowane 60 min"
+        assert day["workout"].get("session_exceeds_cap") is False, (
+            f"{day['day']}: sesja przekracza limit mimo redukcji"
+        )
+

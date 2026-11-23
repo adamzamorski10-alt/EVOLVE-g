@@ -774,12 +774,12 @@ _EXERCISES_RAW = [
         "sets_range": "3-4",
         "reps_range": "6-10",
         "description": {
-            "summary": "Rumuński martwy ciąg z hantlami angażuje tylne uda, pośladki i dolną część pleców. Ruch inicjowany jest biodrem, a nie kolanami, z hantlami prowadzonymi blisko ud.",
-            "setup": "Stój w lekkim rozkroku, hantle w dłoniach opadające wzdłuż ciała, plecy proste, brzuch napięty, lekki ugięcie w kolanach.",
-            "execution": ["Pochyl tułów do przodu inicjując ruch biodrem (nie kolanami), prowadź hantle blisko ud.", "Zejdź aż poczujesz wyraźne rozciąganie w tylnych udach (zazwyczaj dookoła poziomu kolan).", "Wróć do pozycji wyjściowej napinając pośladki i prostując biodra - nie zaokrąglaj lędźwi."],
-            "cues": ["Ruch z bioder, nie z kolan", "Hantle blisko ciała przez cały ruch", "Plecy proste, brzuch napięty"],
-            "common_mistakes": ["Zaokrąglanie dolnych pleców", "Zbyt duże ugięcie kolan (przysiad zamiast RMD)", "Opadanie hantli z dala od ciała"],
-            "breathing": "Wdech przy opuszczaniu, wydech przy wstaniu."
+            "summary": "Podciąganie na drążku to ćwiczenie złożone na szerokie mięśnie grzbietu i bicepsy. Szeroki chwyt kładzie większy nacisk na boczne partie mięśni grzbietu, ale nie jest konieczny ani inherentnie lepszy od innych chwytów.",
+            "setup": "Chwyć drążek chwytem nieco szerzej niż barki, zawieś się z wyprostowanymi ramionami, brzuch napięty, łopatki ściągnięte w dół i do tyłu.",
+            "execution": ["Podciągnij się, aż broń znajdzie się nad drążkiem, prowadząc łokcie w dół i do tyłu.", "Zatrzymaj na ułamek sekundy, potem opuszczaj się kontrolowanie do pełnego wyprostu ramion.", "Nie bujaj ciałem."],
+            "cues": ["Prowadź łokcami, nie ramionami", "Łopatki w dół i do tyłu przed startem", "Pełny zakres ruchu. Od wyprostu do broń nad drążkiem"],
+            "common_mistakes": ["Bujanie ciałem (użycie pędu)", "Niepełny zakres ruchu", "Podciąganie szczęką zamiast broń (zbyt nisko)", "Zbyt szeroki chwyt kosztem zakresu i komfortu barków"],
+            "breathing": "Wdech przy opuszczaniu, wydech przy podciąganiu się."
         },
 "description_status": "reviewed",
         },
@@ -2026,12 +2026,12 @@ _EXERCISES_RAW = [
         "sets_range": "3",
         "reps_range": "8-12",
         "description": {
-            "summary": "Pompki na kolanach to łatwiejszy wariant pompki klasycznej, redukujący obciążenie tułowia. Angażują klatkę, triceps i przednie barki, przy zachowaniu prostej linii ciała od głowy do kolan.",
-            "setup": "Kleknij na macie, oprzyj dłonie o podłogę nieco szerzej niż barki, ciało od głowy do kolan w prostej linii, brzuch i pośladki napięte.",
-            "execution": ["Opuść ciało controlowanymi ruchem, gięć łokcie pod kątem ok. 45 stopni od tułowia.", "Wyciśnij się do pozycji wyjściowej, prostując ramiona bez blokowania łokci.", "Utrzymuj tułów napięty — nie zapadaj w biodrach ani nie wypinaj pośladków."],
-            "cues": ["Linia od głowy do kolan w jednej prostej linii", "Łokcie pod kątem ~45 stopni, nie na boki", "Wdech w dół, wydech do góry"],
-            "common_mistakes": ["Zapadanie bioder lub wypinanie pośladków", "Łokcie rozstawione zbyt szeroko", "Ruch tylko w górnej części zakresu"],
-            "breathing": "Wdech przy opuszczaniu, wydech przy wyciskaniu."
+            "summary": "Podciąganie australijskie (wiosłowanie odwrócone) to ćwiczenie na plecy i bicepsy wykonywane pod kątem, z ciałem prosto. Jest łagodniejszym wstępem do pełnych podciągań na drążku.",
+            "setup": "Ustaw się pod niskim drążkiem lub stołem, chwyć go nachwytem na szerokość barków, zawieś się z wyprostowanymi ramionami, ciało w prostej linii od głowy do pięt, pięty na podłodze, brzuch napięty.",
+            "execution": ["Przyciągnij klatkę do drążka, uginając łokcie i ściskając łopatki.", "Zatrzymaj na szczycie na 1 sekundę, potem opuszczaj się kontrolowanie do wyprostu ramion.", "Nie pozwalaj biodrom opadać."],
+            "cues": ["Ciało w prostej linii od głowy do pięt", "Łokcie blisko tułowia, nie na boki", "Ściskaj łopatki na szczycie ruchu"],
+            "common_mistakes": ["Zapadanie bioder (traci napięcie core)", "Rozchylanie łokci na boki", "Niepełny zakres ruchu", "Bujanie tułowiem"],
+            "breathing": "Wdech przy opuszczaniu, wydech przy ciągnięciu do drążka."
         },
 "description_status": "reviewed",
         },
@@ -2074,12 +2074,12 @@ _EXERCISES_RAW = [
         "sets_range": "3",
         "reps_range": "10-15",
         "description": {
-            "summary": "Pompki diamentowe kładą większy nacisk na triceps i wewnętrzną część klatki. Dłonie blisko siebie tworzą diament, co zmniejsza zaangażowanie barków kosztem większej pracy tricepsa.",
-            "setup": "Przyjmij pozycję podporu leżącego, kciuki i palce wskazujące obu rąk stykają się tworząc diament na podłodze, ciało w prostej linii.",
-            "execution": ["Opuść ciało ku dłoniom, gięć łokcie wzdłuż tułowia (nie na boki).", "Zejdź tak nisko, jak pozwala zakres ruchu i komfort nadgarstków.", "Wyciśnij się do pozycji wyjściowej, prostując ramiona."],
-            "cues": ["Łokcie blisko tułowia, nie na boki", "Ciało w prostej linii", "Wdech w dół, wydech do góry"],
-            "common_mistakes": ["Łokcie rozstawiane na boki (przeciążenie barków)", "Zbyt głębokie zejście nadgarstków (ból nadgarstków)", "Zapadanie bioder"],
-            "breathing": "Wdech przy opuszczaniu, wydech przy wyciskaniu."
+            "summary": "Rozpiętki hantlami na podłodze izolują klatkę piersiową z ograniczonym zakresem ruchu, co chroni stawy barkowe. To bezpieczna alternatywa dla rozpiętek na ławce.",
+            "setup": "Leż na plecach na podłodze, kolana ugięte, stopy na podłodze, hantle trzymaj nad klatką na wyprostowanych ramionach, dłonie skierowane ku sobie.",
+            "execution": ["Opuść hantle na boki w szerokim łuku, łokcie lekko ugięte i nieruchome w tym kącie.", "Zejdź aż łokcie dotkną podłogi. To naturalny limit zakresu chroniący barki.", "Zwróć hantle do pozycji wyjściowej, ściskając klatkę na szczycie."],
+            "cues": ["Łokcie lekko ugięte przez cały ruch", "Łokcie opadają na podłogę (naturalny limit zakresu)", "Ściskaj klatkę na szczyście, nie uderzaj hantlami o siebie"],
+            "common_mistakes": ["Łokcie rozchylane zbyt nisko poniżej poziomu tułowia", "Prostowanie łokci (zamienia się w wyciskanie)", "Uderzanie hantlami o siebie na szczycie"],
+            "breathing": "Wdech przy opuszczaniu, wydech przy łączeniu hantli."
         },
 "description_status": "reviewed",
         },
@@ -2122,12 +2122,12 @@ _EXERCISES_RAW = [
         "sets_range": "3",
         "reps_range": "8-12/strona",
         "description": {
-            "summary": "Superman wzmacnia dolną część pleców, pośladki i tylne barki. Leżąc na brzuchu, unieruchomiona pozycja wymaga skurczu mięśni prostowników grzbietu i pośladków.",
-            "setup": "Leż na brzuchu, ramiona wyciągnięte przed siebie, nogi proste, czoło delikatnie oparte o podłogę.",
-            "execution": ["Jednocześnie unieś ramiona, klatkę i nogi kilka centymetrów nad podłogę.", "Zatrzymaj na 1-2 sekundy na szczycie skurczu, napinając pośladki i dolne plecy.", "Opuść ciało powoli do pozycji wyjściowej."],
-            "cues": ["Unieś ręce i nogi jednocześnie", "Napnij pośladki i dolne plecy", "Głowa w przedłużeniu kręgosłupa, nie zadzieraj szyi"],
-            "common_mistakes": ["Zadzieranie głowy do góry (napięcie szyi)", "Unoszenie zbyt wysoko (przeciążenie lędźwi)", "Rwanie ruchem zamiast kontrolowanego skurczu"],
-            "breathing": "Wdech przy opuszczaniu, wydech przy unoszeniu ciała."
+            "summary": "Wiosłowanie jednorącz z oparciem o udo angażuje plecy i bicepsy. Oparcie łokcia o udo stabilizuje ruch i eliminuje szarpanie, co czyni ćwiczenie bezpiecznym dla początkujących.",
+            "setup": "Siadając na ławce lub krześle, oprzyj jeden łokieć o wewnętrzną stronę tego samego uda, hantel w drugiej ręce zwisający swobodnie, tułów wyprostowany i napięty.",
+            "execution": ["Ugnij łokieć, prowadząc hantel ku biodru. Łokieć zablokowany przez udo eliminuje szarpanie.", "Zatrzymaj na szczycie przez 1 sekundę, napinając plecy i biceps.", "Opuść powoli przez 3-4 sekundy, czując rozciągnięcie mięśni pleców."],
+            "cues": ["Łokieć oparcia o udo, nie rusza się", "Pełny zakres ruchu od rozciągnięcia do skurczu", "Wolne tempo, szczególnie w fazie opuszczania"],
+            "common_mistakes": ["Przesuwanie łokcia z uda (traci stabilizację)", "Zbyt duży ciężar, szarpany ruch", "Niepełne rozciągnięcie w dolnej pozycji"],
+            "breathing": "Wdech przy opuszczaniu, wydech przy uginaniu."
         },
 "description_status": "reviewed",
         },
@@ -2146,12 +2146,12 @@ _EXERCISES_RAW = [
         "sets_range": "3",
         "reps_range": "10-12",
         "description": {
-            "summary": "Reverse snow angel angażuje tylne barki i górną część pleców. Leżąc na brzuchu, wykonujesz ruch ramionami naśladujący 'anioła w śniegu', ale w pozycji leżącej na brzuchu.",
-            "setup": "Leż na brzuchu, ramiona wyciągnięte w bok lub przed siebie, czoło oparte o podłogę, nogi proste.",
-            "execution": ["Unieś ramiona i klatkę kilka centymetrów nad podłogę.", "Przenieś ramiona w łuk nad głowę i z powrotem do pozycji wyjściowej, jak przy robieniu śniegowego anioła.", "Utrzymuj napięcie w tylnych barkach i górnych plecach przez cały ruch."],
-            "cues": ["Klatka uniesiona nad podłogę", "Ramiona w łuku, nie opadaj zbyt nisko", "Napnij tylne barki i górne plecy"],
-            "common_mistakes": ["Opadanie klatki do podłogi podczas ruchu", "Zbyt szybki, niekontrolowany ruch", "Zadzieranie głowy"],
-            "breathing": "Wdech przy opuszczaniu ramion, wydech przy unoszeniu."
+            "summary": "Pullover z hantlem na podłodze łączy pracę klatki i szerokich mięśni grzbietu. Leżąc na podłodze masz ograniczony zakres ruchu, co chroni stawy barkowe.",
+            "setup": "Leż na plecach na podłodze, kolana ugięte, stopy na podłodze, trzymaj jeden hantel oburącz nad klatką na wyprostowanych ramionach, dłonie skierowane do siebie.",
+            "execution": ["Opuść hantel za głowę w łuku, łokcie lekko ugięte i nieruchome.", "Zatrzymaj się gdy poczujesz rozciągnięcie w klatce i łapciach (nie opuszczaj za nisko).", "Zwróć hantel do pozycji wyjściowej nad klatkę, angażując klatkę i łopatki."],
+            "cues": ["Łokcie lekko ugięte przez cały ruch", "Ruch w łuku za głowę, nie w dół do tułowia", "Nie opuszczaj hantla za nisko. Chroni barki"],
+            "common_mistakes": ["Prostowanie łokci (zamienia się w wyciskanie)", "Opuszczanie hantla zbyt nisko za głowę", "Użycie pędu tułowia"],
+            "breathing": "Wdech przy opuszczaniu za głowę, wydech przy powrocie do klatki."
         },
 "description_status": "reviewed",
         },
@@ -2219,12 +2219,12 @@ _EXERCISES_RAW = [
         "sets_range": "3",
         "reps_range": "8-15",
         "description": {
-            "summary": "Rozpiętki hantlami na podłodze izolują klatkę piersiową z ograniczonym zakresem ruchu, co chroni stawy barkowe. To bezpieczna alternatywa dla rozpiętek na ławce.",
-            "setup": "Leż na plecach na podłodze, kolana ugięte, stopy na podłodze, hantle trzymaj nad klatką na wyprostowanych ramionach, dłonie skierowane ku sobie.",
-            "execution": ["Opuść hantle na boki w szerokim łuku, łokcie lekko ugięte i nieruchome w tym kącie.", "Zejdź aż łokcie dotkną podłogi — to naturalny limits zakresu chroniący barki.", "Zwróć hantle do pozycji wyjściowej, ściskając klatkę na szczycie."],
-            "cues": ["Łokcie lekko ugięte przez cały ruch", "Łokcie opadają na podłogę (naturalny limit zakresu)", "Ściskaj klatkę na szczyście, nie uderzaj hantlami o siebie"],
-            "common_mistakes": ["Łokcie rozchylane zbyt nisko poniżej poziomu tułowia", "Prostowanie łokci (zamienia się w wyciskanie)", "Uderzanie hantlami o siebie na szczycie"],
-            "breathing": "Wdech przy opuszczaniu, wydech przy łączeniu hantli."
+            "summary": "Pompki wąskie kładą większy nacisk na triceps i wewnętrzną część klatki niż pompki klasyczne. Dłonie blisko siebie, łokcie wzdłuż tułowia.",
+            "setup": "Przyjmij pozycję podporu leżącego, dłonie na podłodze blisko siebie (na szerokość barków lub węższej), ciało w prostej linii od głowy do pięt.",
+            "execution": ["Opuść ciało ku dłoniom, gięć łokcie wzdłuż tułowia (nie na boki).", "Zejdź tak nisko, jak pozwala zakres ruchu i komfort nadgarstków.", "Wyciśnij się do pozycji wyjściowej, prostując ramiona."],
+            "cues": ["Łokcie blisko tułowia, nie na boki", "Ciało w prostej linii", "Wdech w dół, wydech do góry"],
+            "common_mistakes": ["Łokcie rozstawiane na boki (przeciążenie barków)", "Zbyt głębokie zejście nadgarstków (ból nadgarstków)", "Zapadanie bioder"],
+            "breathing": "Wdech przy opuszczaniu, wydech przy wyciskaniu."
         },
 "description_status": "reviewed",
         },
@@ -2267,12 +2267,12 @@ _EXERCISES_RAW = [
         "sets_range": "3",
         "reps_range": "6-10",
         "description": {
-            "summary": "Wiosłowanie jednorącz z oparciem o udo angażuje plecy i bicepsy. Oparcie łokcia o udo stabilizuje ruch i eliminuje szarpanie, co czyni ćwiczenie bezpiecznym dla początkujących.",
-            "setup": "Siedź na ławce lub krześle, oprzyj jeden łokieć o wewnętrzną stronę tego samego uda, hantel w drugiej ręce zwisający swobodnie, tułów wyprostowany i napięty.",
-            "execution": ["Ugnij łokieć, prowadząc hantel ku biodru — łokieć zablokowany przez udo eliminuje szarpanie.", "Zatrzymaj na szczycie przez 1 sekundę, napinając plecy i biceps.", "Opuść powoli przez 3-4 sekundy, czując rozciągnięcie mięśni pleców."],
-            "cues": ["Łokieć oparcia o udo, nie rusza się", "Pełny zakres ruchu od rozciągnięcia do skurczu", "Wolne tempo, szczególnie w fazie opuszczania"],
-            "common_mistakes": ["Przesuwanie łokcia z uda (traci stabilizację)", "Zbyt duży ciężar, szarpany ruch", "Niepełne rozciągnięcie w dolnej pozycji"],
-            "breathing": "Wdech przy opuszczaniu, wydech przy uginaniu."
+            "summary": "Pike push-up z nogami na podwyższeniu to trudniejszy wariant pike push-up. Większe obciążenie barków (przód i bok) dzięki wyższej pozycji bioder. Wymaga dobrej mobilności barków.",
+            "setup": "Przyjmij pozycję psa z głową w dół (downward dog), ręce na podłodze nieco szerzej niż barki, stopy na podwyższeniu (np. krzesło), biodra unieś wysoko, tworząc odwrócony V.",
+            "execution": ["Opuść głowę ku podłodze, gięć łokcie w stronę tułowia (nie na boki).", "Zejdź tak nisko, jak pozwala zakres ruchu i komfort barków.", "Wyciśnij się do pozycji wyjściowej, prostując ramiona."],
+            "cues": ["Biodra wysoko, odwrócony V", "Łokcie w stronę tułowia, nie na boki", "Głowa ku podłodze, nie do przodu"],
+            "common_mistakes": ["Zbyt niskie biodra (przerzuca obciążenie na klatkę)", "Łokcie na boki (przeciążenie stawu ramiennego)", "Ruch głową do przodu zamiast w dół"],
+            "breathing": "Wdech przy opuszczaniu głowy, wydech przy wyciskaniu."
         },
 "description_status": "reviewed",
         },
@@ -2459,12 +2459,12 @@ _EXERCISES_RAW = [
         "sets_range": "3",
         "reps_range": "10-15",
         "description": {
-            "summary": "Przysiad z masą własną to podstawowe ćwiczenie na nogi i pośladki. Angażuje czworogłowe, pośladki i core. Wymaga dobrej mobilności stawów skokowych i kolanowych.",
-            "setup": "Stój w rozkroku na szerokość barków lub nieco szerzej, stopy lekko rozchylone na zewnątrz, ramiona wyciągnięte przed siebie lub skrzyżowane na klatce, brzuch napięty.",
-            "execution": ["Wykonaj przysiad, cofając biodra do tyłu i uginając kolana.", "Zejdź co najmniej do równoległości ud z podłogą (lub głębiej, jeśli pozwala mobilność).", "Wróć do pozycji wyjściowej napinając czworogłowe i pośladki, wypychając przez pięty."],
-            "cues": ["Biodra cofaj jako pierwsze, kolana podążają za stopami", "Pięty na podłodze przez cały ruch", "Klata wypięta, plecy proste"],
-            "common_mistakes": ["Unoszenie pięt z podłogi", "Zaokrąglanie pleców", "Kolana zapadają do środka (walgus)"],
-            "breathing": "Wdech przy opuszczaniu, wydech przy wstawaniu."
+            "summary": "Martwy ciąg konwencjonalny angażuje cały łańcuch tylny: pośladki, tylne uda, dolną część pleców i trapes. Jest zaawansowanym ćwiczeniem złożonym — naucz się techniki z lekkim obciążeniem, zanim zwiększysz ciężar.",
+            "setup": "Stój w rozkroku na szerokość bioder lub nieco szerzej, stopy pod sztangą lub nieco przed nią, chwyt nachwytem lub mieszany na szerokość barków, plecy proste, brzuch napięty.",
+            "execution": ["Cofnij biodra i ugnij kolana, schylając się po sztangę.", "Utrzymując plecy proste i brzuch napięty, wyprostuj nogi i biodra jednocześnie, wstając z ciężarem.", "Opuszczaj kontrolowanie, cofając biodra jako pierwsze i utrzymując sztangę blisko ciała przez cały ruch."],
+            "cues": ["Sztanga blisko nóg przez cały ruch", "Plecy proste, brzuch napięty, nie zaokrąglaj lędźwi", "Wstępuj przez pięty, nie palce"],
+            "common_mistakes": ["Zaokrąglanie dolnych pleców (obciąża kręgosłup)", "Podnoszenie bioder przed ramionami (traci technikę)", "Sztanga oddalona od ciała (przeciąża lędźwie)", "Zbyt duży ciężar kosztem techniki"],
+            "breathing": "Wdech przed podnoszeniem, wydech przy wstaniu; wdech na szczycie przed opuszczeniem."
         },
 "description_status": "reviewed",
         },
@@ -2728,17 +2728,15 @@ _EXERCISES_RAW = [
         "sets_range": "3",
         "reps_range": "10/strona",
         "description": {
-            "summary": "",
-            "setup": "",
-            "execution": [],
-            "cues": [],
-            "common_mistakes": [],
-            "easier_variant": None,
-            "harder_variant": "walking_lunge",
-            "breathing": "",
+            "summary": "Wejścia na ławkę z hantlami angażują pośladki i czworogłowe. Są bezpiecznym ćwiczeniem jednonożnym, stabilnym dla kolan, jeśli wykonujesz je z kontrolą i bez użycia pędu.",
+            "setup": "Stój przed ławką lub stopniem, hantle w dłoniach opadające wzdłuż ciała, plecy proste, brzuch napięty. Upewnij się, że ławka jest stabilna.",
+            "execution": ["Wstąp jedną nogą na ławkę, prostując nogę i unosząc biodro. Wnieś drugą nogę na ławkę, opierając całą stopę.", "Opuszczaj się kontrolowanie najpierw tą samą nogą, potem drugą.", "Zmień nogę startową w kolejnej serii."],
+            "cues": ["Cała stopa na ławce, nie tylko palce", "Kolano pracującej nogi nad stopą, nie przed palcami", "Ruch pionowy, nie do przodu, bez użycia pędu"],
+            "common_mistakes": ["Odpychanie się nogą z podłogi (użycie pędu)", "Kolano wysunięte zbyt daleko przed palce", "Wejście na czubki palców zamiast całą stopą"],
+            "breathing": "Wdech przy opuszczaniu, wydech przy wstąpaniu na ławkę."
         },
-        "description_status": "needs_review",
-    },
+        "description_status": "reviewed",
+        },
     {
         "id": "incline_barbell_press",
         "name_pl": "Wyciskanie sztangi na ławce skosnej",
@@ -2754,17 +2752,15 @@ _EXERCISES_RAW = [
         "sets_range": "3-4",
         "reps_range": "6-8",
         "description": {
-            "summary": "",
-            "setup": "",
-            "execution": [],
-            "cues": [],
-            "common_mistakes": [],
-            "easier_variant": "incline_dumbbell_press",
-            "harder_variant": None,
-            "breathing": "",
+            "summary": "Wyciskanie sztangi na ławce skosnej kładzie większy nacisk na górną część klatki i przednie barki niż wyciskanie na ławce płaskiej. Wymaga dobrej stabilizacji barków.",
+            "setup": "Leż na ławce ustawionej pod kątem ok. 30-45 stopni, stopy na podłodze, chwyć sztangę nieco szerzej niż barki, opuść barki i ściągnij łopatki do ławki.",
+            "execution": ["Opuszczaj sztangę do górnej części klatki, łokcie pod kątem ok. 45 stopni od tułowia.", "Zejdź tak nisko, jak pozwala zakres ruchu i komfort barków.", "Wyciśnij z powrotem do wyprostu, nie blokując łokci na szczycie."],
+            "cues": ["Łokcie pod kątem ~45 stopni, nie na boki", "Barki ściągnięte i opuszczone, ciało stabilne na ławce", "Sztanga nad górną częścią klatki, nie szyją"],
+            "common_mistakes": ["Zbyt duży kąt nachylenia ławki (przeciążenie barków)", "Łokcie rozstawione zbyt szeroko", "Odbijanie sztangi od klatki", "Przeprostowanie łokci na szczycie"],
+            "breathing": "Wdech przy opuszczaniu sztangi, wydech przy wyciskaniu."
         },
-        "description_status": "needs_review",
-    },
+        "description_status": "reviewed",
+        },
     # -- Nowe cwiczenia R25-R31 -------------------------------------------
     {
         "id": "dead_hang",
