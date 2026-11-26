@@ -136,12 +136,14 @@ def estimate_starting_weight(
         # Twardy sufit: nigdy nie przepisz więcej niż użytkownik ma na jednym hantlu.
         if dumbbell_max_kg_per_dumbbell is not None:
             weight = min(weight, float(dumbbell_max_kg_per_dumbbell))
-        # Szanuj dostępny skok wagowy; jeśli nieznany, użyj kroku domyślnego dla sprzętu.
-        step = dumbbell_increment_kg if dumbbell_increment_kg is not None else get_weight_step(equipment)
-        weight = round_to_step(weight, step)
-        # Zaokrąglenie w górę do inkrementu nie może wyjść ponad potwierdzone maksimum.
-        if dumbbell_max_kg_per_dumbbell is not None:
-            weight = min(weight, float(dumbbell_max_kg_per_dumbbell))
+        # Szanuj potwierdzony skok wagowy tylko gdy użytkownik go podał.
+        # Nie zakładaj domyślnego przyrostu ani kroku sprzętu, którego użytkownik nie potwierdził.
+        if dumbbell_increment_kg is not None:
+            step = float(dumbbell_increment_kg)
+            weight = round_to_step(weight, step)
+            # Zaokrąglenie nie może wyjść ponad potwierdzone maksimum.
+            if dumbbell_max_kg_per_dumbbell is not None:
+                weight = min(weight, float(dumbbell_max_kg_per_dumbbell))
     else:
         weight = round_to_step(weight, get_weight_step(equipment))
 
@@ -170,7 +172,7 @@ def decide_next_step(
     step = get_weight_step(equipment)
 
     # Progi RPE z uwzględnieniem RIR (Reps In Reserve): RPE ≈ 10 - RIR.
-    # Domyślny target_rir=2 → progi維持 przy RPE 8.5, redukcja przy 9.5.
+    # Domyślny target_rir=2 → progi維持 przy RPE 8.5, redukcja przy 9.0.
     rpe_maintain_threshold = 8.5
     rpe_reduce_threshold = 9.5
     if target_rir is not None:
@@ -227,7 +229,7 @@ def decide_next_step(
                 "action": "maintain",
                 "next_weight": 0.0,
                 "next_reps": max(reps_min, current_reps - 1),
-                "reason": "RPE ≥ 9.5 (blisko upadku) — obniżam powtórzenia dla regeneracji",
+                "reason": "RPE ≥ 9.0 (blisko upadku) — obniżam powtórzenia dla regeneracji",
             }
         next_weight = round_to_step(current_weight * 0.925, step)
         if next_weight == current_weight:
@@ -236,7 +238,7 @@ def decide_next_step(
             "action": "reduce_load",
             "next_weight": max(0.0, next_weight),
             "next_reps": reps_min,
-            "reason": "Średnie RPE ≥ 9.5 (zbyt duży wysiłek) — zmniejszam obciążenie",
+            "reason": "Średnie RPE ≥ 9.0 (zbyt duży wysiłek) — zmniejszam obciążenie",
         }
 
     # 3. Utrzymanie przy wysokim zmęczeniu (maintain <= RPE < reduce)

@@ -364,7 +364,10 @@ def app_generate_plan(
     reused_existing = bool(user.weekly_plan_json) and not payload.force and not stale
 
     if not reused_existing:
-        plan = build_deterministic_plan(user, assessment, planning_progress)
+        try:
+            plan = build_deterministic_plan(user, assessment, planning_progress)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         completed_history = list_completed_training_history(session, user.id, limit=100)
         plan["rolling_plan"] = build_rolling_horizon(
             plan,

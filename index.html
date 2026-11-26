@@ -33243,6 +33243,7 @@
           name: e.name || 'Ćwiczenie',
           sets: e.sets || '',
           reps: e.reps || '',
+          effort: e.effort || null,
           weight_kg: null,
           rpe: null,
           checked: false
@@ -33291,16 +33292,20 @@
       c.innerHTML = '<div style="padding:20px 0;color:#6b7280;font-size:13px;text-align:center;font-style:italic;">Brak planu treningu na dziś — kliknij &quot;+ Dodaj&quot;.</div>';
       return;
     }
-    c.innerHTML = workouts.map(function (w) {
+      c.innerHTML = workouts.map(function (w) {
       var chk = Boolean(w.checked);
       var parts = [];
       if (w.sets && w.reps) parts.push(w.sets + '×' + w.reps);
       if (w.weight_kg) parts.push(w.weight_kg + ' kg');
       if (w.rpe) parts.push('RPE ' + w.rpe);
+      var effortBadge = '';
+      if (w.effort === 'submaximal') {
+        effortBadge = '<span style="font-size:10px;color:#22c55e;font-weight:700;background:rgba(34,197,94,0.15);padding:2px 6px;border-radius:4px;margin-left:6px;">Submax (zostaw rezerwę powtórzeń)</span>';
+      }
       return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;transition:background 0.15s;' + (chk ? 'opacity:.55;' : '') + '" onmouseover="this.style.background=\'rgba(255,255,255,0.04)\'" onmouseout="this.style.background=\'transparent\'">'
         + '<button onclick="toggleItem(\'' + w.item_id + '\',\'workout\',' + !chk + ')" style="width:20px;height:20px;border-radius:5px;border:2px solid ' + (chk ? '#22c55e' : 'rgba(255,255,255,0.18)') + ';background:' + (chk ? '#22c55e' : 'transparent') + ';color:#fff;font-size:11px;cursor:pointer;flex-shrink:0;transition:all .2s;display:flex;align-items:center;justify-content:center;">' + (chk ? '✓' : '') + '</button>'
         + '<div style="flex:1;min-width:0;">'
-        + '<div style="font-size:13px;font-weight:500;' + (chk ? 'text-decoration:line-through;color:#6b7280;' : 'color:#f3f4f6;') + '">' + (w.name || 'Ćwiczenie') + '</div>'
+        + '<div style="font-size:13px;font-weight:500;' + (chk ? 'text-decoration:line-through;color:#6b7280;' : 'color:#f3f4f6;') + '">' + (w.name || 'Ćwiczenie') + effortBadge + '</div>'
         + (parts.length ? '<div style="font-size:11px;color:#6b7280;margin-top:1px;">' + parts.join(' · ') + '</div>' : '')
         + '</div>'
         + '<button onclick="openDayItemSwap(\'' + w.item_id + '\',\'workout\')" style="color:#374151;font-size:13px;background:none;border:none;cursor:pointer;padding:3px;border-radius:4px;transition:color .15s;" onmouseover="this.style.color=\'#7c3aed\'" onmouseout="this.style.color=\'#374151\'" title="Zamień">🔄</button>'

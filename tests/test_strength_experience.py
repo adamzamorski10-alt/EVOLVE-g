@@ -307,7 +307,8 @@ def test_missing_experience_blocks_advanced_only_exercise(monkeypatch):
 
 
 def test_estimate_starting_weight_missing_strength_experience_beginner():
-    # Missing strength experience → beginner multiplier (0.60)
+    # Missing strength experience → beginner multiplier (0.60).
+    # 80 * 0.55 * 0.60 * 1.0 * 0.45 = 11.88 kg; no increment → raw estimate, not rounded.
     weight = estimate_starting_weight(
         user_weight_kg=80.0,
         exercise_type="compound",
@@ -316,8 +317,7 @@ def test_estimate_starting_weight_missing_strength_experience_beginner():
         training_level="beginner",  # what's passed when strength field is missing
         equipment=["dumbbell", "bench"],
     )
-    # 80 * 0.55 * 0.60 * 1.0 * 0.45 = 11.88 -> 12.0 kg
-    assert weight == 12.0
+    assert abs(weight - 11.88) < 0.001
 
 
 def test_estimate_starting_weight_intermediate_differs_from_beginner():
@@ -429,6 +429,7 @@ def test_progression_missing_strength_uses_beginner_not_legacy_intermediate():
         gender="mężczyzna",
         training_experience="intermediate",      # legacy - must be ignored
         strength_training_experience=None,       # new field missing
+        dumbbell_max_kg_per_dumbbell=20.0,       # known capacity, isolates strength behavior
     )
     session.add(user)
     session.commit()
@@ -436,10 +437,10 @@ def test_progression_missing_strength_uses_beginner_not_legacy_intermediate():
 
     exercises = [_dumbbell_exercise("dumbbell_bench_press")]
     enriched = _enrich(session, user, exercises)
-    # Beginner: 80 * 0.55 * 0.60 * 1.0 * 0.45 = 11.88 -> 12.0 kg
-    # Intermediate (legacy): 80 * 0.55 * 0.80 * 1.0 * 0.45 = 15.84 -> 16.0 kg
-    assert enriched[0]["weight_kg"] == 12.0, (
-        f"Expected beginner weight 12.0 kg, got {enriched[0]['weight_kg']} kg"
+    # Beginner raw estimate: 80 * 0.55 * 0.60 * 1.0 * 0.45 = 11.88 kg; no increment → no rounding.
+    # Dumbbell max 20 kg known → no capacity instruction, concrete estimate returned.
+    assert abs(enriched[0]["weight_kg"] - 11.88) < 0.001, (
+        f"Expected beginner raw weight 11.88 kg, got {enriched[0]['weight_kg']} kg"
     )
 
 

@@ -305,15 +305,17 @@ def _equipment_aliases(items: list[str]) -> set[str]:
     return out
 
 
-def _selection_rank_key(ex: Any, priority_groups: set[str] | None = None) -> tuple[int, int, int, str]:
-    """Klucz sortowania slotu: selection_rank, priorytet mięśniowy (tier),
+def _selection_rank_key(ex: Any, priority_scores: dict[str, int] | None = None) -> tuple[int, int, int, str]:
+    """Klucz sortowania slotu: selection_rank, ocena priorytetu (wyższa = lepiej),
     bonus za kompletny opis, potem stabilnie po id.
 
-    tier = 0 gdy primary mięsień należy do priorytetów użytkownika,
-    tier = 1 gdy tylko mięsień pomocniczy należy do priorytetów,
-    tier = 2 gdy żaden. Priorytet zwiększa szansę wyboru, ale nie
-    przewyższa wyraźnie lepiej rangowanego ćwiczenia (selection_rank jest
-    pierwszym kluczem), więc jeden priorytet nie dominuje całego planu.
+    Priorytet jest drugim kluczem sortowania — zwiększa szansę wyboru
+    ćwiczenia na mięśnie o wyższym priorytecie, ale nie przewyższa
+    wyraźnie lepiej rangowanego ćwiczenia (selection_rank jest pierwszym
+    kluczem), więc jeden priorytet nie dominuje całego planu.
+
+    priority_scores: mapa grupa mięśniowa (etykieta po polsku) -> wynik 0-10.
+    Mięśnie niewymienione przez użytkownika mają wynik 0.
     """
     ex_id = ex.id
     rank = 999
@@ -321,21 +323,22 @@ def _selection_rank_key(ex: Any, priority_groups: set[str] | None = None) -> tup
     if ex_id in pattern_ranks:
         rank = pattern_ranks[ex_id]
     desc_bonus = 0 if ex_id in _described_exercise_ids() else 1
-    tier = 2
-    if priority_groups:
+
+    priority_score = 0
+    if priority_scores:
         primary_group = _MUSCLE_TO_SUMMARY_GROUP.get(
             ex.primary_muscles[0] if ex.primary_muscles else "", ""
         )
-        if primary_group in priority_groups:
-            tier = 0
-        else:
-            secondary_groups = {
-                _MUSCLE_TO_SUMMARY_GROUP.get(m, "")
-                for m in (ex.secondary_muscles or [])
-            }
-            if secondary_groups & priority_groups:
-                tier = 1
-    return (rank, tier, desc_bonus, ex_id)
+        priority_score = priority_scores.get(primary_group, 0)
+        if priority_score == 0:
+            # Mięsień pomocniczy z priorytetem daje połowę punktów.
+            for sm in (ex.secondary_muscles or []):
+                sg = _MUSCLE_TO_SUMMARY_GROUP.get(sm, "")
+                sm_score = priority_scores.get(sg, 0)
+                if sm_score > priority_score:
+                    priority_score = sm_score // 2
+
+    return (rank, -priority_score, desc_bonus, ex_id)
 
 
 def _repeat_penalty(ex: Any, used_names_global: set[str] | None) -> int:
@@ -358,12 +361,12 @@ def _repeat_penalty(ex: Any, used_names_global: set[str] | None) -> int:
 
 def _slot_rank_key(
     ex: Any,
-    priority_groups: set[str] | None,
+    priority_scores: dict[str, int] | None,
     used_names_global: set[str] | None,
 ) -> tuple[int, int, int, int, str]:
-    """Klucz sortowania kandydatów w slocie: selection_rank, priorytet tier,
+    """Klucz sortowania kandydatów w slocie: selection_rank, ocena priorytetu,
     bonus opisu, kara za powtórzenie między sesjami, id."""
-    base = _selection_rank_key(ex, priority_groups)
+    base = _selection_rank_key(ex, priority_scores)
     penalty = _repeat_penalty(ex, used_names_global)
     return (base[0], base[1], base[2], penalty, base[3])
 
@@ -691,7 +694,7 @@ def _fill_slot(
     session_focus: str | None = None,
     used_names_global: set[str] | None = None,
     volume_sets: dict[str, int] | None = None,
-    priority_groups: set[str] | None = None,
+    priority_scores: dict[str, int] | None = None,
     is_repeat_template: bool = False,
 ) -> dict[str, Any] | None:
     prefer_ids = slot.get("prefer_ids") or []
@@ -810,7 +813,7 @@ def _fill_slot(
     candidates.sort(
         key=lambda ex: _slot_rank_key(
             get_exercise(ex.get("exercise_id", ex["name"])),
-            priority_groups,
+            priority_scores,
             used_names_global,
         )
     )
@@ -1192,7 +1195,9 @@ def _ensure_beginner_full_body_rules(
         return
 
     week_has_vertical_push = False
-    week_horizontal_push_count = 0
+    week_has_vertical_pull = False
+    week_push_count = 0
+    week_pull_count = 0
     for day in days:
         if day["day_type"] == "rest":
             continue
@@ -1200,12 +1205,20 @@ def _ensure_beginner_full_body_rules(
             ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
             if ex_obj is None:
                 continue
-            if ex_obj.movement_pattern == "vertical_push":
-                week_has_vertical_push = True
-            if ex_obj.movement_pattern == "horizontal_push":
-                week_horizontal_push_count += 1
+            mp = ex_obj.movement_pattern
+            if mp in ("horizontal_push", "vertical_push"):
+                week_push_count += 1
+                if mp == "vertical_push":
+                    week_has_vertical_push = True
+            elif mp in ("horizontal_pull", "vertical_pull"):
+                week_pull_count += 1
+                if mp == "vertical_pull":
+                    week_has_vertical_pull = True
 
-    if not week_has_vertical_push:
+    # Ocenić ciągnięcie niezależnie od objętości popychania.
+    # Jeśli w tygodniu nie ma żadnego ćwiczenia ciągającego, uzupełnij je —
+    # bez względu na liczbę wyciskanić.
+    if week_pull_count == 0:
         for day in days:
             if day["day_type"] == "rest":
                 continue
@@ -1221,9 +1234,9 @@ def _ensure_beginner_full_body_rules(
                     continue
                 p = eo.primary_muscles[0] if eo.primary_muscles else ""
                 pm_count[p] = pm_count.get(p, 0) + 1
-            if pm_count.get("front_delts", 0) >= 1:
+            if pm_count.get("lats", 0) >= 1:
                 continue
-            for ex_id in ("seated_dumbbell_press", "overhead_press", "arnold_press", "pike_pushup"):
+            for ex_id in ("one_arm_dumbbell_row", "lat_pulldown", "pullup_wide", "seated_cable_row"):
                 ex = get_exercise(ex_id)
                 if ex is None:
                     continue
@@ -1250,6 +1263,13 @@ def _ensure_beginner_full_body_rules(
                 if tg in weekly_sets:
                     weekly_sets[tg] += sets_val
                 break
+        # Po uzupełnieniu ciągnięcia, nie dokładaj już wyciskania.
+        return
+
+    # Nie dokładaj wyciskania na już obciążony popychający tydzień
+    # (maksymalnie dwa wyciskania tygodniowo dla początkującego).
+    if week_push_count >= 2:
+        return
 
 
 # ---------------------------------------------------------------------------
@@ -1353,6 +1373,25 @@ def build_split_plan(
     pool = build_exercise_pool()
     training_locations = user.get_list("training_locations_json")
 
+    # ── Wiek użytkownika: wymagany do bezpiecznego programowania ──
+    age = getattr(user, "age", None)
+    if age is None:
+        raise ValueError(
+            "Wiek użytkownika jest wymagany do wygenerowania planu treningowego. "
+            "Uzupełnij wiek w profilu przed wygenerowaniem planu."
+        )
+    try:
+        age = int(age)
+    except (ValueError, TypeError):
+        raise ValueError(
+            "Nieprawidłowy wiek użytkownika. Wiek musi być liczbą całkowitą."
+        )
+    if age < 13 or age > 100:
+        raise ValueError(
+            "Wiek użytkownika jest poza dopuszczalnym zakresem (13–100 lat)."
+        )
+    is_minor = age < 18
+
     profile_days = _frequency_days(user.frequency)
     assessment_days = _assessment_value(assessment, "sessions_per_week")
     target_days = max(1, min(6, int(assessment_days or profile_days)))
@@ -1392,12 +1431,29 @@ def build_split_plan(
     for item in focus_raw + improve_raw:
         if item not in focus_areas:
             focus_areas.append(item)
+    user_declared_focus = bool(focus_raw or improve_raw)
     if not focus_areas:
+        # Domyślna lista używana tylko do objętości celów, nie do priorytetów.
         focus_areas = ["klatka", "plecy", "nogi", "brzuch", "barki"]
 
-    # Priorytety mięśniowe użytkownika (etykiety grup po polsku). Wpływają
-    # na ranking wyboru ćwiczeń w _selection_rank_key, a nie na objętość.
-    priority_groups: set[str] = set(focus_areas) & set(_SUMMARY_GROUPS)
+    # Gdy użytkownik zadeklarował wszystkie główne grupy mięśniowe jako
+    # obszary skupienia, traktuj to jako brak konkretnego priorytetu
+    # (wszystkie mięśnie są równie ważne — nie wynalazuj hiérarchii).
+    _ALL_MAIN_GROUPS = {"klatka", "plecy", "nogi", "brzuch", "barki"}
+    all_main_declared = _ALL_MAIN_GROUPS.issubset(set(focus_areas))
+
+    # Ocena priorytetów mięśniowych: kolejność na liście użytkownika ma znaczenie
+    # (pierwszy wymieniony = najwyższy priorytet), a niewymienione mięśnie
+    # otrzymują priorytet 0. Nie wymuszamy wartości numerycznych, których
+    # użytkownik nie podał — kolejność na liście jest jedynym dostępnym
+    # sygnałem stopniowania. Gdy użytkownik nic nie zadeklarował lub zadeklarował
+    # wszystkie główne grupy, wszystkie mięśnie mają priorytet 0.
+    priority_scores: dict[str, int] = {}
+    if user_declared_focus and not all_main_declared:
+        n = len(focus_areas)
+        for i, area in enumerate(focus_areas):
+            # Pierwszy na liście = 10, ostatni = 1 (spośród wymienionych).
+            priority_scores[area] = max(1, 10 - i)
 
     sport_days_raw = user.get_list("sport_training_days_json")
     sport_days: set[str] = set()
@@ -1453,17 +1509,22 @@ def build_split_plan(
         "klatka": "chest", "plecy": "back", "barki": "side_delts",
         "biceps": "biceps", "triceps": "triceps", "nogi": "quads", "brzuch": "abs",
     }
-    focus_volume_keys = {
-        _GROUP_TO_VOLUME_KEY[a] for a in focus_areas if a in _GROUP_TO_VOLUME_KEY
-    }
-    for key in volume_targets:
-        low, high = volume_targets[key]
-        if key in focus_volume_keys:
-            # Focus areas: raise upper target (bounded by cap factor)
-            volume_targets[key] = (low, min(int(high * VOLUME_CAP_FACTOR), high + 2))
-        else:
-            # Non-focus: modestly reduce lower target to free volume for priorities
-            volume_targets[key] = (max(1, low - 2), high)
+    _VOLUME_KEY_TO_GROUP = {v: k for k, v in _GROUP_TO_VOLUME_KEY.items()}
+    # Dostosuj cele objętości tylko gdy użytkownik jawnie zadeklarował priorytety
+    # (i nie zadeklarował wszystkich głównych grup naraz, co oznacza brak preferencji).
+    if user_declared_focus and not all_main_declared:
+        for key in volume_targets:
+            low, high = volume_targets[key]
+            group_label = _VOLUME_KEY_TO_GROUP.get(key, "")
+            score = priority_scores.get(group_label, 0)
+            if score >= 7:
+                # Wysoki priorytet: zwiększ górny limit objętości (ograniczony przez cap).
+                volume_targets[key] = (low, min(int(high * VOLUME_CAP_FACTOR), high + 3))
+            elif score >= 4:
+                # Średni priorytet: modeste zwiększenie górnego limitu.
+                volume_targets[key] = (low, min(int(high * VOLUME_CAP_FACTOR), high + 1))
+            # score <= 3 lub brak deklaracji: cel objętości pozostaje bez zmian
+            # (nigdy nie obniżamy dolnej granicy dla niewymienionych mięśni).
 
     days: list[dict] = []
     used_names_global: set[str] = set()
@@ -1475,6 +1536,15 @@ def build_split_plan(
     is_single_day = len(selected_days) == 1
     is_beginner = strength_level == "beginner"
     is_intermediate = strength_level == "intermediate"
+
+    # Użytkownicy niepełnoletni: submaximal effort, brak testów maksymalnych,
+    # przyrosty obciążeń tylko stopniowe, technika nad objętością.
+    if is_minor:
+        diagnostics.append(
+            "Plan dla użytkownika niepełnoletniego: wysiłek submaksymalny, "
+            "brak testów 1RM ani treningu do upadku, przyrosty obciążeń "
+            "tylko stopniowe, technika nad objętością."
+        )
 
     # R24: masa wlasna bez drazka/stolu/gum - dodaj komunikat diagnostyczny
     _PULL_EQUIPMENT = {"pullup_bar", "table_or_low_bar", "bands"}
@@ -1510,6 +1580,7 @@ def build_split_plan(
         used_primary_muscles_in_session: dict[str, int] = {}
         used_families_in_session: set[str] = set()
         used_names_session: set[str] = set()
+        session_minutes_so_far: float = 0.0
         if is_bodyweight_plan:
             exclude_names = set(used_names_global)
         else:
@@ -1544,7 +1615,9 @@ def build_split_plan(
         for slot in slots:
             if len(selected_exercises) >= session_limit:
                 break
-            # R21: wspięcia na palce maks 1 sesja/tyg w full_body (chyba ze cel lydek)
+            # Kopia slota, aby priorytetowe dostosowanie serii nie mutowało szablonu.
+            slot = dict(slot)
+            # R21: wspięcia na palce maks 1 sesja/tyg w full_body (chyba że cel łydki)
             if slot.get("calf_slot") and "full_body" in template_name:
                 calves_target_low = volume_targets.get("calves", (0, 0))[0]
                 calves_actual = volume_sets.get("calves", 0)
@@ -1573,13 +1646,27 @@ def build_split_plan(
                     est_sets = slot.get("sets") or 3
                     if volume_sets.get(target_sg, 0) + est_sets > max_allowed:
                         continue
+            # Dostosuj serie izolacji do priorytetu mięśnia (tylko gdy użytkownik zadeklarował priorytety).
+            # Wysoki priorytet zwiększa serie; niski lub brak priorytetu nigdy nie obniża poniżej bazy.
+            # Bonusa nie stosuje się, gdyby przekroczył zadebrany limit czasu sesji.
+            if (
+                slot.get("kind") == "isolation"
+                and priority_scores
+                and target_sg
+                and (session_duration_minutes is None or session_minutes_so_far + 3.0 <= session_duration_minutes)
+            ):
+                group_label = _VOLUME_KEY_TO_GROUP.get(target_sg, "")
+                score = priority_scores.get(group_label, 0)
+                if score >= 7:
+                    base_sets = slot.get("sets") or 3
+                    slot["sets"] = base_sets + 1
             ex = _fill_slot(
                 slot, pool, equipment, avoid_exercises, strength_level,
                 used_names_session, used_patterns_in_session,
                 used_primary_muscles_in_session, used_families_in_session,
                 exclude_names, has_equipment_preset,
                 session_isolation_ids, template_name, used_names_global,
-                volume_sets, priority_groups,
+                volume_sets, priority_scores,
                 is_repeat_template=is_repeat_template,
             )
             if ex is None:
@@ -1602,9 +1689,19 @@ def build_split_plan(
             is_first_compound = (not first_compound_done) and is_compound
             sets_val = slot.get("sets") or _parse_sets(ex.get("sets"), is_first_compound)
             if is_beginner:
-                # Klatka jako priorytet użytkownika może wykonać 4 serie nawet na poziomie beginner.
+                # Wysoki priorytet mięśnia pozwala na 4 serie nawet na poziomie beginner.
                 pm = ex_obj.primary_muscles[0] if ex_obj and ex_obj.primary_muscles else ""
-                if pm != "chest":
+                priority_score = 0
+                if priority_scores:
+                    pg = _MUSCLE_TO_SUMMARY_GROUP.get(pm, "")
+                    priority_score = priority_scores.get(pg, 0)
+                    if priority_score == 0:
+                        for sm in (ex_obj.secondary_muscles or []):
+                            sg = _MUSCLE_TO_SUMMARY_GROUP.get(sm, "")
+                            sm_score = priority_scores.get(sg, 0)
+                            if sm_score > priority_score:
+                                priority_score = sm_score // 2
+                if pm != "chest" and priority_score < 7:
                     sets_val = min(sets_val, 3)
             if is_beginner and ex_obj and "calves" in (ex_obj.primary_muscles or []):
                 sets_val = min(sets_val, 2)
@@ -1613,6 +1710,11 @@ def build_split_plan(
                 calf_sessions_in_full_body += 1
             ex_with_sets = dict(ex)
             ex_with_sets["sets"] = sets_val
+            # Aktualizuj szacowany czas sesji (wykonanie + przerwy + przejście).
+            _rest_sets = max(0, sets_val - 1)
+            session_minutes_so_far += sets_val * _SET_EXECUTION_MIN + _rest_sets * _REST_INTERVAL_MIN + _TRANSITION_MIN
+            if ex_obj and _is_unilateral_exercise(ex_obj):
+                session_minutes_so_far += _UNILATERAL_EXTRA_MIN
             selected_exercises.append(ex_with_sets)
             used_names_session.add(ex["name"])
             used_names_global.add(ex["name"])
@@ -1722,8 +1824,14 @@ def build_split_plan(
             workout_items.append({
                 **exercise,
                 "how_to": exercise.get("how_to", ""),
+                **({"effort": "submaximal"} if is_minor else {}),
                 "alternatives": [
-                    {"name": alt["name"], "sets": alt["sets"], "reps": alt["reps"]}
+                    {
+                        "name": alt["name"],
+                        "sets": alt["sets"],
+                        "reps": alt["reps"],
+                        **({"effort": "submaximal"} if is_minor else {}),
+                    }
                     for alt in alternatives
                 ],
             })
@@ -1825,6 +1933,7 @@ def build_split_plan(
 
     # Przelicz weekly_sets, weekly_sessions i volume_sets bezpośrednio z gotowego planu.
     volume_sets = {m: 0 for m in volume_targets}
+    secondary_volume = {m: 0.0 for m in volume_targets}
     weekly_sets = {g: 0 for g in _SUMMARY_GROUPS}
     weekly_sessions = {g: 0 for g in _SUMMARY_GROUPS}
     for day in days:
@@ -1838,6 +1947,13 @@ def build_split_plan(
             subgroup = _volume_subgroup(ex_obj.primary_muscles)
             if subgroup and subgroup in volume_sets:
                 volume_sets[subgroup] += ex["sets"]
+            # Mięśnie pomocnicze: dolicz ułamek serii do ich objętości
+            # niezależnie od tego, czy główna grupa podlega śledzeniu objętości.
+            if ex_obj.secondary_muscles:
+                for sm in ex_obj.secondary_muscles:
+                    sm_key = _MUSCLE_TO_VOLUME_SUBGROUP.get(sm)
+                    if sm_key and sm_key in secondary_volume:
+                        secondary_volume[sm_key] += ex["sets"] * SECONDARY_MUSCLE_COEFF
             g = _summary_group(ex_obj.primary_muscles)
             if g:
                 if g in weekly_sets:
@@ -1946,5 +2062,6 @@ def build_split_plan(
             "group_day_count": weekly_sessions,
             "weekly_summary": weekly_summary,
             "split_key": split_key,
+            "minor": is_minor,
         },
     }

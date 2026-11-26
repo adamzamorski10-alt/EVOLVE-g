@@ -1793,7 +1793,7 @@ def training_today_ui():
 <title>EVOLVE · Mój dzień</title>
 <style>:root{color-scheme:dark;--bg:#090b12;--panel:#121722;--line:#252c3b;--text:#f4f6fb;--muted:#9aa4b5;--accent:#8b5cf6;--good:#34d399}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0%,#21183a,#090b12 48%);font:15px system-ui;color:var(--text)}main{max-width:900px;margin:auto;padding:34px 18px 60px}.top{display:flex;justify-content:space-between;align-items:center;gap:15px}.top h1{margin:0;font-size:32px}.back,.btn{color:#fff;text-decoration:none;border:1px solid var(--line);background:#171d29;padding:10px 13px;border-radius:10px;font-weight:700}.hero{margin-top:18px;padding:22px;border:1px solid var(--line);background:rgba(18,23,34,.94);border-radius:18px}.eyebrow{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}.status{margin-top:8px;font-size:22px;font-weight:800}.muted{color:var(--muted)}.badge{display:inline-block;margin-top:12px;padding:6px 10px;border-radius:999px;background:#2d2148;color:#c4b5fd;font-weight:750;font-size:12px}.grid{display:grid;gap:12px;margin-top:14px}.exercise{padding:17px;background:rgba(18,23,34,.94);border:1px solid var(--line);border-radius:15px}.name{font-size:18px;font-weight:800}.target{margin-top:6px;color:var(--muted)}.empty{text-align:center;padding:35px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.primary{background:var(--accent);border-color:transparent}.reason{margin-top:12px;padding:11px 13px;border-radius:11px;background:#0d111a;color:var(--muted);font-size:13px}@media(max-width:600px){.top{align-items:flex-start;flex-direction:column}}
 </style></head><body><main><div class="top"><h1>Mój dzień</h1><a class="back" href="/app#my-day">← Panel</a></div><div id="app" class="hero">Ładowanie dzisiejszego planu…</div></main>
-<script>const token=localStorage.getItem('fitai_token');const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));async function load(){if(!token){app.innerHTML='<div class="empty"><b>Zaloguj się w EVOLVE</b><p class="muted">Po zalogowaniu zobaczysz swój aktualny trening.</p></div>';return}try{const r=await fetch('/app/training/today',{headers:{Authorization:'Bearer '+token}}),d=await r.json();if(!r.ok){app.innerHTML='<div class="empty">'+esc(d.detail||'Nie udało się pobrać planu.')+'</div>';return}const p=d.plan||{};const label=p.source==='adaptive'?'Plan v'+p.version+' · dostosowany na podstawie ostatnich treningów':'Bazowy plan tygodniowy';app.innerHTML='<div class="eyebrow">'+esc(d.day_label)+' · '+esc(d.date)+'</div><div class="status">'+(d.has_workout?'Dzisiejszy trening jest gotowy':'Dzień bez zaplanowanego treningu')+'</div><span class="badge">'+esc(label)+'</span>'+(d.has_workout?'<div class="grid">'+d.exercises.map(e=>'<div class="exercise"><div class="name">'+esc(e.exercise_name)+'</div><div class="target">'+e.sets+' × '+e.reps+(e.weight_kg?' · '+e.weight_kg+' kg':'')+(e.rpe?' · RPE '+e.rpe:'')+'</div></div>').join('')+'</div>':'<p class="muted">Na dziś nie ma ćwiczeń w aktywnym planie.</p>')+(p.source==='adaptive'?'<div class="reason">Dzisiejszy plan został pobrany z zastosowanej wersji adaptacyjnej. Źródłowe sesje: '+esc((p.source_session_ids||[]).join(', '))+'</div>':'<div class="reason">Nie zastosowano jeszcze adaptacji. Po ukończeniu treningu możesz przejść do Postępów i zapisać kolejną wersję planu.</div>')+'<div class="actions">'+(d.has_workout?'<a class="btn primary" href="/app/training/session-ui">▶ Rozpocznij trening</a>':'')+'<a class="btn" href="/app/training/dashboard">📈 Postępy</a><a class="btn" href="/">Wróć do aplikacji</a></div>'}catch(e){app.innerHTML='<div class="empty">Nie udało się połączyć z serwerem.</div>'}}load();</script></body></html>""")
+<script>const token=localStorage.getItem('fitai_token');const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));async function load(){if(!token){app.innerHTML='<div class="empty"><b>Zaloguj się w EVOLVE</b><p class="muted">Po zalogowaniu zobaczysz swój aktualny trening.</p></div>';return}try{const r=await fetch('/app/training/today',{headers:{Authorization:'Bearer '+token}}),d=await r.json();if(!r.ok){app.innerHTML='<div class="empty">'+esc(d.detail||'Nie udało się pobrać planu.')+'</div>';return}const p=d.plan||{};const label=p.source==='adaptive'?'Plan v'+p.version+' · dostosowany na podstawie ostatnich treningów':'Bazowy plan tygodniowy';app.innerHTML='<div class="eyebrow">'+esc(d.day_label)+' · '+esc(d.date)+'</div><div class="status">'+(d.has_workout?'Dzisiejszy trening jest gotowy':'Dzień bez zaplanowanego treningu')+'</div><span class="badge">'+esc(label)+'</span>'+(d.has_workout?'<div class="grid">'+d.exercises.map(e=>'<div class="exercise"><div class="name">'+esc(e.exercise_name)+'</div><div class="target">'+e.sets+' × '+e.reps+(e.weight_kg?' · '+e.weight_kg+' kg':'')+(e.rpe?' · RPE '+e.rpe:'')+'</div>'+(e.weight_instruction?'<div class="meta" style="color:var(--warn);font-size:11px;margin-top:4px">'+esc(e.weight_instruction)+'</div>':'')+(e.effort==='submaximal'?'<div class="meta" style="color:var(--warn);font-size:11px;margin-top:4px">Submaksymalny wysiłek · zostaw zapas (RIR), nie trenuj do upadku</div>':'')+'</div>').join('')+'</div>':'<p class="muted">Na dziś nie ma ćwiczeń w aktywnym planie.</p>')+(p.source==='adaptive'?'<div class="reason">Dzisiejszy plan został pobrany z zastosowanej wersji adaptacyjnej. Źródłowe sesje: '+esc((p.source_session_ids||[]).join(', '))+'</div>':'<div class="reason">Nie zastosowano jeszcze adaptacji. Po ukończeniu treningu możesz przejść do Postępów i zapisać kolejną wersję planu.</div>')+'<div class="actions">'+(d.has_workout?'<a class="btn primary" href="/app/training/session-ui">▶ Rozpocznij trening</a>':'')+'<a class="btn" href="/app/training/dashboard">📈 Postępy</a><a class="btn" href="/">Wróć do aplikacji</a></div>'}catch(e){app.innerHTML='<div class="empty">Nie udało się połączyć z serwerem.</div>'}}load();</script></body></html>""")
 
 
 @router.get("/session-ui", response_class=HTMLResponse)
@@ -1871,8 +1871,8 @@ function render(){
   const logged=(current.sets||[]).filter(s=>s.exercise_key===ex.exercise_key);
   const done=logged.filter(s=>s.completed).length;
   const ghost=ghosts[ex.exercise_key];
-  const ghostInfo=ghost?'<div class="meta" style="color:var(--accent);font-size:11px;margin-top:4px;">👻 Poprzednio: śr. '+ghost.average_weight_kg+' kg × '+ghost.average_reps+' powt. ('+ghost.completed_sets+' serii)</div>':'';
-  return '<section class="exercise '+(done<Number(ex.sets||0)?'active':'')+'"><div class="head"><div><div class="title">'+(ei+1)+'. '+esc(ex.exercise_name)+'</div><div class="target">Cel: '+ex.sets+' × '+esc(ex.reps_label||ex.reps)+(ex.weight_kg?' · '+ex.weight_kg+' kg':'')+(ex.rpe?' · RPE '+ex.rpe:'')+'</div>'+ghostInfo+'</div><span class="tag">'+done+'/'+ex.sets+' serie</span></div><div class="sets">'+Array.from({length:Math.max(0,Number(ex.sets||0))},(_,i)=>{
+  const ghostInfo=ghost?'<div class="meta" style="color:var(--accent);font-size:11px;margin-top:4px;">👻 Poprzednio: śr. '+ghost.average_weight_kg+' kg × '+ghost.average_reps+' powt. ('+ghost.completed_sets+' serii)</div>':''+(ex.effort==='submaximal'?'<div class="meta" style="color:var(--warn);font-size:11px;margin-top:4px">Submaksymalny wysiłek · zostaw zapas (RIR), nie trenuj do upadku</div>':'');
+  return '<section class="exercise '+(done<Number(ex.sets||0)?'active':'')+'"><div class="head"><div><div class="title">'+(ei+1)+'. '+esc(ex.exercise_name)+'</div><div class="target">Cel: '+ex.sets+' × '+esc(ex.reps_label||ex.reps)+(ex.weight_kg?' · '+ex.weight_kg+' kg':'')+(ex.rpe?' · RPE '+ex.rpe:'')+'</div>'+(ex.weight_instruction?'<div class="meta" style="color:var(--warn);font-size:11px;margin-top:4px">'+esc(ex.weight_instruction)+'</div>':'')+ghostInfo+'</div><span class="tag">'+done+'/'+ex.sets+' serie</span></div><div class="sets">'+Array.from({length:Math.max(0,Number(ex.sets||0))},(_,i)=>{
    const n=i+1,old=logged.find(s=>s.set_number===n),safe=encodeURIComponent(ex.exercise_key);
    const defaultWeight=(old?.actual_weight_kg??ex.weight_kg??ghost?.average_weight_kg??0);
    const defaultReps=(old?.actual_reps??ex.reps??ghost?.average_reps??0);
@@ -2076,6 +2076,40 @@ def list_exercise_progressions(
     }
 
 
+_WEIGHT_FREE_EQUIPMENT = frozenset({
+    # Sprzęt niezapewniający mierzalnego zewnętrznego obciążenia w kg.
+    # Ćwiczenia z wyłącznie tym sprzętem (lub ruchem core) są klasą własną ciała.
+    "bodyweight", "pullup_bar", "dip_station", "bands",
+    "ab_wheel", "table_or_low_bar", "jump_rope", "box",
+})
+
+
+def _has_meaningful_performance(
+    sets_for_key: list,
+    ex_obj: Any | None,
+    equipment: list[str] | None,
+) -> bool:
+    """Czy sesja dostarczyła znaczące dane wydajnościowe do kalibracji rekordu."""
+    has_valid_reps = any(int(s.actual_reps or 0) > 0 for s in sets_for_key)
+    if not has_valid_reps:
+        return False
+    eq_set = {str(e).lower().strip() for e in (equipment or [])}
+    movement = getattr(ex_obj, "movement_pattern", "") or "" if ex_obj else ""
+    # Klasa własna ciała: opór pochodzi z masy własnej lub elastycznego sprzętu
+    # (dźwignia, poręcze, gumy, koło ab-wheel), a nie z mierzonych kg płytek.
+    # Dla takich ćwiczeń ważne powtórzenia wystarczą — nie wymagaj obciążenia kg.
+    is_bodyweight = (
+        movement == "core"
+        or (bool(eq_set) and eq_set <= _WEIGHT_FREE_EQUIPMENT)
+    )
+    if is_bodyweight:
+        return True
+    # Ćwiczenia obciążone (hantle, sztanga, maszyny, kable, talerze ...)
+    # wymagają znaczącego zewnętrznego obciążenia w kilogramach.
+    has_valid_weight = any(float(s.actual_weight_kg or 0) > 0 for s in sets_for_key)
+    return has_valid_weight
+
+
 def _enrich_plan_with_progressions(
     exercises: list[dict],
     user_id: str,
@@ -2116,11 +2150,32 @@ def _enrich_plan_with_progressions(
         prog = rows.get(key)
         ex_copy = dict(ex)
 
-        if prog and prog.working_weight_kg > 0 and not active_rev:
-            ex_copy["weight_kg"] = prog.working_weight_kg
-            if prog.current_reps > 0:
+        if active_rev is not None:
+            # Aktywna rewizja adaptacyjna ma pierwszeństwo — nie nadpisuj progresją.
+            pass
+        elif prog is not None:
+            if prog.calibrated and prog.working_weight_kg > 0:
+                # Kalibrowany rekord progresji nadpisuje receptę V2 (ciężar).
+                ex_copy["weight_kg"] = prog.working_weight_kg
+            # Powtórzenia: kalibrowany rekord z ważnymi powtórzeniami nadpisuje V2.
+            if prog.calibrated and prog.current_reps > 0:
                 ex_copy["reps"] = prog.current_reps
                 ex_copy["reps_label"] = str(prog.current_reps)
+            elif not prog.calibrated and prog.working_weight_kg > 0:
+                # Nieskalibrowany szacunek: awaryjny fallback tylko gdy V2 nie ma ważnej wagi.
+                current_weight = ex_copy.get("weight_kg")
+                valid_v2_weight = (
+                    current_weight is not None
+                    and not isinstance(current_weight, bool)
+                    and isinstance(current_weight, (int, float))
+                    and float(current_weight) > 0
+                )
+                if not valid_v2_weight:
+                    ex_copy["weight_kg"] = prog.working_weight_kg
+                # Nie nadpisuj ważnych powtórzeń V2 nieskalibrowanym zapisem.
+                if not ex_copy.get("reps") and prog.current_reps > 0:
+                    ex_copy["reps"] = prog.current_reps
+                    ex_copy["reps_label"] = str(prog.current_reps)
         elif not prog and user:
             # Zachowaj jawnie podany ciężar w planie (jeśli > 0)
             current_weight = ex_copy.get("weight_kg")
@@ -2133,20 +2188,35 @@ def _enrich_plan_with_progressions(
                 movement = getattr(ex_obj, "movement_pattern", "horizontal_push") or "horizontal_push"
 
                 eq_set = {str(e).lower().strip() for e in equipment}
-                if (bool(eq_set) and eq_set <= {"bodyweight"}) or movement == "core":
+                if (bool(eq_set) and eq_set <= _WEIGHT_FREE_EQUIPMENT) or movement == "core":
                     ex_copy["weight_kg"] = 0.0
                 else:
-                    est_weight = estimate_starting_weight(
-                        user_weight_kg=float(user.weight or 70.0),
-                        exercise_type=ex_type,
-                        movement_pattern=movement,
-                        gender=str(user.gender or "mężczyzna"),
-                        training_level=str(user.strength_training_experience or "beginner"),
-                        equipment=equipment,
-                        dumbbell_max_kg_per_dumbbell=user.dumbbell_max_kg_per_dumbbell,
-                        dumbbell_increment_kg=user.dumbbell_increment_kg,
+                    # Obciążenie hantlami podawane jest na jeden hantel (per hand).
+                    # Nie wywierdzaj liczby, gdy potwierdzona pojemność sprzętu jest nieznana.
+                    needs_dumbbell_capacity = ex_obj is not None and any(
+                        "dumbbell" in e or "hantel" in e for e in (ex_obj.equipment or [])
                     )
-                    ex_copy["weight_kg"] = est_weight
+                    if needs_dumbbell_capacity and user.dumbbell_max_kg_per_dumbbell is None:
+                        # Nieznana pojemność hantli: nie wywierdzaj liczby (brak zweryfikowanej recepty).
+                        # 0.0 oznacza "brak potwierdzonego obciążenia — użytkownik dobiera sam",
+                        # jest bezpieczna dla renderingu, serializacji i porównań (brak None/TypeError).
+                        ex_copy["weight_kg"] = 0.0
+                        ex_copy["weight_instruction"] = (
+                            "Dobierz hantle tak, aby wykonać zaplanowane powtórzenia z "
+                            "poprawną techniką i zapasem powtórzeń (RIR), nie trenując do upadku."
+                        )
+                    else:
+                        est_weight = estimate_starting_weight(
+                            user_weight_kg=float(user.weight or 70.0),
+                            exercise_type=ex_type,
+                            movement_pattern=movement,
+                            gender=str(user.gender or "mężczyzna"),
+                            training_level=str(user.strength_training_experience or "beginner"),
+                            equipment=equipment,
+                            dumbbell_max_kg_per_dumbbell=user.dumbbell_max_kg_per_dumbbell,
+                            dumbbell_increment_kg=user.dumbbell_increment_kg,
+                        )
+                        ex_copy["weight_kg"] = est_weight
 
             # Jeśli reps nie były określone, ustaw cel na podstawie profilu
             if not ex_copy.get("reps") or ex_copy.get("reps") == 0:
@@ -2159,6 +2229,24 @@ def _enrich_plan_with_progressions(
 
         result.append(ex_copy)
     return result
+
+
+def _target_rir_for_user(user: "UserDB") -> int | None:
+    """Zwróć docelowy RIR na podstawie wieku użytkownika.
+
+    Niepełnoletni (wiek < 18) → 3, pełnoletni → 2.
+    Zwraca None gdy wiek brakuje lub jest nieprawidłowy — wywołujący
+    nie powinien wtedy nadpisać istniejącej wartości (bezpieczny domyślny
+    dla nieznanego wieku to zachowanie poprzednie, nie dorosłe target_rir=2).
+    """
+    age = getattr(user, "age", None)
+    if age is None:
+        return None
+    try:
+        age_int = int(age)
+    except (ValueError, TypeError):
+        return None
+    return 3 if age_int < 18 else 2
 
 
 def _update_exercise_progressions(
@@ -2200,6 +2288,15 @@ def _update_exercise_progressions(
         name = str(planned.get("exercise_name") or planned.get("name") or key)
         ex_obj = get_exercise(key)
 
+        # Ćwiczenia klasy własnej ciała (gumy, drążek, poręcze, ab-wheel, core ...)
+        # nie mają mierzalnego obciążenia kg — nie zakładaj progresji numerycznej.
+        eq_set_flow = {str(e).lower().strip() for e in (ex_obj.equipment or []) if ex_obj}
+        movement_flow = getattr(ex_obj, "movement_pattern", "") or "" if ex_obj else ""
+        is_weight_free = (
+            movement_flow == "core"
+            or (bool(eq_set_flow) and eq_set_flow <= _WEIGHT_FREE_EQUIPMENT)
+        )
+
         # Pobierz lub stwórz rekord progresji
         prog = db_session.exec(
             select(ExerciseProgressionDB)
@@ -2231,13 +2328,21 @@ def _update_exercise_progressions(
                 user_id=user_id,
                 exercise_key=key,
                 exercise_name=name,
-                working_weight_kg=start_weight,
+                working_weight_kg=0.0 if is_weight_free else start_weight,
                 current_reps=rmin,
                 reps_at_current_weight=0,
                 target_reps_min=rmin,
                 target_reps_max=rmax,
+                target_rir=_target_rir_for_user(user) or 2,
                 calibrated=False,
             )
+        else:
+            # Rekord istniejący: dopasuj target_rir do bieżącego wieku, jeśli wiek znany.
+            # Gdy wiek brakuje lub jest nieprawidłowy, nie obniżaj istniejącej wartości
+            # (np. niecofsaj niepełnoletniego z target_rir=3 na dorosły 2).
+            expected_rir = _target_rir_for_user(user)
+            if expected_rir is not None and prog.target_rir != expected_rir:
+                prog.target_rir = expected_rir
 
         # Zbierz dane z wykonanych serii
         sets_for_key = by_key.get(key, [])
@@ -2278,11 +2383,17 @@ def _update_exercise_progressions(
         # Zaktualizuj stan progresji
         old_weight = prog.working_weight_kg
         prog.working_weight_kg = decision["next_weight"] if decision["next_weight"] > 0 else avg_weight
+        if is_weight_free:
+            # Klasa własnej ciała nie ma progresji obciążenia kg — waga zawsze 0.0.
+            prog.working_weight_kg = 0.0
         prog.current_reps = decision["next_reps"]
         if avg_reps > 0 and avg_weight >= prog.working_weight_kg:
             prog.reps_at_current_weight = avg_reps
         prog.last_session_date = today
-        prog.calibrated = True
+        if _has_meaningful_performance(sets_for_key, ex_obj, equipment2):
+            # Kalibracja tylko w przód: nie usuwamy già ustalonej kalibracji
+            # z powodu późniejszej sesji z niepełnymi lub nieprawidłowymi danymi.
+            prog.calibrated = True
 
         if decision["action"] in ("progress_load", "progress_reps"):
             prog.sessions_without_progress = 0

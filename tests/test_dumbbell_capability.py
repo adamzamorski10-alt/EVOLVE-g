@@ -63,7 +63,8 @@ def _dumbbell_exercise(key: str) -> dict:
 
 
 def test_estimate_starting_weight_dumbbell_below_max_unchanged():
-    # 80 kg male intermediate, horizontal_push compound: 80*0.55*0.8*1.0*0.45 = 15.84 -> 16.0 kg
+    # 80 kg male intermediate, horizontal_push compound: 80*0.55*0.8*1.0*0.45 = 15.84 kg.
+    # Brak potwierdzonego skoku hantli → nie zaokrąglamy (brak założenia domyślnego kroku).
     weight = estimate_starting_weight(
         user_weight_kg=80.0,
         exercise_type="compound",
@@ -73,7 +74,7 @@ def test_estimate_starting_weight_dumbbell_below_max_unchanged():
         equipment=["dumbbell", "bench"],
         dumbbell_max_kg_per_dumbbell=20.0,
     )
-    assert weight == 16.0
+    assert abs(weight - 15.84) < 0.001
 
 
 def test_estimate_starting_weight_dumbbell_above_max_capped():
@@ -122,7 +123,8 @@ def test_estimate_starting_weight_dumbbell_increment_rounds_up_then_caps():
 
 
 def test_estimate_starting_weight_dumbbell_unknown_capacity_no_cap():
-    # No max/increment: conservative bodyweight estimate, no equipment-imposed ceiling
+    # No max/increment: raw conservative bodyweight estimate, no equipment-imposed ceiling,
+    # no assumed increment — 15.84 kg, not rounded to an unverified step.
     weight = estimate_starting_weight(
         user_weight_kg=80.0,
         exercise_type="compound",
@@ -131,12 +133,13 @@ def test_estimate_starting_weight_dumbbell_unknown_capacity_no_cap():
         training_level="intermediate",
         equipment=["dumbbell", "bench"],
     )
-    assert weight == 16.0
+    assert abs(weight - 15.84) < 0.001
     assert weight > 0.0
 
 
 def test_estimate_starting_weight_per_dumbbell_not_pair():
-    # The returned value is per single dumbbell (~16 kg each), not the pair total (~32 kg).
+    # The returned value is per single dumbbell (~15.84 kg each), not the pair total (~32 kg).
+    # No increment → raw estimate, not rounded.
     weight = estimate_starting_weight(
         user_weight_kg=80.0,
         exercise_type="compound",
@@ -146,7 +149,7 @@ def test_estimate_starting_weight_per_dumbbell_not_pair():
         equipment=["dumbbell", "bench"],
         dumbbell_max_kg_per_dumbbell=20.0,
     )
-    assert weight == 16.0
+    assert abs(weight - 15.84) < 0.001
     assert weight < 32.0  # not the pair total
 
 
@@ -208,10 +211,10 @@ def test_enrich_unknown_capacity_conservative_estimate():
     exercises = [_dumbbell_exercise("dumbbell_bench_press")]
     enriched = _enrich(session, user, exercises)
     weight = enriched[0]["weight_kg"]
-    # A concrete starting weight is still provided (usable plan), but it is an
-    # estimate derived from bodyweight, not a verified prescription against a max.
-    assert weight > 0.0
-    assert weight == 16.0  # bodyweight-based, no equipment cap applied
+    # Nieznana pojemność hantli nie wywierdzają zweryfikowanej recepty liczbowej:
+    # brak konkretnego kg w planie (0.0) + instrukcja doboru obciążenia przez użytkownika.
+    assert weight == 0.0
+    assert enriched[0].get("weight_instruction"), "brak instrukcji doboru obciążenia"
 
 
 def test_enrich_existing_user_missing_capability_compatible():
@@ -244,5 +247,5 @@ def test_enrich_dumbbell_below_max_unchanged():
     user = _make_user(session, dumbbell_max_kg_per_dumbbell=20.0)
     exercises = [_dumbbell_exercise("dumbbell_bench_press")]
     enriched = _enrich(session, user, exercises)
-    # 16.0 kg estimate is below the 20 kg max, so it stays 16.0.
-    assert enriched[0]["weight_kg"] == 16.0
+    # Raw estimate 15.84 kg is below the 20 kg max; no increment → no rounding, stays 15.84.
+    assert abs(enriched[0]["weight_kg"] - 15.84) < 0.001

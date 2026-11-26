@@ -7,7 +7,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 ## persona 1 (3 dni, siłownia)
 - Split: `full_body_3` | Cel: masa mięśniowa | Poziom: początkujący | Sprzęt: sztanga, hantle, maszyny, wyciąg, ławka, poręcze, siłownia
 - Dni treningowe: 3/3 | Niewypełnione: 0
-- Diagnostyka: Objętość poniżej celu: Grupa barki boczne: 3 serii, cel 6-10 (brakuje 3). Grupa czworogłowe: 6 serii, cel 7-12 (brakuje 1).
+- Diagnostyka: Objętość poniżej celu: Grupa barki boczne: 3 serii, cel 6-8 (brakuje 3). Grupa czworogłowe: 6 serii, cel 7-10 (brakuje 1).
 
 - Balans pchanie/ciągnięcie: Pchanie = 14 serii, Ciągnięcie = 12 serii (stosunek ciągnięcie/pchanie = 0.86)
 
@@ -92,7 +92,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 ## persona 2 (2 dni, siłownia)
 - Split: `full_body_2` | Cel: masa mięśniowa | Poziom: początkujący | Sprzęt: hantle, ławka
 - Dni treningowe: 2/2 | Niewypełnione: 0
-- Diagnostyka: Objętość poniżej celu: Grupa plecy: 6 serii, cel 8-13 (brakuje 2). Grupa barki boczne: 3 serii, cel 6-10 (brakuje 3). Grupa czworogłowe: 3 serii, cel 7-12 (brakuje 4). Grupa dwugłowe: 3 serii, cel 4-8 (brakuje 1).
+- Diagnostyka: Objętość poniżej celu: Grupa plecy: 6 serii, cel 8-11 (brakuje 2). Grupa barki boczne: 3 serii, cel 6-8 (brakuje 3). Grupa czworogłowe: 3 serii, cel 7-10 (brakuje 4). Grupa dwugłowe: 3 serii, cel 6-8 (brakuje 3).
 
 - Balans pchanie/ciągnięcie: Pchanie = 10 serii, Ciągnięcie = 9 serii (stosunek ciągnięcie/pchanie = 0.90)
 
@@ -161,7 +161,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 ## persona 3 (4 dni, siłownia)
 - Split: `upper_lower_4` | Cel: masa mięśniowa | Poziom: średniozaawansowany | Sprzęt: sztanga, hantle, maszyny, wyciąg, ławka, poręcze, siłownia
 - Dni treningowe: 4/4 | Niewypełnione: 0
-- Diagnostyka: Objętość poniżej celu: Grupa plecy: 10 serii, cel 12-18 (brakuje 2).
+- Diagnostyka: Objętość poniżej celu: Grupa plecy: 10 serii, cel 12-16 (brakuje 2).
 
 - Balans pchanie/ciągnięcie: Pchanie = 20 serii, Ciągnięcie = 22 serii (stosunek ciągnięcie/pchanie = 1.10)
 
@@ -200,10 +200,10 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 
 | Dzień | Sesja | ćwiczenie | serie | powtórzenia | wzorzec ruchu | diagnostics |
 |-------|-------|-------------|-------|-------------|---------------|-------------|
-| Piątek | lower_b | Rumuński martwy ciąg ze sztangą | 3 | 8-10 | hinge | - |
+| Piątek | lower_b | Rumuński martwy ciąg z hantlami | 3 | 8-10 | hinge | - |
 | Piątek | lower_b | Leg press | 4 | 10-12 | squat | - |
 | Piątek | lower_b | Wejścia na ławkę z hantlami | 3 | 10/strona | lunge | - |
-| Piątek | lower_b | Wyprosty nóg na maszynie | 3 | 12-15 | isolation | - |
+| Piątek | lower_b | Uginanie nóg leżąc | 3 | 10-12 | isolation | - |
 | Piątek | lower_b | Wspięcia na palce stojąc | 3 | 15-20 | isolation | - |
 | Piątek | lower_b | Pallof press na wyciągu | 3 | 10-12 | core | - |
 | | | **Szacowany czas sesji: 47 min** | | | | |
@@ -232,10 +232,10 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | Czwartek | Odwrotne rozpiętki na maszynie (rear delt fly) | 3 | isolation | barki | CIĄGNIĘCIE |
 | Czwartek | Uginania młotkowe | 3 | isolation | biceps | CIĄGNIĘCIE |
 | Czwartek | French press ze sztangą stojąc | 3 | isolation | triceps | PCHANIE |
-| Piątek | Rumuński martwy ciąg ze sztangą | 3 | hinge | nogi | żadne |
+| Piątek | Rumuński martwy ciąg z hantlami | 3 | hinge | nogi | żadne |
 | Piątek | Leg press | 4 | squat | nogi | żadne |
 | Piątek | Wejścia na ławkę z hantlami | 3 | lunge | nogi | żadne |
-| Piątek | Wyprosty nóg na maszynie | 3 | isolation | nogi | żadne |
+| Piątek | Uginanie nóg leżąc | 3 | isolation | nogi | żadne |
 | Piątek | Wspięcia na palce stojąc | 3 | isolation | nogi | żadne |
 | Piątek | Pallof press na wyciągu | 3 | core | brzuch | żadne |
 | **SUMA** | | | | | **Pchanie: 20, Ciągnięcie: 22 (ratio: 1.10)** |
@@ -261,8 +261,8 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 | barki boczne (side_delts) | 8 | 8-12 |
 | biceps (biceps) | 6 | 6-10 |
 | triceps (triceps) | 6 | 6-10 |
-| czworogłowe (quads) | 14 | 10-14 |
-| dwugłowe (hamstrings) | 9 | 8-12 |
+| czworogłowe (quads) | 11 | 10-14 |
+| dwugłowe (hamstrings) | 12 | 8-12 |
 | łydki (calves) | 6 | 6-10 |
 
 ## persona 7 pure bodyweight (3 dni, siłownia)
@@ -345,7 +345,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 ## intermediate gym 5d (5 dni, siłownia)
 - Split: `upper_lower_push_pull_legs_5` | Cel: masa mięśniowa | Poziom: średniozaawansowany | Sprzęt: sztanga, hantle, maszyny, wyciąg, ławka, poręcze, siłownia
 - Dni treningowe: 5/5 | Niewypełnione: 0
-- Diagnostyka: Objętość poniżej celu: Grupa plecy: 10 serii, cel 12-18 (brakuje 2).
+- Diagnostyka: Objętość poniżej celu: Grupa plecy: 10 serii, cel 12-16 (brakuje 2).
 
 - Balans pchanie/ciągnięcie: Pchanie = 27 serii, Ciągnięcie = 25 serii (stosunek ciągnięcie/pchanie = 0.93)
 
@@ -462,7 +462,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 ## intermediate gym 6d (6 dni, siłownia)
 - Split: `push_pull_legs_x2_6` | Cel: masa mięśniowa | Poziom: średniozaawansowany | Sprzęt: sztanga, hantle, maszyny, wyciąg, ławka, poręcze, siłownia
 - Dni treningowe: 6/6 | Niewypełnione: 0
-- Diagnostyka: Objętość poniżej celu: Grupa plecy: 10 serii, cel 12-18 (brakuje 2).
+- Diagnostyka: Objętość poniżej celu: Grupa plecy: 10 serii, cel 12-16 (brakuje 2).
 
 - Balans pchanie/ciągnięcie: Pchanie = 33 serii, Ciągnięcie = 28 serii (stosunek ciągnięcie/pchanie = 0.85)
 
@@ -644,7 +644,7 @@ estimated_minutes = suma serii x 2,5 min + 5 min.
 ## beginner gym 4d (4 dni, siłownia)
 - Split: `upper_lower_4` | Cel: masa mięśniowa | Poziom: początkujący | Sprzęt: sztanga, hantle, maszyny, wyciąg, ławka, poręcze, siłownia
 - Dni treningowe: 4/4 | Niewypełnione: 0
-- Diagnostyka: Objętość poniżej celu: Grupa barki boczne: 3 serii, cel 6-10 (brakuje 3).
+- Diagnostyka: Objętość poniżej celu: Grupa barki boczne: 3 serii, cel 6-8 (brakuje 3).
 
 - Balans pchanie/ciągnięcie: Pchanie = 17 serii, Ciągnięcie = 18 serii (stosunek ciągnięcie/pchanie = 1.06)
 

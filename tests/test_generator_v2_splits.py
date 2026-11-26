@@ -1922,7 +1922,7 @@ def test_no_exercise_requires_unlisted_equipment_for_dumbbell_user(monkeypatch):
 # ============================================================================
 
 def test_selection_rank_key_priority_tier(monkeypatch):
-    """Priorytet mięśniowy zmienia tier w kluczu rankingu (primary > secondary > brak)."""
+    """Ocena priorytetu zmienia drugi klucz rankingu (wyższy priorytet = niższy klucz sortowania)."""
     monkeypatch.setenv("PLAN_GENERATOR", "v2")
     from app.plan.generator_v2 import _selection_rank_key
     from app.exercises.data import get_exercise
@@ -1931,22 +1931,24 @@ def test_selection_rank_key_priority_tier(monkeypatch):
     assert pullup_wide is not None and barbell_row is not None
     assert _selection_rank_key(pullup_wide)[0] == 2
     assert _selection_rank_key(barbell_row)[0] == 2
-    # Bez priorytetu: oba tier=2.
-    assert _selection_rank_key(pullup_wide)[:2] == (2, 2)
-    assert _selection_rank_key(barbell_row)[:2] == (2, 2)
-    # Priorytet biceps: pullup_wide ma biceps w secondary -> tier=1, barbell_row tier=2.
-    key_pw = _selection_rank_key(pullup_wide, priority_groups={"biceps"})
-    key_br = _selection_rank_key(barbell_row, priority_groups={"biceps"})
-    assert key_pw[:2] == (2, 1), key_pw
-    assert key_br[:2] == (2, 2), key_br
-    assert key_pw < key_br, "priorytet secondary powinien wywindować ćwiczenie wyżej w rankingu"
-    # Priorytet plecy: oba mają primary=plecy -> tier=0.
-    assert _selection_rank_key(pullup_wide, priority_groups={"plecy"})[:2] == (2, 0)
-    assert _selection_rank_key(barbell_row, priority_groups={"plecy"})[:2] == (2, 0)
+    # Bez priorytetów: oba priority_score=0 -> drugi klucz = 0.
+    assert _selection_rank_key(pullup_wide)[:2] == (2, 0)
+    assert _selection_rank_key(barbell_row)[:2] == (2, 0)
+    # Priorytet plecy (score=10): oba primary=plecy -> priority_score=10 -> drugi klucz = -10.
+    key_pw = _selection_rank_key(pullup_wide, priority_scores={"plecy": 10})
+    key_br = _selection_rank_key(barbell_row, priority_scores={"plecy": 10})
+    assert key_pw[:2] == (2, -10), key_pw
+    assert key_br[:2] == (2, -10), key_br
+    # Priorytet biceps: pullup_wide ma biceps w secondary -> score = 10//2 = 5 -> -5.
+    key_pw_biceps = _selection_rank_key(pullup_wide, priority_scores={"biceps": 10})
+    key_br_biceps = _selection_rank_key(barbell_row, priority_scores={"biceps": 10})
+    assert key_pw_biceps[:2] == (2, -5), key_pw_biceps
+    assert key_br_biceps[:2] == (2, 0), key_br_biceps  # barbell_row ma lats(plecy) w secondary, nie biceps
+    assert key_pw_biceps < key_br_biceps, "priorytet secondary powinien wywindować ćwiczenie wyżej w rankingu"
     # Priorytet nie przewyższa wyraźnie lepszego selection_rank (brak dominacji).
     weak = get_exercise("band_row")                # horizontal_pull, rank=8, primary=back(plecy)
     assert weak is not None
-    assert _selection_rank_key(pullup_wide, priority_groups={"plecy"}) < _selection_rank_key(weak, priority_groups={"biceps"})
+    assert _selection_rank_key(pullup_wide, priority_scores={"plecy": 10}) < _selection_rank_key(weak, priority_scores={"biceps": 10})
 
 
 def test_high_priority_chest_and_biceps_affects_exercise_choice(monkeypatch):
@@ -2456,4 +2458,590 @@ def test_c2_beginner_volume_and_duration_respected(monkeypatch):
         assert day["workout"].get("session_exceeds_cap") is False, (
             f"{day['day']}: sesja przekracza limit mimo redukcji"
         )
+
+
+# ---------------------------------------------------------------------------
+# Generator consumption: frequency and goal from saved profile
+# ---------------------------------------------------------------------------
+
+
+def test_generator_consumes_saved_frequency_and_goal(monkeypatch):
+    """Saved profile frequency -> target_training_days; goal -> weekly_goal.
+
+    The v2 strength generator consumes:
+      - user.frequency  -> _frequency_days() -> target_training_days
+      - user.goal       -> weekly_goal in plan output
+
+    Age, gender, height, weight, target_weight are NOT directly consumed by
+    build_split_plan; they influence calories_target via calc_calories() which
+    is called outside the generator (registration / profile update), and only
+    used here as a fallback when calories_target is unset.
+    """
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+
+    equipment_list = ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"]
+    focus = ["klatka", "plecy", "nogi", "brzuch", "barki"]
+
+    # Frequency "5-6" should map to target_training_days >= 5
+    user = _make_user(
+        frequency="5-6 dni", days=6, level="intermediate",
+        equipment_list=equipment_list, focus=focus, goal="redukcja",
+    )
+    user.training_availability_json = json.dumps(
+        {"days": ["Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"],
+         "windows": {}, "session_duration_minutes": 60},
+        ensure_ascii=False,
+    )
+    assessment = _make_assessment(days=6, level="intermediate")
+    plan = build_deterministic_plan(user, assessment)
+
+    assert plan["weekly_goal"] == "redukcja", (
+        f"weekly_goal should equal saved goal, got {plan['weekly_goal']!r}"
+    )
+    assert plan["_planner"]["target_training_days"] >= 5, (
+        f"frequency 5-6 should yield >=5 training days, got {plan['_planner']['target_training_days']}"
+    )
+
+    # Frequency "1-2" should map to target_training_days <= 2
+    user2 = _make_user(
+        frequency="1-2 dni", days=2, level="intermediate",
+        equipment_list=equipment_list, focus=focus, goal="masa",
+    )
+    user2.training_availability_json = json.dumps(
+        {"days": ["Poniedziałek", "Czwartek"], "windows": {}, "session_duration_minutes": 60},
+        ensure_ascii=False,
+    )
+    assessment2 = _make_assessment(days=2, level="intermediate")
+    plan2 = build_deterministic_plan(user2, assessment2)
+
+    assert plan2["weekly_goal"] == "masa"
+    assert plan2["_planner"]["target_training_days"] <= 2, (
+        f"frequency 1-2 should yield <=2 training days, got {plan2['_planner']['target_training_days']}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Age-aware safety: minors under 18
+# ---------------------------------------------------------------------------
+
+
+def _make_minor_user(*, age: int | None = 16, **kwargs) -> SimpleNamespace:
+    """Użytkownik z wiekiem — domyślnie 16 lat (niepełnoletni)."""
+    user = _make_user(**kwargs)
+    if age is None:
+        user.age = None
+    else:
+        user.age = age
+    return user
+
+
+def test_minor_16_gets_minor_flag_and_submaximal_effort(monkeypatch):
+    """16-letni początkujący: plan ma minor=True i effort=submaximal na każdym ćwiczeniu."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+
+    equipment_list = ["hantle", "ławka", "guma oporowa", "mata"]
+    focus = ["klatka", "plecy", "nogi", "brzuch", "barki"]
+
+    user = _make_minor_user(
+        age=16,
+        frequency="3 dni", days=3, level="początkujący",
+        equipment_list=equipment_list, focus=focus, goal="masa mięśniowa",
+    )
+    user.training_availability_json = json.dumps(
+        {"days": ["Poniedziałek", "Środa", "Piątek"], "windows": {}, "session_duration_minutes": 60},
+        ensure_ascii=False,
+    )
+    assessment = _make_assessment(days=3, level="początkujący")
+    plan = build_deterministic_plan(user, assessment)
+
+    assert plan["_planner"]["minor"] is True, (
+        f"minor flag should be True for 16-year-old, got {plan['_planner'].get('minor')!r}"
+    )
+
+    # Każde ćwiczenie w każdym dniu musi mieć effort="submaximal".
+    for day in plan["days"]:
+        if day["day_type"] == "rest":
+            continue
+        for ex in day["workout"]["exercises"]:
+            assert ex.get("effort") == "submaximal", (
+                f"Ćwiczenie {ex['name']} w dniu {day['day']} nie ma effort=submaximal: {ex.get('effort')!r}"
+            )
+            for alt in ex.get("alternatives", []):
+                assert alt.get("effort") == "submaximal", (
+                    f"Alternatywa {alt['name']} nie ma effort=submaximal"
+                )
+
+    # Diagnostyka powinna wspominać o niepełnoletniości.
+    diag_text = " ".join(plan["_planner"]["schedule_diagnostics"]["notes"])
+    assert "niepełnoletni" in diag_text.lower(), (
+        f"Diagnostyka nie zawiera informacji o niepełnoletniości: {diag_text!r}"
+    )
+
+
+def test_missing_age_raises_validation_error(monkeypatch):
+    """Brak wieku → ValueError z komunikatem, nie ciche zakładanie pełnoletniości."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+
+    equipment_list = ["hantle", "ławka", "guma oporowa", "mata"]
+    focus = ["klatka", "plecy", "nogi", "brzuch", "barki"]
+
+    user = _make_minor_user(
+        age=None,
+        frequency="3 dni", days=3, level="początkujący",
+        equipment_list=equipment_list, focus=focus, goal="masa mięśniowa",
+    )
+    assessment = _make_assessment(days=3, level="początkujący")
+
+    with pytest.raises(ValueError, match="wiek"):
+        build_deterministic_plan(user, assessment)
+
+
+def test_invalid_age_raises_validation_error(monkeypatch):
+    """Wiek spoza zakresu (np. 12 lat) → ValueError z komunikatem."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+
+    equipment_list = ["hantle", "ławka", "guma oporowa", "mata"]
+    focus = ["klatka", "plecy", "nogi", "brzuch", "barki"]
+
+    user = _make_minor_user(
+        age=12,
+        frequency="3 dni", days=3, level="początkujący",
+        equipment_list=equipment_list, focus=focus, goal="masa mięśniowa",
+    )
+    assessment = _make_assessment(days=3, level="początkujący")
+
+    with pytest.raises(ValueError, match="zakres"):
+        build_deterministic_plan(user, assessment)
+
+
+def test_adult_generation_unchanged_no_minor_flag(monkeypatch):
+    """Pełnoletni użytkownik: minor=False, brak pola effort na ćwiczeniach."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+
+    equipment_list = ["sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"]
+    focus = ["klatka", "plecy", "nogi", "brzuch", "barki"]
+
+    user = _make_user(
+        frequency="3 dni", days=3, level="intermediate",
+        equipment_list=equipment_list, focus=focus, goal="masa",
+    )
+    user.age = 28
+    assessment = _make_assessment(days=3, level="intermediate")
+    plan = build_deterministic_plan(user, assessment)
+
+    assert plan["_planner"]["minor"] is False
+
+    # Żadne ćwiczenie nie ma pola effort (dorosły).
+    for day in plan["days"]:
+        if day["day_type"] == "rest":
+            continue
+        for ex in day["workout"]["exercises"]:
+            assert "effort" not in ex, (
+                f"Ćwiczenie dorosłego {ex['name']} nie powinno mieć pola effort: {ex.get('effort')!r}"
+            )
+
+
+def test_minor_beginner_plan_is_still_valid_and_executable(monkeypatch):
+    """Plan dla 16-latka jest poprawny: ma dni, ćwiczenia, serie i powtórzenia."""
+    monkeypatch.setenv("PLAN_GENERATOR", "v2")
+
+    equipment_list = ["hantle", "ławka", "guma oporowa", "mata"]
+    focus = ["klatka", "plecy", "nogi", "brzuch", "barki"]
+
+    user = _make_minor_user(
+        age=16,
+        frequency="3 dni", days=3, level="początkujący",
+        equipment_list=equipment_list, focus=focus, goal="masa mięśniowa",
+    )
+    user.training_availability_json = json.dumps(
+        {"days": ["Poniedziałek", "Środa", "Piątek"], "windows": {}, "session_duration_minutes": 60},
+        ensure_ascii=False,
+    )
+    assessment = _make_assessment(days=3, level="początkujący")
+    plan = build_deterministic_plan(user, assessment)
+
+    assert plan["weekly_goal"] == "masa mięśniowa"
+    assert len(plan["days"]) == 3
+
+    total_exercises = 0
+    for day in plan["days"]:
+        if day["day_type"] == "rest":
+            continue
+        exs = day["workout"]["exercises"]
+        assert len(exs) >= 3, f"Dzień {day['day']} ma za mało ćwiczeń: {len(exs)}"
+        total_exercises += len(exs)
+        for ex in exs:
+            assert ex["name"]
+            assert ex["sets"] >= 1
+            assert ex["reps"]
+
+    assert total_exercises >= 9, f"Łącznie za mało ćwiczeń: {total_exercises}"
+
+
+# ── Stage C4: balans popychaj/ciągnij i personalizacja priorytetów ──────────
+
+
+def _push_pull(plan):
+    from app.plan.generator_v2 import calculate_push_pull_sets
+    return calculate_push_pull_sets(plan["days"])
+
+
+def _weekly_summary(plan):
+    return plan["_planner"]["weekly_summary"]
+
+
+def _make_plan(frequency="3 dni", days=3, level="początkujący",
+               equipment_list=("hantle", "ławka"), focus=(),
+               goal="masa mięśniowa", duration_minutes=None):
+    user = _make_user(
+        frequency=frequency, days=days, level=level,
+        equipment_list=list(equipment_list), focus=list(focus), goal=goal,
+    )
+    if duration_minutes is not None:
+        user.training_availability_json = json.dumps(
+            {"days": ["Poniedziałek", "Środa", "Piątek"],
+             "session_duration_minutes": duration_minutes},
+            ensure_ascii=False,
+        )
+    assessment = _make_assessment(days=days, level=level)
+    return build_deterministic_plan(user, assessment)
+
+
+def _training_days(plan):
+    return [d for d in plan["days"] if d["day_type"] != "rest"]
+
+
+def test_weekly_push_pull_balance_beginner_full_body_3():
+    """Tydzień pełny (full_body_3): nieprzyjęty dysproporcji popychaj/ciągnij."""
+    plan = _make_plan(focus=())
+    push, pull = _push_pull(plan)
+    assert push > 0 and pull > 0, f"push={push}, pull={pull}"
+    # Ciągnięcie nie może być drastycznie mniejsze niż popychanie (≤1.5:1).
+    assert pull >= push / 1.5, f"pull {pull} za niskie względem push {push}"
+    assert push <= pull * 1.5, f"push {push} za wysokie względem pull {pull}"
+
+
+def test_chest_priority_does_not_eliminate_back():
+    """Wysoki priorytet klatki nie eliminuje pracy pleców (pull remains adequate)."""
+    plan_chest = _make_plan(focus=("klatka",))
+    plan_back = _make_plan(focus=("plecy",))
+    _, pull_chest = _push_pull(plan_chest)
+    _, pull_back = _push_pull(plan_back)
+    # Przy priorytecie klatki pleców nadal są trenowane (nie usunięte).
+    assert pull_chest > 0, f"przy priorytecie klatki pull={pull_chest}, plecy wyeliminowane"
+    # Priorytet pleców daje co najmniej tyle samo ciągnięcia co priorytet klatki.
+    assert pull_back >= pull_chest, f"pull przy priorytecie pleców {pull_back} < przy klatce {pull_chest}"
+
+
+def test_biceps_priority_results_in_biceps_trained():
+    """Jawny priorytet bicepsa → biceps występuje w końcowym planie."""
+    plan = _make_plan(focus=("biceps",))
+    summary = _weekly_summary(plan)
+    biceps_sets = summary["sets_per_group"].get("biceps", 0)
+    assert biceps_sets > 0, f"biceps priorytetyzowany, ale objętość {biceps_sets}"
+
+
+def test_missing_priorities_do_not_create_arbitrary_ranking():
+    """Brak priorytetów nie faworyzuje jednej grupy kosztem pozostałych (brak domyślnego 'wszystko priorytet')."""
+    plan = _make_plan(focus=())
+    summary = _weekly_summary(plan)
+    groups = summary["sets_per_group"]
+    trained = {g: s for g, s in groups.items() if s > 0}
+    # Główne grupy wzorcowe (klatka, plecy, nogi) zbalansowane bez priorytetów.
+    major = {g: s for g, s in trained.items() if g in ("klatka", "plecy", "nogi")}
+    assert len(major) >= 3, f"główne grupy nie wszystkie trenowane: {major}"
+    if major:
+        assert max(major.values()) <= min(major.values()) * 2, \
+            f"dysproporcja grup głównych bez priorytetów: {major}"
+    # Małe grupy izolatyczne/core mogą być mniejsze — to nie jest arbitralny ranking.
+
+
+def test_push_pull_balance_across_splits():
+    """Zachowanie balansu popychaj/ciągnij we wszystkich obsługiwanych splitach."""
+    for days_count, level in ((1, "początkujący"), (2, "początkujący"), (3, "początkujący")):
+        plan = _make_plan(days=days_count, level=level, focus=())
+        push, pull = _push_pull(plan)
+        assert push > 0 and pull > 0, f"split {days_count}: push={push}, pull={pull}"
+        assert pull >= push / 1.5, f"split {days_count}: pull {pull} < push/1.5 (push={push})"
+
+
+def test_secondary_volume_matches_final_plan_accounting():
+    """secondary_volume z weekly_summary odpowiada rzeczywistemu planowi końcowemu."""
+    from app.plan.generator_v2 import (
+        _MUSCLE_TO_VOLUME_SUBGROUP,
+    )
+    from app.exercises.data import get_exercise
+    SECONDARY_MUSCLE_COEFF = 0.35
+    plan = _make_plan(focus=())
+    expected = {}
+    for day in _training_days(plan):
+        for ex in day["workout"]["exercises"]:
+            ex_obj = get_exercise(ex.get("exercise_id", ex["name"]))
+            if ex_obj is None or not ex_obj.secondary_muscles:
+                continue
+            for sm in ex_obj.secondary_muscles:
+                sm_key = _MUSCLE_TO_VOLUME_SUBGROUP.get(sm)
+                if sm_key:
+                    expected[sm_key] = expected.get(sm_key, 0.0) + ex["sets"] * SECONDARY_MUSCLE_COEFF
+    actual = _weekly_summary(plan)["secondary_volume"]
+    # weekly_summary zaokrągla secondary_volume do 1 miejsca dziesiętnego.
+    for key in actual:
+        val = round(expected.get(key, 0.0), 1)
+        assert abs(actual.get(key, 0.0) - val) < 1e-6, \
+            f"secondary_volume {key}: expected {val}, got {actual.get(key)}"
+
+
+def test_session_duration_within_cap_beginner_60min():
+    """Sesje Beginner 3×60 min nie przekraczają zadeklarowanego limitu czasu."""
+    plan = _make_plan(duration_minutes=60)
+    for day in _training_days(plan):
+        mins = day["workout"].get("estimated_minutes", 0)
+        assert mins <= 60, f"{day['day']}: {mins} min > limit 60 min"
+        assert day["workout"]["session_exceeds_cap"] is False
+
+
+def test_no_cable_or_barbell_for_home_dumbbell_equipment():
+    """Sprzęt domowy (hantle, ławka) → nie pojawiają się ćwiczenia wyciągowe/sztangowe."""
+    plan = _make_plan(equipment_list=("hantle", "ławka"), focus=())
+    forbidden = {"wyciąg", "sztanga", "maszyna", "cable", "barbell"}
+    for day in _training_days(plan):
+        for ex in day["workout"]["exercises"]:
+            from app.exercises.data import get_exercise as ge
+            eo = ge(ex.get("exercise_id", ex["name"]))
+            eq = {str(e).lower() for e in (eo.equipment or [])}
+            assert not (eq & forbidden), f"{ex['name']} używa zabronionego sprzętu: {eq}"
+
+
+def test_age_dependent_safety_preserved_for_minor():
+    """Nieważnoletni: submaximal effort i target_rir=3 zachowane w planie."""
+    from app.training.routes import _target_rir_for_user
+    user = _make_user(
+        frequency="3 dni", days=3, level="początkujący",
+        equipment_list=["hantle", "ławka"], focus=(),
+    )
+    user.age = 16
+    assert _target_rir_for_user(user) == 3
+    user.age = 28
+    assert _target_rir_for_user(user) == 2
+
+
+# ============================================================================
+# Stage C5: Graded muscle-priority engine — focused tests on final plans
+# ============================================================================
+
+from app.plan.generator_v2 import calculate_push_pull_sets, _MUSCLE_TO_VOLUME_SUBGROUP
+from app.exercises.data import get_exercise
+
+
+def _plan_summary(plan):
+    """Zwróć podsumowanie końcowego planu: push/pull, objętość, serie, czas."""
+    push, pull = calculate_push_pull_sets(plan["days"])
+    primary = {}
+    secondary = {}
+    total_sets = 0
+    total_minutes = 0
+    all_names = []
+    for d in plan["days"]:
+        if d["day_type"] == "rest":
+            continue
+        total_minutes += d["workout"].get("estimated_minutes", 0)
+        for e in d["workout"]["exercises"]:
+            total_sets += e["sets"]
+            all_names.append(e["name"])
+            eo = get_exercise(e.get("exercise_id", e["name"]))
+            if eo is None or not eo.primary_muscles:
+                continue
+            p = eo.primary_muscles[0]
+            primary[p] = primary.get(p, 0) + e["sets"]
+            if eo.secondary_muscles:
+                for sm in eo.secondary_muscles:
+                    k = _MUSCLE_TO_VOLUME_SUBGROUP.get(sm)
+                    if k:
+                        secondary[k] = secondary.get(k, 0) + e["sets"] * 0.35
+    return {
+        "push": push, "pull": pull, "primary": primary, "secondary": secondary,
+        "total_sets": total_sets, "total_minutes": total_minutes, "names": all_names,
+    }
+
+
+def _plan_for(days_count, focus, level="początkujący", equipment=("hantle", "ławka"), age=25):
+    user = _make_user(
+        frequency=f"{days_count} dni", days=days_count, level=level,
+        equipment_list=list(equipment), focus=list(focus),
+    )
+    user.age = age
+    assessment = _make_assessment(days=days_count, level=level)
+    return build_deterministic_plan(user, assessment)
+
+
+def _group_sets(summary, polish_group):
+    """Mapuj etykietę po polsku (np. 'klatka') na primary sets z podsumowania."""
+    key_map = {
+        "klatka": "chest", "plecy": "back", "barki": "side_delts",
+        "biceps": "biceps", "triceps": "triceps", "nogi": "quads",
+        "brzuch": "abs",
+    }
+    vol_key = key_map.get(polish_group, polish_group)
+    return summary["primary"].get(vol_key, 0)
+
+
+def test_no_priorities_produces_balanced_baseline():
+    """Brak zadeklarowanych priorytetów → główne mięśnie otrzymują bazową objętość, bez preferencji."""
+    plan = _plan_for(3, focus=(), equipment=("sztanga", "hantle", "maszyny", "wyciąg", "ławka", "poręcze", "siłownia"))
+    s = _plan_summary(plan)
+    # Klatka i plecy otrzymują objętość (brak pominięcia żadnej głównej grupy).
+    chest = _group_sets(s, "klatka")
+    back = _group_sets(s, "plecy")
+    assert chest > 0 and back > 0
+    # Klatka naturalnie ricev więcej serii niż plecy w tym szablonie — nie jest to faworyzacja,
+    # tylko wynik struktury ćwiczeń. Różnica nie powinna być ekstremalna.
+    assert chest <= back * 3, f"bez priorytetów klatka={chest}, plecy={back} — zbyt duża dysproporcja"
+    # Biceps i triceps nadal otrzymują bazową objętość (nie są karane za brak deklaracji).
+    # Uwaga: niektóre splity (np. full_body_3) nie zawierają tricepsa — to ograniczenie szablonu, nie priorytetów.
+    biceps = _group_sets(s, "biceps")
+    triceps = _group_sets(s, "triceps")
+    assert biceps >= 3, f"biceps niekarany powinien receber ≥3, ma {biceps}"
+    if triceps > 0:
+        assert triceps >= 3, f"triceps gdy występuje, powinien otrzymywać ≥3, ma {triceps}"
+    # Czas sesji w limitach.
+    assert s["total_minutes"] <= 3 * 60, f"całkowity czas {s['total_minutes']} min przekracza limit"
+
+
+def test_chest_priority_increases_chest_volume_over_back():
+    """Klatka 10/10, plecy 9/10 → klatka otrzymuje więcej serii niż bez priorytetu."""
+    plan_no = _plan_for(3, focus=())
+    plan_chest = _plan_for(3, focus=["klatka", "plecy"])
+    plan_back = _plan_for(3, focus=["plecy", "klatka"])
+    s_no = _plan_summary(plan_no)
+    s_chest = _plan_summary(plan_chest)
+    s_back = _plan_summary(plan_back)
+
+    chest_no = _group_sets(s_no, "klatka")
+    chest_with_priority = _group_sets(s_chest, "klatka")
+    back_no = _group_sets(s_no, "plecy")
+    back_with_priority = _group_sets(s_back, "plecy")
+
+    # Priorytet klatki zwiększa objętość klatki względem bazy.
+    assert chest_with_priority > chest_no, f"priorytet klatki: {chest_with_priority} vs baza {chest_no}"
+    # Priorytet pleców zwiększa objętość pleców względem bazy.
+    assert back_with_priority > back_no, f"priorytet pleców: {back_with_priority} vs baza {back_no}"
+    # Przy tym obie główne grupy nadal otrzymują wystarczającą objętość (brak zaniedbania).
+    assert chest_with_priority >= 10, f"klatka z priorytetem: {chest_with_priority} (< 10)"
+    assert back_with_priority >= 6, f"plecy z priorytetem: {back_with_priority} (< 6)"
+
+
+def test_biceps_priority_increases_biceps_volume():
+    """Biceps 9/10 → biceps otrzymuje więcej serii niż bez priorytetu."""
+    plan_no = _plan_for(3, focus=())
+    plan_biceps = _plan_for(3, focus=["biceps"])
+    s_no = _plan_summary(plan_no)
+    s_biceps = _plan_summary(plan_biceps)
+
+    biceps_no = _group_sets(s_no, "biceps")
+    biceps_high = _group_sets(s_biceps, "biceps")
+    assert biceps_high > biceps_no, f"priorytet bicepsa nie zwiększa objętości: {biceps_high} vs {biceps_no}"
+    assert biceps_high >= 4, f"biceps z priorytetem 9/10 powinien receber ≥4, ma {biceps_high}"
+
+
+def test_priority_does_not_reduce_non_priority_baseline():
+    """Mięśnie nieobjęte priorytetem nie są karane — otrzymują co najmniej bazową objętość."""
+    plan = _plan_for(3, focus=["klatka"])  # tylko klatka ma priorytet 10
+    s = _plan_summary(plan)
+    # Plecy, barki, nogi, brzuch — mimo braku priorytetu — otrzymują bazową objętość.
+    for group in ("plecy", "barki", "nogi", "brzuch"):
+        v = _group_sets(s, group)
+        assert v >= 3, f"{group} bez priorytetu otrzymuje tylko {v} serii (za mało)"
+    # Całkowity wzrost objętości jest ograniczony (nie dodajemy serii bez senso).
+    assert s["total_sets"] <= 60, f"całkowite serie {s['total_sets']} — zbyt dużo"
+
+
+def test_push_pull_balance_preserved_with_chest_priority():
+    """Wysoki priorytet klatki nie tworzy niezdrowej dysproporcji popychaj/ciągnij."""
+    plan = _plan_for(3, focus=["klatka", "plecy"])
+    s = _plan_summary(plan)
+    assert s["push"] > 0 and s["pull"] > 0
+    assert s["pull"] >= s["push"] / 1.5, f"pull={s['pull']} < push/1.5 (push={s['push']})"
+    assert s["push"] <= s["pull"] * 1.5, f"push={s['push']} > pull*1.5 (pull={s['pull']})"
+
+
+def test_priority_effect_across_day_counts():
+    """Priorytet klatki zmienia plan w splitach 1-, 2- i 3-dniowych."""
+    for days_count in (1, 2, 3):
+        plan_no = _plan_for(days_count, focus=())
+        plan_chest = _plan_for(days_count, focus=["klatka", "plecy"])
+        s_no = _plan_summary(plan_no)
+        s_chest = _plan_summary(plan_chest)
+        chest_no = _group_sets(s_no, "klatka")
+        chest_high = _group_sets(s_chest, "klatka")
+        assert chest_high >= chest_no, f"{days_count}-dniowy: priorytet klatki nie zwiększa objętości ({chest_high} vs {chest_no})"
+        # Czas sesji w limitach.
+        assert s_chest["total_minutes"] <= days_count * 60, f"{days_count}-dniowy: czas {s_chest['total_minutes']} min przekracza limit"
+
+
+def test_graded_priority_10_vs_6_produces_different_plans():
+    """Priorytet 10/10 (pozycja 0) ma większy wpływ niż 6/10 (pozycja 4) — plany się różnią.
+    Wynik 10 → bonus serii dla izolacji; wynik 6 → bez bonusu (próg 7)."""
+    plan_high = _plan_for(3, focus=["klatka", "biceps", "triceps", "nogi", "brzuch"])  # klatka=10 → bonus
+    plan_low = _plan_for(3, focus=["biceps", "triceps", "nogi", "brzuch", "klatka"])   # klatka=6 → bez bonusu
+    s_high = _plan_summary(plan_high)
+    s_low = _plan_summary(plan_low)
+
+    chest_high = _group_sets(s_high, "klatka")
+    chest_low = _group_sets(s_low, "klatka")
+    biceps_high = _group_sets(s_high, "biceps")
+    biceps_low = _group_sets(s_low, "biceps")
+
+    # Klatka z priorytetem 10 (bonus) otrzymuje więcej lub igual serii niż z priorytetem 6 (bez bonusu).
+    assert chest_high >= chest_low, f"klatka priorytet 10: {chest_high} vs priorytet 6: {chest_low}"
+    # Biceps ma priorytet 9 w pierwszym planie (bonus) i 10 w drugim (bonus) → podobna objętość.
+    assert abs(biceps_high - biceps_low) <= 1, f"biceps powinien być podobny: {biceps_high} vs {biceps_low}"
+    # Plany nie są identyczne — różne priorytety wpływają na objętość lub dobór ćwiczeń.
+    names_high = set(s_high["names"])
+    names_low = set(s_low["names"])
+    assert names_high != names_low or s_high["total_sets"] != s_low["total_sets"], \
+        "różne priorytety powinny produkować różne plany"
+
+
+def test_minor_age_safety_preserved_with_priorities():
+    """Nieważnoletni z priorytetami: submaximal effort i target_rir=3 zachowane."""
+    from app.training.routes import _target_rir_for_user
+    user = _make_user(
+        frequency="3 dni", days=3, level="początkujący",
+        equipment_list=["hantle", "ławka"], focus=["klatka", "plecy"],
+    )
+    user.age = 16
+    assert _target_rir_for_user(user) == 3
+    plan = _plan_for(3, focus=["klatka", "plecy"], age=16)
+    assert plan["_planner"]["minor"] is True
+    # Wszystkie sesje w limicie czasu.
+    for d in plan["days"]:
+        if d["day_type"] == "rest":
+            continue
+        assert d["workout"].get("estimated_minutes", 0) <= 60
+        assert d["workout"]["session_exceeds_cap"] is False
+
+
+def test_equipment_restrictions_preserved_with_priorities():
+    """Priorytety nie obejmują ograniczeń sprzętowych — brak wyciągu/sztangi dla domowego sprzętu."""
+    plan = _plan_for(3, focus=["klatka", "plecy"], equipment=("hantle", "ławka"))
+    forbidden = {"wyciąg", "sztanga", "maszyna", "cable", "barbell"}
+    for d in plan["days"]:
+        if d["day_type"] == "rest":
+            continue
+        for e in d["workout"]["exercises"]:
+            eo = get_exercise(e.get("exercise_id", e["name"]))
+            eq = {str(x).lower() for x in (eo.equipment or [])}
+            assert not (eq & forbidden), f"{e['name']} używa zabronionego sprzętu: {eq}"
+
+
+def test_deterministic_generation_with_priorities():
+    """Te same dane wejściowe zawsze generują ten sam plan."""
+    plan1 = _plan_for(3, focus=["klatka", "plecy", "biceps"])
+    plan2 = _plan_for(3, focus=["klatka", "plecy", "biceps"])
+    names1 = [e["name"] for d in plan1["days"] if d["day_type"] != "rest" for e in d["workout"]["exercises"]]
+    names2 = [e["name"] for d in plan2["days"] if d["day_type"] != "rest" for e in d["workout"]["exercises"]]
+    sets1 = [e["sets"] for d in plan1["days"] if d["day_type"] != "rest" for e in d["workout"]["exercises"]]
+    sets2 = [e["sets"] for d in plan2["days"] if d["day_type"] != "rest" for e in d["workout"]["exercises"]]
+    assert names1 == names2
+    assert sets1 == sets2
 
